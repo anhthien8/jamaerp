@@ -15,6 +15,13 @@ class LeadCreate(BaseModel):
     property_type: str | None = None
     area_sqm: float | None = None
     estimated_budget: float | None = None
+    property_class: str | None = None
+    price_per_sqm: float | None = None
+    region: str | None = None
+    segment: str | None = None
+    plan_type: str | None = None
+    tags: str | None = None
+    deal_value: float | None = None
     priority: str = "medium"
     notes: str | None = None
 
@@ -30,6 +37,13 @@ class LeadUpdate(BaseModel):
     property_type: str | None = None
     area_sqm: float | None = None
     estimated_budget: float | None = None
+    property_class: str | None = None
+    price_per_sqm: float | None = None
+    region: str | None = None
+    segment: str | None = None
+    plan_type: str | None = None
+    tags: str | None = None
+    deal_value: float | None = None
     priority: str | None = None
     notes: str | None = None
 
@@ -46,6 +60,13 @@ class LeadResponse(BaseModel):
     property_type: str | None = None
     area_sqm: float | None = None
     estimated_budget: float | None = None
+    property_class: str | None = None
+    price_per_sqm: float | None = None
+    region: str | None = None
+    segment: str | None = None
+    plan_type: str | None = None
+    tags: str | None = None
+    deal_value: float | None = None
     stage: str
     priority: str
     assigned_to: str | None = None

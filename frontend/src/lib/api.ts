@@ -438,6 +438,13 @@ export interface Lead {
   assigned_user_name?: string;
   team_name?: string;
   activity_count?: number;
+  property_class?: 'luxury' | 'mid_range' | 'budget';
+  price_per_sqm?: number;
+  region?: string;
+  segment?: string;
+  plan_type?: 'online' | 'offline' | 'survey' | 'none';
+  tags?: string[];
+  deal_value?: number;
 }
 
 export interface Activity {

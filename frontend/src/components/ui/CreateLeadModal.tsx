@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 
 interface CreateLeadForm {
   name: string;
@@ -15,12 +16,20 @@ interface CreateLeadForm {
   source: string;
   needs: string;
   priority: string;
+  property_class: string;
+  price_per_sqm: string;
+  region: string;
+  segment: string;
+  plan_type: string;
+  tags: string[];
 }
 
 const INITIAL: CreateLeadForm = {
   name: '', phone: '', email: '', address: '',
   property_type: 'townhouse', area_sqm: '', estimated_budget: '',
   source: 'zalo', needs: '', priority: 'medium',
+  property_class: 'mid_range', price_per_sqm: '', region: '', segment: 'townhouse',
+  plan_type: 'none', tags: [],
 };
 
 const PROPERTY_OPTIONS = [
@@ -48,6 +57,27 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Thấp', color: '#6B7280' },
 ];
 
+const PROPERTY_CLASS_OPTIONS = [
+  { value: 'luxury', label: 'Hạng sang' },
+  { value: 'mid_range', label: 'Trung bình' },
+  { value: 'budget', label: 'Bình dân' },
+];
+
+const SEGMENT_OPTIONS = [
+  { value: 'villa', label: 'Biệt thự' },
+  { value: 'townhouse', label: 'Nhà phố' },
+  { value: 'apartment', label: 'Căn hộ' },
+  { value: 'shophouse', label: 'Shophouse' },
+  { value: 'office', label: 'Office' },
+];
+
+const PLAN_TYPE_OPTIONS = [
+  { value: 'online', label: 'Tư vấn Online' },
+  { value: 'offline', label: 'Tư vấn Offline' },
+  { value: 'survey', label: 'Khảo sát' },
+  { value: 'none', label: 'Chưa có' },
+];
+
 export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [form, setForm] = useState<CreateLeadForm>(INITIAL);
   const [errors, setErrors] = useState<Partial<Record<keyof CreateLeadForm, string>>>({});
@@ -57,6 +87,19 @@ export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; 
   const set = (key: keyof CreateLeadForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [key]: e.target.value }));
     setErrors(prev => ({ ...prev, [key]: undefined }));
+  };
+
+  const computedDealValue = useMemo(() => {
+    const pps = form.price_per_sqm ? Number(form.price_per_sqm) : 0;
+    const area = form.area_sqm ? Number(form.area_sqm) : 0;
+    return pps > 0 && area > 0 ? pps * area : 0;
+  }, [form.price_per_sqm, form.area_sqm]);
+
+  const toggleTag = (tag: string) => {
+    setForm(prev => ({
+      ...prev,
+      tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag],
+    }));
   };
 
   const validate = (): boolean => {
@@ -84,6 +127,13 @@ export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; 
         source: form.source,
         needs: form.needs || undefined,
         priority: form.priority,
+        property_class: form.property_class as 'luxury' | 'mid_range' | 'budget' | undefined,
+        price_per_sqm: form.price_per_sqm ? Number(form.price_per_sqm) : undefined,
+        region: form.region || undefined,
+        segment: form.segment || undefined,
+        plan_type: form.plan_type as 'online' | 'offline' | 'survey' | 'none' | undefined,
+        tags: form.tags.length > 0 ? form.tags : undefined,
+        deal_value: computedDealValue > 0 ? computedDealValue : undefined,
       });
       toast(`Đã tạo Lead "${form.name}" thành công!`, 'success');
       setForm(INITIAL);
@@ -101,7 +151,7 @@ export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[8vh]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-lg max-h-[78vh] overflow-y-auto rounded-2xl animate-in"
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-in"
         style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
         onClick={e => e.stopPropagation()}
       >
@@ -156,6 +206,96 @@ export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; 
               </select>
             </Field>
           </div>
+
+          {/* ── NEW: Lark CRM Fields ── */}
+
+          {/* Property Class + Price per sqm */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phân loại">
+              <select value={form.property_class} onChange={set('property_class')} className="input">
+                {PROPERTY_CLASS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Đơn giá/m² (VND)">
+              <input value={form.price_per_sqm} onChange={set('price_per_sqm')} placeholder="12000000" type="number" className="input" />
+            </Field>
+          </div>
+
+          {/* Region + Segment */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Khu vực">
+              <select value={form.region} onChange={set('region')} className="input">
+                <option value="">Chọn khu vực</option>
+                {REGION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </Field>
+            <Field label="Phân khúc">
+              <select value={form.segment} onChange={set('segment')} className="input">
+                {SEGMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          {/* Plan Type */}
+          <Field label="Kế hoạch">
+            <div className="flex gap-2 flex-wrap">
+              {PLAN_TYPE_OPTIONS.map(p => {
+                const pColor = PLAN_TYPE_LABELS[p.value]?.color || '#6B7280';
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, plan_type: p.value }))}
+                    className="flex-1 min-w-[100px] py-2 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: form.plan_type === p.value ? `${pColor}20` : 'var(--surface-2)',
+                      color: form.plan_type === p.value ? pColor : 'var(--text-tertiary)',
+                      border: `1px solid ${form.plan_type === p.value ? `${pColor}40` : 'var(--border-subtle)'}`,
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+
+          {/* Tags */}
+          <Field label="Tags">
+            <div className="flex gap-2 flex-wrap">
+              {ALL_TAGS.map(tag => {
+                const selected = form.tags.includes(tag);
+                const color = TAG_COLORS[tag] || '#6B7280';
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                    style={{
+                      background: selected ? `${color}25` : 'var(--surface-2)',
+                      color: selected ? color : 'var(--text-tertiary)',
+                      border: `1px solid ${selected ? `${color}50` : 'var(--border-subtle)'}`,
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{tag}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+
+          {/* Deal Value Auto-calc Preview */}
+          {computedDealValue > 0 && (
+            <div className="px-3 py-2 rounded-lg flex items-center justify-between" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+              <span className="text-xs text-[var(--text-muted)]">💰 Deal Value (tự tính):</span>
+              <span className="text-sm font-bold text-[#C9A96E]">
+                {computedDealValue >= 1_000_000_000
+                  ? `${(computedDealValue / 1_000_000_000).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} tỷ`
+                  : `${(computedDealValue / 1_000_000).toFixed(0)} triệu`}
+              </span>
+            </div>
+          )}
 
           {/* Priority */}
           <Field label="Mức ưu tiên">

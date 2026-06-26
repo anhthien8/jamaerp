@@ -35,6 +35,15 @@ class Lead(Base):
     area_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
     estimated_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Extended classification (from Lark CRM)
+    property_class: Mapped[str | None] = mapped_column(String(20), nullable=True)  # luxury/mid_range/budget
+    price_per_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)  # VND/m²
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Khu vực
+    segment: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Phân khúc
+    plan_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # online/offline/survey/none
+    tags: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of tags
+    deal_value: Mapped[float | None] = mapped_column(Float, nullable=True)  # price_per_sqm × area_sqm
+
     # Pipeline
     stage: Mapped[str] = mapped_column(String(30), nullable=False, default="new")
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")

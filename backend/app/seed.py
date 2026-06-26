@@ -45,10 +45,12 @@ async def seed_database(db: AsyncSession):
         db.add(t)
     await db.flush()
 
-    # ── Users ──
+    # ── Users (5 roles) ──
     admin_id = _id()
     leader_id = _id()
     sales_id = _id()
+    accountant_id = _id()
+    executive_id = _id()
 
     users = [
         User(
@@ -66,81 +68,144 @@ async def seed_database(db: AsyncSession):
             phone="0907654321", password_hash=hash_password("sales123"),
             role="data_entry", department="SALES", team_id=team_sales1_id,
         ),
+        User(
+            id=accountant_id, full_name="Phạm Thị Kế Toán", email="accountant@jamahome.vn",
+            phone="0905555666", password_hash=hash_password("account123"),
+            role="accountant", department="ACCT",
+        ),
+        User(
+            id=executive_id, full_name="Đỗ Minh Tuấn", email="ceo@jamahome.vn",
+            phone="0901111222", password_hash=hash_password("ceo123"),
+            role="executive", department="EXEC",
+        ),
     ]
     for u in users:
         db.add(u)
     await db.flush()
 
-    # ── Leads ──
-    lead_ids = {
-        "mai": _id(), "tuan": _id(), "huong": _id(), "minh": _id(),
-        "lan": _id(), "phong": _id(), "thao": _id(),
-    }
+    # ── Leads (9 real leads from Lark CRM) ──
+    lead_ids = {}
+    lead_names = ["bong", "dung1", "duc_anh", "cuc1", "kim_cuc", "dung2", "trang", "cuc2", "dung3"]
+    for n in lead_names:
+        lead_ids[n] = _id()
 
     leads = [
         Lead(
-            id=lead_ids["mai"], name="Chị Mai", phone="0901234567",
-            email="mai.nguyen@gmail.com", address="123 Nguyễn Văn Linh, Q7, TP.HCM",
-            needs="Thiết kế nội thất nhà phố 3 tầng, phong cách hiện đại tối giản",
-            source="zalo", property_type="townhouse", area_sqm=180,
-            estimated_budget=500000000, stage="signed_design", priority="high",
-            assigned_to=sales_id, team_id=team_sales1_id, ai_score=92,
-            design_contract_value=45000000,
-            created_at=_dt(45), last_contacted_at=_dt(1),
+            id=lead_ids["bong"], name="Bong (To Ngoc Bong)", phone="0901111222",
+            address="Long An",
+            needs="Thiet ke noi that nha pho, phong cach cao cap",
+            source="facebook", property_type="townhouse", area_sqm=349, estimated_budget=4188000000,
+            stage="interested", priority="urgent",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=92,
+            property_class="luxury", price_per_sqm=12000000, region="Long An",
+            segment="Biet thu", plan_type="online", tags='["Deal","VIP"]',
+            deal_value=4188000000,
+            created_at=_dt(20), last_contacted_at=_dt(1),
         ),
         Lead(
-            id=lead_ids["tuan"], name="Anh Tuấn", phone="0908765432",
-            email="tuan.pham@yahoo.com", address="Biệt thự Vinhomes Central Park, Bình Chánh",
-            needs="Thiết kế + thi công biệt thự 2 tầng, phong cách Indochine",
-            source="facebook", property_type="villa", area_sqm=350,
-            estimated_budget=2500000000, stage="potential", priority="urgent",
-            assigned_to=sales_id, team_id=team_sales1_id, ai_score=88,
-            created_at=_dt(30), last_contacted_at=_dt(2),
+            id=lead_ids["dung1"], name="Dung", phone="0902222333",
+            address="Long An",
+            needs="Thiet ke noi that nha pho, phan khuc hang sang",
+            source="facebook", property_type="townhouse", area_sqm=300, estimated_budget=3000000000,
+            stage="interested", priority="high",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=85,
+            property_class="luxury", price_per_sqm=10000000, region="Long An",
+            segment="Nha o", plan_type="none", tags='["Deal"]',
+            deal_value=3000000000,
+            created_at=_dt(16), last_contacted_at=_dt(2),
         ),
         Lead(
-            id=lead_ids["huong"], name="Chị Hương", phone="0912345678",
-            email="huong.le@outlook.com", address="Căn hộ Sunrise City, Q7",
-            needs="Thiết kế nội thất căn hộ 2PN, phong cách Scandinavian",
-            source="website", property_type="apartment", area_sqm=75,
-            estimated_budget=180000000, stage="survey_scheduled", priority="medium",
-            assigned_to=sales_id, team_id=team_sales1_id, ai_score=72,
+            id=lead_ids["duc_anh"], name="Duc Anh (Pham Duc Anh)", phone="0903333444",
+            address="Khanh Hoa",
+            needs="Thiet ke noi that nha pho, ngan sach 1.5 ty",
+            source="google_form", property_type="townhouse", area_sqm=150, estimated_budget=1500000000,
+            stage="interested", priority="high",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=78,
+            property_class="mid_range", price_per_sqm=10000000, region="Khanh Hoa",
+            segment="Nha pho", plan_type="online", tags='["Deal"]',
+            deal_value=1500000000,
             created_at=_dt(14), last_contacted_at=_dt(3),
         ),
         Lead(
-            id=lead_ids["minh"], name="Anh Minh", phone="0987654321",
-            address="Shophouse Q2, TP.HCM",
-            needs="Thiết kế showroom nội thất 2 tầng",
-            source="referral", property_type="shophouse", area_sqm=200,
-            estimated_budget=800000000, stage="interested", priority="high",
-            assigned_to=leader_id, team_id=team_sales1_id, ai_score=78,
-            created_at=_dt(10), last_contacted_at=_dt(4),
+            id=lead_ids["cuc1"], name="Cuc (Nguyen Thi Cuc)", phone="0904444555",
+            address="Long An",
+            needs="Thiet ke noi that nha pho 117m2",
+            source="google_form", property_type="townhouse", area_sqm=117, estimated_budget=1170000000,
+            stage="interested", priority="medium",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=72,
+            property_class="mid_range", price_per_sqm=10000000, region="Long An",
+            segment="Nha o", plan_type="online", tags='["Deal"]',
+            deal_value=1170000000,
+            created_at=_dt(11), last_contacted_at=_dt(4),
         ),
         Lead(
-            id=lead_ids["lan"], name="Chị Lan", phone="0976543210",
-            address="Nhà phố Gò Vấp",
-            needs="Thi công nội thất nhà phố, đã có bản vẽ thiết kế",
-            source="tiktok", property_type="townhouse", area_sqm=120,
-            estimated_budget=680000000, stage="potential", priority="medium",
-            assigned_to=sales_id, team_id=team_sales1_id, ai_score=65,
-            created_at=_dt(20), last_contacted_at=_dt(5),
+            id=lead_ids["kim_cuc"], name="Kim Cuc (Le Thi Kim Cuc)", phone="0905555666",
+            address="Q.9, TP.HCM",
+            needs="Thiet ke noi that nha pho, phong cach cao cap",
+            source="facebook", property_type="townhouse", area_sqm=145, estimated_budget=2030000000,
+            stage="interested", priority="high",
+            assigned_to=leader_id, team_id=team_sales1_id,
+            ai_score=82,
+            property_class="luxury", price_per_sqm=14000000, region="Q.9",
+            segment="Nha o", plan_type="offline", tags='["Deal","Uu tien"]',
+            deal_value=2030000000,
+            created_at=_dt(12), last_contacted_at=_dt(2),
         ),
         Lead(
-            id=lead_ids["phong"], name="Anh Phong", phone="0965432109",
-            email="phong.tran@gmail.com", address="Căn hộ Vinhomes Grand Park, Q9",
-            needs="Thiết kế căn hộ 3PN, phong cách luxury",
-            source="facebook", property_type="apartment", area_sqm=95,
-            estimated_budget=350000000, stage="new", priority="medium",
-            assigned_to=None, team_id=None, ai_score=55,
-            created_at=_dt(3), last_contacted_at=None,
+            id=lead_ids["dung2"], name="Dung (2)", phone="0906666777",
+            address="Long An",
+            needs="Thiet ke noi that nha pho 140m2, hang sang",
+            source="google_form", property_type="townhouse", area_sqm=140, estimated_budget=1540000000,
+            stage="interested", priority="medium",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=75,
+            property_class="luxury", price_per_sqm=11000000, region="Long An",
+            segment="Nha o", plan_type="online", tags='["Deal"]',
+            deal_value=1540000000,
+            created_at=_dt(8), last_contacted_at=_dt(3),
         ),
         Lead(
-            id=lead_ids["thao"], name="Chị Thảo", phone="0934567890",
-            email="thao.do@company.com", address="Văn phòng Q1, TP.HCM",
-            needs="Thiết kế văn phòng 200m2 cho công ty tech",
-            source="zalo", property_type="office", area_sqm=200,
-            estimated_budget=420000000, stage="new", priority="low",
-            assigned_to=None, team_id=None, ai_score=45,
-            created_at=_dt(1), last_contacted_at=None,
+            id=lead_ids["trang"], name="Trang", phone="0907777888",
+            address="Long An",
+            needs="Thiet ke + thi cong noi that nha pho 200m2",
+            source="facebook", property_type="townhouse", area_sqm=200, estimated_budget=3400000000,
+            stage="interested", priority="high",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=88,
+            property_class="luxury", price_per_sqm=17000000, region="Long An",
+            segment="Nha o", plan_type="survey", tags='["Deal","VIP"]',
+            deal_value=3400000000,
+            created_at=_dt(10), last_contacted_at=_dt(0),
+        ),
+        Lead(
+            id=lead_ids["cuc2"], name="Cuc (2)", phone="0908888999",
+            address="Long An",
+            needs="Thiet ke + thi cong biet thu 500m2, phong cach luxury",
+            source="facebook", property_type="villa", area_sqm=500, estimated_budget=5500000000,
+            stage="survey_scheduled", priority="urgent",
+            assigned_to=sales_id, team_id=team_sales1_id,
+            ai_score=95,
+            property_class="luxury", price_per_sqm=11000000, region="Long An",
+            segment="Biet thu", plan_type="offline", tags='["Deal","VIP","Uu tien"]',
+            deal_value=5500000000,
+            created_at=_dt(16), last_contacted_at=_dt(0),
+        ),
+        Lead(
+            id=lead_ids["dung3"], name="Dung (3)", phone="0909999000",
+            address="TP.HCM",
+            needs="Thiet ke noi that nha pho 120m2",
+            source="referral", property_type="townhouse", area_sqm=120, estimated_budget=840000000,
+            stage="survey_scheduled", priority="medium",
+            assigned_to=leader_id, team_id=team_sales1_id,
+            ai_score=70,
+            property_class="luxury", price_per_sqm=7000000, region="TP.HCM",
+            segment="Nha o", plan_type="offline", tags='["Deal"]',
+            deal_value=840000000,
+            created_at=_dt(9), last_contacted_at=_dt(2),
         ),
     ]
     for l in leads:
@@ -149,21 +214,21 @@ async def seed_database(db: AsyncSession):
 
     # ── Activities ──
     activities_data = [
-        (lead_ids["mai"], sales_id, "note", "KH rất quan tâm phong cách hiện đại tối giản. Ngân sách linh hoạt.", 40),
-        (lead_ids["mai"], sales_id, "call", "Gọi tư vấn gói thiết kế, KH đồng ý hẹn khảo sát.", 35),
-        (lead_ids["mai"], sales_id, "survey", "Khảo sát nhà 3 tầng Q7. Đo đạc hoàn tất, chụp ảnh hiện trạng.", 28),
-        (lead_ids["mai"], sales_id, "meeting", "Trình bày phương án thiết kế, KH chọn PA2 sửa đổi.", 15),
-        (lead_ids["mai"], sales_id, "stage_change", "Ký hợp đồng thiết kế 45 triệu.", 10),
-        (lead_ids["tuan"], sales_id, "note", "KH VIP, biệt thự lớn. Cần bố trí KTS senior.", 28),
-        (lead_ids["tuan"], sales_id, "call", "Trao đổi phong cách Indochine, gửi portfolio biệt thự.", 25),
-        (lead_ids["tuan"], sales_id, "survey", "Khảo sát biệt thự Bình Chánh. Khuôn viên 350m2, 2 tầng + sân vườn.", 18),
-        (lead_ids["tuan"], sales_id, "note", "KH muốn xem thêm mẫu phòng khách Indochine.", 5),
-        (lead_ids["huong"], sales_id, "call", "Tư vấn gói thiết kế căn hộ, KH thích Scandinavian.", 12),
-        (lead_ids["huong"], sales_id, "note", "Đã hẹn khảo sát ngày mai.", 4),
-        (lead_ids["minh"], leader_id, "call", "Anh Minh được giới thiệu bởi KH cũ. Shophouse Q2.", 8),
-        (lead_ids["minh"], leader_id, "note", "Ngân sách tốt, cần showroom design. Ưu tiên cao.", 6),
-        (lead_ids["lan"], sales_id, "call", "KH đã có bản vẽ, cần thi công. Gửi báo giá.", 18),
-        (lead_ids["lan"], sales_id, "meeting", "Gặp xem bản vẽ thi công, góp ý cải tiến.", 12),
+        (lead_ids["bong"], sales_id, "note", "KH rat quan tam phong cach cao cap. Ngan sach linh hoat.", 18),
+        (lead_ids["bong"], sales_id, "call", "Tu van goi thiet ke, KH dong y hen khao sat.", 14),
+        (lead_ids["bong"], sales_id, "meeting", "Khao sat nha pho 349m2 Long An. Do dac hoan tat.", 8),
+        (lead_ids["dung1"], sales_id, "note", "KH VIP, nha pho 300m2 Long An. Hang sang.", 14),
+        (lead_ids["dung1"], sales_id, "call", "Trao doi phong cach cao cap, gui portfolio.", 10),
+        (lead_ids["duc_anh"], sales_id, "call", "Tu van nha pho 150m2, ngan sach 1.5 ty.", 12),
+        (lead_ids["duc_anh"], sales_id, "note", "KH quan tam, dang cho lich khao sat.", 6),
+        (lead_ids["cuc1"], sales_id, "note", "Nha pho 117m2 Long An. Ngan sach 1.17 ty.", 10),
+        (lead_ids["kim_cuc"], leader_id, "call", "Nha pho 145m2 Q.9. Phong cach cao cap.", 10),
+        (lead_ids["kim_cuc"], leader_id, "note", "KH quan tam, can tu van offline.", 5),
+        (lead_ids["trang"], sales_id, "meeting", "Khao sat nha pho 200m2 Long An.", 8),
+        (lead_ids["trang"], sales_id, "call", "Dang khao sat online, can hen lich onsite.", 2),
+        (lead_ids["cuc2"], sales_id, "note", "VIP! Biet thu 500m2 Long An. Deal lon nhat.", 14),
+        (lead_ids["cuc2"], sales_id, "meeting", "Khao sat biet thu, chu bi phuong an thiet ke.", 5),
+        (lead_ids["dung3"], leader_id, "call", "Nha pho 120m2 TP.HCM. Dang tu van.", 7),
     ]
     for lead_id, user_id, atype, content, days in activities_data:
         db.add(Activity(
@@ -178,7 +243,7 @@ async def seed_database(db: AsyncSession):
     projects = [
         Project(
             id=proj_ids["p1"], code="PRJ-2026-001", name="Nhà phố Q7 - Chị Mai",
-            lead_id=lead_ids["mai"], client_name="Chị Mai", client_phone="0901234567",
+            lead_id=lead_ids["bong"], client_name="Chị Mai", client_phone="0901234567",
             address="123 Nguyễn Văn Linh, Q7", project_type="design_build",
             design_value=45000000, construction_value=455000000, total_value=500000000,
             spent=375000000, progress=75, status="active",
@@ -187,7 +252,7 @@ async def seed_database(db: AsyncSession):
         ),
         Project(
             id=proj_ids["p2"], code="PRJ-2026-002", name="Biệt thự Bình Chánh - Anh Tuấn",
-            lead_id=lead_ids["tuan"], client_name="Anh Tuấn", client_phone="0908765432",
+            lead_id=lead_ids["dung1"], client_name="Anh Tuấn", client_phone="0908765432",
             address="Biệt thự Vinhomes, Bình Chánh", project_type="design_build",
             design_value=120000000, construction_value=2380000000, total_value=2500000000,
             spent=750000000, progress=30, status="active",
@@ -196,7 +261,7 @@ async def seed_database(db: AsyncSession):
         ),
         Project(
             id=proj_ids["p3"], code="PRJ-2026-003", name="Căn hộ Sunrise - Chị Hương",
-            lead_id=lead_ids["huong"], client_name="Chị Hương", client_phone="0912345678",
+            lead_id=lead_ids["duc_anh"], client_name="Chị Hương", client_phone="0912345678",
             address="Căn hộ Sunrise City, Q7", project_type="design_build",
             design_value=25000000, construction_value=155000000, total_value=180000000,
             spent=162000000, progress=90, status="active",
@@ -205,7 +270,7 @@ async def seed_database(db: AsyncSession):
         ),
         Project(
             id=proj_ids["p4"], code="PRJ-2026-004", name="Shophouse Q2 - Anh Minh",
-            lead_id=lead_ids["minh"], client_name="Anh Minh", client_phone="0987654321",
+            lead_id=lead_ids["kim_cuc"], client_name="Anh Minh", client_phone="0987654321",
             address="Shophouse Q2", project_type="design_only",
             design_value=80000000, total_value=80000000,
             spent=12000000, progress=15, status="paused",
@@ -214,7 +279,7 @@ async def seed_database(db: AsyncSession):
         ),
         Project(
             id=proj_ids["p5"], code="PRJ-2026-005", name="Nhà phố Gò Vấp - Chị Lan",
-            lead_id=lead_ids["lan"], client_name="Chị Lan", client_phone="0976543210",
+            lead_id=lead_ids["trang"], client_name="Chị Lan", client_phone="0976543210",
             address="Nhà phố Gò Vấp", project_type="construction_only",
             construction_value=680000000, total_value=680000000,
             spent=374000000, progress=55, status="active",
@@ -307,28 +372,28 @@ async def seed_database(db: AsyncSession):
         Customer(
             id=cust_ids["mai"], name="Chị Mai", phone="0901234567",
             email="mai.nguyen@gmail.com", address="123 Nguyễn Văn Linh, Q7, TP.HCM",
-            type="individual", lead_id=lead_ids["mai"],
+            type="individual", lead_id=lead_ids["bong"],
         ),
         Customer(
             id=cust_ids["tuan"], name="Anh Tuấn", phone="0908765432",
             email="tuan.pham@yahoo.com", address="Biệt thự Vinhomes Central Park, Bình Chánh",
-            type="individual", lead_id=lead_ids["tuan"],
+            type="individual", lead_id=lead_ids["dung1"],
         ),
         Customer(
             id=cust_ids["huong"], name="Chị Hương", phone="0912345678",
             email="huong.le@outlook.com", address="Căn hộ Sunrise City, Q7",
-            type="individual", lead_id=lead_ids["huong"],
+            type="individual", lead_id=lead_ids["duc_anh"],
         ),
         Customer(
             id=cust_ids["lan"], name="Chị Lan", phone="0976543210",
             address="Nhà phố Gò Vấp",
-            type="individual", lead_id=lead_ids["lan"],
+            type="individual", lead_id=lead_ids["trang"],
         ),
         Customer(
             id=cust_ids["minh"], name="Công ty TNHH Minh Design", phone="0987654321",
             email="minh@minhdesign.vn", address="Shophouse Q2, TP.HCM",
             type="company", company_name="Công ty TNHH Minh Design",
-            tax_code="0316789012", lead_id=lead_ids["minh"],
+            tax_code="0316789012", lead_id=lead_ids["kim_cuc"],
         ),
     ]
     for c in customers:
@@ -384,7 +449,7 @@ async def seed_database(db: AsyncSession):
     quotations = [
         Quotation(
             id=_id(), code="BG-2026-001", type="design",
-            project_id=proj_ids["p1"], lead_id=lead_ids["mai"],
+            project_id=proj_ids["p1"], lead_id=lead_ids["bong"],
             title="Báo giá thiết kế nội thất nhà phố Q7 - Chị Mai",
             status="approved", total_amount=45000000, tax_amount=4500000,
             created_by=sales_id, revision=2,
@@ -397,7 +462,7 @@ async def seed_database(db: AsyncSession):
         ),
         Quotation(
             id=_id(), code="BG-2026-002", type="construction",
-            project_id=proj_ids["p1"], lead_id=lead_ids["mai"],
+            project_id=proj_ids["p1"], lead_id=lead_ids["bong"],
             title="Báo giá thi công nội thất nhà phố Q7 - Chị Mai",
             status="approved", total_amount=455000000, tax_amount=45500000,
             created_by=sales_id,
@@ -411,7 +476,7 @@ async def seed_database(db: AsyncSession):
         ),
         Quotation(
             id=_id(), code="BG-2026-003", type="design",
-            project_id=proj_ids["p2"], lead_id=lead_ids["tuan"],
+            project_id=proj_ids["p2"], lead_id=lead_ids["dung1"],
             title="Báo giá thiết kế biệt thự Indochine - Anh Tuấn",
             status="approved", total_amount=120000000, tax_amount=12000000,
             created_by=leader_id,
@@ -424,14 +489,14 @@ async def seed_database(db: AsyncSession):
         ),
         Quotation(
             id=_id(), code="BG-2026-004", type="construction",
-            project_id=proj_ids["p5"], lead_id=lead_ids["lan"],
+            project_id=proj_ids["p5"], lead_id=lead_ids["trang"],
             title="Báo giá thi công nhà phố Gò Vấp - Chị Lan",
             status="sent", total_amount=680000000, tax_amount=68000000,
             created_by=sales_id,
             items={"line_items": [
                 {"name": "Thi công phần thô", "category": "general", "unit": "gói", "quantity": 1, "unit_price": 280000000, "total": 280000000},
                 {"name": "Nội thất toàn bộ", "category": "general", "unit": "gói", "quantity": 1, "unit_price": 320000000, "total": 320000000},
-                {"name": "Hệ thống điện + nước", "category": "custom", "unit": "gói", "quantity": 1, "unit_price": 80000000, "total": 80000000},
+                {"name": "He thong dien + nuoc", "category": "custom", "unit": "goi", "quantity": 1, "unit_price": 80000000, "total": 80000000},
             ]},
         ),
     ]
@@ -442,22 +507,22 @@ async def seed_database(db: AsyncSession):
     # ── Materials (Inventory) ──
     mat_ids = {f"m{i}": _id() for i in range(1, 11)}
     materials = [
-        Material(id=mat_ids["m1"], code="VT-001", name="Gỗ công nghiệp MDF lõi xanh", category="wood", unit="tấm", unit_price=350000, quantity_in_stock=120, min_stock=20, supplier="Công ty An Cường"),
-        Material(id=mat_ids["m2"], code="VT-002", name="Sàn gỗ Egger 12mm", category="wood", unit="m2", unit_price=650000, quantity_in_stock=85, min_stock=50, supplier="Egger Việt Nam"),
-        Material(id=mat_ids["m3"], code="VT-003", name="Đá granite đen Ấn Độ", category="stone", unit="m2", unit_price=1200000, quantity_in_stock=45, min_stock=15, supplier="Đá Hoàng Gia"),
-        Material(id=mat_ids["m4"], code="VT-004", name="Sơn Dulux nội thất cao cấp", category="paint", unit="thùng", unit_price=890000, quantity_in_stock=30, min_stock=10, supplier="AkzoNobel"),
-        Material(id=mat_ids["m5"], code="VT-005", name="Inox 304 ống vuông 40x40", category="metal", unit="cây", unit_price=285000, quantity_in_stock=60, min_stock=20, supplier="Inox Đại Dương"),
-        Material(id=mat_ids["m6"], code="VT-006", name="Kính cường lực 10mm", category="glass", unit="m2", unit_price=480000, quantity_in_stock=35, min_stock=10, supplier="Kính Hưng Thịnh"),
-        Material(id=mat_ids["m7"], code="VT-007", name="Đèn LED panel 600x600", category="electrical", unit="cái", unit_price=320000, quantity_in_stock=8, min_stock=15, supplier="Rạng Đông"),
-        Material(id=mat_ids["m8"], code="VT-008", name="Vải sofa nhập Bỉ", category="fabric", unit="m", unit_price=950000, quantity_in_stock=40, min_stock=10, supplier="Vải Hoàng Hà"),
-        Material(id=mat_ids["m9"], code="VT-009", name="Ống PPR nóng 25mm", category="plumbing", unit="cây", unit_price=125000, quantity_in_stock=100, min_stock=30, supplier="Vesbo"),
-        Material(id=mat_ids["m10"], code="VT-010", name="Bản lề giảm chấn Blum", category="furniture", unit="cái", unit_price=85000, quantity_in_stock=200, min_stock=50, supplier="Blum Việt Nam"),
+        Material(id=mat_ids["m1"], code="VT-001", name="Go cong nghiep MDF loi xanh", category="wood", unit="tam", unit_price=350000, quantity_in_stock=120, min_stock=20, supplier="An Cuong"),
+        Material(id=mat_ids["m2"], code="VT-002", name="San go Egger 12mm", category="wood", unit="m2", unit_price=650000, quantity_in_stock=85, min_stock=50, supplier="Egger Viet Nam"),
+        Material(id=mat_ids["m3"], code="VT-003", name="Da granite den An Do", category="stone", unit="m2", unit_price=1200000, quantity_in_stock=45, min_stock=15, supplier="Da Hoang Gia"),
+        Material(id=mat_ids["m4"], code="VT-004", name="Son Dulux noi that cao cap", category="paint", unit="thung", unit_price=890000, quantity_in_stock=30, min_stock=10, supplier="AkzoNobel"),
+        Material(id=mat_ids["m5"], code="VT-005", name="Inox 304 ong vuong 40x40", category="metal", unit="cay", unit_price=285000, quantity_in_stock=60, min_stock=20, supplier="Inox Dai Duong"),
+        Material(id=mat_ids["m6"], code="VT-006", name="Kinh cuong luc 10mm", category="glass", unit="m2", unit_price=480000, quantity_in_stock=35, min_stock=10, supplier="Kinh Hung Thinh"),
+        Material(id=mat_ids["m7"], code="VT-007", name="Den LED panel 600x600", category="electrical", unit="cai", unit_price=320000, quantity_in_stock=8, min_stock=15, supplier="Rang Dong"),
+        Material(id=mat_ids["m8"], code="VT-008", name="Vai sofa nhap Bi", category="fabric", unit="m", unit_price=950000, quantity_in_stock=40, min_stock=10, supplier="Vai Hoang Ha"),
+        Material(id=mat_ids["m9"], code="VT-009", name="Ong PPR nong 25mm", category="plumbing", unit="cay", unit_price=125000, quantity_in_stock=100, min_stock=30, supplier="Vesbo"),
+        Material(id=mat_ids["m10"], code="VT-010", name="Ban le giam chan Blum", category="furniture", unit="cai", unit_price=85000, quantity_in_stock=200, min_stock=50, supplier="Blum Viet Nam"),
     ]
     for m in materials:
         db.add(m)
     await db.flush()
 
-    # ── Material Usage (xuất kho) ──
+    # ── Material Usage ──
     usages = [
         MaterialUsage(id=_id(), material_id=mat_ids["m1"], project_id=proj_ids["p1"], quantity=25, unit_price_at_use=350000, total_cost=8750000, date=_dt(30), created_by=admin_id),
         MaterialUsage(id=_id(), material_id=mat_ids["m2"], project_id=proj_ids["p1"], quantity=45, unit_price_at_use=650000, total_cost=29250000, date=_dt(25), created_by=admin_id),
@@ -470,5 +535,4 @@ async def seed_database(db: AsyncSession):
         db.add(u)
 
     await db.flush()
-    print("[OK] Seed complete: 3 users, 4 teams, 7 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials")
-
+    print("[OK] Seed complete: 5 users, 4 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials")
