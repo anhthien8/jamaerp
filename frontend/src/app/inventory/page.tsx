@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Material } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 function fmtVND(n?: number) {
   if (!n) return '—';
@@ -19,6 +20,7 @@ function fmtNum(n?: number) {
 export default function InventoryPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [lowStock, setLowStock] = useState<Material[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -35,10 +37,10 @@ export default function InventoryPage() {
       const [mats, low] = await Promise.all([api.getMaterials(), api.getLowStock()]);
       setMaterials(mats);
       setLowStock(low);
-    } catch { /* empty */ } finally {
+    } catch { toast('Không thể tải kho', 'error'); } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 

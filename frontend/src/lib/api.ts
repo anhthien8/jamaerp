@@ -363,10 +363,10 @@ class ApiClient {
     return this.request<Material>(`/inventory/${id}`, { method: 'PUT', body: data });
   }
   async adjustStock(id: string, delta: number, reason?: string) {
-    return this.request<Material>(`/inventory/${id}/adjust`, { method: 'POST', body: { delta, reason } });
+    return this.request<Material>(`/inventory/${id}/adjust-stock`, { method: 'POST', body: { quantity: delta, reason } });
   }
   async useMaterial(data: { material_id: string; project_id: string; quantity: number; note?: string }) {
-    return this.request<unknown>('/inventory/use', { method: 'POST', body: data });
+    return this.request<unknown>('/inventory/use', { method: 'POST', body: { ...data, notes: data.note, note: undefined } });
   }
   async getLowStock() {
     return this.request<Material[]>('/inventory/low-stock');

@@ -36,7 +36,7 @@ export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> =
 };
 
 export function formatCurrency(value?: number | null): string {
-  if (!value) return '—';
+  if (value == null) return '—';
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)} triệu`;
   return `${value.toLocaleString('vi-VN')} ₫`;
@@ -75,12 +75,12 @@ export function cn(...classes: (string | undefined | false | null)[]): string {
 }
 
 export function formatPricePerSqm(value?: number | null): string {
-  if (!value) return '—';
+  if (value == null) return '—';
   return `${value.toLocaleString('vi-VN')} ₫/m²`;
 }
 
 export function formatDealValue(value?: number | null): string {
-  if (!value) return '—';
+  if (value == null) return '—';
   if (value >= 1_000_000_000) {
     const v = value / 1_000_000_000;
     const s = v % 1 === 0 ? String(Math.round(v)) : String(v);

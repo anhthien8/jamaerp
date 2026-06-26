@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, User, Team } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
+import { useToast } from '@/components/ui/Toast';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Admin', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
@@ -28,6 +29,7 @@ const DEPT_LABELS: Record<string, string> = {
 export default function HRPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -43,10 +45,10 @@ export default function HRPage() {
       const [u, t] = await Promise.all([api.getUsers(), api.getTeams()]);
       setUsers(u);
       setTeams(t);
-    } catch { /* empty */ } finally {
+    } catch { toast('Không thể tải nhân sự', 'error'); } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 

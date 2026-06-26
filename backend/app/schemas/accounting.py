@@ -101,6 +101,23 @@ class PayrollResponse(BaseModel):
 
 # ── Commission ─────────────────────────────────────────
 
+class CommissionCreate(BaseModel):
+    user_id: UUID
+    project_id: UUID | None = None
+    lead_id: UUID | None = None
+    type: str
+    rate: Decimal
+    base_amount: Decimal
+    milestone: str = "signing"
+    milestone_pct: float = 1.0
+    status: str = "pending"
+    period: str | None = None
+
+
+class CommissionStatusUpdate(BaseModel):
+    status: str | None = None
+
+
 class CommissionCalculateRequest(BaseModel):
     period: str  # "2026-06"
 

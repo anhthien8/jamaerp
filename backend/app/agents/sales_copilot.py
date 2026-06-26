@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.lead import Lead, Activity, LeadStage
+from app.models.lead import Lead, Activity
 
 settings = get_settings()
 
@@ -84,27 +84,27 @@ def _rule_based_suggestion(lead: Lead, activities: list[Activity]) -> dict:
     """Fallback when LLM unavailable."""
     stage = lead.stage
 
-    if stage == LeadStage.NEW:
+    if stage == "new":
         return {
             "action": "Gọi điện giới thiệu dịch vụ JAMA HOME",
             "reason": "Lead mới, cần liên hệ trong ngày (Quy tắc vàng #1)",
             "priority": "high",
             "message_template": f"Xin chào {lead.contact_person or lead.name}, em là [Tên] từ JAMA HOME. Em được biết anh/chị đang quan tâm đến thiết kế nội thất..."
         }
-    elif stage == LeadStage.INTERESTED:
+    elif stage == "interested":
         return {
             "action": "Hẹn lịch khảo sát thực tế",
             "reason": "KH đã có nhu cầu, cần khảo sát để lên phương án",
             "priority": "high",
             "message_template": f"Anh/Chị {lead.contact_person or lead.name}, JAMA HOME xin hẹn khảo sát thực tế nhà anh/chị vào [ngày]. Thời gian khoảng 30-45 phút ạ."
         }
-    elif stage == LeadStage.SURVEY_SCHEDULED:
+    elif stage == "survey_scheduled":
         return {
             "action": "Xác nhận lịch khảo sát và chuẩn bị hồ sơ",
             "reason": "Đã hẹn khảo sát, cần xác nhận lại để tránh bị hủy",
             "priority": "medium",
         }
-    elif stage == LeadStage.POTENTIAL:
+    elif stage == "potential":
         return {
             "action": "Gửi phương án thiết kế sơ bộ + báo giá",
             "reason": "KH tiềm năng, cần push để ký hợp đồng thiết kế",

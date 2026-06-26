@@ -1,5 +1,6 @@
 """Pydantic schemas for leads & activities."""
 
+from decimal import Decimal
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -126,3 +127,18 @@ class PipelineKanban(BaseModel):
     stage_label: str
     leads: list[LeadResponse]
     count: int
+
+
+class LeadParseResponse(BaseModel):
+    """Structured output from AI lead parsing."""
+    name: str | None = None
+    phone: str | None = None
+    contact_person: str | None = None
+    address: str | None = None
+    needs: str | None = None
+    source: str | None = None
+    property_type: str | None = None
+    area_sqm: Decimal | None = None
+    estimated_budget: Decimal | None = None
+    confidence: float = 0.0
+    raw_text: str | None = None

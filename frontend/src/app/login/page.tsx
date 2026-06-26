@@ -108,6 +108,34 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Demo Credentials */}
+          <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
+            <summary className="cursor-pointer px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors select-none flex items-center gap-2">
+              <span>🔑</span> Tài khoản demo
+            </summary>
+            <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              {[
+                { email: 'admin@jamahome.vn', pass: 'admin123', role: 'Admin' },
+                { email: 'leader@jamahome.vn', pass: 'leader123', role: 'Leader' },
+                { email: 'sales@jamahome.vn', pass: 'sales123', role: 'Sales' },
+                { email: 'account@jamahome.vn', pass: 'account123', role: 'KT' },
+                { email: 'ceo@jamahome.vn', pass: 'ceo123', role: 'CEO' },
+              ].map(acc => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group"
+                  onClick={() => { setEmail(acc.email); setPassword(acc.pass); }}
+                >
+                  <span className="font-mono">{acc.email}</span>
+                  <span className="opacity-0 group-hover:opacity-100 text-[#C9A96E] transition-opacity text-[10px] font-medium">
+                    {acc.role} · Click để điền
+                  </span>
+                </button>
+              ))}
+            </div>
+          </details>
+
           {/* Footer */}
           <p className="text-center text-xs text-[var(--text-muted)] mt-6">
             JAMA HOME ERP v1.0 — Nội thất cao cấp

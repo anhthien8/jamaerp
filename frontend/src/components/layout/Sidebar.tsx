@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -135,6 +135,16 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Track desktop breakpoint (1024px = lg) — SSR-safe
+  const isDesktop = useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia('(min-width: 1024px)');
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia('(min-width: 1024px)').matches,
+    () => false, // SSR fallback
+  );
 
   // Global keyboard shortcut: Ctrl+K / Cmd+K
   useEffect(() => {
@@ -153,11 +163,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     void Promise.resolve().then(() => setMobileOpen(false));
   }, [pathname]);
 
-  if (!user) return <>{children}</>;
-
-  // Filter nav sections based on user role
-  const perms = getPermissions(user.role as UserRole);
+  // Filter nav sections based on user role (must be above early return to respect rules-of-hooks)
+  const perms = user ? getPermissions(user.role as UserRole) : null;
   const filteredSections = useMemo(() => {
+    if (!perms) return [];
     return NAV_SECTIONS.map(section => ({
       ...section,
       items: section.items.filter(item => {
@@ -171,6 +180,8 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       }),
     })).filter(section => section.items.length > 0);
   }, [perms]);
+
+  if (!user) return <>{children}</>;
   const sidebarContent = (
     <>
       {/* Brand */}
@@ -360,19 +371,14 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         {sidebarContent}
       </aside>
 
-      {/* Main */}
+      {/* Single main — children rendered ONCE */}
       <main
+        className="flex-1 min-h-screen pt-14 lg:pt-0"
         style={{
-          marginLeft: collapsed ? 72 : 256,
+          marginLeft: isDesktop ? (collapsed ? 72 : 256) : 0,
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
-        className="flex-1 min-h-screen hidden lg:block"
       >
-        {children}
-      </main>
-
-      {/* Mobile main — no margin */}
-      <main className="flex-1 min-h-screen lg:hidden pt-14">
         {children}
       </main>
 

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Quotation } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -27,6 +28,7 @@ function fmtVND(n?: number) {
 export default function QuotationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selected, setSelected] = useState<Quotation | null>(null);
@@ -40,10 +42,10 @@ export default function QuotationsPage() {
     try {
       const data = await api.getQuotations();
       setQuotations(data);
-    } catch { /* empty */ } finally {
+    } catch { toast('Không thể tải báo giá', 'error'); } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
@@ -52,7 +54,7 @@ export default function QuotationsPage() {
       const updated = await api.approveQuotation(id);
       setQuotations(prev => prev.map(q => q.id === updated.id ? updated : q));
       setSelected(updated);
-    } catch { /* empty */ }
+    } catch { toast('Duyệt báo giá thất bại', 'error'); }
   };
 
   if (loading || !user) return null;

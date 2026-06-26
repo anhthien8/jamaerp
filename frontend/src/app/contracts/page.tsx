@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Contract } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -36,6 +37,7 @@ function calcTimeLeft(signedDate?: string, workingDays?: number): { daysLeft: nu
 export default function ContractsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selected, setSelected] = useState<Contract | null>(null);
@@ -53,10 +55,10 @@ export default function ContractsPage() {
     try {
       const data = await api.getContracts();
       setContracts(data);
-    } catch { /* empty */ } finally {
+    } catch { toast('Không thể tải hợp đồng', 'error'); } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
@@ -83,7 +85,7 @@ export default function ContractsPage() {
       setPaymentModal(null);
       setProofUrl('');
       setProofPreview('');
-    } catch { /* empty */ }
+    } catch { toast('Xác nhận thanh toán thất bại', 'error'); }
   };
 
   const openPaymentModal = (contractId: string, idx: number) => {

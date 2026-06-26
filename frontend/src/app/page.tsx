@@ -28,7 +28,26 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">⏳</div>;
+  if (loading) return (
+    <Sidebar>
+      <div className="p-6 space-y-6">
+        <div className="skeleton h-8 w-64 rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="glass-card p-5">
+              <div className="skeleton h-3 w-24 mb-3 rounded" />
+              <div className="skeleton h-7 w-32 mb-2 rounded" />
+              <div className="skeleton h-3 w-20 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="glass-card p-6"><div className="skeleton h-48 w-full rounded-xl" /></div>
+          <div className="glass-card p-6"><div className="skeleton h-48 w-full rounded-xl" /></div>
+        </div>
+      </div>
+    </Sidebar>
+  );
   if (!user) return null;
 
   const perms = getPermissions(user.role as UserRole);
@@ -59,35 +78,38 @@ export default function DashboardPage() {
 
         {/* KPI Cards — role-based */}
         {isExecRole ? (
-          /* Executive: Financial KPI Cards */
+          /* Executive: Financial KPI Cards — wired to API data */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
-              title="Doanh thu YTD"
-              value="8.75 tỷ"
-              subtitle="+23.5% so với cùng kỳ"
+              title="Pipeline Value"
+              value={formatCurrency(data?.pipeline_value)}
+              subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="📈"
               color="#10B981"
             />
             <KPICard
-              title="ROI"
-              value="108.3%"
-              subtitle="Lợi nhuận trên đầu tư"
-              icon="🎯"
+              title="Tổng Lead"
+              value={data?.total_leads ?? '—'}
+              subtitle={`Tháng này: ${data?.total_leads_month ?? 0}`}
+              icon="👥"
               color="#C9A96E"
+              onClick={() => router.push('/leads')}
             />
             <KPICard
-              title="Lợi nhuận NET"
-              value="4.55 tỷ"
-              subtitle="Margin: 52%"
-              icon="💰"
+              title="Dự án Đang chạy"
+              value={data?.active_projects ?? '—'}
+              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
+              icon="🏗️"
               color="#3B82F6"
+              onClick={() => router.push('/projects')}
             />
             <KPICard
-              title="Dự báo 2026"
-              value="15.2 tỷ"
-              subtitle="vs 2025: 12.3 tỷ"
-              icon="🔮"
+              title="Hợp đồng"
+              value={data?.total_contracts ?? '—'}
+              subtitle={formatCurrency(data?.total_contract_value)}
+              icon="📄"
               color="#8B5CF6"
+              onClick={() => router.push('/contracts')}
             />
           </div>
         ) : isFinancial ? (
@@ -497,7 +519,14 @@ function KPICard({ title, value, subtitle, icon, color, onClick }: {
   onClick?: () => void;
 }) {
   return (
-    <div className="stat-card glass-card p-5 cursor-pointer transition-all hover:scale-[1.02]" onClick={onClick}>
+    <div
+      className="stat-card glass-card p-5 cursor-pointer transition-all hover:scale-[1.02]"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      aria-label={`${title}: ${value}`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">{title}</p>
@@ -516,7 +545,14 @@ function KPICard({ title, value, subtitle, icon, color, onClick }: {
 
 function AlertCard({ count, label, color, onClick }: { count: number; label: string; color: string; onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 cursor-pointer transition-all hover:bg-white/8 hover:scale-[1.01]" onClick={onClick}>
+    <div
+      className="flex items-center gap-3 p-3 rounded-xl bg-white/5 cursor-pointer transition-all hover:bg-white/8 hover:scale-[1.01]"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      aria-label={`${count} ${label}`}
+    >
       <div
         className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold text-white"
         style={{ backgroundColor: `${color}20` }}

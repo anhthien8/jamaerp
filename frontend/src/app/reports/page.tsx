@@ -20,7 +20,6 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (user) {
-      setLoadingData(true);
       Promise.all([
         api.getExecutiveDashboard().catch(() => null),
         api.getAccountingSummary().catch(() => null),

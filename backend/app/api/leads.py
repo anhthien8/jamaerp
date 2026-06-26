@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import can_view_lead, can_modify_lead
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
 from app.schemas.lead import (
@@ -70,6 +71,8 @@ async def list_leads(
         q = q.where(Lead.assigned_to == current_user.id)
     elif current_user.role == "leader":
         q = q.where(Lead.team_id == current_user.team_id)
+    elif current_user.role in ("accountant", "executive"):
+        return []  # Accountant/Executive don't see leads
 
     if stage:
         q = q.where(Lead.stage == stage)
@@ -193,6 +196,8 @@ async def get_lead(
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
 
     lead, user_name, team_name = row
+    if not can_view_lead(current_user, lead):
+        raise HTTPException(status_code=403, detail="Không có quyền xem lead này")
     act_q = select(func.count(Activity.id)).where(Activity.lead_id == lead.id)
     act_count = (await db.execute(act_q)).scalar() or 0
     return _lead_response(lead, user_name, team_name, act_count)
@@ -239,6 +244,8 @@ async def update_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not can_modify_lead(current_user, lead):
+        raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
 
     update_fields = data.model_dump(exclude_unset=True)
     for k, v in update_fields.items():
@@ -261,6 +268,8 @@ async def change_stage(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not can_modify_lead(current_user, lead):
+        raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
 
     valid = VALID_STAGE_TRANSITIONS.get(lead.stage, [])
     if data.new_stage not in valid:
@@ -301,6 +310,8 @@ async def assign_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Chỉ admin hoặc leader được phân công lead")
 
     # Get target user
     target = await db.execute(select(User).where(User.id == data.user_id))

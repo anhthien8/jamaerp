@@ -7,7 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import {
   STAGE_CONFIG, formatCurrency, timeAgo, cn,
   formatPricePerSqm, formatDealValue,
-  PROPERTY_CLASS_LABELS, SEGMENT_LABELS, PLAN_TYPE_LABELS,
+  PROPERTY_CLASS_LABELS, PLAN_TYPE_LABELS,
   REGION_OPTIONS, TAG_COLORS,
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
@@ -441,12 +441,19 @@ function LeadsContent() {
                             </span>
                           )}
                         </div>
-                        {/* Tags */}
-                        {lead.tags && lead.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1.5 flex-wrap">
-                            {lead.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
-                          </div>
-                        )}
+                        {/* Tags — tags may be a JSON string like '["VIP"]' or a real array */}
+                        {(() => {
+                          const parsedTags = Array.isArray(lead.tags)
+                            ? lead.tags
+                            : typeof lead.tags === "string" && lead.tags
+                              ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })()
+                              : [];
+                          return parsedTags.length > 0 ? (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {parsedTags.map((tag: string) => <TagBadge key={tag} tag={tag} />)}
+                            </div>
+                          ) : null;
+                        })()}
                         {lead.ai_score != null && lead.ai_score > 0 && (
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <div className="flex-1 h-1.5 rounded-full bg-white/10">

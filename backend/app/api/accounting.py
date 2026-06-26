@@ -10,6 +10,9 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.payroll import Transaction, Commission, Payroll
+from app.schemas.accounting import (
+    TransactionCreate, TransactionUpdate, CommissionCreate, CommissionStatusUpdate,
+)
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
@@ -108,7 +111,9 @@ async def list_payroll(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List payroll entries."""
+    """List payroll entries — admin/accountant only."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập bảng lương")
     q = (
         select(Payroll, User.full_name)
         .outerjoin(User, Payroll.user_id == User.id)
@@ -134,7 +139,7 @@ async def list_payroll(
 
 @router.post("/transactions")
 async def create_transaction(
-    data: dict,
+    data: TransactionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -143,15 +148,15 @@ async def create_transaction(
     txn = Transaction(
         id=str(uuid.uuid4()),
         code=f"TXN-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        type=data["type"],
-        category=data["category"],
-        description=data.get("description", ""),
-        amount=data["amount"],
-        project_id=data.get("project_id"),
-        lead_id=data.get("lead_id"),
+        type=data.type,
+        category=data.category,
+        description=data.description or "",
+        amount=data.amount,
+        project_id=str(data.project_id) if data.project_id else None,
+        lead_id=str(data.lead_id) if data.lead_id else None,
         created_by=current_user.id,
-        status=data.get("status", "completed"),
-        date=datetime.fromisoformat(data["date"]) if "date" in data else datetime.now(timezone.utc),
+        status=data.status or "completed",
+        date=datetime.combine(data.transaction_date, datetime.min.time(), tzinfo=timezone.utc) if data.transaction_date else datetime.now(timezone.utc),
     )
     db.add(txn)
     await db.flush()
@@ -164,7 +169,7 @@ async def create_transaction(
 @router.put("/transactions/{txn_id}")
 async def update_transaction(
     txn_id: str,
-    data: dict,
+    data: TransactionUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -174,10 +179,9 @@ async def update_transaction(
     if not txn:
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
 
-    allowed = ["type", "category", "description", "amount", "status"]
-    for k in allowed:
-        if k in data:
-            setattr(txn, k, data[k])
+    update_fields = data.model_dump(exclude_unset=True)
+    for k, v in update_fields.items():
+        setattr(txn, k, v)
     await db.flush()
     return {"id": txn.id, "code": txn.code, "status": txn.status, "amount": txn.amount}
 
@@ -200,7 +204,7 @@ async def delete_transaction(
 
 @router.post("/commissions")
 async def create_commission(
-    data: dict,
+    data: CommissionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -208,17 +212,17 @@ async def create_commission(
     import uuid
     comm = Commission(
         id=str(uuid.uuid4()),
-        user_id=data["user_id"],
-        project_id=data.get("project_id"),
-        lead_id=data.get("lead_id"),
-        type=data["type"],
-        rate=data["rate"],
-        base_amount=data["base_amount"],
-        commission_amount=data["base_amount"] * data["rate"],
-        milestone=data.get("milestone", "signing"),
-        milestone_pct=data.get("milestone_pct", 1.0),
-        status=data.get("status", "pending"),
-        period=data.get("period"),
+        user_id=str(data.user_id),
+        project_id=str(data.project_id) if data.project_id else None,
+        lead_id=str(data.lead_id) if data.lead_id else None,
+        type=data.type,
+        rate=data.rate,
+        base_amount=data.base_amount,
+        commission_amount=data.base_amount * data.rate,
+        milestone=data.milestone,
+        milestone_pct=data.milestone_pct,
+        status=data.status,
+        period=data.period,
     )
     db.add(comm)
     await db.flush()
@@ -231,7 +235,7 @@ async def create_commission(
 @router.put("/commissions/{comm_id}")
 async def update_commission_status(
     comm_id: str,
-    data: dict,
+    data: CommissionStatusUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -240,8 +244,8 @@ async def update_commission_status(
     comm = result.scalar_one_or_none()
     if not comm:
         raise HTTPException(status_code=404, detail="Hoa hồng không tồn tại")
-    if "status" in data:
-        comm.status = data["status"]
+    if data.status is not None:
+        comm.status = data.status
     await db.flush()
     return {"id": comm.id, "status": comm.status}
 
