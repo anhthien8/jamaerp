@@ -46,6 +46,7 @@ export default function ContractsPage() {
   const [proofPreview, setProofPreview] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [viewProof, setViewProof] = useState<string | null>(null);
+  const [confirmChecked, setConfirmChecked] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -77,14 +78,16 @@ export default function ContractsPage() {
   };
 
   const handlePaymentConfirm = async () => {
-    if (!paymentModal || !proofUrl) return;
+    if (!paymentModal || !confirmChecked) return;
     try {
-      const updated = await api.updatePayment(paymentModal.contractId, paymentModal.idx, proofUrl);
+      const updated = await api.updatePayment(paymentModal.contractId, paymentModal.idx, proofUrl || undefined);
       setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
       setSelected(updated);
       setPaymentModal(null);
       setProofUrl('');
       setProofPreview('');
+      setConfirmChecked(false);
+      toast('Xác nhận thanh toán thành công!', 'success');
     } catch { toast('Xác nhận thanh toán thất bại', 'error'); }
   };
 
@@ -92,6 +95,7 @@ export default function ContractsPage() {
     setPaymentModal({ contractId, idx });
     setProofUrl('');
     setProofPreview('');
+    setConfirmChecked(false);
   };
 
   return (
@@ -308,7 +312,7 @@ export default function ContractsPage() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Xác nhận thanh toán</h3>
-              <p className="text-sm text-[var(--text-muted)] mb-4">Upload hình sao kê ngân hàng để làm bằng chứng</p>
+              <p className="text-sm text-[var(--text-muted)] mb-4">Upload hình sao kê ngân hàng để làm bằng chứng (không bắt buộc)</p>
 
               {/* File upload */}
               <div
@@ -341,11 +345,22 @@ export default function ContractsPage() {
                 />
               </div>
 
+              {/* Confirm checkbox */}
+              <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={confirmChecked}
+                  onChange={e => setConfirmChecked(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[var(--gold-500)]"
+                />
+                <span className="text-sm text-[var(--text-secondary)]">Tôi xác nhận đợt thanh toán này đã được thanh toán</span>
+              </label>
+
               <button
                 onClick={handlePaymentConfirm}
-                disabled={!proofUrl}
+                disabled={!confirmChecked}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                style={{ background: proofUrl ? 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' : 'var(--surface-3)', color: 'white' }}
+                style={{ background: confirmChecked ? 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' : 'var(--surface-3)', color: 'white' }}
               >
                 ✅ Xác nhận đã thanh toán
               </button>
