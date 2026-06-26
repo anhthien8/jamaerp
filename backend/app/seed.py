@@ -1,0 +1,474 @@
+"""Seed database with demo data — users, teams, leads, projects, activities, transactions."""
+
+import uuid
+from datetime import datetime, timezone, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.middleware.auth import hash_password
+from app.models.user import User, Team
+from app.models.lead import Lead, Activity
+from app.models.project import Project, Task
+from app.models.payroll import Transaction, Commission, Payroll
+
+
+def _id():
+    return str(uuid.uuid4())
+
+
+def _dt(days_ago: int = 0, hours_ago: int = 0):
+    return datetime.now(timezone.utc) - timedelta(days=days_ago, hours=hours_ago)
+
+
+async def seed_database(db: AsyncSession):
+    """Seed if no users exist."""
+    result = await db.execute(select(User).limit(1))
+    if result.scalar_one_or_none():
+        return  # Already seeded
+
+    print("[SEED] Seeding database...")
+
+    # ── Teams ──
+    team_sales1_id = _id()
+    team_sales2_id = _id()
+    team_design_id = _id()
+    team_exec_id = _id()
+
+    teams = [
+        Team(id=team_exec_id, name="Ban Giám Đốc", code="BGD", department="EXEC"),
+        Team(id=team_sales1_id, name="Đội Văn Toàn", code="JMH-VT", department="SALES"),
+        Team(id=team_sales2_id, name="Đội Thái Phượng", code="JMH-TP", department="SALES"),
+        Team(id=team_design_id, name="Phòng Thiết Kế", code="DESIGN-1", department="DESIGN"),
+    ]
+    for t in teams:
+        db.add(t)
+    await db.flush()
+
+    # ── Users ──
+    admin_id = _id()
+    leader_id = _id()
+    sales_id = _id()
+
+    users = [
+        User(
+            id=admin_id, full_name="Nguyễn Văn Admin", email="admin@jamahome.vn",
+            phone="0901234567", password_hash=hash_password("admin123"),
+            role="admin", department="EXEC", team_id=team_exec_id,
+        ),
+        User(
+            id=leader_id, full_name="Lê Văn Leader", email="leader@jamahome.vn",
+            phone="0909876543", password_hash=hash_password("leader123"),
+            role="leader", department="SALES", team_id=team_sales1_id,
+        ),
+        User(
+            id=sales_id, full_name="Trần Thị Sales", email="sales@jamahome.vn",
+            phone="0907654321", password_hash=hash_password("sales123"),
+            role="data_entry", department="SALES", team_id=team_sales1_id,
+        ),
+    ]
+    for u in users:
+        db.add(u)
+    await db.flush()
+
+    # ── Leads ──
+    lead_ids = {
+        "mai": _id(), "tuan": _id(), "huong": _id(), "minh": _id(),
+        "lan": _id(), "phong": _id(), "thao": _id(),
+    }
+
+    leads = [
+        Lead(
+            id=lead_ids["mai"], name="Chị Mai", phone="0901234567",
+            email="mai.nguyen@gmail.com", address="123 Nguyễn Văn Linh, Q7, TP.HCM",
+            needs="Thiết kế nội thất nhà phố 3 tầng, phong cách hiện đại tối giản",
+            source="zalo", property_type="townhouse", area_sqm=180,
+            estimated_budget=500000000, stage="signed_design", priority="high",
+            assigned_to=sales_id, team_id=team_sales1_id, ai_score=92,
+            design_contract_value=45000000,
+            created_at=_dt(45), last_contacted_at=_dt(1),
+        ),
+        Lead(
+            id=lead_ids["tuan"], name="Anh Tuấn", phone="0908765432",
+            email="tuan.pham@yahoo.com", address="Biệt thự Vinhomes Central Park, Bình Chánh",
+            needs="Thiết kế + thi công biệt thự 2 tầng, phong cách Indochine",
+            source="facebook", property_type="villa", area_sqm=350,
+            estimated_budget=2500000000, stage="potential", priority="urgent",
+            assigned_to=sales_id, team_id=team_sales1_id, ai_score=88,
+            created_at=_dt(30), last_contacted_at=_dt(2),
+        ),
+        Lead(
+            id=lead_ids["huong"], name="Chị Hương", phone="0912345678",
+            email="huong.le@outlook.com", address="Căn hộ Sunrise City, Q7",
+            needs="Thiết kế nội thất căn hộ 2PN, phong cách Scandinavian",
+            source="website", property_type="apartment", area_sqm=75,
+            estimated_budget=180000000, stage="survey_scheduled", priority="medium",
+            assigned_to=sales_id, team_id=team_sales1_id, ai_score=72,
+            created_at=_dt(14), last_contacted_at=_dt(3),
+        ),
+        Lead(
+            id=lead_ids["minh"], name="Anh Minh", phone="0987654321",
+            address="Shophouse Q2, TP.HCM",
+            needs="Thiết kế showroom nội thất 2 tầng",
+            source="referral", property_type="shophouse", area_sqm=200,
+            estimated_budget=800000000, stage="interested", priority="high",
+            assigned_to=leader_id, team_id=team_sales1_id, ai_score=78,
+            created_at=_dt(10), last_contacted_at=_dt(4),
+        ),
+        Lead(
+            id=lead_ids["lan"], name="Chị Lan", phone="0976543210",
+            address="Nhà phố Gò Vấp",
+            needs="Thi công nội thất nhà phố, đã có bản vẽ thiết kế",
+            source="tiktok", property_type="townhouse", area_sqm=120,
+            estimated_budget=680000000, stage="potential", priority="medium",
+            assigned_to=sales_id, team_id=team_sales1_id, ai_score=65,
+            created_at=_dt(20), last_contacted_at=_dt(5),
+        ),
+        Lead(
+            id=lead_ids["phong"], name="Anh Phong", phone="0965432109",
+            email="phong.tran@gmail.com", address="Căn hộ Vinhomes Grand Park, Q9",
+            needs="Thiết kế căn hộ 3PN, phong cách luxury",
+            source="facebook", property_type="apartment", area_sqm=95,
+            estimated_budget=350000000, stage="new", priority="medium",
+            assigned_to=None, team_id=None, ai_score=55,
+            created_at=_dt(3), last_contacted_at=None,
+        ),
+        Lead(
+            id=lead_ids["thao"], name="Chị Thảo", phone="0934567890",
+            email="thao.do@company.com", address="Văn phòng Q1, TP.HCM",
+            needs="Thiết kế văn phòng 200m2 cho công ty tech",
+            source="zalo", property_type="office", area_sqm=200,
+            estimated_budget=420000000, stage="new", priority="low",
+            assigned_to=None, team_id=None, ai_score=45,
+            created_at=_dt(1), last_contacted_at=None,
+        ),
+    ]
+    for l in leads:
+        db.add(l)
+    await db.flush()
+
+    # ── Activities ──
+    activities_data = [
+        (lead_ids["mai"], sales_id, "note", "KH rất quan tâm phong cách hiện đại tối giản. Ngân sách linh hoạt.", 40),
+        (lead_ids["mai"], sales_id, "call", "Gọi tư vấn gói thiết kế, KH đồng ý hẹn khảo sát.", 35),
+        (lead_ids["mai"], sales_id, "survey", "Khảo sát nhà 3 tầng Q7. Đo đạc hoàn tất, chụp ảnh hiện trạng.", 28),
+        (lead_ids["mai"], sales_id, "meeting", "Trình bày phương án thiết kế, KH chọn PA2 sửa đổi.", 15),
+        (lead_ids["mai"], sales_id, "stage_change", "Ký hợp đồng thiết kế 45 triệu.", 10),
+        (lead_ids["tuan"], sales_id, "note", "KH VIP, biệt thự lớn. Cần bố trí KTS senior.", 28),
+        (lead_ids["tuan"], sales_id, "call", "Trao đổi phong cách Indochine, gửi portfolio biệt thự.", 25),
+        (lead_ids["tuan"], sales_id, "survey", "Khảo sát biệt thự Bình Chánh. Khuôn viên 350m2, 2 tầng + sân vườn.", 18),
+        (lead_ids["tuan"], sales_id, "note", "KH muốn xem thêm mẫu phòng khách Indochine.", 5),
+        (lead_ids["huong"], sales_id, "call", "Tư vấn gói thiết kế căn hộ, KH thích Scandinavian.", 12),
+        (lead_ids["huong"], sales_id, "note", "Đã hẹn khảo sát ngày mai.", 4),
+        (lead_ids["minh"], leader_id, "call", "Anh Minh được giới thiệu bởi KH cũ. Shophouse Q2.", 8),
+        (lead_ids["minh"], leader_id, "note", "Ngân sách tốt, cần showroom design. Ưu tiên cao.", 6),
+        (lead_ids["lan"], sales_id, "call", "KH đã có bản vẽ, cần thi công. Gửi báo giá.", 18),
+        (lead_ids["lan"], sales_id, "meeting", "Gặp xem bản vẽ thi công, góp ý cải tiến.", 12),
+    ]
+    for lead_id, user_id, atype, content, days in activities_data:
+        db.add(Activity(
+            id=_id(), lead_id=lead_id, user_id=user_id,
+            type=atype, content=content, created_at=_dt(days),
+        ))
+    await db.flush()
+
+    # ── Projects ──
+    proj_ids = {"p1": _id(), "p2": _id(), "p3": _id(), "p4": _id(), "p5": _id()}
+
+    projects = [
+        Project(
+            id=proj_ids["p1"], code="PRJ-2026-001", name="Nhà phố Q7 - Chị Mai",
+            lead_id=lead_ids["mai"], client_name="Chị Mai", client_phone="0901234567",
+            address="123 Nguyễn Văn Linh, Q7", project_type="design_build",
+            design_value=45000000, construction_value=455000000, total_value=500000000,
+            spent=375000000, progress=75, status="active",
+            pm_id=leader_id, designer_id=admin_id, sales_id=sales_id,
+            start_date=_dt(60), target_end_date=_dt(-30),
+        ),
+        Project(
+            id=proj_ids["p2"], code="PRJ-2026-002", name="Biệt thự Bình Chánh - Anh Tuấn",
+            lead_id=lead_ids["tuan"], client_name="Anh Tuấn", client_phone="0908765432",
+            address="Biệt thự Vinhomes, Bình Chánh", project_type="design_build",
+            design_value=120000000, construction_value=2380000000, total_value=2500000000,
+            spent=750000000, progress=30, status="active",
+            pm_id=leader_id, sales_id=sales_id,
+            start_date=_dt(30), target_end_date=_dt(-90),
+        ),
+        Project(
+            id=proj_ids["p3"], code="PRJ-2026-003", name="Căn hộ Sunrise - Chị Hương",
+            lead_id=lead_ids["huong"], client_name="Chị Hương", client_phone="0912345678",
+            address="Căn hộ Sunrise City, Q7", project_type="design_build",
+            design_value=25000000, construction_value=155000000, total_value=180000000,
+            spent=162000000, progress=90, status="active",
+            pm_id=leader_id, sales_id=sales_id,
+            start_date=_dt(90), target_end_date=_dt(-5),
+        ),
+        Project(
+            id=proj_ids["p4"], code="PRJ-2026-004", name="Shophouse Q2 - Anh Minh",
+            lead_id=lead_ids["minh"], client_name="Anh Minh", client_phone="0987654321",
+            address="Shophouse Q2", project_type="design_only",
+            design_value=80000000, total_value=80000000,
+            spent=12000000, progress=15, status="paused",
+            pm_id=leader_id, sales_id=leader_id,
+            start_date=_dt(15),
+        ),
+        Project(
+            id=proj_ids["p5"], code="PRJ-2026-005", name="Nhà phố Gò Vấp - Chị Lan",
+            lead_id=lead_ids["lan"], client_name="Chị Lan", client_phone="0976543210",
+            address="Nhà phố Gò Vấp", project_type="construction_only",
+            construction_value=680000000, total_value=680000000,
+            spent=374000000, progress=55, status="active",
+            sales_id=sales_id,
+            start_date=_dt(45), target_end_date=_dt(-15),
+        ),
+    ]
+    for p in projects:
+        db.add(p)
+    await db.flush()
+
+    # ── Tasks ──
+    task_data = [
+        (proj_ids["p1"], "Thiết kế concept", "completed", 1),
+        (proj_ids["p1"], "Bản vẽ kỹ thuật", "completed", 2),
+        (proj_ids["p1"], "Thi công phần thô", "completed", 3),
+        (proj_ids["p1"], "Lắp đặt nội thất", "in_progress", 4),
+        (proj_ids["p1"], "Hoàn thiện & bàn giao", "pending", 5),
+        (proj_ids["p2"], "Khảo sát hiện trạng", "completed", 1),
+        (proj_ids["p2"], "Thiết kế concept Indochine", "completed", 2),
+        (proj_ids["p2"], "Bản vẽ thi công", "in_progress", 3),
+        (proj_ids["p2"], "Thi công kết cấu", "pending", 4),
+        (proj_ids["p2"], "Hoàn thiện nội thất", "pending", 5),
+    ]
+    for pid, title, status, order in task_data:
+        db.add(Task(id=_id(), project_id=pid, title=title, status=status, order=order))
+    await db.flush()
+
+    # ── Transactions ──
+    tx_data = [
+        ("TX-001", "income", "design_contract", "HĐ Thiết kế Chị Mai", 45000000, proj_ids["p1"], 40),
+        ("TX-002", "income", "construction_contract", "HĐ Thi công Chị Mai - đợt 1", 200000000, proj_ids["p1"], 35),
+        ("TX-003", "expense", "material", "Vật liệu thi công Q7 - đợt 1", 85000000, proj_ids["p1"], 25),
+        ("TX-004", "expense", "labor", "Nhân công thi công Q7 - T5", 45000000, proj_ids["p1"], 20),
+        ("TX-005", "income", "design_contract", "HĐ Thiết kế Anh Tuấn", 120000000, proj_ids["p2"], 28),
+        ("TX-006", "income", "construction_contract", "HĐ Thi công Anh Tuấn - đợt 1", 630000000, proj_ids["p2"], 22),
+        ("TX-007", "expense", "material", "Vật liệu biệt thự Bình Chánh", 350000000, proj_ids["p2"], 15),
+        ("TX-008", "income", "construction_contract", "HĐ Thi công Chị Hương", 155000000, proj_ids["p3"], 85),
+        ("TX-009", "expense", "material", "Nội thất căn hộ Sunrise", 95000000, proj_ids["p3"], 60),
+        ("TX-010", "income", "construction_contract", "HĐ Thi công Chị Lan - đợt 1", 340000000, proj_ids["p5"], 40),
+        ("TX-011", "expense", "salary", "Lương tháng 5/2026", 180000000, None, 30),
+        ("TX-012", "expense", "commission", "Hoa hồng T5 - Sales team", 28500000, None, 28),
+    ]
+    for code, ttype, cat, desc, amount, pid, days in tx_data:
+        db.add(Transaction(
+            id=_id(), code=code, type=ttype, category=cat,
+            description=desc, amount=amount, project_id=pid,
+            created_by=admin_id, date=_dt(days),
+        ))
+    await db.flush()
+
+    # ── Commissions ──
+    comm_data = [
+        (sales_id, proj_ids["p1"], "design_commission", 0.03, 45000000, "signing"),
+        (sales_id, proj_ids["p1"], "construction_commission", 0.02, 455000000, "signing"),
+        (leader_id, proj_ids["p1"], "leader_override", 0.005, 500000000, "signing"),
+        (sales_id, proj_ids["p2"], "design_commission", 0.03, 120000000, "signing"),
+    ]
+    for uid, pid, ctype, rate, base, milestone in comm_data:
+        db.add(Commission(
+            id=_id(), user_id=uid, project_id=pid, type=ctype,
+            rate=rate, base_amount=base, commission_amount=base * rate,
+            milestone=milestone, milestone_pct=0.5, status="approved",
+            period="2026-06",
+        ))
+    await db.flush()
+
+    # ── Payroll ──
+    payroll_data = [
+        (admin_id, 25000000, 0, 0, 0),
+        (leader_id, 15000000, 1250000, 2000000, 1500000),
+        (sales_id, 8000000, 6250000, 1000000, 1200000),
+    ]
+    for uid, base, comm, bonus, ded in payroll_data:
+        db.add(Payroll(
+            id=_id(), user_id=uid, period="2026-06",
+            base_salary=base, commission_total=comm, bonus=bonus,
+            deductions=ded, net_salary=base + comm + bonus - ded,
+            status="approved",
+        ))
+
+    await db.flush()
+
+    # ── Customers (auto-convert from leads that signed) ──
+    from app.models.customer import Customer
+    from app.models.inventory import Material, MaterialUsage
+
+    cust_ids = {"mai": _id(), "tuan": _id(), "huong": _id(), "lan": _id(), "minh": _id()}
+    customers = [
+        Customer(
+            id=cust_ids["mai"], name="Chị Mai", phone="0901234567",
+            email="mai.nguyen@gmail.com", address="123 Nguyễn Văn Linh, Q7, TP.HCM",
+            type="individual", lead_id=lead_ids["mai"],
+        ),
+        Customer(
+            id=cust_ids["tuan"], name="Anh Tuấn", phone="0908765432",
+            email="tuan.pham@yahoo.com", address="Biệt thự Vinhomes Central Park, Bình Chánh",
+            type="individual", lead_id=lead_ids["tuan"],
+        ),
+        Customer(
+            id=cust_ids["huong"], name="Chị Hương", phone="0912345678",
+            email="huong.le@outlook.com", address="Căn hộ Sunrise City, Q7",
+            type="individual", lead_id=lead_ids["huong"],
+        ),
+        Customer(
+            id=cust_ids["lan"], name="Chị Lan", phone="0976543210",
+            address="Nhà phố Gò Vấp",
+            type="individual", lead_id=lead_ids["lan"],
+        ),
+        Customer(
+            id=cust_ids["minh"], name="Công ty TNHH Minh Design", phone="0987654321",
+            email="minh@minhdesign.vn", address="Shophouse Q2, TP.HCM",
+            type="company", company_name="Công ty TNHH Minh Design",
+            tax_code="0316789012", lead_id=lead_ids["minh"],
+        ),
+    ]
+    for c in customers:
+        db.add(c)
+    await db.flush()
+
+    # ── Contracts ──
+    from app.models.contract import Contract
+    contract_ids = {"c1": _id(), "c2": _id(), "c3": _id()}
+    contracts = [
+        Contract(
+            id=contract_ids["c1"], code="HD-2026-001",
+            project_id=proj_ids["p1"], title="HĐ Thiết kế + Thi công Nhà phố Q7 - Chị Mai",
+            status="signed", total_value=500000000,
+            signed_date=_dt(55).date(), working_days=120, start_date=_dt(60).date(),
+            payment_terms={"installments": [
+                {"name": "Đợt 1 (Đặt cọc)", "percentage": 25, "milestone": "signing", "status": "paid", "amount": 125000000, "paid_date": str(_dt(55).date())},
+                {"name": "Đợt 2 (Nghiệm thu thô)", "percentage": 25, "milestone": "rough_complete", "status": "paid", "amount": 125000000, "paid_date": str(_dt(20).date())},
+                {"name": "Đợt 3 (Nội thất)", "percentage": 25, "milestone": "interior_complete", "status": "pending"},
+                {"name": "Đợt 4 (Bàn giao)", "percentage": 25, "milestone": "handover", "status": "pending"},
+            ]},
+        ),
+        Contract(
+            id=contract_ids["c2"], code="HD-2026-002",
+            project_id=proj_ids["p2"], title="HĐ Thiết kế + Thi công Biệt thự Bình Chánh - Anh Tuấn",
+            status="signed", total_value=2500000000,
+            signed_date=_dt(28).date(), working_days=180, start_date=_dt(30).date(),
+            payment_terms={"installments": [
+                {"name": "Đợt 1 (Đặt cọc)", "percentage": 25, "milestone": "signing", "status": "paid", "amount": 625000000, "paid_date": str(_dt(28).date())},
+                {"name": "Đợt 2 (Nghiệm thu thô)", "percentage": 25, "milestone": "rough_complete", "status": "pending"},
+                {"name": "Đợt 3 (Nội thất)", "percentage": 25, "milestone": "interior_complete", "status": "pending"},
+                {"name": "Đợt 4 (Bàn giao)", "percentage": 25, "milestone": "handover", "status": "pending"},
+            ]},
+        ),
+        Contract(
+            id=contract_ids["c3"], code="HD-2026-003",
+            project_id=proj_ids["p5"], title="HĐ Thi công Nhà phố Gò Vấp - Chị Lan",
+            status="signed", total_value=680000000,
+            signed_date=_dt(40).date(), working_days=90, start_date=_dt(45).date(),
+            payment_terms={"installments": [
+                {"name": "Đợt 1 (Đặt cọc)", "percentage": 30, "milestone": "signing", "status": "paid", "amount": 204000000, "paid_date": str(_dt(40).date())},
+                {"name": "Đợt 2 (Nghiệm thu thô)", "percentage": 30, "milestone": "rough_complete", "status": "paid", "amount": 204000000, "paid_date": str(_dt(15).date())},
+                {"name": "Đợt 3 (Bàn giao)", "percentage": 40, "milestone": "handover", "status": "pending"},
+            ]},
+        ),
+    ]
+    for c in contracts:
+        db.add(c)
+    await db.flush()
+
+    # ── Quotations ──
+    from app.models.quotation import Quotation
+    quotations = [
+        Quotation(
+            id=_id(), code="BG-2026-001", type="design",
+            project_id=proj_ids["p1"], lead_id=lead_ids["mai"],
+            title="Báo giá thiết kế nội thất nhà phố Q7 - Chị Mai",
+            status="approved", total_amount=45000000, tax_amount=4500000,
+            created_by=sales_id, revision=2,
+            items={"line_items": [
+                {"name": "Thiết kế phòng khách", "category": "phong_khach", "unit": "gói", "quantity": 1, "unit_price": 15000000, "total": 15000000},
+                {"name": "Thiết kế phòng ngủ master", "category": "phong_ngu", "unit": "gói", "quantity": 1, "unit_price": 12000000, "total": 12000000},
+                {"name": "Thiết kế bếp + phòng ăn", "category": "bep", "unit": "gói", "quantity": 1, "unit_price": 10000000, "total": 10000000},
+                {"name": "Thiết kế phòng tắm (x2)", "category": "phong_tam", "unit": "gói", "quantity": 2, "unit_price": 4000000, "total": 8000000},
+            ]},
+        ),
+        Quotation(
+            id=_id(), code="BG-2026-002", type="construction",
+            project_id=proj_ids["p1"], lead_id=lead_ids["mai"],
+            title="Báo giá thi công nội thất nhà phố Q7 - Chị Mai",
+            status="approved", total_amount=455000000, tax_amount=45500000,
+            created_by=sales_id,
+            items={"line_items": [
+                {"name": "Thi công trần thạch cao", "category": "general", "unit": "m2", "quantity": 120, "unit_price": 450000, "total": 54000000},
+                {"name": "Hệ tủ bếp cao cấp", "category": "bep", "unit": "bộ", "quantity": 1, "unit_price": 85000000, "total": 85000000},
+                {"name": "Sàn gỗ công nghiệp", "category": "general", "unit": "m2", "quantity": 150, "unit_price": 650000, "total": 97500000},
+                {"name": "Nội thất phòng khách", "category": "phong_khach", "unit": "bộ", "quantity": 1, "unit_price": 120000000, "total": 120000000},
+                {"name": "Nội thất 2 phòng ngủ", "category": "phong_ngu", "unit": "bộ", "quantity": 2, "unit_price": 49250000, "total": 98500000},
+            ]},
+        ),
+        Quotation(
+            id=_id(), code="BG-2026-003", type="design",
+            project_id=proj_ids["p2"], lead_id=lead_ids["tuan"],
+            title="Báo giá thiết kế biệt thự Indochine - Anh Tuấn",
+            status="approved", total_amount=120000000, tax_amount=12000000,
+            created_by=leader_id,
+            items={"line_items": [
+                {"name": "Thiết kế kiến trúc mặt ngoài", "category": "custom", "unit": "gói", "quantity": 1, "unit_price": 35000000, "total": 35000000},
+                {"name": "Thiết kế nội thất tầng 1", "category": "phong_khach", "unit": "gói", "quantity": 1, "unit_price": 45000000, "total": 45000000},
+                {"name": "Thiết kế nội thất tầng 2", "category": "phong_ngu", "unit": "gói", "quantity": 1, "unit_price": 30000000, "total": 30000000},
+                {"name": "Thiết kế sân vườn", "category": "custom", "unit": "gói", "quantity": 1, "unit_price": 10000000, "total": 10000000},
+            ]},
+        ),
+        Quotation(
+            id=_id(), code="BG-2026-004", type="construction",
+            project_id=proj_ids["p5"], lead_id=lead_ids["lan"],
+            title="Báo giá thi công nhà phố Gò Vấp - Chị Lan",
+            status="sent", total_amount=680000000, tax_amount=68000000,
+            created_by=sales_id,
+            items={"line_items": [
+                {"name": "Thi công phần thô", "category": "general", "unit": "gói", "quantity": 1, "unit_price": 280000000, "total": 280000000},
+                {"name": "Nội thất toàn bộ", "category": "general", "unit": "gói", "quantity": 1, "unit_price": 320000000, "total": 320000000},
+                {"name": "Hệ thống điện + nước", "category": "custom", "unit": "gói", "quantity": 1, "unit_price": 80000000, "total": 80000000},
+            ]},
+        ),
+    ]
+    for q in quotations:
+        db.add(q)
+    await db.flush()
+
+    # ── Materials (Inventory) ──
+    mat_ids = {f"m{i}": _id() for i in range(1, 11)}
+    materials = [
+        Material(id=mat_ids["m1"], code="VT-001", name="Gỗ công nghiệp MDF lõi xanh", category="wood", unit="tấm", unit_price=350000, quantity_in_stock=120, min_stock=20, supplier="Công ty An Cường"),
+        Material(id=mat_ids["m2"], code="VT-002", name="Sàn gỗ Egger 12mm", category="wood", unit="m2", unit_price=650000, quantity_in_stock=85, min_stock=50, supplier="Egger Việt Nam"),
+        Material(id=mat_ids["m3"], code="VT-003", name="Đá granite đen Ấn Độ", category="stone", unit="m2", unit_price=1200000, quantity_in_stock=45, min_stock=15, supplier="Đá Hoàng Gia"),
+        Material(id=mat_ids["m4"], code="VT-004", name="Sơn Dulux nội thất cao cấp", category="paint", unit="thùng", unit_price=890000, quantity_in_stock=30, min_stock=10, supplier="AkzoNobel"),
+        Material(id=mat_ids["m5"], code="VT-005", name="Inox 304 ống vuông 40x40", category="metal", unit="cây", unit_price=285000, quantity_in_stock=60, min_stock=20, supplier="Inox Đại Dương"),
+        Material(id=mat_ids["m6"], code="VT-006", name="Kính cường lực 10mm", category="glass", unit="m2", unit_price=480000, quantity_in_stock=35, min_stock=10, supplier="Kính Hưng Thịnh"),
+        Material(id=mat_ids["m7"], code="VT-007", name="Đèn LED panel 600x600", category="electrical", unit="cái", unit_price=320000, quantity_in_stock=8, min_stock=15, supplier="Rạng Đông"),
+        Material(id=mat_ids["m8"], code="VT-008", name="Vải sofa nhập Bỉ", category="fabric", unit="m", unit_price=950000, quantity_in_stock=40, min_stock=10, supplier="Vải Hoàng Hà"),
+        Material(id=mat_ids["m9"], code="VT-009", name="Ống PPR nóng 25mm", category="plumbing", unit="cây", unit_price=125000, quantity_in_stock=100, min_stock=30, supplier="Vesbo"),
+        Material(id=mat_ids["m10"], code="VT-010", name="Bản lề giảm chấn Blum", category="furniture", unit="cái", unit_price=85000, quantity_in_stock=200, min_stock=50, supplier="Blum Việt Nam"),
+    ]
+    for m in materials:
+        db.add(m)
+    await db.flush()
+
+    # ── Material Usage (xuất kho) ──
+    usages = [
+        MaterialUsage(id=_id(), material_id=mat_ids["m1"], project_id=proj_ids["p1"], quantity=25, unit_price_at_use=350000, total_cost=8750000, date=_dt(30), created_by=admin_id),
+        MaterialUsage(id=_id(), material_id=mat_ids["m2"], project_id=proj_ids["p1"], quantity=45, unit_price_at_use=650000, total_cost=29250000, date=_dt(25), created_by=admin_id),
+        MaterialUsage(id=_id(), material_id=mat_ids["m4"], project_id=proj_ids["p1"], quantity=8, unit_price_at_use=890000, total_cost=7120000, date=_dt(20), created_by=admin_id),
+        MaterialUsage(id=_id(), material_id=mat_ids["m3"], project_id=proj_ids["p2"], quantity=15, unit_price_at_use=1200000, total_cost=18000000, date=_dt(15), created_by=leader_id),
+        MaterialUsage(id=_id(), material_id=mat_ids["m5"], project_id=proj_ids["p2"], quantity=20, unit_price_at_use=285000, total_cost=5700000, date=_dt(10), created_by=leader_id),
+        MaterialUsage(id=_id(), material_id=mat_ids["m10"], project_id=proj_ids["p3"], quantity=24, unit_price_at_use=85000, total_cost=2040000, date=_dt(8), created_by=sales_id),
+    ]
+    for u in usages:
+        db.add(u)
+
+    await db.flush()
+    print("[OK] Seed complete: 3 users, 4 teams, 7 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials")
+

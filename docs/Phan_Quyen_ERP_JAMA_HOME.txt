@@ -1,0 +1,106 @@
+JAMA HOME
+jamahome.vn
+
+TÀI LIỆU PHÂN QUYỀN
+HỆ THỐNG ERP
+Phân quyền truy cập và chức năng theo từng bộ phận
+Phiên bản 1.0
+Ngày ban hành: 06/04/2026
+Trạng thái: Chính thức
+
+1. Tổng Quan Hệ Thống
+Tài liệu này mô tả cấu trúc phân quyền của hệ thống ERP tại JAMA HOME, bao gồm các vai trò (roles), phạm vi quyền hạn và danh sách nhân sự theo từng bộ phận. Mục tiêu đảm bảo an toàn dữ liệu, kiểm soát truy cập và phân công trách nhiệm rõ ràng.
+
+1.1 Cấu Trúc Tổ Chức
+Hệ thống ERP của JAMA HOME bao gồm 5 bộ phận chính:
+
+Ban Giám Đốc (EXEC): Cấp điều hành, toàn quyền hệ thống
+Phòng Kinh Doanh (SALES): Quản lý khách hàng, báo giá, hợp đồng
+Phòng Thiết Kế (DESIGN): Quản lý thiết kế nội thất
+Phòng Dự Án (PM): Quản lý tiến độ và thực thi dự án
+Phòng Kế Toán (ACCT): Quản lý tài chính, hóa đơn, kế toán
+
+1.2 Định Nghĩa Vai Trò (Roles)
+Hệ thống xác thực sử dụng Keycloak với các vai trò được định nghĩa như sau:
+
+
+
+2. Ban Giám Đốc (EXEC)
+Ban Giám Đốc có quyền truy cập cao nhất trong hệ thống với vai trò admin, có thể xem và thao tác toàn bộ các module ERP.
+
+2.1 Phân Quyền Chức Năng
+
+2.2 Danh Sách Nhân Sự
+
+
+3. Phòng Kinh Doanh (SALES)
+Phòng Kinh Doanh là bộ phận có số lượng nhân sự đông nhất, được tổ chức thành 5 đội kinh doanh độc lập. Mỗi đội có Trưởng nhóm (leader) và các Nhân viên nhập liệu (data_entry).
+
+3.1 Phân Quyền Chức Năng
+
+Trưởng Nhóm (leader):
+
+Nhân Viên Kinh Doanh (data_entry):
+
+3.2 Cơ Cấu Đội Nhóm
+
+3.3 Danh Sách Nhân Sự
+
+
+4. Phòng Thiết Kế (DESIGN)
+Phòng Thiết Kế chịu trách nhiệm thiết kế nội thất cho các dự án. Hiện tại bộ phận sử dụng tài khoản quản trị hệ thống cho đội thiết kế.
+
+4.1 Phân Quyền Chức Năng
+
+4.2 Danh Sách Nhân Sự & Đội Nhóm
+Đội Thiết Kế (DESIGN-1) - Trưởng đội: Quản trị viên hệ thống
+
+Lưu ý: Phòng Thiết Kế hiện chưa có nhân sự được gán riêng trong hệ thống. Đề xuất bổ sung tài khoản chuyên biệt cho bộ phận này.
+
+
+5. Phòng Dự Án (PM)
+Phòng Dự Án chịu trách nhiệm quản lý tiến độ thực thi các dự án nội thất từ khi ký hợp đồng đến khi bàn giao.
+
+5.1 Phân Quyền Chức Năng
+
+5.2 Danh Sách Nhân Sự & Đội Nhóm
+Đội Dự Án (PM-1) - Trưởng đội: Quản trị viên hệ thống
+
+Lưu ý: Phòng Dự Án hiện chưa có nhân sự được gán riêng trong hệ thống. Đề xuất bổ sung nhân sự Quản lý Dự Án (PM) chuyên biệt.
+
+
+6. Phòng Kế Toán (ACCT)
+Phòng Kế Toán chịu trách nhiệm quản lý tài chính, hóa đơn, sổ sách kế toán và các báo cáo tài chính của công ty.
+
+6.1 Phân Quyền Chức Năng
+
+6.2 Danh Sách Nhân Sự & Đội Nhóm
+Đội Kế Toán (ACCT-1) - Trưởng đội: Quản trị viên hệ thống
+
+Lưu ý: Phòng Kế Toán hiện chưa có nhân sự chuyên biệt được gán trong hệ thống. Đề xuất tạo tài khoản với vai trò accountant/finance cho bộ phận này.
+
+
+7. Ma Trận Phân Quyền Tổng Hợp
+Bảng tổng hợp quyền truy cập giữa các bộ phận và module hệ thống:
+
+
+
+8. Lưu Ý & Khuyến Nghị
+
+8.1 Vấn Đề Hiện Tại
+Phòng Thiết Kế, Phòng Dự Án và Phòng Kế Toán chưa có tài khoản nhân sự chuyên biệt - đang dùng chung tài khoản admin.
+Một số người dùng Phòng Kinh Doanh có cả vai trò offline_access/default-roles-erp cùng data_entry - cần rà soát để đồng nhất.
+Tài khoản dieu.chau không có full_name trong hệ thống - cần bổ sung thông tin.
+Đội Lưu Mạnh Hồng (JMH-HONG) hiện chỉ có trưởng nhóm, chưa có thành viên.
+
+8.2 Khuyến Nghị
+Tạo vai trò chuyên biệt cho Kế Toán (accountant) và Quản lý Dự Án (pm) với quyền hạn phù hợp.
+Tạo tài khoản riêng cho từng nhân viên Thiết Kế, Dự Án và Kế Toán thay vì dùng admin chung.
+Định kỳ rà soát và kiểm tra phân quyền mỗi quý để đảm bảo tuân thủ nguyên tắc quyền tối thiểu (Least Privilege).
+Thiết lập quy trình onboarding/offboarding để tự động cấp/thu hồi quyền khi nhân sự thay đổi.
+Bổ sung audit log để theo dõi các hành động quan trọng trong hệ thống.
+
+8.3 Phê Duyệt Tài Liệu
+
+
+--- Hết tài liệu ---

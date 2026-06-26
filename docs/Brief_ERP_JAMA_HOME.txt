@@ -1,0 +1,65 @@
+
+Link xem pipeline => https://ngzj1w0269x.sg.larksuite.com/docx/Pz5DdMPfaoeARwxY3JvlJTgogcb?openbrd=1&doc_app_id=501&blockId=YYVVdBOtnoA2vlxUrH8lU3ZZgAc&blockType=whiteboard&blockToken=ORSgw2RZThlq0zbfzLNl1SvigXd#YYVVdBOtnoA2vlxUrH8lU3ZZgAc
+
+Mục tiêu:
+Quản lý toàn bộ công việc, dự án, phối hợp liên phòng ban trong 1 hệ thống duy nhất
+Hỗ trợ các công tác báo cáo, phân tích, quyết định
+Hỗ trợ làm báo giá, tính lương thưởng theo dự án
+
+Link hệ thống  đang build hiện tai + tài khoản
+https://jama.lightning-labs.io/
+Admin
+password
+
+1. CRM:
+
+Quy trình làm việc công ty hiện tại
+1. Admin sau khi tư vấn khách ở các kênh => Nhập data vào hệ thống
+2. Data phân chia cho sale
+3. Sale liên hệ chăm sóc và cập nhật trạng thái theo pipeline đã xây dựng
+
+Quản lý dữ liệu KH
+- Nhập thông tin khách hàng (KH) mới
+- Phân chia lead cho từng nhóm (trưởng nhóm)
+- Phân chia lead cho từng Sale (Không được lộ thông tin sđt KH của sale này cho sale khác)
+
+Quản lý cơ hội khách hàng
+- Sale cập nhật tình trạng chăm sóc khách hàng, lịch sử trao đổi với khách hàng
++ Tình trạng liên hệ
++ Tiến độ chăm sóc
++ Mức độ tiềm năng (ưu tiên)
++ Lịch sử trao đổi KH
++ Ngày khảo sát
++ Ngày ký TK - Giá trị TK
++ Ngày ký thi công - Giá trị thi công
+- Tính năng nhắc task
++ Quá hạn CSKH => Thu hồi lead & giao cho sale khác
++ Nhắc cập nhật thông tin chăm sóc KH mỗi 3-5 ngày (khi nào KH hết nhu cầu thì ngưng)
+
+
+2. Quản lý dự án
+- KH khi ký thiết kế => Tạo 1 dự án mới => Thông báo cho TPTK => TPTK phân công KTS phụ trách => KTS triển khai TK & cập nhật tiền độ, thông tin dự án
+
+- Dự án khi ký thi công => Thông báo cho TP Giám sát => Phân công GS của dự án => Cập nhật tiến độ dự án
+
+
+3. Tính năng báo giá
+- Báo giá tự động cơ bản (hỗ trợ báo giá cho những hạng mục đã cố định giá, nhưng không thay thế hoàn toàn công việc của phòng Thu mua - Kế toán)
+- Quản lý báo giá (upload file)
+- Quản lý hợp đồng
+- Quản lý hóa đơn & nhắc hẹn thanh toán
+
+4. Tính năng tính lương thưởng
+- Tự động tính thưởng, hoa hồng dự án cho từng nhân sự tham gia
+- Tự động tính thu nhập (lương + thưởng) mỗi tháng. (KHi nhập đủ thông tin dự án & yêu cầu, nghiệm thu mới tính hh)
+
+=> Gửi yêu cầu duyệt cho kế toán để duyệt lương - thưởng mỗi tháng
+
+5. Báo cáo. Báo cáo các chỉ số
+- Báo cáo tổng (Doanh thu mục tiêu/thực đạt, cơ hội bán hàng, doanh thu dự kiến, data,…)
+- Báo cáo team kinh doanh (Doanh thu theo nhóm, theo từng nhân sự)
+- Báo cáo team thiết kế (DT, khối lượng công việc theo nhóm, nhân sự)
+- Báo cáo hiệu suất team giám sát (Số lượng CT, doanh thu theo từng GS)
+
+=> Báo cáo phải tuỳ chỉnh được theo tháng, chu kỳ ngày
+=> Báo cáo gửi tự động cho BOD hàng ngày/tuần/tháng

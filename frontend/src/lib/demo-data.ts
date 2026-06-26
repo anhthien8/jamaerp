@@ -1,0 +1,459 @@
+/**
+ * JAMA HOME CRM — Complete Demo Data
+ * Used when backend API is unavailable (demo mode).
+ */
+
+import type {
+  User, Team, Lead, Activity, Project, ProjectTask,
+  Transaction, AccountingSummary, Commission, PayrollEntry,
+  PipelineStats, PipelineKanban, DashboardExecutive, DashboardPersonal,
+  Customer, Contract, Quotation, Material, MaterialUsage, AISuggestion,
+} from './api';
+
+// ─── Users ──────────────────────────────────────────────
+export const DEMO_USERS: User[] = [
+  { id: 'demo-admin-001', full_name: 'Nguyễn Văn Admin', email: 'admin@jamahome.vn', phone: '0901234567', role: 'admin', department: 'EXEC', team_id: 'demo-team-04', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-leader-001', full_name: 'Lê Văn Leader', email: 'leader@jamahome.vn', phone: '0909876543', role: 'leader', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-10T00:00:00Z' },
+  { id: 'demo-sales-001', full_name: 'Trần Thị Sales', email: 'sales@jamahome.vn', phone: '0907654321', role: 'data_entry', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-15T00:00:00Z' },
+  { id: 'demo-acct-001', full_name: 'Phạm Thị Kế Toán', email: 'accountant@jamahome.vn', phone: '0905555666', role: 'accountant', department: 'ACCT', is_active: true, created_at: '2026-01-20T00:00:00Z' },
+  { id: 'demo-exec-001', full_name: 'Đỗ Minh Tuấn', email: 'ceo@jamahome.vn', phone: '0901111222', role: 'executive', department: 'EXEC', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+];
+
+// ─── Teams ──────────────────────────────────────────────
+export const DEMO_TEAMS: Team[] = [
+  { id: 'demo-team-04', name: 'Ban Giám Đốc', code: 'BGD', department: 'EXEC', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-team-01', name: 'Đội Văn Toàn', code: 'JMH-VT', department: 'SALES', leader_id: 'demo-leader-001', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-team-02', name: 'Đội Thái Phượng', code: 'JMH-TP', department: 'SALES', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-team-03', name: 'Phòng Thiết Kế', code: 'DESIGN-1', department: 'DESIGN', created_at: '2026-01-01T00:00:00Z' },
+];
+
+// ─── Leads (7 leads across all 5 stages) ────────────────
+export const DEMO_LEADS: Lead[] = [
+  {
+    id: 'demo-lead-001', name: 'Chị Mai', phone: '0901234567', email: 'mai.nguyen@gmail.com',
+    address: '123 Nguyễn Văn Linh, Q7, TP.HCM',
+    needs: 'Thiết kế nội thất nhà phố 3 tầng, phong cách hiện đại tối giản',
+    source: 'zalo', property_type: 'townhouse', area_sqm: 180, estimated_budget: 500000000,
+    stage: 'signed_design', priority: 'high', assigned_to: 'demo-sales-001', team_id: 'demo-team-01',
+    ai_score: 92, design_contract_value: 45000000,
+    assigned_user_name: 'Trần Thị Sales', team_name: 'Đội Văn Toàn', activity_count: 5,
+    created_at: '2026-05-11T07:40:31Z', updated_at: '2026-06-23T09:00:00Z', last_contacted_at: '2026-06-24T10:30:00Z',
+  },
+  {
+    id: 'demo-lead-002', name: 'Anh Tuấn', phone: '0908765432', email: 'tuan.pham@yahoo.com',
+    address: 'Biệt thự Vinhomes Central Park, Bình Chánh',
+    needs: 'Thiết kế + thi công biệt thự 2 tầng, phong cách Indochine',
+    source: 'facebook', property_type: 'villa', area_sqm: 350, estimated_budget: 2500000000,
+    stage: 'potential', priority: 'urgent', assigned_to: 'demo-sales-001', team_id: 'demo-team-01',
+    ai_score: 88,
+    assigned_user_name: 'Trần Thị Sales', team_name: 'Đội Văn Toàn', activity_count: 4,
+    created_at: '2026-05-26T07:40:31Z', updated_at: '2026-06-22T14:00:00Z', last_contacted_at: '2026-06-23T08:00:00Z',
+  },
+  {
+    id: 'demo-lead-003', name: 'Chị Hương', phone: '0912345678', email: 'huong.le@outlook.com',
+    address: 'Căn hộ Sunrise City, Q7',
+    needs: 'Thiết kế nội thất căn hộ 2PN, phong cách Scandinavian',
+    source: 'website', property_type: 'apartment', area_sqm: 75, estimated_budget: 180000000,
+    stage: 'survey_scheduled', priority: 'medium', assigned_to: 'demo-sales-001', team_id: 'demo-team-01',
+    ai_score: 72,
+    assigned_user_name: 'Trần Thị Sales', team_name: 'Đội Văn Toàn', activity_count: 2,
+    created_at: '2026-06-11T07:40:31Z', updated_at: '2026-06-21T11:00:00Z', last_contacted_at: '2026-06-22T09:00:00Z',
+  },
+  {
+    id: 'demo-lead-004', name: 'Anh Minh', phone: '0987654321',
+    address: 'Shophouse Q2, TP.HCM',
+    needs: 'Thiết kế showroom nội thất 2 tầng',
+    source: 'referral', property_type: 'shophouse', area_sqm: 200, estimated_budget: 800000000,
+    stage: 'interested', priority: 'high', assigned_to: 'demo-leader-001', team_id: 'demo-team-01',
+    ai_score: 78,
+    assigned_user_name: 'Lê Văn Leader', team_name: 'Đội Văn Toàn', activity_count: 2,
+    created_at: '2026-06-16T07:40:31Z', updated_at: '2026-06-20T16:00:00Z', last_contacted_at: '2026-06-21T08:00:00Z',
+  },
+  {
+    id: 'demo-lead-005', name: 'Chị Lan', phone: '0976543210',
+    address: 'Nhà phố Gò Vấp',
+    needs: 'Thi công nội thất nhà phố, đã có bản vẽ thiết kế',
+    source: 'tiktok', property_type: 'townhouse', area_sqm: 120, estimated_budget: 680000000,
+    stage: 'potential', priority: 'medium', assigned_to: 'demo-sales-001', team_id: 'demo-team-01',
+    ai_score: 65,
+    assigned_user_name: 'Trần Thị Sales', team_name: 'Đội Văn Toàn', activity_count: 2,
+    created_at: '2026-06-06T07:40:31Z', updated_at: '2026-06-19T10:00:00Z', last_contacted_at: '2026-06-20T09:00:00Z',
+  },
+  {
+    id: 'demo-lead-006', name: 'Anh Phong', phone: '0965432109', email: 'phong.tran@gmail.com',
+    address: 'Căn hộ Vinhomes Grand Park, Q9',
+    needs: 'Thiết kế căn hộ 3PN, phong cách luxury',
+    source: 'facebook', property_type: 'apartment', area_sqm: 95, estimated_budget: 350000000,
+    stage: 'new', priority: 'medium', assigned_to: undefined, team_id: undefined,
+    ai_score: 55,
+    assigned_user_name: undefined, team_name: undefined, activity_count: 0,
+    created_at: '2026-06-23T07:40:31Z', updated_at: '2026-06-23T07:40:31Z', last_contacted_at: undefined,
+  },
+  {
+    id: 'demo-lead-007', name: 'Chị Thảo', phone: '0934567890', email: 'thao.do@company.com',
+    address: 'Văn phòng Q1, TP.HCM',
+    needs: 'Thiết kế văn phòng 200m2 cho công ty tech',
+    source: 'zalo', property_type: 'office', area_sqm: 200, estimated_budget: 420000000,
+    stage: 'new', priority: 'low', assigned_to: undefined, team_id: undefined,
+    ai_score: 45,
+    assigned_user_name: undefined, team_name: undefined, activity_count: 0,
+    created_at: '2026-06-25T07:40:31Z', updated_at: '2026-06-25T07:40:31Z', last_contacted_at: undefined,
+  },
+];
+
+// ─── Activities (15+) ───────────────────────────────────
+export const DEMO_ACTIVITIES: Activity[] = [
+  { id: 'demo-act-001', lead_id: 'demo-lead-001', user_id: 'demo-sales-001', type: 'note', content: 'KH rất quan tâm phong cách hiện đại tối giản. Ngân sách linh hoạt.', created_at: '2026-05-16T09:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-002', lead_id: 'demo-lead-001', user_id: 'demo-sales-001', type: 'call', content: 'Gọi tư vấn gói thiết kế, KH đồng ý hẹn khảo sát.', created_at: '2026-05-21T14:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-003', lead_id: 'demo-lead-001', user_id: 'demo-sales-001', type: 'meeting', content: 'Khảo sát nhà 3 tầng Q7. Đo đạc hoàn tất, chụp ảnh hiện trạng.', created_at: '2026-06-02T10:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-004', lead_id: 'demo-lead-001', user_id: 'demo-sales-001', type: 'meeting', content: 'Trình bày phương án thiết kế, KH chọn PA2 sửa đổi.', created_at: '2026-06-10T15:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-005', lead_id: 'demo-lead-001', user_id: 'demo-sales-001', type: 'stage_change', content: 'Ký hợp đồng thiết kế 45 triệu.', created_at: '2026-06-15T09:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-006', lead_id: 'demo-lead-002', user_id: 'demo-sales-001', type: 'note', content: 'KH VIP, biệt thự lớn. Cần bố trí KTS senior.', created_at: '2026-05-28T10:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-007', lead_id: 'demo-lead-002', user_id: 'demo-sales-001', type: 'call', content: 'Trao đổi phong cách Indochine, gửi portfolio biệt thự.', created_at: '2026-06-01T11:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-008', lead_id: 'demo-lead-002', user_id: 'demo-sales-001', type: 'meeting', content: 'Khảo sát biệt thự Bình Chánh. Khuôn viên 350m2, 2 tầng + sân vườn.', created_at: '2026-06-08T09:30:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-009', lead_id: 'demo-lead-002', user_id: 'demo-sales-001', type: 'note', content: 'KH muốn xem thêm mẫu phòng khách Indochine. Đã gửi 3 mẫu.', created_at: '2026-06-23T08:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-010', lead_id: 'demo-lead-003', user_id: 'demo-sales-001', type: 'call', content: 'Tư vấn gói thiết kế căn hộ, KH thích Scandinavian.', created_at: '2026-06-13T14:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-011', lead_id: 'demo-lead-003', user_id: 'demo-sales-001', type: 'note', content: 'Đã hẹn khảo sát căn hộ Sunrise ngày 22/06.', created_at: '2026-06-20T16:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-012', lead_id: 'demo-lead-004', user_id: 'demo-leader-001', type: 'call', content: 'Anh Minh được giới thiệu bởi KH cũ. Shophouse Q2.', created_at: '2026-06-17T10:00:00Z', user_name: 'Lê Văn Leader' },
+  { id: 'demo-act-013', lead_id: 'demo-lead-004', user_id: 'demo-leader-001', type: 'note', content: 'Ngân sách tốt, cần showroom design. Ưu tiên cao.', created_at: '2026-06-21T08:00:00Z', user_name: 'Lê Văn Leader' },
+  { id: 'demo-act-014', lead_id: 'demo-lead-005', user_id: 'demo-sales-001', type: 'call', content: 'KH đã có bản vẽ, cần thi công. Gửi báo giá thi công.', created_at: '2026-06-08T11:00:00Z', user_name: 'Trần Thị Sales' },
+  { id: 'demo-act-015', lead_id: 'demo-lead-005', user_id: 'demo-sales-001', type: 'meeting', content: 'Gặp xem bản vẽ thi công, góp ý cải tiến.', created_at: '2026-06-19T10:00:00Z', user_name: 'Trần Thị Sales' },
+];
+
+// ─── Projects (5 projects) ──────────────────────────────
+export const DEMO_PROJECTS: Project[] = [
+  {
+    id: 'demo-proj-001', code: 'PRJ-2026-001', name: 'Nhà phố Q7 - Chị Mai',
+    lead_id: 'demo-lead-001', client_name: 'Chị Mai', client_phone: '0901234567',
+    address: '123 Nguyễn Văn Linh, Q7', project_type: 'design_build', status: 'active',
+    design_value: 45000000, construction_value: 455000000, total_value: 500000000,
+    spent: 375000000, progress: 75,
+    start_date: '2026-04-26T00:00:00Z', target_end_date: '2026-09-25T00:00:00Z',
+    created_at: '2026-04-26T00:00:00Z', updated_at: '2026-06-25T00:00:00Z',
+  },
+  {
+    id: 'demo-proj-002', code: 'PRJ-2026-002', name: 'Biệt thự Bình Chánh - Anh Tuấn',
+    lead_id: 'demo-lead-002', client_name: 'Anh Tuấn', client_phone: '0908765432',
+    address: 'Biệt thự Vinhomes, Bình Chánh', project_type: 'design_build', status: 'active',
+    design_value: 120000000, construction_value: 2380000000, total_value: 2500000000,
+    spent: 750000000, progress: 30,
+    start_date: '2026-05-26T00:00:00Z', target_end_date: '2026-11-22T00:00:00Z',
+    created_at: '2026-05-26T00:00:00Z', updated_at: '2026-06-25T00:00:00Z',
+  },
+  {
+    id: 'demo-proj-003', code: 'PRJ-2026-003', name: 'Căn hộ Sunrise - Chị Hương',
+    lead_id: 'demo-lead-003', client_name: 'Chị Hương', client_phone: '0912345678',
+    address: 'Căn hộ Sunrise City, Q7', project_type: 'design_build', status: 'active',
+    design_value: 25000000, construction_value: 155000000, total_value: 180000000,
+    spent: 162000000, progress: 90,
+    start_date: '2026-03-27T00:00:00Z', target_end_date: '2026-07-20T00:00:00Z',
+    created_at: '2026-03-27T00:00:00Z', updated_at: '2026-06-25T00:00:00Z',
+  },
+  {
+    id: 'demo-proj-004', code: 'PRJ-2026-004', name: 'Shophouse Q2 - Anh Minh',
+    lead_id: 'demo-lead-004', client_name: 'Anh Minh', client_phone: '0987654321',
+    address: 'Shophouse Q2', project_type: 'design_only', status: 'paused',
+    design_value: 80000000, total_value: 80000000,
+    spent: 12000000, progress: 15,
+    start_date: '2026-06-11T00:00:00Z',
+    created_at: '2026-06-11T00:00:00Z', updated_at: '2026-06-20T00:00:00Z',
+  },
+  {
+    id: 'demo-proj-005', code: 'PRJ-2026-005', name: 'Nhà phố Gò Vấp - Chị Lan',
+    lead_id: 'demo-lead-005', client_name: 'Chị Lan', client_phone: '0976543210',
+    address: 'Nhà phố Gò Vấp', project_type: 'construction_only', status: 'active',
+    construction_value: 680000000, total_value: 680000000,
+    spent: 374000000, progress: 55,
+    start_date: '2026-05-11T00:00:00Z', target_end_date: '2026-08-09T00:00:00Z',
+    created_at: '2026-05-11T00:00:00Z', updated_at: '2026-06-25T00:00:00Z',
+  },
+];
+
+// ─── Tasks (10+) ────────────────────────────────────────
+export const DEMO_TASKS: ProjectTask[] = [
+  { id: 'demo-task-001', project_id: 'demo-proj-001', title: 'Thiết kế concept', status: 'done', order: 1, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-002', project_id: 'demo-proj-001', title: 'Bản vẽ kỹ thuật', status: 'done', order: 2, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-003', project_id: 'demo-proj-001', title: 'Thi công phần thô', status: 'done', order: 3, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-004', project_id: 'demo-proj-001', title: 'Lắp đặt nội thất', status: 'in_progress', order: 4, due_date: '2026-07-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-005', project_id: 'demo-proj-001', title: 'Hoàn thiện & bàn giao', status: 'todo', order: 5, due_date: '2026-08-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-006', project_id: 'demo-proj-002', title: 'Khảo sát hiện trạng', status: 'done', order: 1, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-007', project_id: 'demo-proj-002', title: 'Thiết kế concept Indochine', status: 'done', order: 2, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-008', project_id: 'demo-proj-002', title: 'Bản vẽ thi công', status: 'in_progress', order: 3, due_date: '2026-07-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-009', project_id: 'demo-proj-002', title: 'Thi công kết cấu', status: 'todo', order: 4, due_date: '2026-09-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-010', project_id: 'demo-proj-002', title: 'Hoàn thiện nội thất', status: 'todo', order: 5, due_date: '2026-11-15T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-011', project_id: 'demo-proj-003', title: 'Thiết kế căn hộ 2PN', status: 'done', order: 1, created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-012', project_id: 'demo-proj-003', title: 'Thi công nội thất', status: 'in_progress', order: 2, due_date: '2026-07-10T00:00:00Z', created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-013', project_id: 'demo-proj-005', title: 'Thi công phần thô', status: 'done', order: 1, created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-014', project_id: 'demo-proj-005', title: 'Lắp đặt nội thất', status: 'in_progress', order: 2, due_date: '2026-07-20T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-015', project_id: 'demo-proj-005', title: 'Nghiệm thu & bàn giao', status: 'todo', order: 3, due_date: '2026-08-05T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+];
+
+// ─── Transactions (12) ──────────────────────────────────
+export const DEMO_TRANSACTIONS: Transaction[] = [
+  { id: 'demo-tx-001', code: 'TX-001', type: 'income', category: 'design_contract', description: 'HĐ Thiết kế Chị Mai', amount: 45000000, project_id: 'demo-proj-001', status: 'completed', date: '2026-05-16T00:00:00Z', created_at: '2026-05-16T00:00:00Z' },
+  { id: 'demo-tx-002', code: 'TX-002', type: 'income', category: 'construction_contract', description: 'HĐ Thi công Chị Mai - đợt 1', amount: 200000000, project_id: 'demo-proj-001', status: 'completed', date: '2026-05-21T00:00:00Z', created_at: '2026-05-21T00:00:00Z' },
+  { id: 'demo-tx-003', code: 'TX-003', type: 'expense', category: 'material', description: 'Vật liệu thi công Q7 - đợt 1', amount: 85000000, project_id: 'demo-proj-001', status: 'completed', date: '2026-06-01T00:00:00Z', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'demo-tx-004', code: 'TX-004', type: 'expense', category: 'labor', description: 'Nhân công thi công Q7 - T6', amount: 45000000, project_id: 'demo-proj-001', status: 'completed', date: '2026-06-06T00:00:00Z', created_at: '2026-06-06T00:00:00Z' },
+  { id: 'demo-tx-005', code: 'TX-005', type: 'income', category: 'design_contract', description: 'HĐ Thiết kế Anh Tuấn', amount: 120000000, project_id: 'demo-proj-002', status: 'completed', date: '2026-05-28T00:00:00Z', created_at: '2026-05-28T00:00:00Z' },
+  { id: 'demo-tx-006', code: 'TX-006', type: 'income', category: 'construction_contract', description: 'HĐ Thi công Anh Tuấn - đợt 1', amount: 630000000, project_id: 'demo-proj-002', status: 'completed', date: '2026-06-03T00:00:00Z', created_at: '2026-06-03T00:00:00Z' },
+  { id: 'demo-tx-007', code: 'TX-007', type: 'expense', category: 'material', description: 'Vật liệu biệt thự Bình Chánh', amount: 350000000, project_id: 'demo-proj-002', status: 'completed', date: '2026-06-10T00:00:00Z', created_at: '2026-06-10T00:00:00Z' },
+  { id: 'demo-tx-008', code: 'TX-008', type: 'income', category: 'construction_contract', description: 'HĐ Thi công Chị Hương', amount: 155000000, project_id: 'demo-proj-003', status: 'completed', date: '2026-04-11T00:00:00Z', created_at: '2026-04-11T00:00:00Z' },
+  { id: 'demo-tx-009', code: 'TX-009', type: 'expense', category: 'material', description: 'Nội thất căn hộ Sunrise', amount: 95000000, project_id: 'demo-proj-003', status: 'completed', date: '2026-04-26T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-tx-010', code: 'TX-010', type: 'income', category: 'construction_contract', description: 'HĐ Thi công Chị Lan - đợt 1', amount: 340000000, project_id: 'demo-proj-005', status: 'completed', date: '2026-05-16T00:00:00Z', created_at: '2026-05-16T00:00:00Z' },
+  { id: 'demo-tx-011', code: 'TX-011', type: 'expense', category: 'salary', description: 'Lương tháng 6/2026', amount: 180000000, status: 'completed', date: '2026-06-25T00:00:00Z', created_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-tx-012', code: 'TX-012', type: 'expense', category: 'commission', description: 'Hoa hồng T6 - Sales team', amount: 28500000, status: 'pending', date: '2026-06-27T00:00:00Z', created_at: '2026-06-27T00:00:00Z' },
+];
+
+// ─── Accounting Summary ──────────────────────────────────
+export const DEMO_ACCOUNTING_SUMMARY: AccountingSummary = {
+  total_income: 1490000000,
+  total_expense: 783500000,
+  net: 706500000,
+  by_category: [
+    { category: 'design_contract', type: 'income', total: 165000000, count: 2 },
+    { category: 'construction_contract', type: 'income', total: 1325000000, count: 4 },
+    { category: 'material', type: 'expense', total: 530000000, count: 3 },
+    { category: 'labor', type: 'expense', total: 45000000, count: 1 },
+    { category: 'salary', type: 'expense', total: 180000000, count: 1 },
+    { category: 'commission', type: 'expense', total: 28500000, count: 1 },
+  ],
+};
+
+// ─── Commissions (4) ────────────────────────────────────
+export const DEMO_COMMISSIONS: Commission[] = [
+  { id: 'demo-comm-001', user_id: 'demo-sales-001', user_name: 'Trần Thị Sales', project_id: 'demo-proj-001', type: 'design_commission', rate: 0.03, base_amount: 45000000, commission_amount: 1350000, milestone: 'signing', status: 'approved', period: '2026-06' },
+  { id: 'demo-comm-002', user_id: 'demo-sales-001', user_name: 'Trần Thị Sales', project_id: 'demo-proj-001', type: 'construction_commission', rate: 0.02, base_amount: 455000000, commission_amount: 9100000, milestone: 'signing', status: 'approved', period: '2026-06' },
+  { id: 'demo-comm-003', user_id: 'demo-leader-001', user_name: 'Lê Văn Leader', project_id: 'demo-proj-001', type: 'leader_override', rate: 0.005, base_amount: 500000000, commission_amount: 2500000, milestone: 'signing', status: 'approved', period: '2026-06' },
+  { id: 'demo-comm-004', user_id: 'demo-sales-001', user_name: 'Trần Thị Sales', project_id: 'demo-proj-002', type: 'design_commission', rate: 0.03, base_amount: 120000000, commission_amount: 3600000, milestone: 'signing', status: 'pending', period: '2026-06' },
+];
+
+// ─── Payroll (3) ────────────────────────────────────────
+export const DEMO_PAYROLL: PayrollEntry[] = [
+  { id: 'demo-pay-001', user_id: 'demo-admin-001', user_name: 'Nguyễn Văn Admin', period: '2026-06', base_salary: 25000000, commission_total: 0, bonus: 0, deductions: 0, net_salary: 25000000, status: 'approved' },
+  { id: 'demo-pay-002', user_id: 'demo-leader-001', user_name: 'Lê Văn Leader', period: '2026-06', base_salary: 15000000, commission_total: 2500000, bonus: 2000000, deductions: 1500000, net_salary: 18000000, status: 'approved' },
+  { id: 'demo-pay-003', user_id: 'demo-sales-001', user_name: 'Trần Thị Sales', period: '2026-06', base_salary: 8000000, commission_total: 10450000, bonus: 1000000, deductions: 1200000, net_salary: 18250000, status: 'approved' },
+];
+
+// ─── Pipeline Stats ──────────────────────────────────────
+export const DEMO_PIPELINE_STATS: PipelineStats = {
+  total_leads: 7,
+  by_stage: { new: 2, interested: 1, survey_scheduled: 1, potential: 2, signed_design: 1 },
+  conversion_rate: 14.3,
+  pipeline_value: 5430000000,
+  sla_compliance: 85.7,
+  overdue_count: 2,
+  today_count: 1,
+  unassigned_count: 2,
+};
+
+// ─── Pipeline Kanban ─────────────────────────────────────
+export const DEMO_PIPELINE_KANBAN: PipelineKanban[] = [
+  { stage: 'new', stage_label: 'Mới tiếp nhận', leads: DEMO_LEADS.filter(l => l.stage === 'new'), count: 2 },
+  { stage: 'interested', stage_label: 'Có nhu cầu', leads: DEMO_LEADS.filter(l => l.stage === 'interested'), count: 1 },
+  { stage: 'survey_scheduled', stage_label: 'Đã hẹn khảo sát', leads: DEMO_LEADS.filter(l => l.stage === 'survey_scheduled'), count: 1 },
+  { stage: 'potential', stage_label: 'KH tiềm năng', leads: DEMO_LEADS.filter(l => l.stage === 'potential'), count: 2 },
+  { stage: 'signed_design', stage_label: 'Ký thiết kế', leads: DEMO_LEADS.filter(l => l.stage === 'signed_design'), count: 1 },
+];
+
+// ─── Dashboard Executive ─────────────────────────────────
+export const DEMO_DASHBOARD_EXECUTIVE: DashboardExecutive = {
+  total_leads: 7,
+  total_leads_month: 3,
+  conversion_rate: 14.3,
+  pipeline_value: 5430000000,
+  total_contracts: 3,
+  total_contract_value: 3680000000,
+  active_projects: 3,
+  avg_project_progress: 50,
+  sla_compliance: 85.7,
+  overdue_leads: 2,
+  team_performance: [
+    { team: 'Đội Văn Toàn', total_leads: 5, signed: 1, conversion: 20.0 },
+    { team: 'Đội Thái Phượng', total_leads: 1, signed: 0, conversion: 0 },
+    { team: 'Phòng Thiết Kế', total_leads: 0, signed: 0, conversion: 0 },
+    { team: 'Ban Giám Đốc', total_leads: 1, signed: 0, conversion: 0 },
+  ],
+  stage_funnel: { new: 2, interested: 1, survey_scheduled: 1, potential: 2, signed_design: 1, lost: 0, dormant: 0 },
+  monthly_trend: [],
+  financial_summary: {
+    total_revenue_ytd: 8750000000,
+    total_cost_ytd: 4200000000,
+    net_profit_ytd: 4550000000,
+    roi: 108.3,
+    yoy_growth: 23.5,
+    avg_project_margin: 18.5,
+    cash_flow: 2100000000,
+    outstanding_receivable: 1800000000,
+  },
+  forecast: {
+    q3_2026: 3200000000,
+    q4_2026: 4100000000,
+    full_year_2026: 15200000000,
+    full_year_2025: 12300000000,
+  },
+  growth_metrics: {
+    lead_growth_rate: 15.2,
+    conversion_improvement: 3.8,
+    avg_deal_size: 1200000000,
+    customer_acquisition_cost: 5000000,
+    customer_lifetime_value: 850000000,
+    pipeline_velocity: 35,
+  },
+  risk_hedging: {
+    concentration_risk: 'medium',
+    top_client_pct: 28.5,
+    pipeline_coverage: 2.8,
+    cash_reserve_months: 4.2,
+    overdue_receivable_pct: 12.1,
+  },
+};
+
+// ─── Dashboard Personal ──────────────────────────────────
+export const DEMO_DASHBOARD_PERSONAL: DashboardPersonal = {
+  user_name: 'Trần Thị Sales',
+  total_active_leads: 4,
+  by_stage: { new: 1, interested: 0, survey_scheduled: 1, potential: 2, signed_design: 1 },
+  overdue_followup: [
+    { lead_name: 'Anh Phong', phone: '0965432109', days: 2 },
+  ],
+  today_appointments: [
+    { lead_name: 'Chị Hương', time: '10:00', type: 'Khảo sát căn hộ' },
+  ],
+  weekly_kpis: { calls: 12, meetings: 3, new_leads: 1 },
+  pipeline_value: 5430000000,
+  ai_suggestions: [
+    { action: 'Follow up Anh Phong', reason: 'Lead mới chưa liên hệ', priority: 'high' },
+    { action: 'Chốt giá Anh Tuấn', reason: 'Đã khảo sát xong, KH đang so sánh', priority: 'urgent' },
+  ],
+};
+
+// ─── Customers (5) ──────────────────────────────────────
+export const DEMO_CUSTOMERS: Customer[] = [
+  { id: 'demo-cust-001', name: 'Chị Mai', phone: '0901234567', email: 'mai.nguyen@gmail.com', address: '123 Nguyễn Văn Linh, Q7, TP.HCM', type: 'individual', lead_id: 'demo-lead-001', created_at: '2026-05-11T00:00:00Z', updated_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-cust-002', name: 'Anh Tuấn', phone: '0908765432', email: 'tuan.pham@yahoo.com', address: 'Biệt thự Vinhomes Central Park, Bình Chánh', type: 'individual', lead_id: 'demo-lead-002', created_at: '2026-05-26T00:00:00Z', updated_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-cust-003', name: 'Chị Hương', phone: '0912345678', email: 'huong.le@outlook.com', address: 'Căn hộ Sunrise City, Q7', type: 'individual', lead_id: 'demo-lead-003', created_at: '2026-06-11T00:00:00Z', updated_at: '2026-06-11T00:00:00Z' },
+  { id: 'demo-cust-004', name: 'Chị Lan', phone: '0976543210', address: 'Nhà phố Gò Vấp', type: 'individual', lead_id: 'demo-lead-005', created_at: '2026-06-06T00:00:00Z', updated_at: '2026-06-06T00:00:00Z' },
+  { id: 'demo-cust-005', name: 'Công ty TNHH Minh Design', phone: '0987654321', email: 'minh@minhdesign.vn', address: 'Shophouse Q2, TP.HCM', type: 'company', company_name: 'Công ty TNHH Minh Design', tax_code: '0316789012', lead_id: 'demo-lead-004', created_at: '2026-06-16T00:00:00Z', updated_at: '2026-06-16T00:00:00Z' },
+];
+
+// ─── Contracts (3) ──────────────────────────────────────
+export const DEMO_CONTRACTS: Contract[] = [
+  {
+    id: 'demo-ct-001', code: 'HD-2026-001', project_id: 'demo-proj-001',
+    title: 'HĐ Thiết kế + Thi công Nhà phố Q7 - Chị Mai',
+    status: 'signed', total_value: 500000000, signed_date: '2026-05-11', working_days: 120, start_date: '2026-04-26',
+    payment_terms: { installments: [
+      { name: 'Đợt 1 (Đặt cọc)', percentage: 25, milestone: 'signing', status: 'paid', amount: 125000000, paid_date: '2026-05-11' },
+      { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 25, milestone: 'rough_complete', status: 'paid', amount: 125000000, paid_date: '2026-06-06' },
+      { name: 'Đợt 3 (Nội thất)', percentage: 25, milestone: 'interior_complete', status: 'pending', amount: 125000000 },
+      { name: 'Đợt 4 (Bàn giao)', percentage: 25, milestone: 'handover', status: 'pending', amount: 125000000 },
+    ]},
+    created_at: '2026-04-26T00:00:00Z', updated_at: '2026-06-06T00:00:00Z',
+  },
+  {
+    id: 'demo-ct-002', code: 'HD-2026-002', project_id: 'demo-proj-002',
+    title: 'HĐ Thiết kế + Thi công Biệt thự Bình Chánh - Anh Tuấn',
+    status: 'signed', total_value: 2500000000, signed_date: '2026-05-28', working_days: 180, start_date: '2026-05-26',
+    payment_terms: { installments: [
+      { name: 'Đợt 1 (Đặt cọc)', percentage: 25, milestone: 'signing', status: 'paid', amount: 625000000, paid_date: '2026-05-28' },
+      { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 25, milestone: 'rough_complete', status: 'pending', amount: 625000000 },
+      { name: 'Đợt 3 (Nội thất)', percentage: 25, milestone: 'interior_complete', status: 'pending', amount: 625000000 },
+      { name: 'Đợt 4 (Bàn giao)', percentage: 25, milestone: 'handover', status: 'pending', amount: 625000000 },
+    ]},
+    created_at: '2026-05-26T00:00:00Z', updated_at: '2026-05-28T00:00:00Z',
+  },
+  {
+    id: 'demo-ct-003', code: 'HD-2026-003', project_id: 'demo-proj-005',
+    title: 'HĐ Thi công Nhà phố Gò Vấp - Chị Lan',
+    status: 'signed', total_value: 680000000, signed_date: '2026-05-11', working_days: 90, start_date: '2026-05-11',
+    payment_terms: { installments: [
+      { name: 'Đợt 1 (Đặt cọc)', percentage: 30, milestone: 'signing', status: 'paid', amount: 204000000, paid_date: '2026-05-11' },
+      { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 30, milestone: 'rough_complete', status: 'paid', amount: 204000000, paid_date: '2026-06-10' },
+      { name: 'Đợt 3 (Bàn giao)', percentage: 40, milestone: 'handover', status: 'pending', amount: 272000000 },
+    ]},
+    created_at: '2026-05-11T00:00:00Z', updated_at: '2026-06-10T00:00:00Z',
+  },
+];
+
+// ─── Quotations (4) ──────────────────────────────────────
+export const DEMO_QUOTATIONS: Quotation[] = [
+  {
+    id: 'demo-q-001', code: 'BG-2026-001', type: 'design', project_id: 'demo-proj-001', lead_id: 'demo-lead-001',
+    title: 'Báo giá thiết kế nội thất nhà phố Q7 - Chị Mai',
+    status: 'approved', total_amount: 45000000, tax_amount: 4500000, revision: 2,
+    items: { line_items: [
+      { name: 'Thiết kế phòng khách', unit: 'gói', quantity: 1, unit_price: 15000000, total: 15000000 },
+      { name: 'Thiết kế phòng ngủ master', unit: 'gói', quantity: 1, unit_price: 12000000, total: 12000000 },
+      { name: 'Thiết kế bếp + phòng ăn', unit: 'gói', quantity: 1, unit_price: 10000000, total: 10000000 },
+      { name: 'Thiết kế phòng tắm (x2)', unit: 'gói', quantity: 2, unit_price: 4000000, total: 8000000 },
+    ]},
+    created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-05T00:00:00Z',
+  },
+  {
+    id: 'demo-q-002', code: 'BG-2026-002', type: 'construction', project_id: 'demo-proj-001', lead_id: 'demo-lead-001',
+    title: 'Báo giá thi công nội thất nhà phố Q7 - Chị Mai',
+    status: 'approved', total_amount: 455000000, tax_amount: 45500000, revision: 1,
+    items: { line_items: [
+      { name: 'Thi công trần thạch cao', unit: 'm2', quantity: 120, unit_price: 450000, total: 54000000 },
+      { name: 'Hệ tủ bếp cao cấp', unit: 'bộ', quantity: 1, unit_price: 85000000, total: 85000000 },
+      { name: 'Sàn gỗ công nghiệp', unit: 'm2', quantity: 150, unit_price: 650000, total: 97500000 },
+      { name: 'Nội thất phòng khách', unit: 'bộ', quantity: 1, unit_price: 120000000, total: 120000000 },
+      { name: 'Nội thất 2 phòng ngủ', unit: 'bộ', quantity: 2, unit_price: 49250000, total: 98500000 },
+    ]},
+    created_at: '2026-05-05T00:00:00Z', updated_at: '2026-05-05T00:00:00Z',
+  },
+  {
+    id: 'demo-q-003', code: 'BG-2026-003', type: 'design', project_id: 'demo-proj-002', lead_id: 'demo-lead-002',
+    title: 'Báo giá thiết kế biệt thự Indochine - Anh Tuấn',
+    status: 'approved', total_amount: 120000000, tax_amount: 12000000, revision: 1,
+    items: { line_items: [
+      { name: 'Thiết kế kiến trúc mặt ngoài', unit: 'gói', quantity: 1, unit_price: 35000000, total: 35000000 },
+      { name: 'Thiết kế nội thất tầng 1', unit: 'gói', quantity: 1, unit_price: 45000000, total: 45000000 },
+      { name: 'Thiết kế nội thất tầng 2', unit: 'gói', quantity: 1, unit_price: 30000000, total: 30000000 },
+      { name: 'Thiết kế sân vườn', unit: 'gói', quantity: 1, unit_price: 10000000, total: 10000000 },
+    ]},
+    created_at: '2026-05-26T00:00:00Z', updated_at: '2026-05-26T00:00:00Z',
+  },
+  {
+    id: 'demo-q-004', code: 'BG-2026-004', type: 'construction', project_id: 'demo-proj-005', lead_id: 'demo-lead-005',
+    title: 'Báo giá thi công nhà phố Gò Vấp - Chị Lan',
+    status: 'sent', total_amount: 680000000, tax_amount: 68000000, revision: 1,
+    items: { line_items: [
+      { name: 'Thi công phần thô', unit: 'gói', quantity: 1, unit_price: 280000000, total: 280000000 },
+      { name: 'Nội thất toàn bộ', unit: 'gói', quantity: 1, unit_price: 320000000, total: 320000000 },
+      { name: 'Hệ thống điện + nước', unit: 'gói', quantity: 1, unit_price: 80000000, total: 80000000 },
+    ]},
+    created_at: '2026-06-08T00:00:00Z', updated_at: '2026-06-10T00:00:00Z',
+  },
+];
+
+// ─── Materials (10) ──────────────────────────────────────
+export const DEMO_MATERIALS: Material[] = [
+  { id: 'demo-mat-001', code: 'VT-001', name: 'Gỗ công nghiệp MDF lõi xanh', category: 'wood', unit: 'tấm', unit_price: 350000, quantity_in_stock: 120, min_stock: 20, supplier: 'Công ty An Cường', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-002', code: 'VT-002', name: 'Sàn gỗ Egger 12mm', category: 'wood', unit: 'm2', unit_price: 650000, quantity_in_stock: 85, min_stock: 50, supplier: 'Egger Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-003', code: 'VT-003', name: 'Đá granite đen Ấn Độ', category: 'stone', unit: 'm2', unit_price: 1200000, quantity_in_stock: 45, min_stock: 15, supplier: 'Đá Hoàng Gia', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-004', code: 'VT-004', name: 'Sơn Dulux nội thất cao cấp', category: 'paint', unit: 'thùng', unit_price: 890000, quantity_in_stock: 30, min_stock: 10, supplier: 'AkzoNobel', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-005', code: 'VT-005', name: 'Inox 304 ống vuông 40x40', category: 'metal', unit: 'cây', unit_price: 285000, quantity_in_stock: 60, min_stock: 20, supplier: 'Inox Đại Dương', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-006', code: 'VT-006', name: 'Kính cường lực 10mm', category: 'glass', unit: 'm2', unit_price: 480000, quantity_in_stock: 35, min_stock: 10, supplier: 'Kính Hưng Thịnh', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-007', code: 'VT-007', name: 'Đèn LED panel 600x600', category: 'electrical', unit: 'cái', unit_price: 320000, quantity_in_stock: 8, min_stock: 15, supplier: 'Rạng Đông', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-008', code: 'VT-008', name: 'Vải sofa nhập Bỉ', category: 'fabric', unit: 'm', unit_price: 950000, quantity_in_stock: 40, min_stock: 10, supplier: 'Vải Hoàng Hà', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-009', code: 'VT-009', name: 'Ống PPR nóng 25mm', category: 'plumbing', unit: 'cây', unit_price: 125000, quantity_in_stock: 100, min_stock: 30, supplier: 'Vesbo', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-010', code: 'VT-010', name: 'Bản lề giảm chấn Blum', category: 'furniture', unit: 'cái', unit_price: 85000, quantity_in_stock: 200, min_stock: 50, supplier: 'Blum Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+];
+
+// ─── Material Usages (6) ─────────────────────────────────
+export const DEMO_MATERIAL_USAGES: MaterialUsage[] = [
+  { id: 'demo-mu-001', material_id: 'demo-mat-001', project_id: 'demo-proj-001', quantity: 25, created_at: '2026-05-26T00:00:00Z', material_name: 'Gỗ MDF lõi xanh', project_name: 'Nhà phố Q7 - Chị Mai' },
+  { id: 'demo-mu-002', material_id: 'demo-mat-002', project_id: 'demo-proj-001', quantity: 45, created_at: '2026-06-01T00:00:00Z', material_name: 'Sàn gỗ Egger 12mm', project_name: 'Nhà phố Q7 - Chị Mai' },
+  { id: 'demo-mu-003', material_id: 'demo-mat-004', project_id: 'demo-proj-001', quantity: 8, created_at: '2026-06-06T00:00:00Z', material_name: 'Sơn Dulux nội thất', project_name: 'Nhà phố Q7 - Chị Mai' },
+  { id: 'demo-mu-004', material_id: 'demo-mat-003', project_id: 'demo-proj-002', quantity: 15, created_at: '2026-06-10T00:00:00Z', material_name: 'Đá granite đen', project_name: 'Biệt thự Bình Chánh - Anh Tuấn' },
+  { id: 'demo-mu-005', material_id: 'demo-mat-005', project_id: 'demo-proj-002', quantity: 20, created_at: '2026-06-15T00:00:00Z', material_name: 'Inox 304 ống vuông', project_name: 'Biệt thự Bình Chánh - Anh Tuấn' },
+  { id: 'demo-mu-006', material_id: 'demo-mat-010', project_id: 'demo-proj-003', quantity: 24, created_at: '2026-06-17T00:00:00Z', material_name: 'Bản lề giảm chấn Blum', project_name: 'Căn hộ Sunrise - Chị Hương' },
+];
+
+// ─── AI Suggestions ──────────────────────────────────────
+export const DEMO_AI_SUGGESTIONS: AISuggestion[] = [
+  { action: 'Gọi lại Anh Phong ngay', reason: 'Lead mới 2 ngày chưa liên hệ — nguy cơ mất lead', priority: 'urgent', message_template: 'Chào anh Phong, JAMA HOME muốn tư vấn thiết kế nội thất căn hộ 3PN. Anh tiện schedule nào để khảo sát ạ?' },
+  { action: 'Chốt lịch chốt giá với Anh Tuấn', reason: 'Đã khảo sát xong + gửi mẫu. KH đang so sánh → cần follow-up trước khi mất', priority: 'high', message_template: 'Chào anh Tuấn, JAMA HOME đã hoàn tất phương án Indochine. Anh mời qua showroom xem mẫu thực tế nhé!' },
+  { action: 'Theo dõi tiến độ thi công Q7', reason: 'Dự án PRJ-2026-001 đang ở 75% — sắp đến mốc bàn giao nội thất', priority: 'medium', message_template: '' },
+];

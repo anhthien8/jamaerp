@@ -1,0 +1,887 @@
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 1 / 20
+LIGHTNING LABS ERP
+HƯỚNG DẪN THAO TÁC THEO BỘPHẬN & CẤP BẬC
+Tài liệu cập nhật chính xác dựa trên khảo sát thực tếhệthống – Tháng 4/2026
+Bộphận có trong tài liệu
+①Kinh Doanh ②Thiết Kế③Báo Giá & Thu Mua ④
+Thi Công ⑤KếToán ⑥Nhân Sự⑦Ban Giám Đốc
+Cấu trúc từng bộphận
+Nhân viên cấp thấp →Trưởng nhóm →Quản lý / Giám
+đốc bộphận
+Điểm sửa chính vs phiên
+bản cũ
+✔Pipeline 7 giai đoạn đúng ✔Điều kiện chuyển giai đoạn
+✔Quy trình BG tựđộng khi Ký thiết kế✔Bộlọc nâng cao
+đầy đủ✔Form BG từDựán ✔Đổi trạng thái dựán
+URL hệthống
+https://erp-demo.lightning-labs.io
+Phiên bản
+v2.0 – Cập nhật 14/4/2026 – Dựa trên khảo sát thực tếtoàn
+bộmàn hình
+MỖI BỘPHẬN DÙNG MODULE NÀO?
+Bộphận
+Module CHÍNH
+Module PHỤ(chỉxem)
+①Kinh Doanh
+CRM – Khách tiềm năng, Báo giá
+Vận hành BH (xem hợp đồng
+của mình)
+②Thiết Kế
+Dựán – Công việc (task thiết kế)
+CRM – Báo giá (xem BG thiết
+kế)
+③Dựtoán, kếhoạch
+CRM – Báo giá, Dựán – Công việc (task
+BG-TM)
+Kếtoán (hóa đơn mua vào)
+④Thi Công
+Dựán – Công việc (task thi công), Cột
+mốc
+Dựán (xem tiến độ% tổng)
+⑤KếToán
+Kếtoán – Hóa đơn, Hạch toán, Báo cáo
+Nhân sự(nhận bảng lương
+phê duyệt)
+⑥Nhân Sự
+Nhân sự– toàn bộ7 tab, Người dùng
+Kếtoán (gửi bảng lương)
+⑦Ban Giám Đốc
+Tất cả– xem dashboard, duyệt, phân tích
+Không giới hạn
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 2 / 20
+BỘPHẬN 1 PHÒNG KINH DOANH
+Cấp bậc: Nhân viên Sales →Trưởng nhóm đội →Quản lý /Trưởng phòng Kinh doanh
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Phòng Kinh doanh tiếp nhận khách hàng và dẫn dắt qua 7 giai đoạn Pipeline cho đến khi ký hợp
+đồng. Toàn bộdữliệu được quản lý trong module CRM Nội thất.
+▌PIPELINE KHÁCH TIỀM NĂNG – 7 GIAI ĐOẠN THỰC TẾ
+Trang Khách tiềm năng hiển thịPipeline dạng Kanban. Mặc định chỉthấy 5 cột đang hoạt động. Bật
+toggle 'Hiện hoàn thành/mất' đểxem đủ7 giai đoạn.
+#
+Giai đoạn
+Ý nghĩa
+Chuyển sang được
+Hiển thị
+mặc định
+1
+Mới tiếp nhận
+Lead mới tạo, chưa liên hệ
+khách
+Có nhu cầu / Mất /
+Ngủđông
+✅Có
+2
+Có nhu cầu
+Đã xác nhận khách quan tâm
+thực sự
+Đã hẹn KS / Mất / Ngủ
+đông
+✅Có
+3
+Đã hẹn khảo sát
+Đã lên lịch đến xem nhà thực tế
+KH tiềm năng / Mất /
+Ngủđông
+✅Có
+4
+Khách hàng tiềm năng
+Khách đủđiều kiện, sẵn sàng
+đàm phán
+Ký thiết kế/ Mất / Ngủ
+đông
+✅Có
+5
+Ký thiết kế
+Khách đồng ý ký HĐ thiết kế–
+TỰĐỘNG tạo BG TK + HĐ +
+Dựán + Khách hàng
+(giai đoạn cuối tích
+cực)
+⚙Ẩn (bật
+toggle)
+6
+Mất
+Khách từchối / không còn liên
+lạc
+Không chuyển tiếp
+⚙Ẩn (bật
+toggle)
+7
+Ngủđông
+Tạm hoãn, chưa quyết định –
+nhớlại sau
+Có nhu cầu / Mất
+✅Có
+⚡Tựđộng: Khi chuyển lead từ'Khách hàng tiềm năng' →'Ký thiết kế': hệthống TỰĐỘNG tạo Báo
+giá thiết kế(đã duyệt) + Hợp đồng thiết kế+ Dựán + Hồsơ Khách hàng. KHÔNG cần tạo thủcông!
+CẤP 1 – NHÂN VIÊN KINH DOANH
+Công việc hàng ngày: nhận lead mới, gọi điện chăm sóc, cập nhật trạng thái, phối hợp tạo báo giá
+thi công.
+THAO TÁC 1: Nhập Lead mới
+Bước 1: Đăng nhập hệthống [https://erp-demo.lightning-labs.io] →Dùng username/mật khẩu
+được cấp
+Bước 2: Click CRM Nội thất →Khách tiềm năng [Sidebar trái] →Vào trang Pipeline
+Bước 3: Click '+ Thêm khách tiềm năng' [Góc trên phải] →Form tạo mới mởra
+Bước 4: Điền thông tin khách hàng [Form (xem bảng bên dưới)]
+Bước 5: Click 'Tạo mới' [Cuối form] →Lead xuất hiện cột 'Mới tiếp nhận'
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 3 / 20
+Trường
+Bắt buộc?
+Cách điền
+Ví dụ
+Tên KH/dựán
+✅CÓ
+Tên đầy đủcủa khách hoặc
+tên dựán
+Nguyễn Văn An – Nhà
+phốBình Chánh
+Điện thoại
+✅CÓ
+Sốđiện thoại chính
+0901234567
+Người liên hệ
+✅CÓ
+Tên người trực tiếp liên lạc
+ChịMai (vợchủnhà)
+Địa chỉ
+Nên có
+Địa chỉnhà/dựán
+12 Đường số5, P.Bình
+Hưng, Bình Chánh
+Nhu cầu
+Nên có
+Khách muốn gì
+Thiết kế+ Thi công toàn
+bộ
+Nguồn
+Nên có
+Chọn dropdown
+Facebook / Giới thiệu /
+Zalo / Website
+Loại bất động sản
+Nên có
+Dropdown
+TOWNHOUSE / Căn hộ
+/ Nhà phố/ Biệt thự
+Diện tích
+Nên có
+Diện tích m²
+120 sqm
+Ngân sách dựkiến
+Nên có
+Ngân sách khách (VNĐ)
+500.000.000
+Ghi chú
+Tuỳ
+Ghi chú nội bộkhông gửi cho
+khách
+Khách hay vềmuộn, chỉ
+liên hệbuổi tối
+🔴Bắt buộc: Nhập lead VÀO NGÀY nhận thông tin. Tuyệt đối không đểhôm sau.
+⚠Quan trọng: Các trường có dấu * là BẮT BUỘC. Không điền đủsẽkhông lưu được.
+✅Kết quả: Lead mới tựđộng vào cột 'Mới tiếp nhận' trên Pipeline với badge sốngày chưa xửlý.
+THAO TÁC 2: Dùng các bộlọc trên Pipeline
+Trang Khách tiềm năng có 2 lớp bộlọc: Bộlọc nhanh (thanh trên) và Bộlọc nâng cao (popup).
+▸Bộlọc nhanh – 5 nút trên thanh
+Bộlọc nhanh
+Hiện lead nào
+Dùng khi nào
+Chưa phân công
+Lead chưa có SALES phụtrách
+Trưởng nhóm phân công mỗi
+sáng
+Khẩn cấp
+Lead sắp/đang vi phạm SLA
+SALES kiểm tra mỗi sáng bắt
+buộc
+Hôm nay
+Lead tạo hôm nay hoặc cần xửlý
+hôm nay
+Nhân viên mới lọc đểnắm công
+việc ngày
+Lead của tôi [số]
+Chỉlead được giao cho tôi
+SALES dùng hàng ngày đểquản
+lý danh sách
+Hiện hoàn thành/mất
+Bật thêm 2 cột: Ký thiết kế+ Mất
+Khi cần xem khách đã chốt hoặc
+lead mất
+▸Bộlọc nâng cao – Click nút 'Bộlọc'
+Tiêu chí lọc
+Mô tả
+Ví dụsửdụng
+Phụtrách
+Lọc theo nhân viên cụthể
+Xem tất cảlead của Anh Thái
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 4 / 20
+Tiêu chí lọc
+Mô tả
+Ví dụsửdụng
+Đội
+Lọc theo đội/nhóm
+Xem tất cảlead Đội Thái Phượng
+Nguồn
+Lọc theo kênh tiếp nhận
+Xem lead từFacebook tháng này
+Khoảng ngân sách
+Lọc min – max ngân sách
+Xem lead ngân sách > 500 triệu
+Ngày tạo
+Lọc theo khoảng thời gian
+Xem lead tạo trong tháng 3/2026
+💡Lưu ý: Đểbộlọc có hiệu lực click 'Áp dụng'. Click 'Xóa' đểreset vềmặc định.
+THAO TÁC 3: Cập nhật trạng thái Lead (Form có điều kiện)
+Khi click 'Cập nhật trạng thái', hệthống kiểm tra điều kiện trước khi cho phép chuyển. Đây là tính
+năng bảo đảm dữliệu chất lượng.
+Bước 1: Click vào thẻlead →Panel chi tiết mởbên phải [Pipeline]
+Bước 2: Click nút 'Cập nhật trạng thái' (xanh dương) [Panel chi tiết] →Form popup xuất
+hiện
+Bước 3: Xem 'Trạng thái hiện' và chọn 'Trạng thái mới' từdropdown [Form popup] →
+Dropdown chỉhiện các giai đoạn được phép chuyển
+Bước 4: Kiểm tra 'Điều kiện chuyển giai đoạn' [Form popup] →✅xanh = đã đủ❌đỏ= còn
+thiếu
+Bước 5: Nếu có điều kiện ❌đỏ→Bổsung trước rồi mới chuyển [Chỉnh sửa lead]
+Bước 6: Khi tất cảđiều kiện ✅→Click 'Lưu' [Form popup] →Lead di chuyển sang cột mới
+Từgiai đoạn
+Điều kiện cần có
+Có thểchuyển sang
+Mới tiếp nhận
+Tên khách hàng
+Sốđiện thoại
+Người liên hệ
+Có nhu cầu / Mất / Ngủ
+đông
+Có nhu cầu
+Tên khách hàng
+Sốđiện thoại
+Nhân viên phụtrách
+Hoạt động liên hệ
+Đã hẹn khảo sát / Mất / Ngủ
+đông
+Đã hẹn khảo sát
+Tên khách hàng
+Sốđiện thoại
+Nhân viên phụtrách
+Hoạt động liên hệ
+Ngân sách dựkiến
+KH tiềm năng / Mất / Ngủ
+đông
+KH tiềm năng
+Tên khách hàng
+Sốđiện thoại
+Nhân viên phụtrách
+Hoạt động liên hệ
+Ngân sách dựkiến
+Có hoạt động đặt lịch hẹn khảo sát
+Ký thiết kế/ Mất / Ngủđông
+Ký thiết kế
+Tên khách hàng
+Sốđiện thoại
+Nhân viên phụtrách
+Hoạt động liên hệ
+Ngân sách dựkiến
+Có hoạt động đặt lịch hẹn khảo sát
+Đánh dấu hoàn thành khảo sát
+Giá hợp đồng thiết kế
+(không chuyển tiếp thủ
+công)
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 5 / 20
+⚠Quan trọng: Kéo thảthẻtrực tiếp trên Kanban cũng tương đương 'Cập nhật trạng thái' – cũng
+kiểm tra điều kiện.
+THAO TÁC 4: Ghi nhật ký hoạt động (Hoạt động liên hệ)
+Mỗi lần liên hệkhách phải ghi vào hệthống. Đây là điều kiện đểchuyển sang các giai đoạn tiếp
+theo.
+Bước 1: Click vào lead →Cuộn xuống phần 'Hoạt động' [Panel chi tiết]
+Bước 2: Click '+ Thêm hoạt động' [Góc phải phần Hoạt động]
+Bước 3: Chọn loại: Cuộc gọi / Email / Gặp mặt / Khảo sát [Form] →Chọn đúng loại hoạt
+động thực hiện
+Bước 4: Ghi nội dung trao đổi [Form] →VD: Đã gọi, khách bảo cuối tháng mới quyết định
+Bước 5: Lưu →Hoạt động ghi vào timeline – hệthống nhớ
+✅Kết quả: Hoạt động kiểu 'Khảo sát (Site visit)' là điều kiện bắt buộc đểchuyển từ'Đã hẹn khảo
+sát' lên 'KH tiềm năng'.
+THAO TÁC 5: Quy trình Ký thiết kế– Tựđộng quan trọng
+Đây là bước THEN CHỐT. Khi khách đồng ý ký hợp đồng thiết kế, SALES làm như sau:
+Bước 1: Đảm bảo lead ởgiai đoạn 'Khách hàng tiềm năng' [Pipeline]
+Bước 2: Click 'Cập nhật trạng thái' →Nhập giá hợp đồng thiết kế→Chọn 'Ký thiết kế'
+[Form popup]
+Bước 3: Click 'Lưu'
+⚡Tựđộng: Sau khi chuyển sang 'Ký thiết kế', hệthống TỰĐỘNG: (1) Tạo Báo giá thiết kếQUO-
+TK-YYYY-NNNN với trạng thái Đã duyệt, (2) Tạo Hợp đồng thiết kếHD-PRJ-YYYY-NNNN-001, (3)
+Tạo Dựán PRJ-YYYY-NNNN, (4) Tạo hồsơ Khách hàng CLI-NNNN.
+⚠Quan trọng: KHÔNG cần tạo báo giá thiết kếthủcông. Việc tạo BG thi công thủcông từmodule
+Dựán là đúng quy trình.
+CẤP 2 – TRƯỞNG NHÓM ĐỘI SALES
+THAO TÁC 1: Giám sát Pipeline và phân công lead
+Bước 1: Vào CRM nội thất→Khách hàng tiềm năng →Theo dõi pipeline lead
+Bước 2: Click bộlọc 'Chưa phân công' [Thanh lọc] →Xem lead chưa có SALES
+Bước 3: Click từng lead →Click 'Phân công' →Chọn SALES [Panel chi tiết] →Lead được
+giao cho SALES
+Bước 4: Vào Vận hành Bán hàng →Vi phạm [Sidebar] →Xem các vi phạm SLA đang Active
+Bước 5: Vào Vận hành BH →Lịch sửPhân công →Đánh giá phân bổcông việc trong đội
+CẤP 3 – QUẢN LÝ / TRƯỞNG PHÒNG KINH DOANH
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 6 / 20
+THAO TÁC: Dashboard phân tích và duyệt hợp đồng
+Bước 1: Vào Vận hành Bán hàng →Tổng quan →8 KPI: Tổng Lead / Phân công hôm nay /
+SLA 100% / Vi phạm 0 / 21 HĐ / 1.164.952.500đ / HĐ tháng / Phân phối hôm nay
+Bước 2: Cuộn xuống bảng Hiệu suất đội [Dashboard] →So sánh 9 đội: Lead giao / Chuyển
+đổi / Tỷlệ% / Phản hồi TB / SLA / Vi phạm
+Bước 3: Vào Hợp đồng →Lọc trạng thái 'Nháp' [Vận hành BH →Hợp đồng] →Xem HĐ chờ
+duyệt
+Bước 4: Click HĐ →Kiểm tra: Tên KH / Giá trị/ Đợt TT [Panel chi tiết]
+Bước 5: Phê duyệt →Trạng thái: Đã duyệt
+Bước 6: Click 'Xuất hợp đồng' →In ra cho Giám Đốc ký tay [Nút trên HĐ] →File PDF tải về
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 7 / 20
+BỘPHẬN 2 PHÒNG THIẾT KẾ
+Cấp bậc: Nhân viên Thiết kế→Trưởng nhóm Thiết kế→GĐ Thiết kế
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Phòng Thiết kếnhận task qua module Dựán →Công việc. Báo giá thiết kếđược tạo TỰĐỘNG khi
+lead chuyển sang 'Ký thiết kế'. Nếu cần tạo thêm BG TK revision, vào module Dựán →Tạo BG
+thiết kế.
+CẤP 1 – NHÂN VIÊN THIẾT KẾ
+THAO TÁC 1: Xem và nhận công việc được giao
+Bước 1: Vào Quản lý Dựán →Công việc [Sidebar] →Kanban 3 cột: Chưa làm / Đang làm /
+Hoàn thành
+Bước 2: Lọc theo tên mình ởtrường 'Phụtrách' [Xem thẻtask trên Kanban] →Task có tên
+mình ởdưới
+Bước 3: Click vào thẻtask đểxem chi tiết [Thẻtask] →Form Sửa công việc mởra với đầy đủ
+thông tin
+Thông tin trên task
+Ý nghĩa
+Dựán
+Dựán nào – VD: PRJ-2026-2892 (Nguyễn Văn C)
+Cột mốc
+Task thuộc giai đoạn nào: Thiết kế/ Báo giá-Thu mua / Thi công /
+Nghiệm thu / Thanh toán
+Tiêu đề
+Tên công việc: BỐTRÍ CÔNG NĂNG, THIẾT KẾ2D, Báo Giá Thiết kế
+– QUO-TK...
+Ưu tiên
+Thấp/Trung bình/Cao/Khẩn cấp
+Hạn hoàn thành
+Deadline – màu đỏnếu đã quá hạn
+Trạng thái
+Chờxửlý (TODO) / Đang làm (IN PROGRESS) / Hoàn thành (DONE)
+Phụthuộc vào
+Task cần hoàn thành trước task này
+Ghi chú
+Ghi chú từPM hoặc từchính nhân viên
+THAO TÁC 2: Cập nhật tiến độcông việc
+Bước 1: Khi BẮT ĐẦU làm →Kéo thẻtask sang cột 'Đang làm' [Kanban] →Trạng thái →IN
+PROGRESS
+Bước 2: Hoặc: Click task →Sửa →Đổi Trạng thái →IN PROGRESS →Lưu [Form Sửa
+công việc]
+Bước 3: Khi XONG →Kéo thẻsang cột 'Hoàn thành' [Kanban] →Trạng thái →DONE – tiến
+độ% dựán tựtăng
+Bước 4: Nếu cần ghi chú (phát sinh, vấn đề) →Click task →Sửa →Điền Ghi chú [Form]
+🔴Bắt buộc: Cập nhật trạng thái task NGAY KHI hoàn thành. PM và BGĐ theo dõi tiến độdựán từ
+đây.
+CẤP 2 – CHỦTRÌ THIẾT KẾ
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 8 / 20
+THAO TÁC 1: Tạo và phân công Công việc cho team
+Bước 1: Vào Quản lý Dựán →Công việc →Click 'Tạo công việc' [Góc trên phải] →Form
+tạo task
+Bước 2: Chọn Dựán [Form] →Liên kết task với đúng dựán PRJ-YYYY-NNNN
+Bước 3: Chọn Cột mốc [Form] →Thiết kế/ Báo giá-Thu mua / Thi công / Nghiệm thu / Thanh
+toán
+Bước 4: Điền Tiêu đề, Ưu tiên (Cao/TB/Thấp), Hạn hoàn thành [Form]
+Bước 5: Chọn Phụtrách →Nhân viên thiết kếphụtrách [Form]
+Bước 6: Chọn 'Phụthuộc vào' nếu cần làm sau task khác [Form]
+Bước 7: Lưu →Task xuất hiện cột 'Chưa làm'
+THAO TÁC 2: Tạo Báo giá Thiết kế(Revise / phiên bản mới)
+BG thiết kếlần đầu được tạo tựđộng. Nếu cần tạo revision hoặc BG thiết kếbổsung:
+Bước 1: Vào Quản lý Dựán →Dựán →Click vào dựán →Trang chi tiết dựán
+Bước 2: Click nút 'Tạo BG thiết kế' ởđầu trang [Đầu trang dựán] →Form Tạo BG thiết kế
+mở
+Bước 3: Khách hàng tựđộng điền (read-only) [Form] →Hệthống lấy từdựán
+Bước 4: Chỉnh Tiêu đềnếu cần (mặc định: 'Báo giá thiết kế– Tên KH') [Form]
+Bước 5: Chỉnh Ngày lập, Hiệu lực đến, thêm Ghi chú [Form]
+Bước 6: Click 'Tạo mới' →BG TK mới tạo với trạng thái Nháp trong CRM →Báo giá
+CẤP 3 – TRƯỞNG PHÒNG THIẾT KẾ
+THAO TÁC: Giám sát dựán và phê duyệt báo giá
+Bước 1: Vào Dựán →Xem dựán mới và assign cho Chủtrì thiết kế
+Bước 2: Vào Dựán →Xem % tiến độtất cảdựán ACTIVE [Quản lý Dựán →Dựán] →
+PRJ-2892: 75% / PRJ-2889: 25% / PRJ-1: 33%
+Bước 3: Vào Công việc →Xem task nào deadline đỏ(quá hạn) →Yêu cầu giải trình nếu có
+task trễ
+Bước 4: Vào CRM →Báo giá →Lọc Loại: Thiết kế→Phê duyệt BG TK đang Nháp
+Bước 5: Xem Đổi trạng thái dựán khi kết thúc [Dựán →Đổi trạng thái] →Chọn: ON HOLD
+(tạm dừng) / COMPLETED (hoàn thành) / CANCELLED (hủy)
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 9 / 20
+BỘPHẬN 3 DỰTOÁN & KẾHOẠCH
+Cấp bậc: Nhân viên BG-TM →Trưởng nhóm
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Phòng Dựtoán & Kếhoạch lập báo giá thi công chi tiết (vật liệu, nhân công, thiết bị) và quản lý mua
+sắm vật tư. Làm việc chủyếu tại CRM →Báo giá và Dựán →Công việc (task BG-TM).
+CẤP 1 – NHÂN VIÊN BÁO GIÁ & THU MUA
+THAO TÁC 1: Tạo Báo giá Thi công từmodule Dựán
+Báo giá thi công PHẢI được tạo từmodule Dựán (không phải từCRM →Báo giá trực tiếp), đểtự
+liên kết với đúng dựán.
+Bước 1: Vào Quản lý Dựán →Dựán →Click vào dựán cần làm BG →Trang chi tiết PRJ-
+YYYY-NNNN
+Bước 2: Click nút 'Tạo BG thi công' ởđầu trang [Đầu trang dựán] →Form Tạo BG thi công
+mở
+Bước 3: Khách hàng tựđộng điền [Form] →Lấy từdựán – không sửa được
+Bước 4: Điền Tiêu đềrõ ràng [Form] →VD: Báo giá thi công nội thất – Nguyễn Văn C –
+T4/2026
+Bước 5: Chỉnh Ngày lập và Hiệu lực đến [Form] →Hiệu lực thường 30 ngày
+Bước 6: Điền Ghi chú nếu có đặc thù [Form]
+Bước 7: Click 'Tạo mới' →BG TC tạo trạng thái Nháp – mã QUO-TC-YYYY-NNNN
+Bước 8: Vào CRM →Báo giá →Tìm BG vừa tạo →Click xem chi tiết →Điền hạng mục →
+Thêm từng hạng mục: tên, đơn vị, sốlượng, đơn giá
+Loại BG
+Tạo từđâu
+Mã BG
+Người
+tạo
+Báo giá Thiết kế
+Tựđộng khi lead →Ký thiết kếHOẶC
+Dựán →Tạo BG TK
+QUO-TK-YYYY-
+NNNN
+Tựđộng
+/ Thiết
+kế
+Báo giá Thi công
+Dựán →Tạo BG thi công
+QUO-TC-YYYY-
+NNNN
+Bộphận
+BG-TM
+🔴Bắt buộc: Tạo BG thi công từDựán thì mới tựliên kết.
+Thông tin hợp đồng
+Trường
+Giá trị/ Ý nghĩa
+Mã hợp đồng
+Tựđộng: HD-PRJ-YYYY-NNNN-XXX (VD: HD-PRJ-2026-2892-003)
+Tên hợp đồng
+Tựđộng từbáo giá: 'Hợp đồng thi công – Báo giá thi công – Tên KH'
+Lead
+Khách hàng liên kết từCRM
+Báo giá
+Mã báo giá nguồn (VD: QUO-TC-2026-0025)
+Quy mô
+Nhà đất / Căn hộ/ Biệt thự...
+Ngày ký
+Ngày hai bên ký hợp đồng
+Giá trịhợp đồng
+Tổng giá trị(VNĐ) – lấy từbáo giá
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 10 / 20
+Trường
+Giá trị/ Ý nghĩa
+Dựán
+Mã dựán liên kết (PRJ-YYYY-NNNN)
+Sốngày làm việc
+Thời gian thi công dựkiến (VD: 60 ngày)
+Ngày khởi công
+Ngày bắt đầu thực hiện
+Ghi chú
+Auto-created from quotation... (tựđộng điền)
+BƯỚC 3.2 – Thiết lập Đợt thanh toán
+Mỗi hợp đồng chia thành nhiều đợt thanh toán. Hệthống thực tếđang dùng 4 đợt 25% mỗi đợt, có
+thểtùy chỉnh theo thỏa thuận.
+Đợt
+Tên đợt
+% Thanh toán
+Thời điểm
+1
+Đợt 1 (Đặt cọc)
+25%
+Khi ký hợp đồng
+2
+Đợt 2 (Nghiệm thu phần thô)
+25%
+Hoàn thành phần thô
+3
+Đợt 3 (Nghiệm thu nội thất)
+25%
+Lắp đặt nội thất xong
+4
+Đợt 4 (Bàn giao)
+25%
+Bàn giao hoàn chỉnh
+Các trạng thái hợp đồng
+Trạng thái
+Ý nghĩa
+Nháp
+Hợp đồng mới tạo, chưa ký
+Đã duyệt
+Đã được phê duyệt nội bộ, đã/sẵn sàng ký
+Các nút thao tác trên Hợp đồng
+•
+Đánh dấu đã gửi – Xác nhận đã gửi hợp đồng cho khách ký
+•
+Thu hồi – Thu hồi hợp đồng khi cần chỉnh sửa
+•
+Xuất hợp đồng – Tải file hợp đồng ra ngoài đểin/ký
+💡Lưu ý: Dashboard Vận hành Bán hàng hiện thịreal-time: 21 hợp đồng, 1.164.952.500đ tổng giá trị, 100%
+tuân thủSLA. Quản lý theo dõi tại đây hàng ngày.
+THAO TÁC 3: Theo dõi task Báo giá – Thu mua
+Bước 1: Vào Quản lý Dựán →Công việc →Kanban 3 cột
+Bước 2: Xem các task thuộc Cột mốc 'Báo giá - Thu mua' [Lọc hoặc xem trực tiếp]
+Bước 3: Task ví dụ: 'Báo Giá Thi công – QUO-TC-2026-0006' (HIGH, deadline 4/9)
+Bước 4: Cập nhật task: TODO →IN PROGRESS →DONE [Kéo thảhoặc sửa trạng thái]
+CẤP 2 – TRƯỞNG NHÓM BÁO GIÁ & THU MUA
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 11 / 20
+THAO TÁC: Kiểm soát giá và duyệt BG trước khi trình
+Bước 1: Vào CRM →Báo giá →Lọc Loại: Thi công / Trạng thái: Nháp →Xem BG TC đang
+soạn
+Bước 2: Click từng BG →Kiểm tra: hạng mục, đơn giá, tổng cộng, thuế10% →Đảm bảo
+theo bảng giá công ty
+Bước 3: Đối chiếu BG TC với ngân sách dựán [Dựán →Xem Ngân sách] →500tr ngân
+sách vs tổng BG TC
+Bước 4: BG nào 'Bịtừchối' →Click 'Tạo phiên bản mới' →Revise [CRM →BG →nút Tạo
+phiên bản mới] →Mã mới có hậu tố-R2, -R3...
+Bước 5: Vào Vận hành BH →Hợp đồng →Xem giá trịHĐ vs BG →Kiểm tra biên lợi nhuận
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 12 / 20
+BỘPHẬN 4 PHÒNG THI CÔNG
+Cấp bậc: Công nhân / Kỹthuật viên →Trưởng phòng Thi công
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Phòng Thi công thực hiện các task kỹthuật trong module Dựán →Công việc. Tiến độdựán được
+tính tựđộng từ% task hoàn thành.
+CẤP 1 – KỸTHUẬT VIÊN
+THAO TÁC: Xem task và cập nhật tiến độ
+Bước 1: Đăng nhập →Vào Quản lý Dựán →Công việc →Kanban 3 cột
+Bước 2: Tìm task tên mình ởcột 'Chưa làm' (trường Phụtrách)
+Bước 3: Khi bắt đầu →Kéo sang 'Đang làm' [Kéo thả] →IN PROGRESS
+Bước 4: Khi xong →Kéo sang 'Hoàn thành' [Kéo thả] →DONE
+Bước 5: Gặp vấn đề→Click task →Sửa →Ghi vào Ghi chú →Báo Đội trưởng
+💡Lưu ý: Dùng điện thoại truy cập trình duyệt mobile vào hệthống nếu không có máy tính tại công
+trường.
+CẤP 2 – TRƯỞNG PHÒNG THI CÔNG
+THAO TÁC 1: Phân công task thi công
+Bước 1: Vào Công việc →'Tạo công việc'
+Bước 2: Chọn Dựán, Cột mốc: Thi công
+Bước 3: Điền Tiêu đề(VD: Thi công trần thạch cao phòng ngủ– PRJ-2026-2892)
+Bước 4: Ưu tiên: Cao / TB / Thấp theo timeline tổng
+Bước 5: Chọn Phụtrách →Kỹthuật viên cụthể
+Bước 6: Lưu →Task xuất hiện cột 'Chưa làm' của KTV
+THAO TÁC 2: Cập nhật Cột mốc Nghiệm thu
+Bước 1: Hoàn thành giai đoạn thi công →Vào Dựán →Click dựán
+Bước 2: Cuộn xuống thấy cột mốc 'Nghiệm thu' (NOT STARTED) [Trang dựán]
+Bước 3: Click 'Chỉnh sửa' trên cột mốc Nghiệm thu →Form sửa cột mốc
+Bước 4: Đổi trạng thái: NOT STARTED →IN PROGRESS →DONE
+Bước 5: Cập nhật ngày nghiệm thu thực tế→Kếtoán dựa vào đây đểxuất HĐ đợt
+THAO TÁC 3: Giám sát toàn bộdựán
+Bước 1: Vào Dựán →Xem tất cảdựán ACTIVE →PRJ-2892: 75% (deadline 30/4) / PRJ-
+2889: 25% / PRJ-1: 33%
+Bước 2: Click từng dựán →Đọc: Tiến độ%, Ngân sách 500tr, Deadline, PM
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 13 / 20
+Bước 3: Vào Công việc →Lọc theo dựán →Xem task deadline đỏ→Yêu cầu KTV/Đội
+trưởng giải trình
+Bước 4: Vào Vận hành BH →Hợp đồng →Xem Đợt thanh toán →Đợt nào đến hạn cần
+nghiệm thu đểthu tiền
+Bước 5: Phối hợp Kếtoán xuất HĐ VAT khi hoàn thành đợt
+Bước 6: Khi dựán hoàn thành →Đổi trạng thái →COMPLETED [Dựán →Đổi trạng thái] →
+Chọn COMPLETED (xong) / ON HOLD (tạm dừng) / CANCELLED (hủy)
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 14 / 20
+BỘPHẬN 5 PHÒNG KẾTOÁN
+Cấp bậc: Kếtoán viên →Kếtoán trưởng
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Phòng Kếtoán quản lý hóa đơn, bút toán, đối chiếu và báo cáo tài chính. Dữliệu từDựán (đợt
+thanh toán HĐ) và Nhân sự(bảng lương) tựđộng chuyển sang Kếtoán.
+CẤP 1 – KẾTOÁN VIÊN
+THAO TÁC 1: Xửlý Hóa đơn Mua vào
+Bước 1: Vào Kếtoán →Hóa đơn →Tab 'Mua vào'
+Bước 2: Click '+ Tạo hóa đơn' →Form tạo HĐ
+Bước 3: Nhập: NCC, SốHĐ, Ngày, Danh mục, Sốtiền, ThuếVAT [Form]
+Bước 4: Lưu nháp →Trình KT Trưởng duyệt
+Bước 5: Sau duyệt →Thực hiện thanh toán →Hệthống sinh bút toán TK 331/112
+THAO TÁC 2: Xuất Hóa đơn Bán ra theo Đợt Hợp đồng
+Bước 1: Kiểm tra lịch đợt thanh toán [Vận hành BH →Hợp đồng →Click HĐ →Đợt thanh
+toán] →4 đợt 25%: Ẩu ThếToàn (ký HĐ) / Đợt 2 (thô) / Đợt 3 (NT) / Đợt 4 (bàn giao)
+Bước 2: Xác nhận PM/Đội trưởng báo nghiệm thu xong đợt
+Bước 3: Vào Kếtoán →Hóa đơn →Tab 'Bán ra' →'+ Tạo hóa đơn'
+Bước 4: Điền: KH, SốHĐ VAT, Ngày, Sốtiền = 25% × Giá trịHĐ [Form] →VD: 25% ×
+384.317.500đ = 96.079.375đ
+Bước 5: Lưu →Duyệt →In HĐ VAT gửi khách
+Bước 6: Khách chuyển khoản →Đánh dấu đã thu →Bút toán TK 131/112
+THAO TÁC 3: Tạo Bút toán kép
+Bước 1: Vào Kếtoán →Hạch toán →Tab 'Bút toán kép' →'Tạo bút toán'
+Bước 2: Điền: Sốtham chiếu (chứng từgốc), Ngày hạch toán, Diễn giải [Form]
+Bước 3: Dòng Nợ: Chọn TK + nhập sốtiền bên Nợ[Form]
+Bước 4: Dòng Có: Chọn TK đối ứng + nhập sốtiền bên Có [Form]
+Bước 5: Kiểm tra: TỔNG NỢ= TỔNG CÓ (bắt buộc) →Nếu không bằng →không lưu được
+Bước 6: Lưu nháp →Trình KT Trưởng →Đăng sổ(Posted) →Sau đăng sổ: KHÔNG sửa
+được
+⚠Quan trọng: Bút toán đã Posted KHÔNG thểchỉnh sửa. Muốn sửa →Tạo bút toán đảo
+(Reversal) →phải được KT Trưởng phê duyệt.
+CẤP 2 – KẾTOÁN TRƯỞNG
+CHECKLIST CUỐI THÁNG – 9 BƯỚC
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 15 / 20
+#
+Công việc
+Thực hiện tại
+Kết quảcần đạt
+1
+Duyệt hết HĐ Chờduyệt
+Kếtoán →HĐ Mua vào +
+Bán ra
+Không còn HĐ 'Chờduyệt'
+2
+Hạch toán bút toán chưa tựđộng
+Kếtoán →Bút toán kép
+Tất cảnghiệp vụđã vào sổ
+3
+Import sao kê ngân hàng →Đối
+chiếu
+Kếtoán →Đối chiếu ngân
+hàng
+Sốdư khớp
+4
+Tính khấu hao TSCĐ
+Kếtoán →Tài sản
+Bút toán KH đã ghi
+5
+Nhận bảng lương từHR →Kiểm
+tra bút toán
+Kếtoán →Bút toán kép
+TK 334/338/3335 đúng
+6
+Kiểm tra Cân đối phát sinh
+Tab Cân đối phát sinh
+Tổng Nợ= Tổng Có
+7
+Xem Cân đối KT & KQKD
+Tab Cân đối KT, KQKD
+BCTC sẵn sàng
+8
+Đóng kỳkếtoán
+Kếtoán →Quản lý kỳ
+Kỳđã đóng
+9
+Gửi BCTC cho BGĐ
+Email / in ấn
+BGĐ nhận báo cáo
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 16 / 20
+BỘPHẬN 6 PHÒNG NHÂN SỰ(HR)
+Cấp bậc: Chuyên viên HR →HR Manager
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Module Nhân sựcó 7 tab: Nhân viên / Hợp đồng lao động / Lương thưởng / Bảng lương / KPI / Cài
+đặt / Ngân hàng nhân tài.
+CẤP 1 – CHUYÊN VIÊN NHÂN SỰ
+THAO TÁC 1: Onboard Nhân viên mới
+Bước 1: Vào Nhân sự→Tab 'Nhân viên' →'Thêm nhân viên' →Form tạo NV
+Bước 2: Điền: Họtên, Điện thoại, Ngày sinh, Giới tính [Form]
+Bước 3: Chọn Loại lao động: Fulltime / Parttime / CTV [Form]
+Bước 4: Lưu →Mã nhân viên tựđộng sinh
+Bước 5: Tạo Hợp đồng lao động [Tab 'Hợp đồng lao động' →'Thêm HĐ'] →Loại HĐ / Chức
+danh / Gross / Ngày HLực
+Bước 6: Phối hợp IT cấp tài khoản ERP [Người dùng →Thêm người dùng] →Username +
+email công ty
+Bước 7: Phân bổBậc lương [Nhân sự→Bảng lương →Phân bổNV] →Chọn bậc phù hợp
+THAO TÁC 2: Quy trình Tính lương hàng tháng
+Bước 1: Kiểm tra tất cảNV đã có Bậc lương [Tab Bảng lương →Phân bổNV] →Trước ngày
+25 hàng tháng
+Bước 2: Nhập kết quảKPI thực tế[Tab KPI] →% hoàn thành từng người
+Bước 3: Click 'Tính lương tất cảnhân viên' [Tab Lương thưởng] →Hệthống tính Gross, BH,
+Thuế, NET
+Bước 4: Kiểm tra kết quảtừng người [Tab Bảng lương (Payslip)]
+Bước 5: Trình HR Manager / Giám đốc phê duyệt
+Bước 6: Sau phê duyệt →Hệthống sinh bút toán trong KT →TK 334 / 112
+Bước 7: Xuất file chuyển khoản + Xuất phiếu lương →Gửi NV
+CẤP 2 – HR MANAGER
+THAO TÁC: Phê duyệt và quản lý tổchức
+Bước 1: Kiểm tra bảng lương [Tab Payslip] →Xem chi tiết từng người
+Bước 2: Phê duyệt →KT sinh bút toán TK 334
+Bước 3: Quản lý Bậc lương: tạo/điều chỉnh bậc [Tab Bảng lương →Tạo bậc lương]
+Bước 4: Thiết lập KPI targets đầu kỳ[Tab KPI]
+Bước 5: Cập nhật Ngân hàng nhân tài [Tab Ngân hàng nhân tài] →Ứng viên tiềm năng
+Bước 6: Quản lý Phòng ban & Đội nhóm [Người dùng →Tab Phòng ban / Đội nhóm] →9 đội:
+BGĐ, Thiết Kế, DựÁn, KT, Văn Toàn, Thái Phượng, Huỳnh Trần, Huỳnh Tiến, Lưu Mạnh Hồng
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 17 / 20
+BỘPHẬN 7 BAN GIÁM ĐỐC
+Cấp bậc: Phó GĐ / Trưởng phòng →Giám đốc / Tổng Giám đốc
+URL hệthống: https://erp-demo.lightning-labs.io | Đăng nhập bằng username + mật khẩu được cấp
+Ban Giám đốc chủyếu XEM dashboard, DUYỆT và PHÂN TÍCH đểra quyết định chiến lược. Mọi
+con sốđều là dữliệu thực từcác bộphận cập nhật.
+CẤP 1 – PHÓ GĐ / TRƯỞNG PHÒNG
+THAO TÁC 1: Theo dõi Dashboard theo lĩnh vực
+Dashboard
+Truy cập tại
+Dữliệu thực
+CRM
+CRM →Tổng quan
+2.767 lead / 1.2% chuyển đổi / 54.7 tỷ
+pipeline / 92.5% SLA / Phễu KH / Xu
+hướng lead
+Vận hành BH
+Vận hành BH →Tổng quan
+21 HĐ / 1.164.952.500đ / SLA 100% / 0 vi
+phạm / Bảng hiệu suất 9 đội
+Dựán
+Dựán →Dựán
+PRJ-2892: 75% (30/4) / PRJ-2889: 25% /
+PRJ-1: 33%
+Kếtoán
+Kếtoán →KQKD / Cân đối KT
+Doanh thu, chi phí, lợi nhuận / Tài sản,
+Nợ, Vốn
+CẤP 2 – GIÁM ĐỐC ĐIỀU HÀNH / TỔNG GĐ
+THAO TÁC 1: Bức tranh toàn công ty
+Bước 1: Vào Vận hành BH →Tổng quan →Cuộn xuống bảng Hiệu suất đội →So sánh 9
+đội: Lead giao / Chuyển đổi / Tỷlệ% / SLA / Vi phạm
+Bước 2: Vào CRM →Tổng quan →Xem Phễu KH và Xu hướng lead →Pipeline 54.7 tỷ– ai
+đang chốt tốt?
+Bước 3: Vào Dựán →Xem % tiến độtất cảACTIVE →Dựán nào chậm? PM nào cần hỗtrợ?
+Bước 4: Vào Kếtoán →KQKD →Doanh thu tháng →So sánh KPI tháng vs kếhoạch
+Bước 5: Vào Kếtoán →Công nợ→Xem AR (phải thu) →Bao nhiêu tiền KH chưa trả? Đội
+Sales cần đôn đốc
+THAO TÁC 2: Phân tích quyết định nhanh
+Câu hỏi quản lý
+Xem tại đâu
+Hành động
+Đội nào kém?
+Vận hành BH →Hiệu suất đội
+Họp trưởng đội, phân tích
+nguyên nhân
+Dựán nào chậm?
+Dựán →Dựán →% tiến độ
+thấp
+Vào task →xem task nào
+deadline đỏ
+KH nào chưa trảtiền?
+Kếtoán →Công nợ→AR
+Báo Sales liên hệđôn đốc
+Doanh thu tháng?
+Kếtoán →KQKD
+So sánh với kếhoạch
+Bao HĐ ký tháng này?
+Vận hành BH →HĐ tháng này
+Đánh giá KPI Sales
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 18 / 20
+Câu hỏi quản lý
+Xem tại đâu
+Hành động
+Pipeline bao nhiêu?
+CRM →54.7 tỷ→Phễu khách
+hàng
+Dựbáo doanh thu tương lai
+Dư nợngân hàng?
+Kếtoán →Khoản vay
+Kiểm soát rủi ro tài chính
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 19 / 20
+PHỤLỤC – QUY TẮC & BẢNG TRA CỨU NHANH
+A. QUY TẮC VÀNG 10 ĐIỀU – Áp dụng toàn công ty
+#
+Điều bắt buộc
+Ai áp dụng
+1
+Nhập lead VÀO NGÀY tiếp nhận – tuyệt đối không đểhôm sau
+Sales/BCV
+2
+Cập nhật trạng thái lead SAU MỖI lần liên hệkhách
+Sales/BCV
+3
+Điều kiện chuyển giai đoạn ❌đỏ→phải bổsung trước khi
+chuyển
+Sales/BCV
+4
+Lead →Ký thiết kế: hệthống tựtạo BG TK + HĐ TK + Dựán.
+KHÔNG làm thủcông lại
+Sales/BCV
+5
+BG thi công PHẢI tạo từDựán →Tạo BG thi công, không từ
+CRM trực tiếp
+BG-TM
+6
+Cập nhật task DONE NGAY KHI hoàn thành – không đểcuối
+ngày
+Kỹthuật/TK
+7
+Bút toán kếtoán phải ĐĂNG SỔmới có giá trị– nháp không
+được tính
+Kếtoán
+8
+KHÔNG xóa bất kỳdữliệu nào – chỉđổi trạng thái (vô hiệu hóa,
+đóng, mất)
+Tất cả
+9
+Tài khoản NV nghỉviệc phải VÔ HIỆU HÓA ngay trong ngày
+nghỉ
+HR/IT
+10
+Gặp lỗi hệthống: chụp màn hình + ghi rõ bước đang làm + báo
+IT ngay
+Tất cả
+B. BẢNG TRA CỨU NHANH – Tình huống thường gặp
+Tình huống
+Ai làm
+Làm gì – Ởđâu
+Khách mới gọi điện hỏi tư vấn
+BCV
+CRM →Thêm khách tiềm năng →Nhập
+đủ3 trường *
+Điều kiện chuyển trạng thái bịđỏ
+BCV
+Chỉnh sửa lead →Bổsung thông tin thiếu
+→Cập nhật lại
+Khách đồng ý ký hợp đồng thiết
+kế
+BCV
+CRM →Cập nhật trạng thái →Ký thiết kế
+→Lưu →TỰĐỘNG xửlý
+Cần tạo BG thi công
+BG-TM
+Dựán →Click dựán →Tạo BG thi công
+→Điền →Tạo mới
+Khách từchối BG
+BG-TM / Sales
+CRM →Báo giá →Tạo phiên bản mới
+(R2, R3...)
+Bắt đầu thi công task
+Kỹthuật viên
+Dựán →Công việc →Kéo task sang
+'Đang làm'
+Hoàn thành đợt thi công
+Đội trưởng →PM
+Cột mốc Nghiệm thu →Chỉnh sửa →
+DONE
+Đến đợt thu tiền khách
+Kếtoán + PM
+Vận hành BH →HĐ →Xem đợt TT →
+KT tạo HĐ bán ra
+Cuối tháng tính lương
+HR →BGĐ →KT
+Nhân sự→Tính lương →Phê duyệt →
+KT nhận BT
+Lightning Labs ERP | Hướng dẫn Thao tác Theo Bộphận & Cấp bậc – Phiên bản cập nhật chính xác
+Nội bộ– Lightning Labs | Trang 20 / 20
+Tình huống
+Ai làm
+Làm gì – Ởđâu
+NV mới vào làm
+HR + IT
+Nhân sự→Thêm NV →HĐLĐ →TK
+người dùng →Bậc lương
+NV nghỉviệc
+HR + IT
+Vô hiệu hóa TK →Bàn giao lead/task →
+Lưu hồsơ
+Muốn tạm dừng dựán
+GĐ Thi công / PM
+Dựán →Đổi trạng thái →ON HOLD
+Dựán hoàn thành bàn giao
+PM
+Dựán →Đổi trạng thái →COMPLETED
+Tài liệu v2.0 – Cập nhật chính xác dựa trên khảo sát thực tếtoàn bộchức năng hệthống Lightning Labs ERP
+Demo – 14/4/2026

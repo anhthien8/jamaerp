@@ -1,0 +1,225 @@
+'use client';
+
+import { useState } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
+
+interface CreateLeadForm {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  property_type: string;
+  area_sqm: string;
+  estimated_budget: string;
+  source: string;
+  needs: string;
+  priority: string;
+}
+
+const INITIAL: CreateLeadForm = {
+  name: '', phone: '', email: '', address: '',
+  property_type: 'townhouse', area_sqm: '', estimated_budget: '',
+  source: 'zalo', needs: '', priority: 'medium',
+};
+
+const PROPERTY_OPTIONS = [
+  { value: 'townhouse', label: 'Nhà phố' },
+  { value: 'apartment', label: 'Căn hộ' },
+  { value: 'villa', label: 'Biệt thự' },
+  { value: 'shophouse', label: 'Shophouse' },
+  { value: 'office', label: 'Văn phòng' },
+  { value: 'other', label: 'Khác' },
+];
+
+const SOURCE_OPTIONS = [
+  { value: 'zalo', label: 'Zalo' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'website', label: 'Website' },
+  { value: 'referral', label: 'Giới thiệu' },
+  { value: 'other', label: 'Khác' },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: 'urgent', label: 'Khẩn cấp', color: '#EF4444' },
+  { value: 'high', label: 'Cao', color: '#F59E0B' },
+  { value: 'medium', label: 'Trung bình', color: '#3B82F6' },
+  { value: 'low', label: 'Thấp', color: '#6B7280' },
+];
+
+export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [form, setForm] = useState<CreateLeadForm>(INITIAL);
+  const [errors, setErrors] = useState<Partial<Record<keyof CreateLeadForm, string>>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const set = (key: keyof CreateLeadForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [key]: e.target.value }));
+    setErrors(prev => ({ ...prev, [key]: undefined }));
+  };
+
+  const validate = (): boolean => {
+    const errs: typeof errors = {};
+    if (!form.name.trim()) errs.name = 'Vui lòng nhập tên KH';
+    if (!form.phone.trim()) errs.phone = 'Vui lòng nhập SĐT';
+    else if (!/^0\d{9}$/.test(form.phone.trim())) errs.phone = 'SĐT không hợp lệ (10 số, bắt đầu 0)';
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Email không hợp lệ';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setSubmitting(true);
+    try {
+      await api.createLead({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email || undefined,
+        address: form.address || undefined,
+        property_type: form.property_type,
+        area_sqm: form.area_sqm ? Number(form.area_sqm) : undefined,
+        estimated_budget: form.estimated_budget ? Number(form.estimated_budget) : undefined,
+        source: form.source,
+        needs: form.needs || undefined,
+        priority: form.priority,
+      });
+      toast(`Đã tạo Lead "${form.name}" thành công!`, 'success');
+      setForm(INITIAL);
+      onClose();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không tạo được lead'}`, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[8vh]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-lg max-h-[78vh] overflow-y-auto rounded-2xl animate-in"
+        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
+          <div>
+            <h2 className="text-lg font-bold text-white">➕ Tạo Lead mới</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Thêm khách hàng tiềm năng</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Name + Phone */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tên khách hàng *" error={errors.name}>
+              <input value={form.name} onChange={set('name')} placeholder="VD: Chị Mai" className="input" />
+            </Field>
+            <Field label="Số điện thoại *" error={errors.phone}>
+              <input value={form.phone} onChange={set('phone')} placeholder="0901234567" className="input" />
+            </Field>
+          </div>
+
+          {/* Email + Address */}
+          <Field label="Email" error={errors.email}>
+            <input value={form.email} onChange={set('email')} placeholder="email@example.com" className="input" />
+          </Field>
+          <Field label="Địa chỉ">
+            <input value={form.address} onChange={set('address')} placeholder="123 Nguyễn Văn Linh, Q7" className="input" />
+          </Field>
+
+          {/* Property type + Area */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Loại BĐS">
+              <select value={form.property_type} onChange={set('property_type')} className="input">
+                {PROPERTY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Diện tích (m²)">
+              <input value={form.area_sqm} onChange={set('area_sqm')} placeholder="120" type="number" className="input" />
+            </Field>
+          </div>
+
+          {/* Budget + Source */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Ngân sách (VNĐ)">
+              <input value={form.estimated_budget} onChange={set('estimated_budget')} placeholder="500000000" type="number" className="input" />
+            </Field>
+            <Field label="Nguồn lead">
+              <select value={form.source} onChange={set('source')} className="input">
+                {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          {/* Priority */}
+          <Field label="Mức ưu tiên">
+            <div className="flex gap-2">
+              {PRIORITY_OPTIONS.map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, priority: p.value }))}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: form.priority === p.value ? `${p.color}20` : 'var(--surface-2)',
+                    color: form.priority === p.value ? p.color : 'var(--text-tertiary)',
+                    border: `1px solid ${form.priority === p.value ? `${p.color}40` : 'var(--border-subtle)'}`,
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {/* Needs */}
+          <Field label="Nhu cầu chi tiết">
+            <textarea
+              value={form.needs}
+              onChange={set('needs')}
+              placeholder="VD: Thiết kế nội thất nhà phố 3 tầng, phong cách hiện đại..."
+              className="input"
+              rows={3}
+              style={{ resize: 'vertical', minHeight: 80 }}
+            />
+          </Field>
+
+          {/* Submit */}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-600))', color: 'white' }}
+            >
+              {submitting ? 'Đang tạo...' : '✅ Tạo Lead'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{label}</label>
+      {children}
+      {error && <p className="text-[10px] text-[#EF4444] mt-1">{error}</p>}
+    </div>
+  );
+}
