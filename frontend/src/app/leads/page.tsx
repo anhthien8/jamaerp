@@ -99,6 +99,12 @@ function LeadsContent() {
       if (filterSource !== 'all') params.source = filterSource;
       if (filterPriority !== 'all') params.priority = filterPriority;
       const allLeads = await api.getLeads(params);
+      // Normalize tags: backend may return JSON string instead of array
+      for (const lead of allLeads) {
+        if (typeof lead.tags === 'string') {
+          try { lead.tags = JSON.parse(lead.tags); } catch { lead.tags = []; }
+        }
+      }
       // Apply role-based scope filtering
       let filtered = allLeads;
       if (perms.leadsScope === 'own') {
