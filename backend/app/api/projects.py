@@ -9,8 +9,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
-from app.models.project import Project, Task
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse, TaskResponse
+from app.models.project import Project, Task, TaskActivity
+from app.schemas.project import (
+    ProjectCreate, ProjectUpdate, ProjectResponse, TaskResponse,
+    TaskActivityCreate, TaskActivityResponse
+)
+from pydantic import BaseModel
+
+class ProjectStageUpdate(BaseModel):
+    stage: str
+
+class TaskStatusUpdate(BaseModel):
+    status: str
+
+class TaskFileUpdate(BaseModel):
+    final_file_url: str | None = None
+
+class ProjectKanbanStage(BaseModel):
+    stage: str
+    stage_label: str
+    projects: list[ProjectResponse]
+    count: int
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -89,3 +108,175 @@ async def list_tasks(
     result = await db.execute(q)
     tasks = result.scalars().all()
     return [TaskResponse.model_validate(t) for t in tasks]
+
+
+@router.get("/pipeline/kanban", response_model=list[ProjectKanbanStage])
+async def project_kanban(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kanban board data — projects grouped by stage."""
+    stages = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
+    stage_labels = {
+        "design": "Thiết kế",
+        "quotation": "Báo giá",
+        "procurement": "Thu mua",
+        "construction": "Thi công",
+        "acceptance": "Nghiệm thu",
+        "completed": "Hoàn thành",
+    }
+    kanban = []
+
+    for stage in stages:
+        q = select(Project).where(Project.stage == stage).order_by(Project.updated_at.desc())
+        result = await db.execute(q)
+        projects = result.scalars().all()
+        responses = [ProjectResponse.model_validate(p) for p in projects]
+
+        kanban.append(ProjectKanbanStage(
+            stage=stage,
+            stage_label=stage_labels.get(stage, stage),
+            projects=responses,
+            count=len(responses),
+        ))
+
+    return kanban
+
+
+@router.put("/{project_id}/stage", response_model=ProjectResponse)
+async def update_project_stage(
+    project_id: str,
+    data: ProjectStageUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update project current stage."""
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Dự án không tồn tại")
+
+    project.stage = data.stage
+    project.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return ProjectResponse.model_validate(project)
+
+
+@router.get("/tasks/{task_id}/activities", response_model=list[TaskActivityResponse])
+async def list_task_activities(
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get notes and media updates for a task."""
+    q = (
+        select(TaskActivity, User.full_name.label("user_name"))
+        .outerjoin(User, TaskActivity.user_id == User.id)
+        .where(TaskActivity.task_id == task_id)
+        .order_by(TaskActivity.created_at.desc())
+    )
+    result = await db.execute(q)
+    rows = result.all()
+
+    responses = []
+    for act, user_name in rows:
+        responses.append(TaskActivityResponse(
+            id=act.id,
+            task_id=act.task_id,
+            user_id=act.user_id,
+            user_name=user_name,
+            content=act.content,
+            media_url=act.media_url,
+            created_at=act.created_at,
+        ))
+    return responses
+
+
+@router.post("/tasks/{task_id}/activities", response_model=TaskActivityResponse)
+async def create_task_activity(
+    task_id: str,
+    data: TaskActivityCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a new note/media update to a task."""
+    # Verify task exists
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+
+    act = TaskActivity(
+        task_id=task_id,
+        user_id=current_user.id,
+        content=data.content,
+        media_url=data.media_url,
+    )
+    db.add(act)
+    await db.flush()
+
+    return TaskActivityResponse(
+        id=act.id,
+        task_id=act.task_id,
+        user_id=act.user_id,
+        user_name=current_user.full_name,
+        content=act.content,
+        media_url=act.media_url,
+        created_at=act.created_at,
+    )
+
+
+@router.put("/tasks/{task_id}/final-file", response_model=TaskResponse)
+async def update_task_final_file(
+    task_id: str,
+    data: TaskFileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set the final result file for a task."""
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+
+    task.final_file_url = data.final_file_url
+    await db.flush()
+    return TaskResponse.model_validate(task)
+
+
+@router.put("/tasks/{task_id}/status", response_model=TaskResponse)
+async def update_task_status(
+    task_id: str,
+    data: TaskStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update task status and dynamically update project progress."""
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+
+    old_status = task.status
+    task.status = data.status
+    if data.status in ("done", "completed"):
+        task.completed_at = datetime.now(timezone.utc)
+    else:
+        task.completed_at = None
+
+    await db.flush()
+
+    # Recalculate project progress
+    proj_result = await db.execute(select(Project).where(Project.id == task.project_id))
+    project = proj_result.scalar_one_or_none()
+    if project:
+        tasks_q = select(Task).where(Task.project_id == project.id)
+        tasks_res = await db.execute(tasks_q)
+        all_tasks = tasks_res.scalars().all()
+        if all_tasks:
+            done_tasks = [t for t in all_tasks if t.status in ("done", "completed")]
+            project.progress = int((len(done_tasks) / len(all_tasks)) * 100)
+            project.updated_at = datetime.now(timezone.utc)
+            await db.flush()
+
+    return TaskResponse.model_validate(task)

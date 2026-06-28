@@ -3,7 +3,7 @@
  * Defines permissions for each user role.
  */
 
-export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive';
+export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'purchasing';
 
 export interface RolePermissions {
   canViewDashboard: boolean;
@@ -35,7 +35,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewLeads: true, leadsScope: 'team',
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: true, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: true,
+    canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
     canViewReports: true,
   },
   data_entry: {
@@ -51,7 +51,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: true,
+    canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
     canViewReports: true,
   },
   executive: {
@@ -62,6 +62,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewContracts: true, canViewQuotations: false, canViewInventory: false,
     canViewReports: true,
   },
+  purchasing: {
+    canViewDashboard: true, dashboardType: 'personal',
+    canViewLeads: false, leadsScope: 'none',
+    canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
+    canViewHR: false, canManageUsers: false,
+    canViewContracts: true, canViewQuotations: false, canViewInventory: true,
+    canViewReports: false,
+  },
 };
 
 export function getRoleLabel(role: UserRole): string {
@@ -71,6 +79,7 @@ export function getRoleLabel(role: UserRole): string {
     data_entry: 'Nhân viên Sale',
     accountant: 'Kế toán / Nhân sự',
     executive: 'Ban Quản Trị',
+    purchasing: 'Nhân viên Thu mua',
   };
   return labels[role] || role;
 }

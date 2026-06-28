@@ -30,16 +30,14 @@ async def seed_database(db: AsyncSession):
     print("[SEED] Seeding database...")
 
     # ── Teams ──
-    team_sales1_id = _id()
-    team_sales2_id = _id()
-    team_design_id = _id()
-    team_exec_id = _id()
+    team_purchasing_id = _id()
 
     teams = [
         Team(id=team_exec_id, name="Ban Giám Đốc", code="BGD", department="EXEC"),
         Team(id=team_sales1_id, name="Đội Văn Toàn", code="JMH-VT", department="SALES"),
         Team(id=team_sales2_id, name="Đội Thái Phượng", code="JMH-TP", department="SALES"),
         Team(id=team_design_id, name="Phòng Thiết Kế", code="DESIGN-1", department="DESIGN"),
+        Team(id=team_purchasing_id, name="Phòng Thu mua", code="JMH-TM", department="PURCHASING"),
     ]
     for t in teams:
         db.add(t)
@@ -51,6 +49,7 @@ async def seed_database(db: AsyncSession):
     sales_id = _id()
     accountant_id = _id()
     executive_id = _id()
+    purchasing_id = _id()
 
     users = [
         User(
@@ -77,6 +76,11 @@ async def seed_database(db: AsyncSession):
             id=executive_id, full_name="Đỗ Minh Tuấn", email="ceo@jamahome.vn",
             phone="0901111222", password_hash=hash_password("ceo123"),
             role="executive", department="EXEC",
+        ),
+        User(
+            id=purchasing_id, full_name="Trần Văn Thu Mua", email="purchasing@jamahome.vn",
+            phone="0902222333", password_hash=hash_password("purchase123"),
+            role="purchasing", department="PURCHASING", team_id=team_purchasing_id,
         ),
     ]
     for u in users:
@@ -246,7 +250,7 @@ async def seed_database(db: AsyncSession):
             lead_id=lead_ids["bong"], client_name="Chị Mai", client_phone="0901234567",
             address="123 Nguyễn Văn Linh, Q7", project_type="design_build",
             design_value=45000000, construction_value=455000000, total_value=500000000,
-            spent=375000000, progress=75, status="active",
+            spent=375000000, progress=75, status="active", stage="construction",
             pm_id=leader_id, designer_id=admin_id, sales_id=sales_id,
             start_date=_dt(60), target_end_date=_dt(-30),
         ),
@@ -255,7 +259,7 @@ async def seed_database(db: AsyncSession):
             lead_id=lead_ids["dung1"], client_name="Anh Tuấn", client_phone="0908765432",
             address="Biệt thự Vinhomes, Bình Chánh", project_type="design_build",
             design_value=120000000, construction_value=2380000000, total_value=2500000000,
-            spent=750000000, progress=30, status="active",
+            spent=750000000, progress=30, status="active", stage="quotation",
             pm_id=leader_id, sales_id=sales_id,
             start_date=_dt(30), target_end_date=_dt(-90),
         ),
@@ -264,7 +268,7 @@ async def seed_database(db: AsyncSession):
             lead_id=lead_ids["duc_anh"], client_name="Chị Hương", client_phone="0912345678",
             address="Căn hộ Sunrise City, Q7", project_type="design_build",
             design_value=25000000, construction_value=155000000, total_value=180000000,
-            spent=162000000, progress=90, status="active",
+            spent=162000000, progress=90, status="active", stage="acceptance",
             pm_id=leader_id, sales_id=sales_id,
             start_date=_dt(90), target_end_date=_dt(-5),
         ),
@@ -273,7 +277,7 @@ async def seed_database(db: AsyncSession):
             lead_id=lead_ids["kim_cuc"], client_name="Anh Minh", client_phone="0987654321",
             address="Shophouse Q2", project_type="design_only",
             design_value=80000000, total_value=80000000,
-            spent=12000000, progress=15, status="paused",
+            spent=12000000, progress=15, status="paused", stage="design",
             pm_id=leader_id, sales_id=leader_id,
             start_date=_dt(15),
         ),
@@ -282,7 +286,7 @@ async def seed_database(db: AsyncSession):
             lead_id=lead_ids["trang"], client_name="Chị Lan", client_phone="0976543210",
             address="Nhà phố Gò Vấp", project_type="construction_only",
             construction_value=680000000, total_value=680000000,
-            spent=374000000, progress=55, status="active",
+            spent=374000000, progress=55, status="active", stage="procurement",
             sales_id=sales_id,
             start_date=_dt(45), target_end_date=_dt(-15),
         ),
@@ -293,19 +297,19 @@ async def seed_database(db: AsyncSession):
 
     # ── Tasks ──
     task_data = [
-        (proj_ids["p1"], "Thiết kế concept", "completed", 1),
-        (proj_ids["p1"], "Bản vẽ kỹ thuật", "completed", 2),
-        (proj_ids["p1"], "Thi công phần thô", "completed", 3),
-        (proj_ids["p1"], "Lắp đặt nội thất", "in_progress", 4),
-        (proj_ids["p1"], "Hoàn thiện & bàn giao", "pending", 5),
-        (proj_ids["p2"], "Khảo sát hiện trạng", "completed", 1),
-        (proj_ids["p2"], "Thiết kế concept Indochine", "completed", 2),
-        (proj_ids["p2"], "Bản vẽ thi công", "in_progress", 3),
-        (proj_ids["p2"], "Thi công kết cấu", "pending", 4),
-        (proj_ids["p2"], "Hoàn thiện nội thất", "pending", 5),
+        (proj_ids["p1"], "Thiết kế concept", "completed", "design", 1),
+        (proj_ids["p1"], "Bản vẽ kỹ thuật", "completed", "design", 2),
+        (proj_ids["p1"], "Thi công phần thô", "completed", "construction", 3),
+        (proj_ids["p1"], "Lắp đặt nội thất", "in_progress", "construction", 4),
+        (proj_ids["p1"], "Hoàn thiện & bàn giao", "pending", "acceptance", 5),
+        (proj_ids["p2"], "Khảo sát hiện trạng", "completed", "design", 1),
+        (proj_ids["p2"], "Thiết kế concept Indochine", "completed", "design", 2),
+        (proj_ids["p2"], "Bản vẽ thi công", "in_progress", "design", 3),
+        (proj_ids["p2"], "Thi công kết cấu", "pending", "construction", 4),
+        (proj_ids["p2"], "Hoàn thiện nội thất", "pending", "construction", 5),
     ]
-    for pid, title, status, order in task_data:
-        db.add(Task(id=_id(), project_id=pid, title=title, status=status, order=order))
+    for pid, title, status, tstage, order in task_data:
+        db.add(Task(id=_id(), project_id=pid, title=title, status=status, stage=tstage, order=order))
     await db.flush()
 
     # ── Transactions ──

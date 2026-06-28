@@ -18,12 +18,21 @@ from app.schemas.inventory import (
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
+def verify_inventory_access(user: User = Depends(get_current_user)):
+    if user.role not in ("admin", "purchasing") and user.department != "PURCHASING":
+        raise HTTPException(
+            status_code=403,
+            detail="Không có quyền truy cập kho vật tư. Chỉ Admin và bộ phận Thu mua được phép xem."
+        )
+    return user
+
+
 @router.get("", response_model=list[MaterialResponse])
 async def list_materials(
     category: str | None = None,
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """List all materials."""
     q = select(Material).order_by(Material.name)
@@ -39,7 +48,7 @@ async def list_materials(
 @router.get("/low-stock")
 async def low_stock_alerts(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Materials with stock at or below minimum."""
     q = select(Material).where(Material.quantity_in_stock <= Material.min_stock)
@@ -60,7 +69,7 @@ async def low_stock_alerts(
 async def get_material(
     material_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Get material detail."""
     result = await db.execute(select(Material).where(Material.id == material_id))
@@ -74,7 +83,7 @@ async def get_material(
 async def create_material(
     data: MaterialCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Add new material."""
     m = Material(**data.model_dump())
@@ -88,7 +97,7 @@ async def update_material(
     material_id: str,
     data: MaterialUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Update material."""
     result = await db.execute(select(Material).where(Material.id == material_id))
@@ -108,7 +117,7 @@ async def adjust_stock(
     material_id: str,
     data: StockAdjust,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Add or remove stock (positive = nhập, negative = xuất)."""
     result = await db.execute(select(Material).where(Material.id == material_id))
@@ -131,7 +140,7 @@ async def adjust_stock(
 async def list_usages(
     material_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Usage history for a material."""
     q = select(MaterialUsage).where(
@@ -146,7 +155,7 @@ async def list_usages(
 async def record_usage(
     data: MaterialUsageCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_inventory_access),
 ):
     """Record material usage for a project (auto-deducts stock)."""
     # Get material

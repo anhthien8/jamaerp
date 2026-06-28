@@ -154,7 +154,7 @@ export const DEMO_PROJECTS: Project[] = [
   {
     id: 'demo-proj-001', code: 'PRJ-2026-001', name: 'Nhà phố Q7 - Chị Mai',
     lead_id: 'demo-lead-001', client_name: 'Chị Mai', client_phone: '0901234567',
-    address: '123 Nguyễn Văn Linh, Q7', project_type: 'design_build', status: 'active',
+    address: '123 Nguyễn Văn Linh, Q7', project_type: 'design_build', status: 'active', stage: 'construction',
     design_value: 45000000, construction_value: 455000000, total_value: 500000000,
     spent: 375000000, progress: 75,
     start_date: '2026-04-26T00:00:00Z', target_end_date: '2026-09-25T00:00:00Z',
@@ -163,7 +163,7 @@ export const DEMO_PROJECTS: Project[] = [
   {
     id: 'demo-proj-002', code: 'PRJ-2026-002', name: 'Biệt thự Bình Chánh - Anh Tuấn',
     lead_id: 'demo-lead-002', client_name: 'Anh Tuấn', client_phone: '0908765432',
-    address: 'Biệt thự Vinhomes, Bình Chánh', project_type: 'design_build', status: 'active',
+    address: 'Biệt thự Vinhomes, Bình Chánh', project_type: 'design_build', status: 'active', stage: 'procurement',
     design_value: 120000000, construction_value: 2380000000, total_value: 2500000000,
     spent: 750000000, progress: 30,
     start_date: '2026-05-26T00:00:00Z', target_end_date: '2026-11-22T00:00:00Z',
@@ -172,7 +172,7 @@ export const DEMO_PROJECTS: Project[] = [
   {
     id: 'demo-proj-003', code: 'PRJ-2026-003', name: 'Căn hộ Sunrise - Chị Hương',
     lead_id: 'demo-lead-003', client_name: 'Chị Hương', client_phone: '0912345678',
-    address: 'Căn hộ Sunrise City, Q7', project_type: 'design_build', status: 'active',
+    address: 'Căn hộ Sunrise City, Q7', project_type: 'design_build', status: 'active', stage: 'acceptance',
     design_value: 25000000, construction_value: 155000000, total_value: 180000000,
     spent: 162000000, progress: 90,
     start_date: '2026-03-27T00:00:00Z', target_end_date: '2026-07-20T00:00:00Z',
@@ -181,7 +181,7 @@ export const DEMO_PROJECTS: Project[] = [
   {
     id: 'demo-proj-004', code: 'PRJ-2026-004', name: 'Shophouse Q2 - Anh Minh',
     lead_id: 'demo-lead-004', client_name: 'Anh Minh', client_phone: '0987654321',
-    address: 'Shophouse Q2', project_type: 'design_only', status: 'paused',
+    address: 'Shophouse Q2', project_type: 'design_only', status: 'paused', stage: 'design',
     design_value: 80000000, total_value: 80000000,
     spent: 12000000, progress: 15,
     start_date: '2026-06-11T00:00:00Z',
@@ -190,7 +190,7 @@ export const DEMO_PROJECTS: Project[] = [
   {
     id: 'demo-proj-005', code: 'PRJ-2026-005', name: 'Nhà phố Gò Vấp - Chị Lan',
     lead_id: 'demo-lead-005', client_name: 'Chị Lan', client_phone: '0976543210',
-    address: 'Nhà phố Gò Vấp', project_type: 'construction_only', status: 'active',
+    address: 'Nhà phố Gò Vấp', project_type: 'construction_only', status: 'active', stage: 'construction',
     construction_value: 680000000, total_value: 680000000,
     spent: 374000000, progress: 55,
     start_date: '2026-05-11T00:00:00Z', target_end_date: '2026-08-09T00:00:00Z',
@@ -200,21 +200,21 @@ export const DEMO_PROJECTS: Project[] = [
 
 // ─── Tasks (10+) ────────────────────────────────────────
 export const DEMO_TASKS: ProjectTask[] = [
-  { id: 'demo-task-001', project_id: 'demo-proj-001', title: 'Thiết kế concept', status: 'done', order: 1, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-002', project_id: 'demo-proj-001', title: 'Bản vẽ kỹ thuật', status: 'done', order: 2, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-003', project_id: 'demo-proj-001', title: 'Thi công phần thô', status: 'done', order: 3, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-004', project_id: 'demo-proj-001', title: 'Lắp đặt nội thất', status: 'in_progress', order: 4, due_date: '2026-07-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-005', project_id: 'demo-proj-001', title: 'Hoàn thiện & bàn giao', status: 'todo', order: 5, due_date: '2026-08-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-006', project_id: 'demo-proj-002', title: 'Khảo sát hiện trạng', status: 'done', order: 1, created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-007', project_id: 'demo-proj-002', title: 'Thiết kế concept Indochine', status: 'done', order: 2, created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-008', project_id: 'demo-proj-002', title: 'Bản vẽ thi công', status: 'in_progress', order: 3, due_date: '2026-07-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-009', project_id: 'demo-proj-002', title: 'Thi công kết cấu', status: 'todo', order: 4, due_date: '2026-09-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-010', project_id: 'demo-proj-002', title: 'Hoàn thiện nội thất', status: 'todo', order: 5, due_date: '2026-11-15T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-011', project_id: 'demo-proj-003', title: 'Thiết kế căn hộ 2PN', status: 'done', order: 1, created_at: '2026-03-27T00:00:00Z' },
-  { id: 'demo-task-012', project_id: 'demo-proj-003', title: 'Thi công nội thất', status: 'in_progress', order: 2, due_date: '2026-07-10T00:00:00Z', created_at: '2026-03-27T00:00:00Z' },
-  { id: 'demo-task-013', project_id: 'demo-proj-005', title: 'Thi công phần thô', status: 'done', order: 1, created_at: '2026-05-11T00:00:00Z' },
-  { id: 'demo-task-014', project_id: 'demo-proj-005', title: 'Lắp đặt nội thất', status: 'in_progress', order: 2, due_date: '2026-07-20T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
-  { id: 'demo-task-015', project_id: 'demo-proj-005', title: 'Nghiệm thu & bàn giao', status: 'todo', order: 3, due_date: '2026-08-05T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-001', project_id: 'demo-proj-001', title: 'Thiết kế concept', status: 'done', stage: 'design', order: 1, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-002', project_id: 'demo-proj-001', title: 'Bản vẽ kỹ thuật', status: 'done', stage: 'design', order: 2, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-003', project_id: 'demo-proj-001', title: 'Thi công phần thô', status: 'done', stage: 'construction', order: 3, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-004', project_id: 'demo-proj-001', title: 'Lắp đặt nội thất', status: 'in_progress', stage: 'construction', order: 4, due_date: '2026-07-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-005', project_id: 'demo-proj-001', title: 'Hoàn thiện & bàn giao', status: 'todo', stage: 'acceptance', order: 5, due_date: '2026-08-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-006', project_id: 'demo-proj-002', title: 'Khảo sát hiện trạng', status: 'done', stage: 'design', order: 1, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-007', project_id: 'demo-proj-002', title: 'Thiết kế concept Indochine', status: 'done', stage: 'design', order: 2, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-008', project_id: 'demo-proj-002', title: 'Bản vẽ thi công', status: 'in_progress', stage: 'design', order: 3, due_date: '2026-07-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-009', project_id: 'demo-proj-002', title: 'Thi công kết cấu', status: 'todo', stage: 'construction', order: 4, due_date: '2026-09-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-010', project_id: 'demo-proj-002', title: 'Hoàn thiện nội thất', status: 'todo', stage: 'construction', order: 5, due_date: '2026-11-15T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-011', project_id: 'demo-proj-003', title: 'Thiết kế căn hộ 2PN', status: 'done', stage: 'design', order: 1, created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-012', project_id: 'demo-proj-003', title: 'Thi công nội thất', status: 'in_progress', stage: 'construction', order: 2, due_date: '2026-07-10T00:00:00Z', created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-013', project_id: 'demo-proj-005', title: 'Thi công phần thô', status: 'done', stage: 'construction', order: 1, created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-014', project_id: 'demo-proj-005', title: 'Lắp đặt nội thất', status: 'in_progress', stage: 'construction', order: 2, due_date: '2026-07-20T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-015', project_id: 'demo-proj-005', title: 'Nghiệm thu & bàn giao', status: 'todo', stage: 'acceptance', order: 3, due_date: '2026-08-05T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
 ];
 
 // ─── Transactions (12) ──────────────────────────────────

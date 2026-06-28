@@ -12,6 +12,9 @@ from app.middleware.auth import get_current_user
 from app.middleware.rbac import can_view_lead, can_modify_lead
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
+from app.models.customer import Customer
+from app.models.project import Project, Task
+import random
 from app.schemas.lead import (
     LeadCreate, LeadUpdate, LeadResponse, LeadStageChange, LeadAssign,
     ActivityCreate, ActivityResponse, PipelineStats, PipelineKanban,
@@ -284,6 +287,95 @@ async def change_stage(
         lead.design_contract_value = data.design_contract_value
     lead.updated_at = datetime.now(timezone.utc)
     await db.flush()
+
+    # Auto-convert to Customer & Project when signed_design is reached
+    if data.new_stage == "signed_design":
+        # 1. Create/get Customer
+        cust_q = select(Customer).where((Customer.lead_id == lead.id) | (Customer.phone == lead.phone))
+        cust_res = await db.execute(cust_q)
+        customer = cust_res.scalar_one_or_none()
+        if not customer:
+            customer = Customer(
+                name=lead.name,
+                phone=lead.phone,
+                email=lead.email,
+                address=lead.address,
+                lead_id=lead.id,
+                type="individual",
+            )
+            db.add(customer)
+            await db.flush()
+
+        # 2. Create Project
+        proj_q = select(Project).where(Project.lead_id == lead.id)
+        proj_res = await db.execute(proj_q)
+        project = proj_res.scalar_one_or_none()
+        if not project:
+            year = datetime.now(timezone.utc).year
+            # Ensure unique project code
+            while True:
+                code = f"PRJ-{year}-{random.randint(1000, 9999)}"
+                code_q = select(Project).where(Project.code == code)
+                code_res = await db.execute(code_q)
+                if not code_res.scalar_one_or_none():
+                    break
+
+            project = Project(
+                code=code,
+                name=f"Dự án {lead.name}",
+                lead_id=lead.id,
+                client_name=lead.name,
+                client_phone=lead.phone,
+                address=lead.address,
+                project_type="design_build",
+                design_value=lead.design_contract_value or lead.estimated_budget,
+                total_value=lead.design_contract_value or lead.estimated_budget,
+                status="active",
+                stage="design",
+                sales_id=lead.assigned_to,
+            )
+            db.add(project)
+            await db.flush()
+
+            # 3. Create 19 default tasks for Project
+            default_tasks = [
+                # Thiết kế
+                ("2D Concept", "Bố trí công năng, layout sơ bộ", "design", 1),
+                ("3D Demo", "Phối cảnh ý tưởng để khách duyệt hướng", "design", 2),
+                ("3D Render", "Phối cảnh hoàn chỉnh chất lượng cao", "design", 3),
+                ("Triển khai bản vẽ kỹ thuật", "TK Kiến trúc, kết cấu, điện nước, 2D nội thất", "design", 4),
+                ("Thiết kế Final", "Chủ trì duyệt & up file đã chốt", "design", 5),
+                # Báo giá
+                ("Báo giá 2D", "Báo giá theo bản vẽ 2D", "quotation", 6),
+                ("Báo giá 3D", "Báo giá theo phương án 3D", "quotation", 7),
+                ("Báo giá Nội thất", "Báo giá hạng mục nội thất", "quotation", 8),
+                ("Báo giá chốt khách (Final)", "File báo giá thống nhất với khách", "quotation", 9),
+                # Thu mua
+                ("Chuẩn bị vật liệu", "Danh mục vật tư theo thiết kế & báo giá", "procurement", 10),
+                ("Hoàn thành SPECS", "Chốt quy cách kỹ thuật từng vật tư", "procurement", 11),
+                ("Đặt hàng", "Đơn đặt hàng + theo dõi tiến độ hàng về", "procurement", 12),
+                # Thi công
+                ("Xin phép (nếu có)", "Thủ tục pháp lý / nội quy tòa nhà trước khi vào việc", "construction", 13),
+                ("Lập bảng tiến độ", "Tiến độ tổng chia theo hạng mục & deadline", "construction", 14),
+                ("Thi công thô", "Tháo dỡ, kết cấu, xây tô, điện–nước âm", "construction", 15),
+                ("Thi công nội thất", "Lắp đặt & hoàn thiện nội thất", "construction", 16),
+                # Nghiệm thu
+                ("Bàn giao công trình", "Biên bản bàn giao cho khách + hình ảnh", "acceptance", 17),
+                ("Nghiệm thu khối lượng", "Đối chiếu khối lượng thực tế vs hợp đồng", "acceptance", 18),
+                ("Bảo hành – Bảo trì", "Thiết lập kỳ bảo hành; tiếp nhận & xử lý yêu cầu", "acceptance", 19),
+            ]
+
+            for title, desc, tstage, order in default_tasks:
+                task = Task(
+                    project_id=project.id,
+                    title=title,
+                    description=desc,
+                    stage=tstage,
+                    status="todo",
+                    order=order,
+                )
+                db.add(task)
+            await db.flush()
 
     # Log activity
     content = f"Chuyển stage: {STAGE_LABELS.get(old_stage)} → {STAGE_LABELS.get(data.new_stage)}"

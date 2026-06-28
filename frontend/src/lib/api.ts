@@ -257,6 +257,39 @@ class ApiClient {
     return this.request<ProjectTask[]>(`/projects/${projectId}/tasks`);
   }
 
+  async getProjectKanban() {
+    return this.request<ProjectKanban[]>('/projects/pipeline/kanban');
+  }
+
+  async updateProjectStage(projectId: string, stage: string) {
+    return this.request<Project>(`/projects/${projectId}/stage`, { method: 'PUT', body: { stage } });
+  }
+
+  async getTaskActivities(taskId: string) {
+    return this.request<TaskActivity[]>(`/projects/tasks/${taskId}/activities`);
+  }
+
+  async createTaskActivity(taskId: string, content: string, mediaUrl?: string) {
+    return this.request<TaskActivity>(`/projects/tasks/${taskId}/activities`, {
+      method: 'POST',
+      body: { content, media_url: mediaUrl },
+    });
+  }
+
+  async updateTaskFinalFile(taskId: string, finalFileUrl: string | null) {
+    return this.request<ProjectTask>(`/projects/tasks/${taskId}/final-file`, {
+      method: 'PUT',
+      body: { final_file_url: finalFileUrl },
+    });
+  }
+
+  async updateTaskStatus(taskId: string, status: string) {
+    return this.request<ProjectTask>(`/projects/tasks/${taskId}/status`, {
+      method: 'PUT',
+      body: { status },
+    });
+  }
+
   // Accounting
   async getTransactions(params?: Record<string, string>) {
     return this.request<Transaction[]>('/accounting/transactions', { params });
@@ -468,6 +501,7 @@ export interface Project {
   address?: string;
   project_type: string;
   status: string;
+  stage: string;
   design_value?: number;
   construction_value?: number;
   total_value?: number;
@@ -488,10 +522,29 @@ export interface ProjectTask {
   title: string;
   description?: string;
   status: string;
+  stage: string;
+  final_file_url?: string;
   assigned_to?: string;
   order: number;
   due_date?: string;
   completed_at?: string;
+  created_at: string;
+}
+
+export interface ProjectKanban {
+  stage: string;
+  stage_label: string;
+  projects: Project[];
+  count: number;
+}
+
+export interface TaskActivity {
+  id: string;
+  task_id: string;
+  user_id: string;
+  user_name?: string;
+  content: string;
+  media_url?: string;
   created_at: string;
 }
 

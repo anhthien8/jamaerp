@@ -16,7 +16,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """App startup/shutdown hooks."""
     # Import all models so Base.metadata knows them
-    from app.models import User, Team, Lead, Activity, Project, Task, Transaction, Commission, Payroll  # noqa
+    from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll  # noqa
     from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
 
     # Create tables

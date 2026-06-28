@@ -1,4 +1,4 @@
-"""Pydantic schemas for projects."""
+"""Pydantic schemas for projects, tasks, and task activities."""
 
 from pydantic import BaseModel
 from datetime import datetime
@@ -20,11 +20,13 @@ class ProjectCreate(BaseModel):
     sales_id: str | None = None
     start_date: datetime | None = None
     target_end_date: datetime | None = None
+    stage: str = "design"
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
     status: str | None = None
+    stage: str | None = None
     progress: int | None = None
     spent: float | None = None
     pm_id: str | None = None
@@ -41,6 +43,7 @@ class ProjectResponse(BaseModel):
     address: str | None = None
     project_type: str
     status: str
+    stage: str
     design_value: float | None = None
     construction_value: float | None = None
     total_value: float | None = None
@@ -63,10 +66,29 @@ class TaskResponse(BaseModel):
     title: str
     description: str | None = None
     status: str
+    stage: str
+    final_file_url: str | None = None
     assigned_to: str | None = None
     order: int
     due_date: datetime | None = None
     completed_at: datetime | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TaskActivityCreate(BaseModel):
+    content: str
+    media_url: str | None = None
+
+
+class TaskActivityResponse(BaseModel):
+    id: str
+    task_id: str
+    user_id: str
+    user_name: str | None = None
+    content: str
+    media_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
