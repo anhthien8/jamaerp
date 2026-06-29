@@ -24,10 +24,21 @@ const STAGE_LABELS: Record<string, string> = {
   completed: 'Hoàn thành',
 };
 
+const DEPT_LABELS: Record<string, { label: string; color: string }> = {
+  design: { label: 'Thiết kế', color: '#8B5CF6' },
+  quotation: { label: 'Báo giá', color: '#F59E0B' },
+  procurement: { label: 'Thu mua', color: '#10B981' },
+  construction: { label: 'Thi công', color: '#3B82F6' },
+  accounting: { label: 'Kế toán', color: '#EC4899' },
+  sales: { label: 'Kinh doanh', color: '#F97316' },
+};
+
 const taskStatusConfig: Record<string, { label: string; color: string; icon: string }> = {
   done: { label: 'Xong', color: '#10B981', icon: '✅' },
   in_progress: { label: 'Đang làm', color: '#F59E0B', icon: '🔄' },
+  not_started: { label: 'Chưa bắt đầu', color: '#6B7280', icon: '⏳' },
   todo: { label: 'Chờ', color: '#6B7280', icon: '⏳' },
+  completed: { label: 'Hoàn thành', color: '#3B82F6', icon: '✅' },
 };
 
 export default function ProjectsPage() {
@@ -539,6 +550,7 @@ export default function ProjectsPage() {
                           <div className="space-y-1.5 pl-3">
                             {stageTasks.map(task => {
                               const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: '📌' };
+                              const dept = task.department ? DEPT_LABELS[task.department] : null;
                               return (
                                 <div
                                   key={task.id}
@@ -548,9 +560,16 @@ export default function ProjectsPage() {
                                   <span className="text-sm">{ts.icon}</span>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs font-medium truncate text-white">{task.title}</p>
-                                    {task.final_file_url && (
-                                      <p className="text-[9px] text-[var(--gold-400)] truncate">📎 Đã đính kèm file chốt</p>
-                                    )}
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {dept && (
+                                        <span className="text-[9px] px-1 py-0.2 rounded font-medium" style={{ background: `${dept.color}15`, color: dept.color }}>
+                                          {dept.label}
+                                        </span>
+                                      )}
+                                      {task.final_file_url && (
+                                        <span className="text-[9px] text-[var(--gold-400)]">📎</span>
+                                      )}
+                                    </div>
                                   </div>
                                   <span className="text-[9px] px-1.5 py-0.2 rounded font-medium" style={{ background: `${ts.color}15`, color: ts.color }}>
                                     {ts.label}

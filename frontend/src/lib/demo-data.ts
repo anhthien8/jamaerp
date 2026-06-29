@@ -203,21 +203,62 @@ export const DEMO_PROJECTS: Project[] = [
 
 // ─── Tasks (10+) ────────────────────────────────────────
 export const DEMO_TASKS: ProjectTask[] = [
-  { id: 'demo-task-001', project_id: 'demo-proj-001', title: 'Thiết kế concept', status: 'done', stage: 'design', order: 1, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-002', project_id: 'demo-proj-001', title: 'Bản vẽ kỹ thuật', status: 'done', stage: 'design', order: 2, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-003', project_id: 'demo-proj-001', title: 'Thi công phần thô', status: 'done', stage: 'construction', order: 3, created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-004', project_id: 'demo-proj-001', title: 'Lắp đặt nội thất', status: 'in_progress', stage: 'construction', order: 4, due_date: '2026-07-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-005', project_id: 'demo-proj-001', title: 'Hoàn thiện & bàn giao', status: 'todo', stage: 'acceptance', order: 5, due_date: '2026-08-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
-  { id: 'demo-task-006', project_id: 'demo-proj-002', title: 'Khảo sát hiện trạng', status: 'done', stage: 'design', order: 1, created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-007', project_id: 'demo-proj-002', title: 'Thiết kế concept Indochine', status: 'done', stage: 'design', order: 2, created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-008', project_id: 'demo-proj-002', title: 'Bản vẽ thi công', status: 'in_progress', stage: 'design', order: 3, due_date: '2026-07-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-009', project_id: 'demo-proj-002', title: 'Thi công kết cấu', status: 'todo', stage: 'construction', order: 4, due_date: '2026-09-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-010', project_id: 'demo-proj-002', title: 'Hoàn thiện nội thất', status: 'todo', stage: 'construction', order: 5, due_date: '2026-11-15T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
-  { id: 'demo-task-011', project_id: 'demo-proj-003', title: 'Thiết kế căn hộ 2PN', status: 'done', stage: 'design', order: 1, created_at: '2026-03-27T00:00:00Z' },
-  { id: 'demo-task-012', project_id: 'demo-proj-003', title: 'Thi công nội thất', status: 'in_progress', stage: 'construction', order: 2, due_date: '2026-07-10T00:00:00Z', created_at: '2026-03-27T00:00:00Z' },
-  { id: 'demo-task-013', project_id: 'demo-proj-005', title: 'Thi công phần thô', status: 'done', stage: 'construction', order: 1, created_at: '2026-05-11T00:00:00Z' },
-  { id: 'demo-task-014', project_id: 'demo-proj-005', title: 'Lắp đặt nội thất', status: 'in_progress', stage: 'construction', order: 2, due_date: '2026-07-20T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
-  { id: 'demo-task-015', project_id: 'demo-proj-005', title: 'Nghiệm thu & bàn giao', status: 'todo', stage: 'acceptance', order: 3, due_date: '2026-08-05T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+  // Project 1 — Nhà phố Q7 (construction stage)
+  // Design
+  { id: 'demo-task-001', project_id: 'demo-proj-001', title: '2D Concept', status: 'done', stage: 'design', department: 'design', order: 1, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-002', project_id: 'demo-proj-001', title: '3D Demo', status: 'done', stage: 'design', department: 'design', order: 2, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-003', project_id: 'demo-proj-001', title: '3D Render', status: 'done', stage: 'design', department: 'design', order: 3, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-004', project_id: 'demo-proj-001', title: 'Bản vẽ kỹ thuật', status: 'done', stage: 'design', department: 'design', order: 4, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-005', project_id: 'demo-proj-001', title: 'Thiết kế Final — Gửi KH', status: 'done', stage: 'design', department: 'design', order: 5, created_at: '2026-04-26T00:00:00Z' },
+  // Quotation
+  { id: 'demo-task-006', project_id: 'demo-proj-001', title: 'Báo giá 2D', status: 'done', stage: 'quotation', department: 'quotation', order: 6, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-007', project_id: 'demo-proj-001', title: 'Báo giá 3D', status: 'done', stage: 'quotation', department: 'quotation', order: 7, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-008', project_id: 'demo-proj-001', title: 'Báo giá Nội thất', status: 'done', stage: 'quotation', department: 'quotation', order: 8, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-009', project_id: 'demo-proj-001', title: 'Báo giá Final — KH duyệt', status: 'done', stage: 'quotation', department: 'quotation', order: 9, created_at: '2026-04-26T00:00:00Z' },
+  // Procurement
+  { id: 'demo-task-010', project_id: 'demo-proj-001', title: 'Chuẩn bị vật liệu', status: 'done', stage: 'procurement', department: 'procurement', order: 10, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-011', project_id: 'demo-proj-001', title: 'Hoàn thiện SPECS', status: 'done', stage: 'procurement', department: 'procurement', order: 11, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-012', project_id: 'demo-proj-001', title: 'Đặt hàng & theo dõi giao nhận', status: 'done', stage: 'procurement', department: 'procurement', order: 12, created_at: '2026-04-26T00:00:00Z' },
+  // Construction
+  { id: 'demo-task-013', project_id: 'demo-proj-001', title: 'Giấy phép (nếu có)', status: 'done', stage: 'construction', department: 'construction', order: 13, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-014', project_id: 'demo-proj-001', title: 'Chuẩn bị tiến độ thi công', status: 'done', stage: 'construction', department: 'construction', order: 14, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-015', project_id: 'demo-proj-001', title: 'Thi công phần thô', status: 'done', stage: 'construction', department: 'construction', order: 15, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-016', project_id: 'demo-proj-001', title: 'Thi công nội thất', status: 'in_progress', stage: 'construction', department: 'construction', order: 16, due_date: '2026-07-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  // Acceptance
+  { id: 'demo-task-017', project_id: 'demo-proj-001', title: 'Bàn giao', status: 'not_started', stage: 'acceptance', department: 'construction', order: 17, due_date: '2026-08-15T00:00:00Z', created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-018', project_id: 'demo-proj-001', title: 'Nghiệm thu khối lượng', status: 'not_started', stage: 'acceptance', department: 'accounting', order: 18, created_at: '2026-04-26T00:00:00Z' },
+  { id: 'demo-task-019', project_id: 'demo-proj-001', title: 'Bảo hành — Bảo trì', status: 'not_started', stage: 'acceptance', department: 'construction', order: 19, created_at: '2026-04-26T00:00:00Z' },
+
+  // Project 2 — Biệt thự Bình Chánh (design stage)
+  { id: 'demo-task-020', project_id: 'demo-proj-002', title: '2D Concept', status: 'done', stage: 'design', department: 'design', order: 1, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-021', project_id: 'demo-proj-002', title: '3D Demo', status: 'done', stage: 'design', department: 'design', order: 2, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-022', project_id: 'demo-proj-002', title: '3D Render', status: 'in_progress', stage: 'design', department: 'design', order: 3, due_date: '2026-07-30T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-023', project_id: 'demo-proj-002', title: 'Bản vẽ kỹ thuật', status: 'not_started', stage: 'design', department: 'design', order: 4, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-024', project_id: 'demo-proj-002', title: 'Thiết kế Final — Gửi KH', status: 'not_started', stage: 'design', department: 'design', order: 5, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-025', project_id: 'demo-proj-002', title: 'Báo giá 2D', status: 'not_started', stage: 'quotation', department: 'quotation', order: 6, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-026', project_id: 'demo-proj-002', title: 'Báo giá 3D', status: 'not_started', stage: 'quotation', department: 'quotation', order: 7, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-027', project_id: 'demo-proj-002', title: 'Báo giá Nội thất', status: 'not_started', stage: 'quotation', department: 'quotation', order: 8, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-028', project_id: 'demo-proj-002', title: 'Báo giá Final — KH duyệt', status: 'not_started', stage: 'quotation', department: 'quotation', order: 9, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-029', project_id: 'demo-proj-002', title: 'Chuẩn bị vật liệu', status: 'not_started', stage: 'procurement', department: 'procurement', order: 10, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-030', project_id: 'demo-proj-002', title: 'Hoàn thiện SPECS', status: 'not_started', stage: 'procurement', department: 'procurement', order: 11, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-031', project_id: 'demo-proj-002', title: 'Đặt hàng & theo dõi giao nhận', status: 'not_started', stage: 'procurement', department: 'procurement', order: 12, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-032', project_id: 'demo-proj-002', title: 'Giấy phép (nếu có)', status: 'not_started', stage: 'construction', department: 'construction', order: 13, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-033', project_id: 'demo-proj-002', title: 'Chuẩn bị tiến độ thi công', status: 'not_started', stage: 'construction', department: 'construction', order: 14, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-034', project_id: 'demo-proj-002', title: 'Thi công phần thô', status: 'not_started', stage: 'construction', department: 'construction', order: 15, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-035', project_id: 'demo-proj-002', title: 'Thi công nội thất', status: 'not_started', stage: 'construction', department: 'construction', order: 16, due_date: '2026-11-15T00:00:00Z', created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-036', project_id: 'demo-proj-002', title: 'Bàn giao', status: 'not_started', stage: 'acceptance', department: 'construction', order: 17, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-037', project_id: 'demo-proj-002', title: 'Nghiệm thu khối lượng', status: 'not_started', stage: 'acceptance', department: 'accounting', order: 18, created_at: '2026-05-26T00:00:00Z' },
+  { id: 'demo-task-038', project_id: 'demo-proj-002', title: 'Bảo hành — Bảo trì', status: 'not_started', stage: 'acceptance', department: 'construction', order: 19, created_at: '2026-05-26T00:00:00Z' },
+
+  // Project 3 — Căn hộ Sunrise (acceptance stage)
+  { id: 'demo-task-039', project_id: 'demo-proj-003', title: '2D Concept', status: 'done', stage: 'design', department: 'design', order: 1, created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-040', project_id: 'demo-proj-003', title: 'Thi công nội thất', status: 'done', stage: 'construction', department: 'construction', order: 2, created_at: '2026-03-27T00:00:00Z' },
+  { id: 'demo-task-041', project_id: 'demo-proj-003', title: 'Nghiệm thu & bàn giao', status: 'in_progress', stage: 'acceptance', department: 'construction', order: 3, due_date: '2026-07-10T00:00:00Z', created_at: '2026-03-27T00:00:00Z' },
+
+  // Project 5 — Nhà phố Gò Vấp (procurement stage)
+  { id: 'demo-task-042', project_id: 'demo-proj-005', title: 'Thi công phần thô', status: 'done', stage: 'construction', department: 'construction', order: 1, created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-043', project_id: 'demo-proj-005', title: 'Lắp đặt nội thất', status: 'in_progress', stage: 'construction', department: 'construction', order: 2, due_date: '2026-07-20T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
+  { id: 'demo-task-044', project_id: 'demo-proj-005', title: 'Nghiệm thu & bàn giao', status: 'not_started', stage: 'acceptance', department: 'construction', order: 3, due_date: '2026-08-05T00:00:00Z', created_at: '2026-05-11T00:00:00Z' },
 ];
 
 // ─── Transactions (12) ──────────────────────────────────

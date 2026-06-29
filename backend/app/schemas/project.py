@@ -67,6 +67,7 @@ class TaskResponse(BaseModel):
     description: str | None = None
     status: str
     stage: str
+    department: str | None = None
     final_file_url: str | None = None
     assigned_to: str | None = None
     order: int

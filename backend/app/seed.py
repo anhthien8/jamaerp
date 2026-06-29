@@ -299,21 +299,62 @@ async def seed_database(db: AsyncSession):
         db.add(p)
     await db.flush()
 
-    # ── Tasks ──
+    # ── Tasks (per BA Pipeline Blueprint v2.0) ──
+    # Stage I: Design (Thiết kế) — Department: design
+    # Stage II: Quotation (Báo giá) — Department: quotation
+    # Stage III: Procurement (Thu mua) — Department: procurement
+    # Stage IV: Construction (Thi công) — Department: construction
+    # Stage V: Acceptance (Nghiệm thu) — Department: construction + accounting
     task_data = [
-        (proj_ids["p1"], "Thiết kế concept", "completed", "design", 1),
-        (proj_ids["p1"], "Bản vẽ kỹ thuật", "completed", "design", 2),
-        (proj_ids["p1"], "Thi công phần thô", "completed", "construction", 3),
-        (proj_ids["p1"], "Lắp đặt nội thất", "in_progress", "construction", 4),
-        (proj_ids["p1"], "Hoàn thiện & bàn giao", "pending", "acceptance", 5),
-        (proj_ids["p2"], "Khảo sát hiện trạng", "completed", "design", 1),
-        (proj_ids["p2"], "Thiết kế concept Indochine", "completed", "design", 2),
-        (proj_ids["p2"], "Bản vẽ thi công", "in_progress", "design", 3),
-        (proj_ids["p2"], "Thi công kết cấu", "pending", "construction", 4),
-        (proj_ids["p2"], "Hoàn thiện nội thất", "pending", "construction", 5),
+        # Project 1 — Nhà phố Q7 (in construction stage)
+        # Design
+        (proj_ids["p1"], "2D Concept", "done", "design", "design", 1),
+        (proj_ids["p1"], "3D Demo", "done", "design", "design", 2),
+        (proj_ids["p1"], "3D Render", "done", "design", "design", 3),
+        (proj_ids["p1"], "Bản vẽ kỹ thuật", "done", "design", "design", 4),
+        (proj_ids["p1"], "Thiết kế Final — Gửi KH", "done", "design", "design", 5),
+        # Quotation
+        (proj_ids["p1"], "Báo giá 2D", "done", "quotation", "quotation", 6),
+        (proj_ids["p1"], "Báo giá 3D", "done", "quotation", "quotation", 7),
+        (proj_ids["p1"], "Báo giá Nội thất", "done", "quotation", "quotation", 8),
+        (proj_ids["p1"], "Báo giá Final — KH duyệt", "done", "quotation", "quotation", 9),
+        # Procurement
+        (proj_ids["p1"], "Chuẩn bị vật liệu", "done", "procurement", "procurement", 10),
+        (proj_ids["p1"], "Hoàn thiện SPECS", "done", "procurement", "procurement", 11),
+        (proj_ids["p1"], "Đặt hàng & theo dõi giao nhận", "done", "procurement", "procurement", 12),
+        # Construction
+        (proj_ids["p1"], "Giấy phép (nếu có)", "done", "construction", "construction", 13),
+        (proj_ids["p1"], "Chuẩn bị tiến độ thi công", "done", "construction", "construction", 14),
+        (proj_ids["p1"], "Thi công phần thô", "done", "construction", "construction", 15),
+        (proj_ids["p1"], "Thi công nội thất", "in_progress", "construction", "construction", 16),
+        # Acceptance
+        (proj_ids["p1"], "Bàn giao", "not_started", "acceptance", "construction", 17),
+        (proj_ids["p1"], "Nghiệm thu khối lượng", "not_started", "acceptance", "accounting", 18),
+        (proj_ids["p1"], "Bảo hành — Bảo trì", "not_started", "acceptance", "construction", 19),
+
+        # Project 2 — Biệt thự Bình Chánh (in design stage)
+        (proj_ids["p2"], "2D Concept", "done", "design", "design", 1),
+        (proj_ids["p2"], "3D Demo", "done", "design", "design", 2),
+        (proj_ids["p2"], "3D Render", "in_progress", "design", "design", 3),
+        (proj_ids["p2"], "Bản vẽ kỹ thuật", "not_started", "design", "design", 4),
+        (proj_ids["p2"], "Thiết kế Final — Gửi KH", "not_started", "design", "design", 5),
+        (proj_ids["p2"], "Báo giá 2D", "not_started", "quotation", "quotation", 6),
+        (proj_ids["p2"], "Báo giá 3D", "not_started", "quotation", "quotation", 7),
+        (proj_ids["p2"], "Báo giá Nội thất", "not_started", "quotation", "quotation", 8),
+        (proj_ids["p2"], "Báo giá Final — KH duyệt", "not_started", "quotation", "quotation", 9),
+        (proj_ids["p2"], "Chuẩn bị vật liệu", "not_started", "procurement", "procurement", 10),
+        (proj_ids["p2"], "Hoàn thiện SPECS", "not_started", "procurement", "procurement", 11),
+        (proj_ids["p2"], "Đặt hàng & theo dõi giao nhận", "not_started", "procurement", "procurement", 12),
+        (proj_ids["p2"], "Giấy phép (nếu có)", "not_started", "construction", "construction", 13),
+        (proj_ids["p2"], "Chuẩn bị tiến độ thi công", "not_started", "construction", "construction", 14),
+        (proj_ids["p2"], "Thi công phần thô", "not_started", "construction", "construction", 15),
+        (proj_ids["p2"], "Thi công nội thất", "not_started", "construction", "construction", 16),
+        (proj_ids["p2"], "Bàn giao", "not_started", "acceptance", "construction", 17),
+        (proj_ids["p2"], "Nghiệm thu khối lượng", "not_started", "acceptance", "accounting", 18),
+        (proj_ids["p2"], "Bảo hành — Bảo trì", "not_started", "acceptance", "construction", 19),
     ]
-    for pid, title, status, tstage, order in task_data:
-        db.add(Task(id=_id(), project_id=pid, title=title, status=status, stage=tstage, order=order))
+    for pid, title, status, tstage, dept, order in task_data:
+        db.add(Task(id=_id(), project_id=pid, title=title, status=status, stage=tstage, department=dept, order=order))
     await db.flush()
 
     # ── Transactions ──

@@ -76,10 +76,12 @@ class Task(Base):
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    # Statuses: pending, in_progress, completed, blocked
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_started")
+    # Statuses: not_started, in_progress, done
     stage: Mapped[str] = mapped_column(String(30), nullable=False, default="design")
     # Stages: design, quotation, procurement, construction, acceptance
+    department: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # Departments: design, quotation, procurement, construction, accounting, sales
     final_file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

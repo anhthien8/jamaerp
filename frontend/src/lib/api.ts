@@ -541,8 +541,9 @@ export interface ProjectTask {
   project_id: string;
   title: string;
   description?: string;
-  status: string;
+  status: string; // not_started | in_progress | done
   stage: string;
+  department?: string; // design | quotation | procurement | construction | accounting | sales
   final_file_url?: string;
   assigned_to?: string;
   order: number;
