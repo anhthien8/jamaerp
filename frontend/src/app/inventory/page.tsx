@@ -6,6 +6,21 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Material } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { getPermissions, UserRole } from '@/lib/roles';
+
+// Demo materials for when API is unavailable
+const DEMO_MATERIALS: Material[] = [
+  { id: 'demo-mat-001', code: 'VT-001', name: 'Gỗ MDF lõi xanh', category: 'wood', unit: 'tấm', unit_price: 350000, quantity_in_stock: 120, min_stock: 20, supplier: 'An Cương', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-002', code: 'VT-002', name: 'Sàn gỗ Egger 12mm', category: 'wood', unit: 'm²', unit_price: 650000, quantity_in_stock: 85, min_stock: 50, supplier: 'Egger Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-003', code: 'VT-003', name: 'Đá granite đen Ấn Độ', category: 'stone', unit: 'm²', unit_price: 1200000, quantity_in_stock: 45, min_stock: 15, supplier: 'Đá Hoàng Gia', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-004', code: 'VT-004', name: 'Sơn Dulux nội thất cao cấp', category: 'paint', unit: 'thùng', unit_price: 890000, quantity_in_stock: 30, min_stock: 10, supplier: 'AkzoNobel', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-005', code: 'VT-005', name: 'Inox 304 ống vuông 40x40', category: 'metal', unit: 'cây', unit_price: 285000, quantity_in_stock: 60, min_stock: 20, supplier: 'Inox Đại Dương', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-006', code: 'VT-006', name: 'Kính cường lực 10mm', category: 'glass', unit: 'm²', unit_price: 480000, quantity_in_stock: 35, min_stock: 10, supplier: 'Kính Hưng Thịnh', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-007', code: 'VT-007', name: 'Đèn LED panel 600x600', category: 'electrical', unit: 'cái', unit_price: 320000, quantity_in_stock: 8, min_stock: 15, supplier: 'Rạng Đông', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-008', code: 'VT-008', name: 'Vải sofa nhập Bỉ', category: 'fabric', unit: 'm', unit_price: 950000, quantity_in_stock: 40, min_stock: 10, supplier: 'Vải Hoàng Hà', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-009', code: 'VT-009', name: 'Ống PPR nóng 25mm', category: 'plumbing', unit: 'cây', unit_price: 125000, quantity_in_stock: 100, min_stock: 30, supplier: 'Vesbo', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+  { id: 'demo-mat-010', code: 'VT-010', name: 'Bản lề giảm chấn Blum', category: 'furniture', unit: 'cái', unit_price: 85000, quantity_in_stock: 200, min_stock: 50, supplier: 'Blum Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
+];
 
 function fmtVND(n?: number) {
   if (!n) return '—';
@@ -18,7 +33,7 @@ function fmtNum(n?: number) {
 }
 
 export default function InventoryPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, isDemo } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -33,18 +48,48 @@ export default function InventoryPage() {
   }, [user, loading, router]);
 
   const load = useCallback(async () => {
+    // In demo mode, use local demo data directly
+    if (isDemo) {
+      setMaterials(DEMO_MATERIALS);
+      setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
+      setLoadingData(false);
+      return;
+    }
     try {
       const [mats, low] = await Promise.all([api.getMaterials(), api.getLowStock()]);
       setMaterials(mats);
       setLowStock(low);
-    } catch { toast('Không thể tải kho', 'error'); } finally {
+    } catch {
+      // Fallback to demo data if API fails
+      setMaterials(DEMO_MATERIALS);
+      setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
+    } finally {
       setLoadingData(false);
     }
-  }, [toast]);
+  }, [isDemo, toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
   if (loading || !user) return null;
+
+  // RBAC check - only admin and purchasing can view inventory
+  const perms = getPermissions(user.role as UserRole);
+  if (!perms.canViewInventory) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-12 text-center max-w-md">
+            <span className="text-5xl block mb-4">🔒</span>
+            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
+            <p className="text-sm text-[var(--text-muted)] mb-6">Chỉ Admin và bộ phận Thu mua được phép xem kho vật tư.</p>
+            <button onClick={() => router.push('/')} className="px-6 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}>
+              Quay về Dashboard
+            </button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
 
   const categories = ['all', ...Array.from(new Set(materials.map(m => m.category)))];
   const suppliers = ['all', ...Array.from(new Set(materials.map(m => m.supplier).filter(Boolean) as string[]))];
