@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', pass: 'admin123', role: 'Admin' },
+  { email: 'ceo@jamahome.vn', pass: 'ceo123', role: 'CEO' },
+  { email: 'accountant@jamahome.vn', pass: 'account123', role: 'KT' },
   { email: 'leader@jamahome.vn', pass: 'leader123', role: 'Leader' },
   { email: 'sales@jamahome.vn', pass: 'sales123', role: 'Sales' },
-  { email: 'accountant@jamahome.vn', pass: 'account123', role: 'KT' },
-  { email: 'ceo@jamahome.vn', pass: 'ceo123', role: 'CEO' },
+  { email: 'designer@jamahome.vn', pass: 'designer123', role: 'Thiết kế' },
+  { email: 'pm@jamahome.vn', pass: 'pm123', role: 'PM' },
   { email: 'purchasing@jamahome.vn', pass: 'purchase123', role: 'Thu mua' },
 ];
 

@@ -72,6 +72,45 @@ const DEMO_USERS: Record<string, { password: string; user: User }> = {
       created_at: '2026-01-01T00:00:00Z',
     },
   },
+  'purchasing@jamahome.vn': {
+    password: 'purchase123',
+    user: {
+      id: 'demo-purchasing-001',
+      full_name: 'Trần Văn Thu Mua',
+      email: 'purchasing@jamahome.vn',
+      phone: '0902222333',
+      role: 'purchasing',
+      department: 'PURCHASING',
+      is_active: true,
+      created_at: '2026-02-01T00:00:00Z',
+    },
+  },
+  'designer@jamahome.vn': {
+    password: 'designer123',
+    user: {
+      id: 'demo-designer-001',
+      full_name: 'Nguyễn Thị Thiết Kế',
+      email: 'designer@jamahome.vn',
+      phone: '0903333444',
+      role: 'designer',
+      department: 'DESIGN',
+      is_active: true,
+      created_at: '2026-02-01T00:00:00Z',
+    },
+  },
+  'pm@jamahome.vn': {
+    password: 'pm123',
+    user: {
+      id: 'demo-pm-001',
+      full_name: 'Trần Văn PM',
+      email: 'pm@jamahome.vn',
+      phone: '0904444555',
+      role: 'pm',
+      department: 'PROJECT',
+      is_active: true,
+      created_at: '2026-02-01T00:00:00Z',
+    },
+  },
 };
 
 export type AppMode = 'demo' | 'work';

@@ -4,6 +4,33 @@ This document serves as the session context handover for the next AI agent or de
 
 ---
 
+## Session 3 — Pipeline Blueprint v2.0 Implementation (2026-06-29)
+
+### Feature F: Pipeline Blueprint v2.0 (BA Compliance)
+Based on Google Doc: "JAMA HOME Pipeline Blueprint v2.0 — Phiên bản tinh gọn cho IT"
+
+- **Task Model (`backend/app/models/project.py`):**
+  - Added `department` field: design, quotation, procurement, construction, accounting, sales
+  - Updated `status` values: not_started, in_progress, done (per BA spec)
+- **Seed Data (`backend/app/seed.py`):**
+  - Project 1 & 2 now have 19 tasks each matching BA pipeline stages:
+    - Stage I Design (5 tasks): 2D Concept → 3D Demo → 3D Render → Technical Drawing → Final Design
+    - Stage II Quotation (4 tasks): 2D Quotation → 3D Quotation → Interior Quotation → Final Quotation
+    - Stage III Procurement (3 tasks): Prepare Materials → SPECS → Place Order
+    - Stage IV Construction (4 tasks): Permits → Schedule → Rough → Interior
+    - Stage V Acceptance (3 tasks): Handover → Quantity Acceptance → Warranty
+- **Frontend (`frontend/src/app/projects/page.tsx`):**
+  - Added DEPT_LABELS config with department badges
+  - Task cards now show department label + status badge
+- **Schemas (`backend/app/schemas/project.py`):**
+  - TaskResponse now includes `department` field
+
+### Verification
+- Build passed: All 13 pages generated
+- Deployed: main → origin/main
+
+---
+
 ## Session 2 — Completed (2026-06-29)
 
 ### Feature C: Demo/Work Mode System
