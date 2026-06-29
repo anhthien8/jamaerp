@@ -38,6 +38,8 @@ export default function HRPage() {
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
   });
+  const [deactivateUser, setDeactivateUser] = useState<User | null>(null);
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -55,6 +57,29 @@ export default function HRPage() {
   }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
+
+  const handleDeactivate = async () => {
+    if (!deactivateUser) return;
+    try {
+      await api.updateUser(deactivateUser.id, { is_active: false });
+      toast(`Đã chuyển ${deactivateUser.full_name} sang chế độ nghỉ việc`, 'success');
+      setShowDeactivateConfirm(false);
+      setDeactivateUser(null);
+      await load();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+    }
+  };
+
+  const handleReactivate = async (u: User) => {
+    try {
+      await api.updateUser(u.id, { is_active: true });
+      toast(`Đã kích hoạt lại ${u.full_name}`, 'success');
+      await load();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+    }
+  };
 
   if (loading || !user) return null;
 
@@ -165,7 +190,28 @@ export default function HRPage() {
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.email}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.phone || '—'}</td>
                     <td className="px-5 py-3.5 text-center">
-                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
+                        {u.id !== user?.id && (
+                          u.is_active ? (
+                            <button
+                              onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}
+                              className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                              title="Nghỉ việc"
+                            >
+                              Nghỉ việc
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleReactivate(u)}
+                              className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                              title="Kích hoạt lại"
+                            >
+                              Kích hoạt
+                            </button>
+                          )
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -249,6 +295,32 @@ export default function HRPage() {
                 toast('Lỗi: ' + (e instanceof Error ? e.message : 'Unknown'), 'error');
               }
             }} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium">Thêm</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Deactivate Confirmation Modal */}
+    {showDeactivateConfirm && deactivateUser && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowDeactivateConfirm(false)}>
+        <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="text-center">
+            <span className="text-4xl block mb-3">⚠️</span>
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Xác nhận nghỉ việc</h3>
+            <p className="text-sm text-[var(--text-secondary)] mb-1">
+              Bạn có chắc muốn chuyển <strong>{deactivateUser.full_name}</strong> sang chế độ nghỉ việc?
+            </p>
+            <p className="text-xs text-[var(--text-muted)] mb-4">
+              Nhân viên sẽ không thể đăng nhập lại. Các leads, projects đang phụ trách cần được chuyển giao trước.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowDeactivateConfirm(false)} className="flex-1 py-2.5 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-white/5 transition-colors">
+              Hủy
+            </button>
+            <button onClick={handleDeactivate} className="flex-1 py-2.5 rounded-xl text-sm bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors">
+              Xác nhận nghỉ việc
+            </button>
           </div>
         </div>
       </div>
