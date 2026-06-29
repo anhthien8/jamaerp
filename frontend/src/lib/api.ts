@@ -59,7 +59,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
     return d.DEMO_ACTIVITIES.filter(a => a.lead_id === leadId) as T;
   }
   if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
-  if (path.includes('/pipeline/kanban')) return d.DEMO_PIPELINE_KANBAN as T;
+  if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) return d.DEMO_PIPELINE_KANBAN as T;
 
   // ── Projects ──
   if (path === '/projects' && !path.includes('/pipeline') && !path.includes('/tasks')) {
