@@ -34,6 +34,10 @@ export default function HRPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'org'>('list');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newUser, setNewUser] = useState({
+    full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
+  });
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -90,6 +94,12 @@ export default function HRPage() {
             }}
           >
             Phòng ban
+          </button>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
+          >
+            + Thêm nhân viên
           </button>
         </div>
       </div>
@@ -197,6 +207,52 @@ export default function HRPage() {
         </div>
       )}
     </div>
+    {showCreateForm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateForm(false)}>
+        <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Thêm nhân viên mới</h3>
+          <div className="space-y-3">
+            <input placeholder="Họ tên *" value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+            <input placeholder="Email *" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+            <input placeholder="Số điện thoại" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+            <input type="password" placeholder="Mật khẩu *" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
+              <option value="data_entry">Nhân viên Sale</option>
+              <option value="leader">Trưởng phòng</option>
+              <option value="designer">Nhân viên Thiết kế</option>
+              <option value="pm">Trưởng Dự án</option>
+              <option value="purchasing">Thu mua</option>
+              <option value="accountant">Kế toán</option>
+              <option value="admin">Giám đốc</option>
+              <option value="executive">Ban Quản Trị</option>
+            </select>
+            <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
+              <option value="SALES">Kinh doanh</option>
+              <option value="DESIGN">Thiết kế</option>
+              <option value="PURCHASING">Thu mua</option>
+              <option value="ACCT">Kế toán</option>
+              <option value="EXEC">Ban Giám đốc</option>
+              <option value="PROJECT">Dự án</option>
+            </select>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setShowCreateForm(false)} className="flex-1 py-2 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)]">Hủy</button>
+            <button onClick={async () => {
+              if (!newUser.full_name || !newUser.email || !newUser.password) return;
+              try {
+                await api.createUser({ ...newUser });
+                toast('Đã thêm nhân viên mới', 'success');
+                setShowCreateForm(false);
+                setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' });
+                load();
+              } catch (e) {
+                toast('Lỗi: ' + (e instanceof Error ? e.message : 'Unknown'), 'error');
+              }
+            }} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium">Thêm</button>
+          </div>
+        </div>
+      </div>
+    )}
     </Sidebar>
   );
 }
