@@ -424,6 +424,30 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
+        {/* Mode Banner */}
+        {mode === 'demo' ? (
+          <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+            <div className="flex items-center gap-2">
+              <span>🎯</span>
+              <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>DEMO MODE</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu mẫu, dùng để demo cho nhân sự</span>
+            </div>
+            <button onClick={() => setMode('work')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium">
+              Chuyển sang Work →
+            </button>
+          </div>
+        ) : (
+          <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-semibold text-emerald-400">WORK MODE</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
+            </div>
+            <button onClick={() => setMode('demo')} className="text-[10px] px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors font-medium">
+              ← Demo
+            </button>
+          </div>
+        )}
         {children}
       </main>
 
