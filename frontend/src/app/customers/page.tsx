@@ -142,7 +142,7 @@ export default function CustomersPage() {
       setFormOpen(false);
       setEditing(null);
       await load();
-      setSelected(saved);
+      if (saved && saved.id) setSelected(saved);
     } catch (e) {
       toast(`Lỗi lưu khách hàng: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     } finally {

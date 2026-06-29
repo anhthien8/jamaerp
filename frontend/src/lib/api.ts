@@ -62,10 +62,23 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
   if (path.includes('/pipeline/kanban')) return d.DEMO_PIPELINE_KANBAN as T;
 
   // ── Projects ──
-  if (path === '/projects') {
+  if (path === '/projects' && !path.includes('/pipeline') && !path.includes('/tasks')) {
     let projects = [...d.DEMO_PROJECTS];
     if (params?.status && params.status !== 'all') projects = projects.filter(p => p.status === params.status);
     return toPaginated(projects, params) as T;
+  }
+  if (path.match(/^\/projects\/pipeline\/kanban$/)) {
+    const stages = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'completed'];
+    const kanban = stages.map(stage => ({
+      stage,
+      stage_label: stage.charAt(0).toUpperCase() + stage.slice(1),
+      projects: d.DEMO_PROJECTS.filter(p => p.stage === stage),
+      count: d.DEMO_PROJECTS.filter(p => p.stage === stage).length,
+    }));
+    return kanban as T;
+  }
+  if (path.match(/^\/projects\/tasks\/[^/]+\/activities$/)) {
+    return [] as T; // No demo activities for tasks
   }
   if (path.match(/^\/projects\/[^/]+\/tasks$/)) {
     const projectId = path.split('/')[2];

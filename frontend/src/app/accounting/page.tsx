@@ -432,9 +432,9 @@ export default function AccountingPage() {
                           <td className="p-3 text-right font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</td>
                           <td className="p-3">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
-                              c.status === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+                              (c.status === 'paid' || c.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
                             )}>
-                              {c.status === 'paid' ? 'Đã trả' : 'Chờ'}
+                              {(c.status === 'paid' || c.status === 'approved') ? 'Đã trả' : 'Chờ'}
                             </span>
                           </td>
                         </tr>
@@ -476,9 +476,9 @@ export default function AccountingPage() {
                           <td className="p-3 text-right font-semibold">{formatCurrency(p.net_salary)}</td>
                           <td className="p-3">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
-                              p.status === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+                              (p.status === 'paid' || p.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
                             )}>
-                              {p.status === 'paid' ? 'Đã trả' : 'Chờ'}
+                              {(p.status === 'paid' || p.status === 'approved') ? 'Đã trả' : 'Chờ'}
                             </span>
                           </td>
                         </tr>

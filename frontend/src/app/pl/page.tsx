@@ -186,12 +186,30 @@ export default function PLPage() {
       } else {
         // Try fetching from real API endpoints
         try {
-          const [s, p] = await Promise.all([
-            api.request<CompanyPLSummary>('/pl/summary'),
-            api.request<ProjectPL[]>('/pl/projects'),
-          ]);
-          setSummary(s);
-          setProjects(p);
+          const s = await api.getPnLSummary();
+          const p = await api.getPnLProjects();
+          // Normalize field names: backend uses margin_pct, page uses margin
+          const normalizedProjects = (p || []).map(item => ({
+            project_id: item.project_id || '',
+            project_code: item.project_code || '',
+            project_name: item.project_name || '',
+            revenue: item.revenue || 0,
+            costs: item.costs || 0,
+            profit: item.profit || 0,
+            margin_pct: item.margin_pct || 0,
+            margin: item.margin_pct || 0,
+            status: 'active',
+          }));
+          setSummary({
+            total_revenue: s.total_revenue,
+            total_costs: s.total_costs,
+            net_profit: s.net_profit,
+            margin: s.margin_pct,
+            project_count: normalizedProjects.length,
+            profitable_projects: normalizedProjects.filter(proj => proj.profit > 0).length,
+            loss_projects: normalizedProjects.filter(proj => proj.profit < 0).length,
+          });
+          setProjects(normalizedProjects);
         } catch {
           // Fallback to mock data if API endpoints don't exist yet
           setSummary(MOCK_COMPANY_SUMMARY);
@@ -340,8 +358,8 @@ export default function PLPage() {
                   <div
                     className="h-full transition-all duration-1000 rounded-l-full"
                     style={{
-                      width: `${(summary.total_revenue / summary.total_revenue) * 100}%`,
-                      background: 'linear-gradient(90deg, rgba(16,185,129,0.3), rgba(16,185,129,0.15))',
+                      width: `${Math.min(100, (summary.total_costs / summary.total_revenue) * 100)}%`,
+                      background: 'linear-gradient(90deg, rgba(239,68,68,0.4), rgba(239,68,68,0.2))',
                     }}
                   />
                 </div>
