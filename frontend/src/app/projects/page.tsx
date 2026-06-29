@@ -51,6 +51,7 @@ export default function ProjectsPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'pipeline'>('pipeline');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterQuarter, setFilterQuarter] = useState<string>('all');
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -276,7 +277,7 @@ export default function ProjectsPage() {
         {viewMode === 'list' ? (
           <>
             {/* Filter chips (Grid view only) */}
-            <div className="flex gap-2 flex-wrap mb-6">
+            <div className="flex gap-2 flex-wrap mb-4">
               {['all', ...Object.keys(statusConfig)].map((st) => (
                 <button
                   key={st}
@@ -293,6 +294,31 @@ export default function ProjectsPage() {
               ))}
             </div>
 
+            {/* Quarter filter */}
+            <div className="flex gap-2 flex-wrap mb-6">
+              <span className="text-xs text-[var(--text-muted)] self-center mr-1">Quý:</span>
+              {[
+                { key: 'all', label: 'Tất cả' },
+                { key: 'Q1', label: 'Q1 (T1-T3)' },
+                { key: 'Q2', label: 'Q2 (T4-T6)' },
+                { key: 'Q3', label: 'Q3 (T7-T9)' },
+                { key: 'Q4', label: 'Q4 (T10-T12)' },
+              ].map(q => (
+                <button
+                  key={q.key}
+                  onClick={() => setFilterQuarter(q.key)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  style={{
+                    background: filterQuarter === q.key ? 'rgba(59,130,246,0.15)' : 'var(--surface-2)',
+                    color: filterQuarter === q.key ? '#60A5FA' : 'var(--text-tertiary)',
+                    border: `1px solid ${filterQuarter === q.key ? 'rgba(59,130,246,0.3)' : 'var(--border-subtle)'}`,
+                  }}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+
             {loadingProjects ? (
               <div className="text-center py-20 text-[var(--text-muted)]">
                 <div className="inline-block w-8 h-8 rounded-full border-2 border-[var(--gold-400)] border-t-transparent animate-spin" />
@@ -304,7 +330,17 @@ export default function ProjectsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
-                {projects.map((project) => {
+                {projects
+                  .filter(p => {
+                    if (filterQuarter === 'all') return true;
+                    const month = new Date(p.created_at).getMonth() + 1;
+                    if (filterQuarter === 'Q1') return month >= 1 && month <= 3;
+                    if (filterQuarter === 'Q2') return month >= 4 && month <= 6;
+                    if (filterQuarter === 'Q3') return month >= 7 && month <= 9;
+                    if (filterQuarter === 'Q4') return month >= 10 && month <= 12;
+                    return true;
+                  })
+                  .map((project) => {
                   const cfg = statusConfig[project.status] || { label: project.status, color: '#6B7280' };
                   const tl = calcProjectTimeLeft(project);
                   return (

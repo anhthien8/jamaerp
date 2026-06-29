@@ -221,7 +221,7 @@ function LeadsContent() {
                 Click vào card để xem chi tiết · {filteredByUrl.length}/{leads.length} leads
               </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
               <button
                 onClick={() => setViewMode('kanban')}
@@ -242,7 +242,7 @@ function LeadsContent() {
               >📅 Lịch</button>
             </div>
             <button
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 whitespace-nowrap"
               onClick={() => setCreateOpen(true)}
             >
               + Thêm Lead
