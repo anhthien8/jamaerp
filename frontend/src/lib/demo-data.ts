@@ -316,7 +316,7 @@ export const DEMO_PIPELINE_STATS: PipelineStats = {
   sla_compliance: 85.7,
   overdue_count: 2,
   today_count: 1,
-  unassigned_count: 2,
+  unassigned_count: 0,
 };
 
 // ─── Pipeline Kanban ─────────────────────────────────────
@@ -538,9 +538,9 @@ export const DEMO_PNL_SUMMARY = {
   net_profit: 2698000000,
   margin_pct: 73.3,
   revenue_by_project: [
-    { project_code: 'PRJ-2026-001', project_name: 'Nhà phố Q7 - Chị Mai', revenue: 500000000, costs: 375000000, profit: 125000000, margin_pct: 25.0 },
-    { project_code: 'PRJ-2026-002', project_name: 'Biệt thự Bình Chánh - Anh Tuấn', revenue: 2500000000, costs: 750000000, profit: 1750000000, margin_pct: 70.0 },
-    { project_code: 'PRJ-2026-003', project_name: 'Căn hộ Sunrise - Chị Hương', revenue: 180000000, costs: 162000000, profit: 18000000, margin_pct: 10.0 },
-    { project_code: 'PRJ-2026-005', project_name: 'Nhà phố Gò Vấp - Chị Lan', revenue: 680000000, costs: 374000000, profit: 306000000, margin_pct: 45.0 },
+    { project_id: 'demo-proj-001', project_code: 'PRJ-2026-001', project_name: 'Nhà phố Q7 - Chị Mai', revenue: 500000000, costs: 375000000, profit: 125000000, margin_pct: 25.0, status: 'active' },
+    { project_id: 'demo-proj-002', project_code: 'PRJ-2026-002', project_name: 'Biệt thự Bình Chánh - Anh Tuấn', revenue: 2500000000, costs: 750000000, profit: 1750000000, margin_pct: 70.0, status: 'active' },
+    { project_id: 'demo-proj-003', project_code: 'PRJ-2026-003', project_name: 'Căn hộ Sunrise - Chị Hương', revenue: 180000000, costs: 162000000, profit: 18000000, margin_pct: 10.0, status: 'active' },
+    { project_id: 'demo-proj-005', project_code: 'PRJ-2026-005', project_name: 'Nhà phố Gò Vấp - Chị Lan', revenue: 680000000, costs: 374000000, profit: 306000000, margin_pct: 45.0, status: 'active' },
   ],
 };

@@ -51,17 +51,23 @@ async def accounting_summary(
 ):
     """Financial summary."""
     income = (await db.execute(
-        select(func.sum(Transaction.amount)).where(Transaction.type == "income")
+        select(func.sum(Transaction.amount)).where(
+            Transaction.type == "income",
+            Transaction.status != "cancelled"
+        )
     )).scalar() or 0
     expense = (await db.execute(
-        select(func.sum(Transaction.amount)).where(Transaction.type == "expense")
+        select(func.sum(Transaction.amount)).where(
+            Transaction.type == "expense",
+            Transaction.status != "cancelled"
+        )
     )).scalar() or 0
 
-    # By category
+    # By category (exclude cancelled)
     cat_q = select(
         Transaction.category, Transaction.type,
         func.sum(Transaction.amount), func.count(Transaction.id)
-    ).group_by(Transaction.category, Transaction.type)
+    ).where(Transaction.status != "cancelled").group_by(Transaction.category, Transaction.type)
     cat_result = await db.execute(cat_q)
     by_category = [
         {"category": cat, "type": t, "total": total, "count": count}
@@ -153,10 +159,9 @@ async def create_transaction(
         description=data.description or "",
         amount=data.amount,
         project_id=str(data.project_id) if data.project_id else None,
-        lead_id=str(data.lead_id) if data.lead_id else None,
         created_by=current_user.id,
-        status=data.status or "completed",
-        date=datetime.combine(data.transaction_date, datetime.min.time(), tzinfo=timezone.utc) if data.transaction_date else datetime.now(timezone.utc),
+        status="completed",
+        date=datetime.now(timezone.utc),
     )
     db.add(txn)
     await db.flush()
