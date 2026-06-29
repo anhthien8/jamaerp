@@ -49,6 +49,16 @@ export default function DashboardPage() {
     </Sidebar>
   );
   if (!user) return null;
+  if (!data && !error) return (
+    <Sidebar>
+      <div className="p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 rounded-full border-2 border-[var(--gold-400)] border-t-transparent animate-spin mb-3" />
+          <p className="text-sm text-[var(--text-muted)]">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    </Sidebar>
+  );
 
   const perms = getPermissions(user.role as UserRole);
   const isFinancial = perms.dashboardType === 'financial';
