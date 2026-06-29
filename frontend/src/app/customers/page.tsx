@@ -67,6 +67,7 @@ export default function CustomersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState<CustomerForm>(EMPTY_FORM);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -83,6 +84,7 @@ export default function CustomersPage() {
       setCustomers(data);
       setSelected(prev => (prev ? data.find(c => c.id === prev.id) || prev : prev));
     } catch (e) {
+      setError('Không thể tải dữ liệu khách hàng. Vui lòng thử lại.');
       toast(`Không tải được khách hàng: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     } finally {
       setLoadingData(false);
@@ -92,6 +94,20 @@ export default function CustomersPage() {
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
   if (loading || !user) return null;
+  if (error) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center max-w-md">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-[var(--text-primary)] mb-2">{error}</p>
+            <button onClick={() => { setError(null); load(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
+
 
   const openCreate = () => {
     setEditing(null);

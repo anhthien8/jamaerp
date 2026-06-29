@@ -141,7 +141,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                Mat khau
+                Mật khẩu
               </label>
               <input
                 suppressHydrationWarning
@@ -174,12 +174,12 @@ export default function LoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Dang dang nhap...
+                  Đang đăng nhập...
                 </span>
               ) : selectedMode === 'demo' ? (
-                'Vao Demo'
+                'Vào Demo'
               ) : (
-                'Dang nhap'
+                'Đăng nhập'
               )}
             </button>
           </form>
@@ -188,7 +188,7 @@ export default function LoginPage() {
           {selectedMode === 'demo' && (
             <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }} open>
               <summary className="cursor-pointer px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors select-none flex items-center gap-2">
-                <span>&#x1F511;</span> Tai khoan demo
+                <span>&#x1F511;</span> Tài khoản demo
               </summary>
               <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {DEMO_CREDENTIALS.map(acc => (

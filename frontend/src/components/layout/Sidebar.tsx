@@ -187,6 +187,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         if (item.href === '/contracts' && !perms.canViewContracts) return false;
         if (item.href === '/quotations' && !perms.canViewQuotations) return false;
         if (item.href === '/inventory' && !perms.canViewInventory) return false;
+        if (item.href === '/reports' && !perms.canViewReports) return false;
         if ('requiresPnL' in item && !perms.canViewPnL) return false;
         return true;
       }),

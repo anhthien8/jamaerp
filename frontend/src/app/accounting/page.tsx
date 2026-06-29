@@ -18,6 +18,7 @@ export default function AccountingPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   // Filters
@@ -26,6 +27,9 @@ export default function AccountingPage() {
   const [txCategory, setTxCategory] = useState('all');
   const [txSort, setTxSort] = useState<'date' | 'amount'>('date');
   const [txSortAsc, setTxSortAsc] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [periodFilter, setPeriodFilter] = useState('all');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -46,6 +50,7 @@ export default function AccountingPage() {
       setPayroll(extractItems(pResult));
     } catch (e) {
       console.warn('Accounting API error:', e);
+      setError('Không thể tải dữ liệu kế toán. Vui lòng thử lại.');
     } finally {
       setLoadingData(false);
     }
@@ -56,6 +61,20 @@ export default function AccountingPage() {
   }, [user, fetchData]);
 
   if (loading || !user) return null;
+  if (error) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center max-w-md">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-[var(--text-primary)] mb-2">{error}</p>
+            <button onClick={() => { setError(null); fetchData(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
+
 
   const perms = getPermissions(user.role as UserRole);
   const ALL_TABS: { key: Tab; label: string; icon: string }[] = [
@@ -116,8 +135,25 @@ export default function AccountingPage() {
             {/* ── Overview Tab ── */}
             {tab === 'overview' && summary && (
               <div className="space-y-4">
+                <div className="flex gap-2 mb-4">
+                  {['all', 'month', 'quarter', 'year'].map(period => (
+                    <button
+                      key={period}
+                      onClick={() => setPeriodFilter(period)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                      style={{
+                        background: periodFilter === period ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
+                        color: periodFilter === period ? 'var(--gold-400)' : 'var(--text-tertiary)',
+                        border: `1px solid ${periodFilter === period ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
+                      }}
+                    >
+                      {period === 'all' ? 'Tất cả' : period === 'month' ? 'Tháng này' : period === 'quarter' ? 'Quý này' : 'Năm nay'}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="glass-card p-5 border-l-2 border-l-emerald-500">
                     <p className="text-xs text-[var(--text-muted)] mb-1">💵 Tổng thu</p>
                     <p className="text-xl font-bold text-emerald-400">{formatCurrency(summary.total_income)}</p>
@@ -242,6 +278,27 @@ export default function AccountingPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Date range filter */}
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-xs text-[var(--text-muted)]">Từ:</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="px-2 py-1.5 rounded-lg text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+                    />
+                    <span className="text-xs text-[var(--text-muted)]">đến:</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="px-2 py-1.5 rounded-lg text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+                    />
+                    {(dateFrom || dateTo) && (
+                      <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-[var(--gold-400)] hover:underline">Xóa</button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Filtered + sorted transactions */}
@@ -250,6 +307,13 @@ export default function AccountingPage() {
                     .filter(tx => txType === 'all' || tx.type === txType)
                     .filter(tx => txCategory === 'all' || tx.category === txCategory)
                     .filter(tx => txSearch === '' || tx.description.toLowerCase().includes(txSearch.toLowerCase()) || tx.code.toLowerCase().includes(txSearch.toLowerCase()))
+                    .filter(tx => {
+                      if (!dateFrom && !dateTo) return true;
+                      const txDate = new Date(tx.date);
+                      if (dateFrom && txDate < new Date(dateFrom)) return false;
+                      if (dateTo && txDate > new Date(dateTo + 'T23:59:59')) return false;
+                      return true;
+                    })
                     .sort((a, b) => {
                       const diff = txSort === 'date'
                         ? new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -262,7 +326,33 @@ export default function AccountingPage() {
                       <div className="p-3 text-xs text-[var(--text-muted)]">
                         Hiển thị {filteredTx.length} / {transactions.length} giao dịch
                       </div>
-                      <div className="overflow-x-auto">
+                      {/* Mobile card view */}
+                      <div className="md:hidden p-3 space-y-2">
+                        {filteredTx.length === 0 ? (
+                          <p className="text-center p-4 text-[var(--text-muted)]">Không tìm thấy giao dịch</p>
+                        ) : filteredTx.map(tx => (
+                          <div key={tx.id} className="p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="font-mono text-[10px] text-[var(--text-muted)]">{tx.code}</span>
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded', tx.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' : tx.status === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-500/15 text-gray-400')}>
+                                {tx.status === 'completed' ? 'Đã xử lý' : tx.status === 'pending' ? 'Chờ duyệt' : tx.status}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[var(--text-primary)] mb-1 truncate">{tx.description}</p>
+                            <div className="flex items-center justify-between">
+                              <span className={cn('text-xs px-2 py-0.5 rounded', tx.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
+                                {tx.type === 'income' ? '↑ Thu' : '↓ Chi'} · {tx.category}
+                              </span>
+                              <span className={cn('text-sm font-semibold', tx.type === 'income' ? 'text-emerald-400' : 'text-red-400')}>
+                                {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">{formatDate(tx.date)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Desktop table view */}
+                      <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>

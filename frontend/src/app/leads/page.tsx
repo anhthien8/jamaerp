@@ -79,7 +79,9 @@ function LeadsContent() {
   const [newNote, setNewNote] = useState('');
   const [newNoteLink, setNewNoteLink] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'calendar'>('kanban');
+  const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [searchQuery, setSearchQuery] = useState('');
   const searchParams = useSearchParams();
   const urlStage = searchParams.get('stage');
   const urlFilter = searchParams.get('filter');
@@ -122,6 +124,7 @@ function LeadsContent() {
       setLeads(filtered);
     } catch (e) {
       console.warn('API error, using empty list:', e);
+      setError('Không thể tải dữ liệu. Vui lòng thử lại.');
       setLeads([]);
     } finally {
       setLoadingLeads(false);
@@ -175,6 +178,20 @@ function LeadsContent() {
   };
 
   if (loading || !user) return null;
+  if (error) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center max-w-md">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-[var(--text-primary)] mb-2">{error}</p>
+            <button onClick={() => { setError(null); fetchLeads(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
+
 
   // Sort leads
   const sorted = [...leads];
@@ -186,6 +203,10 @@ function LeadsContent() {
   const filteredByUrl = sorted.filter(lead => {
     if (activeStage && lead.stage !== activeStage) return false;
     if (activeQuickFilter === 'overdue' && !isOverdueLead(lead)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!lead.name.toLowerCase().includes(q) && !lead.phone.includes(q)) return false;
+    }
     return true;
   });
 
@@ -198,7 +219,7 @@ function LeadsContent() {
   }));
 
   const hasUrlFilters = Boolean(activeStage || activeQuickFilter);
-  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters;
+  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '';
   const activeFilterLabels = [
     activeStage ? `Giai đoạn: ${STAGE_CONFIG[activeStage]?.label || activeStage}` : null,
     activeQuickFilter === 'overdue' ? `Quá hạn CSKH > ${OVERDUE_DAYS} ngày` : null,
@@ -214,7 +235,7 @@ function LeadsContent() {
     <Sidebar>
       <div className="p-6 animate-in">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold">🔄 Pipeline CRM</h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
@@ -253,6 +274,17 @@ function LeadsContent() {
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
           <span className="text-xs text-[var(--text-muted)] mr-1">Lọc:</span>
+          {/* Search input */}
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              type="text"
+              placeholder="Tìm tên, SĐT..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-40"
+            />
+          </div>
           <select value={filterSource} onChange={e => setFilterSource(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="all">Tất cả nguồn</option>
             <option value="zalo">Zalo</option>
@@ -295,7 +327,7 @@ function LeadsContent() {
             </div>
           )}
           {hasFilters && (
-            <button onClick={() => { setFilterSource('all'); setFilterPriority('all'); setFilterRegion('all'); setFilterPropertyClass('all'); if (hasUrlFilters) clearUrlFilters(); }} className="text-[10px] px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(248,113,113,0.1)', color: '#EF4444' }}>
+            <button onClick={() => { setFilterSource('all'); setFilterPriority('all'); setFilterRegion('all'); setFilterPropertyClass('all'); setSearchQuery(''); if (hasUrlFilters) clearUrlFilters(); }} className="text-[10px] px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(248,113,113,0.1)', color: '#EF4444' }}>
               ✕ Xóa bộ lọc
             </button>
           )}
@@ -390,7 +422,8 @@ function LeadsContent() {
           })()
         ) : (
           /* Kanban Board */
-          <div className="flex gap-4 overflow-x-auto pb-4 min-w-0">
+          <div className="relative">
+            <div className="flex gap-4 overflow-x-auto pb-4 min-w-0" style={{ maskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)' }}>
             {kanban.map(col => {
               const config = STAGE_CONFIG[col.stage];
               return (
@@ -417,6 +450,11 @@ function LeadsContent() {
                         <div className="flex items-start justify-between">
                           <h3 className="text-sm font-medium text-white group-hover:text-[#C9A96E] transition-colors">
                             {lead.name}
+                            {isOverdueLead(lead) && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1">
+                                ⚠️ Quá hạn
+                              </span>
+                            )}
                           </h3>
                           {lead.deal_value ? (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#C9A96E]/15 text-[#C9A96E] font-semibold">
@@ -429,6 +467,11 @@ function LeadsContent() {
                           ) : null}
                         </div>
                         <p className="text-xs text-[var(--text-muted)] mt-1">📱 {lead.phone}</p>
+                        {lead.last_contacted_at && (
+                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                            🕐 {timeAgo(lead.last_contacted_at)}
+                          </p>
+                        )}
                         {lead.property_type && (
                           <p className="text-xs text-[var(--text-muted)] mt-0.5">
                             🏠 {PROPERTY_LABELS[lead.property_type] || lead.property_type} {lead.area_sqm ? `· ${lead.area_sqm}m²` : ''}
@@ -478,9 +521,21 @@ function LeadsContent() {
                           <span className="text-[10px] text-[var(--text-muted)]">
                             {lead.assigned_user_name || '—'}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                            {SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
+                              {SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
+                            </span>
+                            <button
+                              className="p-1 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E]"
+                              title="Ghi chú nhanh"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                api.createActivity(lead.id, { type: 'call', content: `Liên hệ lúc ${new Date().toLocaleTimeString('vi-VN')}` });
+                              }}
+                            >
+                              📞
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -488,6 +543,7 @@ function LeadsContent() {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </div>

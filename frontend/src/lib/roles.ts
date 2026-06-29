@@ -52,7 +52,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
+    canViewContracts: true, canViewQuotations: true, canViewInventory: true, // Accountant needs inventory for cost tracking
     canViewReports: true, canViewPnL: true,
   },
   executive: {

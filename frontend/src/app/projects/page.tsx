@@ -48,10 +48,13 @@ export default function ProjectsPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [kanbanData, setKanbanData] = useState<ProjectKanban[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'pipeline'>('pipeline');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterQuarter, setFilterQuarter] = useState<string>('all');
+  const [showMyTasks, setShowMyTasks] = useState(false);
+  const [searchProject, setSearchProject] = useState('');
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -79,6 +82,7 @@ export default function ProjectsPage() {
       setProjects(data);
     } catch (e) {
       console.warn('Projects API error:', e);
+      setError('Không thể tải dữ liệu dự án. Vui lòng thử lại.');
       setProjects([]);
     } finally {
       setLoadingProjects(false);
@@ -92,6 +96,7 @@ export default function ProjectsPage() {
       setKanbanData(data);
     } catch (e) {
       console.warn('Kanban API error:', e);
+      setError('Không thể tải dữ liệu kanban. Vui lòng thử lại.');
       setKanbanData([]);
     } finally {
       setLoadingProjects(false);
@@ -213,6 +218,20 @@ export default function ProjectsPage() {
   };
 
   if (loading || !user) return null;
+  if (error) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center max-w-md">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-[var(--text-primary)] mb-2">{error}</p>
+            <button onClick={() => { setError(null); refreshData(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
+
 
   const activeCount = projects.filter(p => p.status === 'active').length;
 
@@ -319,6 +338,28 @@ export default function ProjectsPage() {
               ))}
             </div>
 
+            {/* Search + My Tasks filter row */}
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <input
+                type="text"
+                placeholder="Tim du an..."
+                value={searchProject}
+                onChange={e => setSearchProject(e.target.value)}
+                className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-48"
+              />
+              {/* My Tasks toggle */}
+              <label className="flex items-center gap-2 cursor-pointer self-center">
+                <input
+                  type="checkbox"
+                  checked={showMyTasks}
+                  onChange={e => setShowMyTasks(e.target.checked)}
+                  className="rounded border-[var(--border-subtle)]"
+                  style={{ accentColor: '#C9A96E' }}
+                />
+                <span className="text-xs text-[var(--text-secondary)]">Cong viec cua toi</span>
+              </label>
+            </div>
+
             {loadingProjects ? (
               <div className="text-center py-20 text-[var(--text-muted)]">
                 <div className="inline-block w-8 h-8 rounded-full border-2 border-[var(--gold-400)] border-t-transparent animate-spin" />
@@ -332,6 +373,15 @@ export default function ProjectsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
                 {projects
                   .filter(p => {
+                    // Search filter
+                    if (searchProject) {
+                      const q = searchProject.toLowerCase();
+                      if (!p.name.toLowerCase().includes(q) && !p.code.toLowerCase().includes(q) && !(p.client_name || '').toLowerCase().includes(q)) return false;
+                    }
+                    // My tasks filter (show only projects assigned to current user)
+                    if (showMyTasks && user) {
+                      if (p.pm_id !== user.id && p.designer_id !== user.id && p.sales_id !== user.id) return false;
+                    }
                     if (filterQuarter === 'all') return true;
                     const month = new Date(p.created_at).getMonth() + 1;
                     if (filterQuarter === 'Q1') return month >= 1 && month <= 3;
@@ -415,6 +465,26 @@ export default function ProjectsPage() {
           </>
         ) : (
           /* Kanban Board View */
+          <>
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <input
+                type="text"
+                placeholder="Tim du an..."
+                value={searchProject}
+                onChange={e => setSearchProject(e.target.value)}
+                className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-48"
+              />
+              <label className="flex items-center gap-2 cursor-pointer self-center">
+                <input
+                  type="checkbox"
+                  checked={showMyTasks}
+                  onChange={e => setShowMyTasks(e.target.checked)}
+                  className="rounded border-[var(--border-subtle)]"
+                  style={{ accentColor: '#C9A96E' }}
+                />
+                <span className="text-xs text-[var(--text-secondary)]">Cong viec cua toi</span>
+              </label>
+            </div>
           <div className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
             {kanbanData.map(col => (
               <div key={col.stage} className="flex-shrink-0 w-80 rounded-2xl p-3 flex flex-col" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-subtle)' }}>
@@ -435,7 +505,18 @@ export default function ProjectsPage() {
 
                 {/* Column Cards */}
                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[55vh] pr-1">
-                  {col.projects.map(proj => (
+                  {col.projects.filter(proj => {
+                    // Search filter
+                    if (searchProject) {
+                      const q = searchProject.toLowerCase();
+                      if (!proj.name.toLowerCase().includes(q) && !proj.code.toLowerCase().includes(q) && !(proj.client_name || '').toLowerCase().includes(q)) return false;
+                    }
+                    // My tasks filter
+                    if (showMyTasks && user) {
+                      if (proj.pm_id !== user.id && proj.designer_id !== user.id && proj.sales_id !== user.id) return false;
+                    }
+                    return true;
+                  }).map(proj => (
                     <div
                       key={proj.id}
                       onClick={() => openProjectDetail(proj)}
@@ -480,6 +561,7 @@ export default function ProjectsPage() {
               </div>
             ))}
           </div>
+          </>
         )}
       </div>
 

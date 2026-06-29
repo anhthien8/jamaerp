@@ -159,6 +159,12 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 100px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* === Focus Visible === */
+:focus-visible {
+  outline: 2px solid var(--gold-500);
+  outline-offset: 2px;
+}
 }
 
 /* === Component Layer === */

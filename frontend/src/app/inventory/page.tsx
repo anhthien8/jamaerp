@@ -43,6 +43,7 @@ export default function InventoryPage() {
   const [catFilter, setCatFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [pageInfo, setPageInfo] = useState<{ page: number; total_pages: number; total: number }>({ page: 1, total_pages: 1, total: 0 });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -70,6 +71,7 @@ export default function InventoryPage() {
         setPageInfo({ page: 1, total_pages: 1, total: mats.length });
       }
     } catch {
+      setError('Không thể tải dữ liệu kho. Vui lòng thử lại.');
       // Fallback to demo data if API fails
       setMaterials(DEMO_MATERIALS);
       setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
@@ -82,6 +84,20 @@ export default function InventoryPage() {
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
   if (loading || !user) return null;
+  if (error) {
+    return (
+      <Sidebar>
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-8 text-center max-w-md">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-[var(--text-primary)] mb-2">{error}</p>
+            <button onClick={() => { setError(null); load(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
+          </div>
+        </div>
+      </Sidebar>
+    );
+  }
+
 
   // RBAC check - only admin and purchasing can view inventory
   const perms = getPermissions(user.role as UserRole);
