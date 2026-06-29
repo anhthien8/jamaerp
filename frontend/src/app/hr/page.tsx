@@ -152,7 +152,57 @@ export default function HRPage() {
       ) : viewMode === 'list' ? (
         /* List view */
         <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
-          <div className="overflow-x-auto">
+          {/* Mobile card view */}
+          <div className="md:hidden p-3 space-y-3">
+            {users.map(u => {
+              const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+              return (
+                <div key={u.id} className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
+                        {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{u.full_name}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{DEPT_LABELS[u.department] || u.department}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
+                      <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: role.bg, color: role.color }}>{role.label}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-2">
+                    <span>{u.email}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    {u.id !== user?.id && (
+                      u.is_active ? (
+                        <button
+                          onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}
+                          className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                          title="Nghỉ việc"
+                        >
+                          Nghỉ việc
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleReactivate(u)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                          title="Kích hoạt lại"
+                        >
+                          Kích hoạt
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Desktop table view */}
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>

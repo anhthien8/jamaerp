@@ -201,50 +201,83 @@ export default function CustomersPage() {
               <p className="text-sm">Thử đổi bộ lọc hoặc tạo khách hàng mới.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tên</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Loại</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">SĐT</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Email</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Địa chỉ</th>
-                  <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden p-3 space-y-3">
                 {customers.map(c => (
-                  <tr key={c.id} className="cursor-pointer transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }} onClick={() => setSelected(c)}>
-                    <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
+                  <div key={c.id} className="p-4 rounded-xl cursor-pointer transition-all" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }} onClick={() => setSelected(c)}>
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
                           {c.name.charAt(0)}
                         </div>
                         <div>
-                          <p>{c.name}</p>
-                          {c.company_name && <p className="text-xs text-[var(--text-muted)]">{c.company_name}</p>}
+                          <p className="text-sm font-medium text-[var(--text-primary)]">{c.name}</p>
+                          {c.company_name && <p className="text-[10px] text-[var(--text-muted)]">{c.company_name}</p>}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-5 py-3.5">
                       <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: c.type === 'company' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)', color: c.type === 'company' ? '#60a5fa' : '#34d399' }}>
                         {TYPE_LABELS[c.type] || c.type}
                       </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.phone || '—'}</td>
-                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.email || '—'}</td>
-                    <td className="px-5 py-3.5 text-[var(--text-secondary)] max-w-[220px] truncate">{c.address || '—'}</td>
-                    <td className="px-5 py-3.5 text-right">
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
+                      {c.phone && <span>{c.phone}</span>}
+                      {c.email && <span className="truncate">{c.email}</span>}
+                    </div>
+                    <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
                         Sửa
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-            </div>
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tên</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Loại</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">SĐT</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Email</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Địa chỉ</th>
+                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map(c => (
+                    <tr key={c.id} className="cursor-pointer transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }} onClick={() => setSelected(c)}>
+                      <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
+                            {c.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p>{c.name}</p>
+                            {c.company_name && <p className="text-xs text-[var(--text-muted)]">{c.company_name}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: c.type === 'company' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)', color: c.type === 'company' ? '#60a5fa' : '#34d399' }}>
+                          {TYPE_LABELS[c.type] || c.type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.phone || '—'}</td>
+                      <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.email || '—'}</td>
+                      <td className="px-5 py-3.5 text-[var(--text-secondary)] max-w-[220px] truncate">{c.address || '—'}</td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                          Sửa
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </>
           )}
         </div>
 

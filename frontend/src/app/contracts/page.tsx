@@ -131,68 +131,109 @@ export default function ContractsPage() {
           ) : contracts.length === 0 ? (
             <div className="p-12 text-center text-[var(--text-muted)]">Chưa có hợp đồng nào</div>
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Mã HĐ</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tiêu đề</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Trạng thái</th>
-                  <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thanh toán</th>
-                  <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thời gian</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden p-3 space-y-3">
                 {contracts.map(c => {
                   const st = STATUS_MAP[c.status] || STATUS_MAP.draft;
                   const paid = c.payment_terms?.installments?.filter(i => i.status === 'paid').length || 0;
                   const total = c.payment_terms?.installments?.length || 0;
                   const timeLeft = calcTimeLeft(c.signed_date, c.working_days);
                   return (
-                    <tr
+                    <div
                       key={c.id}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                      className="p-4 rounded-xl cursor-pointer transition-all"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
                       onClick={() => setSelected(c)}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{c.code}</td>
-                      <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">{c.title}</td>
-                      <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-xs text-[var(--gold-400)]">{c.code}</span>
                         <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: st.bg, color: st.color }}>{st.label}</span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(c.total_value)}</td>
-                      <td className="px-5 py-3.5">
+                      </div>
+                      <p className="text-sm font-medium text-[var(--text-primary)] mb-2">{c.title}</p>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-semibold text-[var(--text-primary)]">{fmtVND(c.total_value)}</span>
+                        <span className="text-[var(--text-muted)]">{paid}/{total} đợt</span>
+                      </div>
+                      {timeLeft && (
                         <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 rounded-full bg-[var(--surface-3)]">
-                            <div className="h-full rounded-full" style={{ width: `${total > 0 ? (paid/total)*100 : 0}%`, background: 'var(--gold-500)' }} />
+                          <div className="flex-1 h-1.5 rounded-full bg-[var(--surface-3)]">
+                            <div className="h-full rounded-full" style={{
+                              width: `${timeLeft.pct}%`,
+                              background: timeLeft.daysLeft <= 7 ? '#f87171' : timeLeft.daysLeft <= 30 ? '#fbbf24' : '#34d399',
+                            }} />
                           </div>
-                          <span className="text-xs text-[var(--text-muted)]">{paid}/{total}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{timeLeft.label}</span>
                         </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {timeLeft ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-[var(--surface-3)]">
-                              <div className="h-full rounded-full" style={{
-                                width: `${timeLeft.pct}%`,
-                                background: timeLeft.daysLeft <= 7 ? '#f87171' : timeLeft.daysLeft <= 30 ? '#fbbf24' : '#34d399',
-                              }} />
-                            </div>
-                            <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{timeLeft.label}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[var(--text-muted)]">—</span>
-                        )}
-                      </td>
-                    </tr>
+                      )}
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-            </div>
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Mã HĐ</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tiêu đề</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Trạng thái</th>
+                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thanh toán</th>
+                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thời gian</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contracts.map(c => {
+                    const st = STATUS_MAP[c.status] || STATUS_MAP.draft;
+                    const paid = c.payment_terms?.installments?.filter(i => i.status === 'paid').length || 0;
+                    const total = c.payment_terms?.installments?.length || 0;
+                    const timeLeft = calcTimeLeft(c.signed_date, c.working_days);
+                    return (
+                      <tr
+                        key={c.id}
+                        className="cursor-pointer transition-colors"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                        onClick={() => setSelected(c)}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{c.code}</td>
+                        <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">{c.title}</td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(c.total_value)}</td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-[var(--surface-3)]">
+                              <div className="h-full rounded-full" style={{ width: `${total > 0 ? (paid/total)*100 : 0}%`, background: 'var(--gold-500)' }} />
+                            </div>
+                            <span className="text-xs text-[var(--text-muted)]">{paid}/{total}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {timeLeft ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 rounded-full bg-[var(--surface-3)]">
+                                <div className="h-full rounded-full" style={{
+                                  width: `${timeLeft.pct}%`,
+                                  background: timeLeft.daysLeft <= 7 ? '#f87171' : timeLeft.daysLeft <= 30 ? '#fbbf24' : '#34d399',
+                                }} />
+                              </div>
+                              <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{timeLeft.label}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[var(--text-muted)]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            </>
           )}
         </div>
 

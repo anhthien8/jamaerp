@@ -406,7 +406,34 @@ export default function AccountingPage() {
             {/* ── Commissions Tab ── */}
             {tab === 'commissions' && (
               <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-2">
+                  {visibleCommissions.length === 0 ? (
+                    <p className="text-center p-4 text-[var(--text-muted)]">Chưa có hoa hồng</p>
+                  ) : visibleCommissions.map(c => (
+                    <div key={c.id} className="p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-[var(--text-primary)]">{c.user_name || '—'}</span>
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                          (c.status === 'paid' || c.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+                        )}>
+                          {(c.status === 'paid' || c.status === 'approved') ? 'Đã trả' : 'Chờ'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] text-[var(--text-muted)]">{c.type}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">·</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{c.milestone}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {(c.rate * 100).toFixed(1)}%</span>
+                        <span className="text-sm font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -448,7 +475,36 @@ export default function AccountingPage() {
             {/* ── Payroll Tab ── */}
             {tab === 'payroll' && (
               <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-2">
+                  {payroll.length === 0 ? (
+                    <p className="text-center p-4 text-[var(--text-muted)]">Chưa có bảng lương</p>
+                  ) : payroll.map(p => (
+                    <div key={p.id} className="p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-[var(--text-primary)]">{p.user_name || '—'}</span>
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                          (p.status === 'paid' || p.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+                        )}>
+                          {(p.status === 'paid' || p.status === 'approved') ? 'Đã trả' : 'Chờ'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] mb-1.5">{p.period}</p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Lương CB</span><span className="text-[var(--text-secondary)]">{formatCurrency(p.base_salary)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Hoa hồng</span><span className="text-[#C9A96E]">{formatCurrency(p.commission_total)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Thưởng</span><span className="text-emerald-400">{formatCurrency(p.bonus)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Khấu trừ</span><span className="text-red-400">{formatCurrency(p.deductions)}</span></div>
+                      </div>
+                      <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <span className="text-[10px] text-[var(--text-muted)]">Thực lĩnh</span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(p.net_salary)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>

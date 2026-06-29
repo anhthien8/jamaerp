@@ -234,51 +234,82 @@ export default function InventoryPage() {
           ) : filtered.length === 0 ? (
             <div className="p-12 text-center text-[var(--text-muted)]">Không tìm thấy vật tư</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Mã</th>
-                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tên vật tư</th>
-                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Danh mục</th>
-                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Tồn kho</th>
-                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Đơn giá</th>
-                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
-                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">NCC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(m => {
-                    const isLow = m.quantity_in_stock <= m.min_stock;
-                    return (
-                      <tr
-                        key={m.id}
-                        className="transition-colors"
-                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{m.code}</td>
-                        <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">{m.name}</td>
-                        <td className="px-5 py-3.5">
-                          <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{m.category}</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden p-3 space-y-3">
+                {filtered.map(m => {
+                  const isLow = m.quantity_in_stock <= m.min_stock;
+                  return (
+                    <div key={m.id} className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-xs text-[var(--gold-400)]">{m.code}</span>
+                        <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{m.category}</span>
+                      </div>
+                      <p className="text-sm font-medium text-[var(--text-primary)] mb-2">{m.name}</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[var(--text-muted)]">Tồn kho: </span>
                           <span className={`font-semibold ${isLow ? 'text-[#f87171]' : 'text-[var(--text-primary)]'}`}>
-                            {fmtNum(m.quantity_in_stock)}
+                            {fmtNum(m.quantity_in_stock)} {m.unit}
                           </span>
-                          <span className="text-xs text-[var(--text-muted)] ml-1">{m.unit}</span>
-                          {isLow && <span className="ml-2 text-xs text-[#f87171]">⚠</span>}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price)}</td>
-                        <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price * m.quantity_in_stock)}</td>
-                        <td className="px-5 py-3.5 text-[var(--text-muted)] max-w-[150px] truncate">{m.supplier || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          {isLow && <span className="ml-1 text-[#f87171]">⚠</span>}
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-muted)]">Đơn giá: </span>
+                          <span className="font-semibold text-[var(--text-primary)]">{fmtVND(m.unit_price)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Mã</th>
+                      <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Tên vật tư</th>
+                      <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Danh mục</th>
+                      <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Tồn kho</th>
+                      <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Đơn giá</th>
+                      <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
+                      <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">NCC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(m => {
+                      const isLow = m.quantity_in_stock <= m.min_stock;
+                      return (
+                        <tr
+                          key={m.id}
+                          className="transition-colors"
+                          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{m.code}</td>
+                          <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">{m.name}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{m.category}</span>
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <span className={`font-semibold ${isLow ? 'text-[#f87171]' : 'text-[var(--text-primary)]'}`}>
+                              {fmtNum(m.quantity_in_stock)}
+                            </span>
+                            <span className="text-xs text-[var(--text-muted)] ml-1">{m.unit}</span>
+                            {isLow && <span className="ml-2 text-xs text-[#f87171]">⚠</span>}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price)}</td>
+                          <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price * m.quantity_in_stock)}</td>
+                          <td className="px-5 py-3.5 text-[var(--text-muted)] max-w-[150px] truncate">{m.supplier || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
           {/* Pagination info */}
           {!loadingData && (
