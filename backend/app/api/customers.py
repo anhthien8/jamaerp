@@ -16,6 +16,16 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerRespons
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
+def require_customer_write(current_user: User = Depends(get_current_user)) -> User:
+    """Only admin, accountant, sales (data_entry/leader) can create/update customers."""
+    if current_user.role not in ("admin", "accountant", "sales", "data_entry", "leader"):
+        raise HTTPException(
+            status_code=403,
+            detail="Không có quyền chỉnh sửa thông tin khách hàng",
+        )
+    return current_user
+
+
 @router.get("")
 async def list_customers(
     type: str | None = None,
@@ -85,7 +95,7 @@ async def get_customer(
 async def create_customer(
     data: CustomerCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_customer_write),
 ):
     """Create new customer."""
     customer = Customer(**data.model_dump())
@@ -99,7 +109,7 @@ async def update_customer(
     customer_id: str,
     data: CustomerUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_customer_write),
 ):
     """Update customer."""
     result = await db.execute(select(Customer).where(Customer.id == customer_id))

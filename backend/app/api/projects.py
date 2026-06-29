@@ -17,6 +17,49 @@ from app.schemas.project import (
 )
 from pydantic import BaseModel
 
+
+# ── RBAC dependency ──────────────────────────────────────────────────────────
+
+async def require_project_access(
+    project_id: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Role-based access guard for project endpoints.
+
+    - admin / executive: full access everywhere.
+    - For list endpoints (project_id is None): all authenticated users can read.
+    - For detail / update endpoints the user must be:
+        * the assigned PM,
+        * the assigned designer,
+        * the assigned sales person, OR
+        * a team leader (leader role), OR
+        * accountant / purchasing (read-only — enforced at the endpoint level).
+    """
+    if current_user.role in ("admin", "executive"):
+        return current_user
+    # For list endpoints, all authenticated users can read
+    if project_id is None:
+        return current_user
+    # For detail/update, check ownership
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.role == "accountant":
+        return current_user  # read-only for accounting
+    if current_user.role == "purchasing":
+        return current_user  # read-only for purchasing
+    if project.pm_id == current_user.id:
+        return current_user
+    if project.designer_id == current_user.id:
+        return current_user
+    if project.sales_id == current_user.id:
+        return current_user
+    if current_user.role == "leader":
+        return current_user  # team leaders can view all
+    raise HTTPException(status_code=403, detail="No access to this project")
+
 class ProjectStageUpdate(BaseModel):
     stage: str
 
@@ -39,7 +82,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 async def list_projects(
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
@@ -69,7 +112,7 @@ async def list_projects(
 async def get_project(
     project_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
 ):
     """Get project details."""
     result = await db.execute(select(Project).where(Project.id == project_id))
@@ -85,7 +128,9 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create new project."""
+    """Create new project — admin, leader, pm only."""
+    if current_user.role not in ("admin", "leader", "pm"):
+        raise HTTPException(status_code=403, detail="Không có quyền tạo dự án")
     project = Project(**data.model_dump())
     db.add(project)
     await db.flush()
@@ -97,9 +142,11 @@ async def update_project(
     project_id: str,
     data: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
 ):
     """Update project."""
+    if current_user.role in ("accountant", "purchasing", "sales"):
+        raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
     if not project:
@@ -123,7 +170,7 @@ async def update_project(
 async def list_tasks(
     project_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
 ):
     """List tasks for project."""
     q = select(Task).where(Task.project_id == project_id).order_by(Task.order)
@@ -135,7 +182,7 @@ async def list_tasks(
 @router.get("/pipeline/kanban", response_model=list[ProjectKanbanStage])
 async def project_kanban(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
 ):
     """Kanban board data — projects grouped by stage."""
     stages = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
@@ -170,9 +217,11 @@ async def update_project_stage(
     project_id: str,
     data: ProjectStageUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_project_access),
 ):
-    """Update project current stage."""
+    """Update project current stage — admin, pm, leader only."""
+    if current_user.role not in ("admin", "pm", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền cập nhật giai đoạn dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
     if not project:

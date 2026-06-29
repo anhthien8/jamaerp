@@ -340,7 +340,7 @@ export default function PLPage() {
                         className="text-2xl font-bold"
                         style={{ color: summary.margin >= 50 ? '#10B981' : summary.margin >= 20 ? '#F59E0B' : '#EF4444' }}
                       >
-                        {summary.margin.toFixed(1)}%
+                        {(summary.margin ?? 0).toFixed(1)}%
                       </p>
                       <p className="text-xs text-[var(--text-secondary)] mt-1">TB toàn công ty</p>
                     </div>

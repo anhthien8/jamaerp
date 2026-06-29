@@ -205,7 +205,7 @@ function LeadsContent() {
     if (activeQuickFilter === 'overdue' && !isOverdueLead(lead)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!lead.name.toLowerCase().includes(q) && !lead.phone.includes(q)) return false;
+      if (!lead.name.toLowerCase().includes(q) && !(lead.phone || '').includes(q)) return false;
     }
     return true;
   });

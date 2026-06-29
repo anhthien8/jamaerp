@@ -194,6 +194,8 @@ async def create_transaction(
     current_user: User = Depends(get_current_user),
 ):
     """Create new transaction."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
     import uuid
     txn = Transaction(
         id=str(uuid.uuid4()),
@@ -224,6 +226,8 @@ async def update_transaction(
     current_user: User = Depends(get_current_user),
 ):
     """Update transaction."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
     result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
     txn = result.scalar_one_or_none()
     if not txn:
@@ -244,6 +248,8 @@ async def delete_transaction(
     current_user: User = Depends(get_current_user),
 ):
     """Soft-delete transaction (set status=cancelled)."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
     result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
     txn = result.scalar_one_or_none()
     if not txn:
@@ -261,6 +267,8 @@ async def create_commission(
     current_user: User = Depends(get_current_user),
 ):
     """Create commission record."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
     import uuid
     comm = Commission(
         id=str(uuid.uuid4()),
@@ -292,6 +300,8 @@ async def update_commission_status(
     current_user: User = Depends(get_current_user),
 ):
     """Update commission status."""
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
     result = await db.execute(select(Commission).where(Commission.id == comm_id))
     comm = result.scalar_one_or_none()
     if not comm:

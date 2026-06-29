@@ -23,6 +23,10 @@ async def list_users(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """List all users."""
+    # Only admin, accountant, leader can list users
+    if current_user.role not in ("admin", "accountant", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền xem danh sách nhân viên")
+
     q = select(User).order_by(User.full_name)
     if role:
         q = q.where(User.role == role)
@@ -139,6 +143,12 @@ async def update_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+
+    # Role escalation protection
+    if "role" in data and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi vai trò")
+    if "is_active" in data and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi trạng thái")
 
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_username"]
     for k in allowed:
