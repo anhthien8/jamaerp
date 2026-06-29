@@ -1,6 +1,9 @@
 """Auth API — login, telegram auth, seed admin."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import time
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,12 +16,36 @@ from app.middleware.auth import (
     verify_password, hash_password, create_access_token, get_current_user,
 )
 
+# ── In-memory rate limiter for login ──────────────────────────────────────
+# key = client IP, value = list of attempt timestamps (epoch seconds)
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 60
+
+
+def _check_login_rate_limit(ip: str) -> None:
+    """Raise 429 if *ip* has exceeded the allowed login attempts."""
+    now = time.time()
+    # Drop entries older than the window
+    _login_attempts[ip] = [
+        ts for ts in _login_attempts[ip] if now - ts < _LOGIN_WINDOW_SECONDS
+    ]
+    if len(_login_attempts[ip]) >= _LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Quá nhiều yêu cầu. Vui lòng thử lại sau.",
+        )
+    _login_attempts[ip].append(now)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(get_db)):
     """Email + password login → JWT."""
+    client_ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(client_ip)
+
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { api, User } from '@/lib/api';
 
 // Demo users — used when backend is unavailable
@@ -74,12 +74,16 @@ const DEMO_USERS: Record<string, { password: string; user: User }> = {
   },
 };
 
+export type AppMode = 'demo' | 'work';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isDemo: boolean;
+  mode: AppMode;
+  setMode: (mode: AppMode) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -88,20 +92,30 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   isDemo: false,
+  mode: 'work',
+  setMode: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
+  const [mode, setModeState] = useState<AppMode>('work');
+
+  // Derive isDemo from mode for backward compatibility
+  const isDemo = mode === 'demo';
 
   useEffect(() => {
     void Promise.resolve().then(() => {
+      // Read persisted mode
+      const storedMode = localStorage.getItem('jama_mode') as AppMode | null;
+      if (storedMode === 'demo' || storedMode === 'work') {
+        setModeState(storedMode);
+      }
+
       const stored = localStorage.getItem('jama_user');
       if (stored) {
         try {
           setUser(JSON.parse(stored));
-          setIsDemo(localStorage.getItem('jama_demo') === 'true');
         } catch {}
       }
       setLoading(false);
@@ -113,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.login(email, password);
       setUser(data.user);
-      setIsDemo(false);
+      setModeState('work');
+      localStorage.setItem('jama_mode', 'work');
       localStorage.setItem('jama_demo', 'false');
       return;
     } catch {
@@ -124,7 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const demoEntry = DEMO_USERS[email.toLowerCase()];
     if (demoEntry && demoEntry.password === password) {
       setUser(demoEntry.user);
-      setIsDemo(true);
+      setModeState('demo');
+      localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');
       localStorage.setItem('jama_user', JSON.stringify(demoEntry.user));
       localStorage.setItem('jama_demo', 'true');
@@ -134,16 +150,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error('Email hoặc mật khẩu không đúng');
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     api.logout();
     localStorage.removeItem('jama_demo');
     setUser(null);
-    setIsDemo(false);
     window.location.href = '/login';
-  };
+  }, []);
+
+  const setMode = useCallback((newMode: AppMode) => {
+    if (newMode === 'demo') {
+      // Switch to demo mode: auto-login with admin demo account
+      const adminEntry = DEMO_USERS['admin@jamahome.vn'];
+      setUser(adminEntry.user);
+      setModeState('demo');
+      localStorage.setItem('jama_mode', 'demo');
+      localStorage.setItem('jama_token', 'demo-token');
+      localStorage.setItem('jama_user', JSON.stringify(adminEntry.user));
+      localStorage.setItem('jama_demo', 'true');
+    } else {
+      // Switch to work mode: logout and redirect to login
+      setModeState('work');
+      localStorage.setItem('jama_mode', 'work');
+      api.logout();
+      localStorage.removeItem('jama_demo');
+      setUser(null);
+      window.location.href = '/login';
+    }
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isDemo }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode }}>
       {children}
     </AuthContext.Provider>
   );

@@ -101,6 +101,16 @@ const NAV_SECTIONS = [
           </svg>
         ),
       },
+      {
+        href: '/pl',
+        label: 'P&L',
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+        ),
+        requiresPnL: true,
+      },
     ],
   },
   {
@@ -131,7 +141,7 @@ const NAV_SECTIONS = [
 
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, logout, isDemo } = useAuth();
+  const { user, logout, isDemo, mode, setMode } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -176,6 +186,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         if (item.href === '/contracts' && !perms.canViewContracts) return false;
         if (item.href === '/quotations' && !perms.canViewQuotations) return false;
         if (item.href === '/inventory' && !perms.canViewInventory) return false;
+        if ('requiresPnL' in item && !perms.canViewPnL) return false;
         return true;
       }),
     })).filter(section => section.items.length > 0);
@@ -267,10 +278,42 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         ))}
       </nav>
 
-      {/* Demo badge */}
-      {isDemo && !collapsed && (
-        <div className="mx-3 mb-3 px-3 py-2 rounded-lg text-center" style={{ background: 'var(--warning-bg)', border: '1px solid rgba(251,191,36,0.2)' }}>
-          <span className="text-[0.6875rem] font-semibold" style={{ color: 'var(--warning)' }}>⚡ DEMO MODE</span>
+      {/* Mode Toggle Badge */}
+      {!collapsed && (
+        <div className="px-3 mb-3">
+          <button
+            onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[0.6875rem] font-semibold transition-all duration-200 cursor-pointer select-none"
+            style={{
+              background: mode === 'demo' ? 'rgba(251,191,36,0.1)' : 'rgba(74,222,128,0.08)',
+              border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.25)' : 'rgba(74,222,128,0.2)'}`,
+              color: mode === 'demo' ? '#FBBF24' : '#4ADE80',
+            }}
+            title={mode === 'demo' ? 'Chuyen sang Work Mode' : 'Chuyen sang Demo Mode'}
+          >
+            <span className="text-sm">{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
+            <span>{mode === 'demo' ? 'DEMO MODE' : 'WORK MODE'}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Collapsed mode dot indicator */}
+      {collapsed && (
+        <div className="flex justify-center mb-3">
+          <button
+            onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
+            className="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer"
+            style={{
+              background: mode === 'demo' ? 'rgba(251,191,36,0.3)' : 'rgba(74,222,128,0.3)',
+              border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.5)' : 'rgba(74,222,128,0.5)'}`,
+            }}
+            title={mode === 'demo' ? 'Demo Mode - Click to switch to Work' : 'Work Mode - Click to switch to Demo'}
+          >
+            <span style={{ fontSize: '8px' }}>{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
+          </button>
         </div>
       )}
 

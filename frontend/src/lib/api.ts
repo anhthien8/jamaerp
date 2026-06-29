@@ -89,6 +89,15 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
   if (path === '/users') return d.DEMO_USERS as T;
   if (path === '/users/teams') return d.DEMO_TEAMS as T;
 
+  // ── P&L ──
+  if (path === '/pl/summary') return d.DEMO_PNL_SUMMARY as T;
+  if (path === '/pl/projects') return (d.DEMO_PNL_SUMMARY.revenue_by_project || []) as T;
+  if (path.match(/^\/pl\/projects\/[^/]+$/)) {
+    const projectId = path.split('/')[3];
+    const proj = (d.DEMO_PNL_SUMMARY.revenue_by_project || []).find((p: Record<string, unknown>) => p.project_id === projectId || p.project_code === projectId);
+    return (proj || (d.DEMO_PNL_SUMMARY.revenue_by_project || [])[0]) as T;
+  }
+
   // ── AI ──
   if (path === '/ai/parse-lead') return { name: '', phone: '', confidence: 0.95, raw_text: '' } as T;
   if (path === '/ai/suggest-action') return d.DEMO_AI_SUGGESTIONS[0] as T;
@@ -420,6 +429,17 @@ class ApiClient {
   }
   async updateUser(id: string, data: Partial<User>) {
     return this.request<User>(`/users/${id}`, { method: 'PUT', body: data });
+  }
+
+  // === ERP: P&L (C-level only) ===
+  async getPnLSummary() {
+    return this.request<PnLSummary>('/pl/summary');
+  }
+  async getPnLProjects() {
+    return this.request<PnLProject[]>('/pl/projects');
+  }
+  async getPnLProject(projectId: string) {
+    return this.request<PnLProjectDetail>(`/pl/projects/${projectId}`);
   }
 
   logout() {
@@ -799,6 +819,45 @@ export interface Team {
   department: string;
   leader_id?: string;
   created_at: string;
+}
+
+// === P&L Types ===
+export interface PnLSummary {
+  total_revenue: number;
+  total_costs: number;
+  net_profit: number;
+  margin_pct: number;
+  revenue_by_project: PnLProject[];
+}
+
+export interface PnLProject {
+  project_id: string;
+  project_code: string;
+  project_name: string;
+  revenue: number;
+  costs: number;
+  profit: number;
+  margin_pct: number;
+  status: string;
+}
+
+export interface PnLProjectDetail {
+  project_id: string;
+  project_code: string;
+  project_name: string;
+  revenue: number;
+  costs: number;
+  profit: number;
+  margin_pct: number;
+  cost_breakdown: {
+    materials: number;
+    labor: number;
+    other: number;
+  };
+  revenue_breakdown: {
+    design: number;
+    construction: number;
+  };
 }
 
 // Export singleton

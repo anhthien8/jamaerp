@@ -17,6 +17,9 @@ export const DEMO_USERS: User[] = [
   { id: 'demo-sales-001', full_name: 'Trần Thị Sales', email: 'sales@jamahome.vn', phone: '0907654321', role: 'data_entry', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-15T00:00:00Z' },
   { id: 'demo-acct-001', full_name: 'Phạm Thị Kế Toán', email: 'accountant@jamahome.vn', phone: '0905555666', role: 'accountant', department: 'ACCT', is_active: true, created_at: '2026-01-20T00:00:00Z' },
   { id: 'demo-exec-001', full_name: 'Đỗ Minh Tuấn', email: 'ceo@jamahome.vn', phone: '0901111222', role: 'executive', department: 'EXEC', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-designer-001', full_name: 'Nguyễn Thị Thiết Kế', email: 'designer@jamahome.vn', role: 'designer', department: 'DESIGN', is_active: true, created_at: '2026-02-01T00:00:00Z' },
+  { id: 'demo-pm-001', full_name: 'Trần Văn PM', email: 'pm@jamahome.vn', role: 'pm', department: 'PROJECT', is_active: true, created_at: '2026-02-01T00:00:00Z' },
+  { id: 'demo-purchasing-001', full_name: 'Trần Văn Thu Mua', email: 'purchasing@jamahome.vn', role: 'purchasing', department: 'PURCHASING', is_active: true, created_at: '2026-02-01T00:00:00Z' },
 ];
 
 // ─── Teams ──────────────────────────────────────────────
@@ -486,3 +489,17 @@ export const DEMO_AI_SUGGESTIONS: AISuggestion[] = [
   { action: 'Chốt khảo sát với Trang — deal 3.4 tỷ', reason: 'Đang khảo sát online, cần hẹn lịch khảo sát onsite Long An', priority: 'high', message_template: 'Chào chị Trang, JAMA HOME muốn hẹn lịch khảo sát trực tiếp nhà phố 200m². Cuối tuần này chị có rảnh không ạ?' },
   { action: 'Tư vấn cho Bống (4.188 tỷ)', reason: 'Deal lớn nhất, hạng sang 349m², đang tư vấn online', priority: 'high', message_template: 'Chào anh/chị Bống, JAMA HOME đã có phương án thiết kế cho nhà phố 349m² Long An. Anh/chị muốn xem bản demo không ạ?' },
 ];
+
+// ─── P&L Summary ───────────────────────────────────────
+export const DEMO_PNL_SUMMARY = {
+  total_revenue: 3680000000,
+  total_costs: 982000000,
+  net_profit: 2698000000,
+  margin_pct: 73.3,
+  revenue_by_project: [
+    { project_code: 'PRJ-2026-001', project_name: 'Nhà phố Q7 - Chị Mai', revenue: 500000000, costs: 375000000, profit: 125000000, margin_pct: 25.0 },
+    { project_code: 'PRJ-2026-002', project_name: 'Biệt thự Bình Chánh - Anh Tuấn', revenue: 2500000000, costs: 750000000, profit: 1750000000, margin_pct: 70.0 },
+    { project_code: 'PRJ-2026-003', project_name: 'Căn hộ Sunrise - Chị Hương', revenue: 180000000, costs: 162000000, profit: 18000000, margin_pct: 10.0 },
+    { project_code: 'PRJ-2026-005', project_name: 'Nhà phố Gò Vấp - Chị Lan', revenue: 680000000, costs: 374000000, profit: 306000000, margin_pct: 45.0 },
+  ],
+};

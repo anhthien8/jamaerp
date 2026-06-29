@@ -1,6 +1,78 @@
-# JAMA CRM — HANDOVER DOCUMENT FOR ANTIGRAVITY IDE
+# JAMA CRM — HANDOVER DOCUMENT FOR PHANMEMVIP SHOP AI
 
-This document serves as the session context handover for the next AI agent or developer to import in the Antigravity IDE.
+This document serves as the session context handover for the next AI agent or developer.
+
+---
+
+## Session 2 — Completed (2026-06-29)
+
+### Feature C: Demo/Work Mode System
+- **Login page (`frontend/src/app/login/page.tsx`):**
+  - Added segmented mode selector: "🎯 Demo Mode" and "💼 Work Mode"
+  - Demo Mode auto-fills admin credentials, shows demo accounts panel
+  - Work Mode shows normal login form
+  - Mode persisted to localStorage as `jama_mode`
+- **Auth system (`frontend/src/lib/auth.tsx`):**
+  - Exported `AppMode = 'demo' | 'work'` type
+  - Added `mode` and `setMode` to AuthContext
+  - `setMode('demo')` auto-logins with admin demo account
+  - `setMode('work')` clears session and redirects to login
+  - `isDemo` derived from `mode` for backward compatibility
+- **Sidebar (`frontend/src/components/layout/Sidebar.tsx`):**
+  - Replaced static "DEMO MODE" badge with clickable mode toggle
+  - Gold/amber for demo mode, green for work mode
+  - Collapsed sidebar shows colored dot indicator
+
+### Feature D: Additional RBAC Roles
+- **Roles (`frontend/src/lib/roles.ts`):**
+  - Added `designer` (Nhân viên Thiết kế) and `pm` (Trưởng Dự án) roles
+  - Added `canViewPnL` permission — only admin, executive, accountant have access
+  - Designer: can view quotations only
+  - PM: can view contracts, quotations, inventory, reports
+
+### Feature E: P&L Module (C-Level Only)
+- **Backend API (`backend/app/api/pl.py`):**
+  - `GET /pl/summary` — Company-wide P&L (revenue, costs, net profit, margin)
+  - `GET /pl/projects` — Per-project P&L list
+  - `GET /pl/projects/{id}` — Detailed P&L with cost breakdown by category
+  - Role verification: blocks non-C-level users (admin/executive/accountant only)
+- **Schemas (`backend/app/schemas/pl.py`):**
+  - PLSummary, PLProjectItem, PLProjectDetail, PLCostCategory
+- **Frontend page (`frontend/src/app/pl/page.tsx`):**
+  - Summary cards: Total Revenue, Total Costs, Net Profit, Margin %
+  - Per-project P&L table with sort (revenue/profit/margin)
+  - Mobile-responsive card view
+  - Demo mode with inline mock data
+  - Access denied view for non-C-level roles
+- **Router registered in `backend/app/main.py`**
+
+### Bug Fixes
+- **Seed data (`backend/app/seed.py`):** Fixed undefined variables (`team_exec_id`, `team_sales1_id`, `team_sales2_id`, `team_design_id`)
+- **Demo credentials (`frontend/src/app/login/page.tsx`):** Fixed `account@jamahome.vn` → `accountant@jamahome.vn`, added purchasing account
+- **SSR localStorage (`frontend/src/app/login/page.tsx`):** Fixed `localStorage` in `useState` initializer — moved to `useEffect`
+- **Rate limiting (`backend/app/api/auth.py`):** Added in-memory rate limiter (5 attempts/min per IP) on login endpoint
+
+### Modified Files (Session 2)
+#### Backend
+1. `backend/app/seed.py` — Fixed undefined team ID variables
+2. `backend/app/main.py` — Registered pl_router
+3. `backend/app/api/auth.py` — Added login rate limiting
+4. `backend/app/api/pl.py` — NEW: P&L API endpoints
+5. `backend/app/schemas/pl.py` — NEW: P&L Pydantic schemas
+
+#### Frontend
+1. `frontend/src/lib/roles.ts` — Added designer, pm roles + canViewPnL
+2. `frontend/src/lib/auth.tsx` — Added AppMode, mode, setMode
+3. `frontend/src/lib/api.ts` — Added P&L types and API methods + demo resolver
+4. `frontend/src/lib/demo-data.ts` — Added new users + P&L mock data
+5. `frontend/src/app/login/page.tsx` — Mode selector + fixed credentials
+6. `frontend/src/app/pl/page.tsx` — NEW: P&L page (C-level only)
+7. `frontend/src/components/layout/Sidebar.tsx` — Mode toggle + P&L nav item
+
+### Verification
+- **TypeScript:** `npm run build` passed successfully
+- **Pages:** All 13 pages generated including `/pl`
+- **Build:** Production-ready
 
 ---
 

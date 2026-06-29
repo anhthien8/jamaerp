@@ -30,6 +30,10 @@ async def seed_database(db: AsyncSession):
     print("[SEED] Seeding database...")
 
     # ── Teams ──
+    team_exec_id = _id()
+    team_sales1_id = _id()
+    team_sales2_id = _id()
+    team_design_id = _id()
     team_purchasing_id = _id()
 
     teams = [

@@ -73,6 +73,7 @@ from app.api.customers import router as customers_router
 from app.api.contracts import router as contracts_router
 from app.api.quotations import router as quotations_router
 from app.api.inventory import router as inventory_router
+from app.api.pl import router as pl_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -85,3 +86,4 @@ app.include_router(customers_router, prefix="/api/v1")
 app.include_router(contracts_router, prefix="/api/v1")
 app.include_router(quotations_router, prefix="/api/v1")
 app.include_router(inventory_router, prefix="/api/v1")
+app.include_router(pl_router, prefix="/api/v1")

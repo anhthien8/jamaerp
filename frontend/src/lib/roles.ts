@@ -3,7 +3,7 @@
  * Defines permissions for each user role.
  */
 
-export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'purchasing';
+export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'purchasing' | 'designer' | 'pm';
 
 export interface RolePermissions {
   canViewDashboard: boolean;
@@ -19,6 +19,7 @@ export interface RolePermissions {
   canViewQuotations: boolean;
   canViewInventory: boolean;
   canViewReports: boolean;
+  canViewPnL: boolean;              // profit & loss statement
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -28,7 +29,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
     canViewContracts: true, canViewQuotations: true, canViewInventory: true,
-    canViewReports: true,
+    canViewReports: true, canViewPnL: true,
   },
   leader: {
     canViewDashboard: true, dashboardType: 'team',
@@ -36,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: true, canManageUsers: false,
     canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
-    canViewReports: true,
+    canViewReports: true, canViewPnL: false,
   },
   data_entry: {
     canViewDashboard: true, dashboardType: 'personal',
@@ -44,7 +45,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
     canViewContracts: true, canViewQuotations: false, canViewInventory: false,
-    canViewReports: true,
+    canViewReports: true, canViewPnL: false,
   },
   accountant: {
     canViewDashboard: true, dashboardType: 'financial',
@@ -52,7 +53,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
     canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
-    canViewReports: true,
+    canViewReports: true, canViewPnL: true,
   },
   executive: {
     canViewDashboard: true, dashboardType: 'executive',
@@ -60,7 +61,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
     canViewContracts: true, canViewQuotations: false, canViewInventory: false,
-    canViewReports: true,
+    canViewReports: true, canViewPnL: true,
   },
   purchasing: {
     canViewDashboard: true, dashboardType: 'personal',
@@ -68,7 +69,23 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
     canViewContracts: true, canViewQuotations: false, canViewInventory: true,
-    canViewReports: false,
+    canViewReports: false, canViewPnL: false,
+  },
+  designer: {
+    canViewDashboard: true, dashboardType: 'personal',
+    canViewLeads: false, leadsScope: 'none',
+    canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
+    canViewHR: false, canManageUsers: false,
+    canViewContracts: false, canViewQuotations: true, canViewInventory: false,
+    canViewReports: false, canViewPnL: false,
+  },
+  pm: {
+    canViewDashboard: true, dashboardType: 'team',
+    canViewLeads: false, leadsScope: 'none',
+    canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
+    canViewHR: false, canManageUsers: false,
+    canViewContracts: true, canViewQuotations: true, canViewInventory: true,
+    canViewReports: true, canViewPnL: false,
   },
 };
 
@@ -80,6 +97,8 @@ export function getRoleLabel(role: UserRole): string {
     accountant: 'Kế toán / Nhân sự',
     executive: 'Ban Quản Trị',
     purchasing: 'Nhân viên Thu mua',
+    designer: 'Nhân viên Thiết kế',
+    pm: 'Trưởng Dự án',
   };
   return labels[role] || role;
 }
