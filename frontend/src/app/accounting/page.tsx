@@ -20,6 +20,13 @@ export default function AccountingPage() {
   const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  // Filters
+  const [txSearch, setTxSearch] = useState('');
+  const [txType, setTxType] = useState('all');
+  const [txCategory, setTxCategory] = useState('all');
+  const [txSort, setTxSort] = useState<'date' | 'amount'>('date');
+  const [txSortAsc, setTxSortAsc] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
@@ -156,52 +163,153 @@ export default function AccountingPage() {
 
             {/* ── Transactions Tab ── */}
             {tab === 'transactions' && (
-              <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mã</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loại</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Danh mục</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mô tả</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Số tiền</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ngày</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Trạng thái</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.length === 0 ? (
-                        <tr><td colSpan={7} className="text-center p-8 text-[var(--text-muted)]">Chưa có giao dịch</td></tr>
-                      ) : transactions.map(tx => (
-                        <tr key={tx.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <td className="p-3 font-mono text-xs">{tx.code}</td>
-                          <td className="p-3">
-                            <span className={cn('text-xs px-2 py-0.5 rounded', tx.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
-                              {tx.type === 'income' ? '↑ Thu' : '↓ Chi'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-xs">{tx.category}</td>
-                          <td className="p-3 text-xs max-w-[200px] truncate">{tx.description}</td>
-                          <td className="p-3 text-right font-semibold">
-                            <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}>
-                              {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                            </span>
-                          </td>
-                          <td className="p-3 text-xs text-[var(--text-muted)]">{formatDate(tx.date)}</td>
-                          <td className="p-3">
-                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
-                              tx.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' :
-                              tx.status === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-500/15 text-gray-400'
-                            )}>
-                              {tx.status === 'completed' ? 'Đã xử lý' : tx.status === 'pending' ? 'Chờ duyệt' : tx.status}
-                            </span>
-                          </td>
-                        </tr>
+              <div className="space-y-4">
+                {/* Filters */}
+                <div className="glass-card p-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Search */}
+                    <div className="relative flex-1 max-w-md">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input
+                        type="text"
+                        placeholder="Tìm giao dịch..."
+                        value={txSearch}
+                        onChange={e => setTxSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl text-sm"
+                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+
+                    {/* Type filter */}
+                    <div className="flex gap-2">
+                      {['all', 'income', 'expense'].map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setTxType(t)}
+                          className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                          style={{
+                            background: txType === t ? (t === 'income' ? 'rgba(16,185,129,0.15)' : t === 'expense' ? 'rgba(239,68,68,0.15)' : 'rgba(201,169,110,0.15)') : 'var(--surface-2)',
+                            color: txType === t ? (t === 'income' ? '#10B981' : t === 'expense' ? '#EF4444' : 'var(--gold-400)') : 'var(--text-tertiary)',
+                            border: `1px solid ${txType === t ? (t === 'income' ? 'rgba(16,185,129,0.3)' : t === 'expense' ? 'rgba(239,68,68,0.3)' : 'rgba(201,169,110,0.3)') : 'var(--border-subtle)'}`,
+                          }}
+                        >
+                          {t === 'all' ? 'Tất cả' : t === 'income' ? '💵 Thu' : '💸 Chi'}
+                        </button>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+
+                    {/* Sort */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setTxSort('date'); setTxSortAsc(!txSortAsc); }}
+                        className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                        style={{
+                          background: txSort === 'date' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
+                          color: txSort === 'date' ? 'var(--gold-400)' : 'var(--text-tertiary)',
+                          border: `1px solid ${txSort === 'date' ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
+                        }}
+                      >
+                        📅 Ngày {txSort === 'date' ? (txSortAsc ? '↑' : '↓') : ''}
+                      </button>
+                      <button
+                        onClick={() => { setTxSort('amount'); setTxSortAsc(!txSortAsc); }}
+                        className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                        style={{
+                          background: txSort === 'amount' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
+                          color: txSort === 'amount' ? 'var(--gold-400)' : 'var(--text-tertiary)',
+                          border: `1px solid ${txSort === 'amount' ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
+                        }}
+                      >
+                        💰 Số tiền {txSort === 'amount' ? (txSortAsc ? '↑' : '↓') : ''}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Category filter */}
+                  <div className="flex gap-2 flex-wrap mt-3">
+                    {['all', ...Array.from(new Set(transactions.map(t => t.category)))].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setTxCategory(cat)}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                        style={{
+                          background: txCategory === cat ? 'rgba(201,169,110,0.15)' : 'var(--surface-3)',
+                          color: txCategory === cat ? 'var(--gold-400)' : 'var(--text-muted)',
+                          border: `1px solid ${txCategory === cat ? 'rgba(201,169,110,0.3)' : 'transparent'}`,
+                        }}
+                      >
+                        {cat === 'all' ? 'Tất cả danh mục' : cat}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Filtered + sorted transactions */}
+                {(() => {
+                  const filteredTx = transactions
+                    .filter(tx => txType === 'all' || tx.type === txType)
+                    .filter(tx => txCategory === 'all' || tx.category === txCategory)
+                    .filter(tx => txSearch === '' || tx.description.toLowerCase().includes(txSearch.toLowerCase()) || tx.code.toLowerCase().includes(txSearch.toLowerCase()))
+                    .sort((a, b) => {
+                      const diff = txSort === 'date'
+                        ? new Date(a.date).getTime() - new Date(b.date).getTime()
+                        : a.amount - b.amount;
+                      return txSortAsc ? diff : -diff;
+                    });
+
+                  return (
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-3 text-xs text-[var(--text-muted)]">
+                        Hiển thị {filteredTx.length} / {transactions.length} giao dịch
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mã</th>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loại</th>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Danh mục</th>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mô tả</th>
+                              <th className="text-right p-3 text-xs text-[var(--text-muted)]">Số tiền</th>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ngày</th>
+                              <th className="text-left p-3 text-xs text-[var(--text-muted)]">Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredTx.length === 0 ? (
+                              <tr><td colSpan={7} className="text-center p-8 text-[var(--text-muted)]">Không tìm thấy giao dịch</td></tr>
+                            ) : filteredTx.map(tx => (
+                              <tr key={tx.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
+                                <td className="p-3 font-mono text-xs">{tx.code}</td>
+                                <td className="p-3">
+                                  <span className={cn('text-xs px-2 py-0.5 rounded', tx.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
+                                    {tx.type === 'income' ? '↑ Thu' : '↓ Chi'}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-xs">{tx.category}</td>
+                                <td className="p-3 text-xs max-w-[200px] truncate">{tx.description}</td>
+                                <td className="p-3 text-right font-semibold">
+                                  <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}>
+                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-xs text-[var(--text-muted)]">{formatDate(tx.date)}</td>
+                                <td className="p-3">
+                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                                    tx.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' :
+                                    tx.status === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-500/15 text-gray-400'
+                                  )}>
+                                    {tx.status === 'completed' ? 'Đã xử lý' : tx.status === 'pending' ? 'Chờ duyệt' : tx.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
