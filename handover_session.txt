@@ -1,0 +1,86 @@
+# JAMA CRM — HANDOVER DOCUMENT FOR ANTIGRAVITY IDE
+
+This document serves as the session context handover for the next AI agent or developer to import in the Antigravity IDE.
+
+---
+
+## 1. Summary of Completed Features
+
+### Feature A: Project Pipeline & Operational Workflow (Kanban + Notes + Media)
+- **Database Schema Upgrades (`backend/app/models/project.py`):**
+  - Added `stage` column (`design`, `quotation`, `procurement`, `construction`, `acceptance`, `completed`) to `Project` model.
+  - Added `stage` and `final_file_url` columns to `Task` model.
+  - Created `TaskActivity` model to track chronological updates/notes per task (with text content and optional `media_url` for images).
+- **Auto-Conversion Hook (`backend/app/api/leads.py`):**
+  - Updated the lead update stage API. When a lead's stage is transitioned to `signed_design` (Đã ký thiết kế), the backend automatically creates a `Customer` (by matching lead phone/id), a `Project`, and seeds 19 standard tasks corresponding to the operational stages.
+- **Backend API Endpoints (`backend/app/api/projects.py`):**
+  - `GET /projects/pipeline/kanban` - Returns projects grouped by stage.
+  - `PUT /projects/{project_id}/stage` - Updates project stage.
+  - `GET /projects/tasks/{task_id}/activities` - Lists task comments/timeline.
+  - `POST /projects/tasks/{task_id}/activities` - Adds task notes/media attachment (base64 supported).
+  - `PUT /projects/tasks/{task_id}/final-file` - Saves final delivery document link per task stage.
+  - `PUT /projects/tasks/{task_id}/status` - Updates task status (`todo`, `in_progress`, `done`) and auto-recalculates total project progress %.
+- **Frontend Upgrades (`frontend/src/app/projects/page.tsx`):**
+  - Toggle between **📋 Danh sách** and **📊 Pipeline Kanban** view (Kanban default).
+  - Grouped project tasks in Project Details Modal by their operational stage (Thiết kế, Báo giá, Thu mua, Thi công, Nghiệm thu).
+  - Designed Task Details Modal to allow updating status, saving Final File, and uploading notes with images/attachments via a chronological activity feed.
+
+### Feature B: Inventory Access Control (Kho vật tư)
+- **Role Permission Definitions (`frontend/src/lib/roles.ts`):**
+  - Added `'purchasing'` (Nhân viên Thu mua) to the `UserRole` union.
+  - Configured `ROLE_PERMISSIONS.purchasing` to allow inventory viewing and contracts viewing.
+  - Disabled `canViewInventory` for `leader` and `accountant` roles. Sidebar automatically filters and hides "/inventory" link for unauthorized roles.
+- **Backend API Enforcement (`backend/app/api/inventory.py`):**
+  - Added `verify_inventory_access` dependency to block non-admin and non-purchasing requests with HTTP 403 Forbidden.
+
+---
+
+## 2. Modified Files (Changes Committed & Pushed to GitHub)
+
+### Backend
+1. [project.py (Model)](file:///H:/Hermes/jama-crm/backend/app/models/project.py)
+   - Added `stage` to `Project` (lines 26-28).
+   - Added `stage` and `final_file_url` to `Task` (lines 75-81).
+   - Created `TaskActivity` model (lines 92-117).
+2. [main.py](file:///H:/Hermes/jama-crm/backend/app/main.py)
+   - Lifespan DB creation hook imports `TaskActivity`.
+3. [project.py (Schemas)](file:///H:/Hermes/jama-crm/backend/app/schemas/project.py)
+   - Added stage/file schemas and activity create/response schemas.
+4. [leads.py](file:///H:/Hermes/jama-crm/backend/app/api/leads.py)
+   - Hooked `change_stage` transition to `signed_design` to trigger auto-creation.
+5. [projects.py](file:///H:/Hermes/jama-crm/backend/app/api/projects.py)
+   - Added API endpoints for project kanban, stage updating, task activities, status, and final file url.
+6. [inventory.py](file:///H:/Hermes/jama-crm/backend/app/api/inventory.py)
+   - Added verify_inventory_access security dependency.
+7. [seed.py](file:///H:/Hermes/jama-crm/backend/app/seed.py)
+   - Added department "PURCHASING" and user `purchasing@jamahome.vn` / `purchase123`.
+   - Seeded mock projects/tasks stage properties.
+
+### Frontend
+1. [roles.ts](file:///H:/Hermes/jama-crm/frontend/src/lib/roles.ts)
+   - Added `purchasing` role, updated `ROLE_PERMISSIONS` and label mapping.
+2. [api.ts](file:///H:/Hermes/jama-crm/frontend/src/lib/api.ts)
+   - Defined interfaces (`ProjectKanban`, `TaskActivity`) and async API calls.
+3. [demo-data.ts](file:///H:/Hermes/jama-crm/frontend/src/lib/demo-data.ts)
+   - Fixed TS compile by adding `stage` properties to all demo projects and tasks.
+4. [page.tsx (Projects)](file:///H:/Hermes/jama-crm/frontend/src/app/projects/page.tsx)
+   - Refactored projects layout. Added Kanban board view, task grouping, note upload, final file link.
+
+---
+
+## 3. Verification & Deployment Status
+
+- **Type safety:** Compiles perfectly (`npm run build` completed successfully).
+- **Deployment:** Successfully pushed to production branch (`main -> origin/main`). Live health check is active and OK.
+- **Production URL:** `https://jamacrm-production.up.railway.app/health`
+
+---
+
+## 4. Next Session Agenda
+
+If continuing with P&L modeling or HR integrations:
+1. **Module P&L (Direct Profitability per Project):**
+   - Add revenue (from contracts) vs. cost (spent on purchasing / inventory transactions).
+   - Generate simple P&L reporting cards without building heavy payroll modules.
+2. **Additional Department Teams:**
+   - Map roles to other departments if additional flow permissions are requested.
