@@ -13,6 +13,7 @@ from app.middleware.rbac import can_view_lead, can_modify_lead
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
 from app.models.customer import Customer
+from app.cache import cache
 from app.models.project import Project, Task
 import random
 from app.schemas.lead import (
@@ -48,7 +49,7 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
     )
 
 
-@router.get("", response_model=list[LeadResponse])
+@router.get("")
 async def list_leads(
     stage: str | None = None,
     source: str | None = None,
@@ -57,6 +58,8 @@ async def list_leads(
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List leads with optional filters."""
     q = (
@@ -75,7 +78,7 @@ async def list_leads(
     elif current_user.role == "leader":
         q = q.where(Lead.team_id == current_user.team_id)
     elif current_user.role in ("accountant", "executive"):
-        return []  # Accountant/Executive don't see leads
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
 
     if stage:
         q = q.where(Lead.stage == stage)
@@ -92,7 +95,12 @@ async def list_leads(
             | Lead.address.ilike(f"%{search}%")
         )
 
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
     q = q.order_by(Lead.updated_at.desc())
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     rows = result.all()
 
@@ -104,7 +112,13 @@ async def list_leads(
         act_count = act_result.scalar() or 0
         leads.append(_lead_response(lead, user_name, team_name, act_count))
 
-    return leads
+    return {
+        "items": leads,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/pipeline/stats", response_model=PipelineStats)
@@ -386,6 +400,9 @@ async def change_stage(
         type="stage_change", content=content,
     ))
     await db.flush()
+
+    # Invalidate caches affected by lead stage changes
+    cache.clear_prefix("dashboard")
 
     return _lead_response(lead)
 

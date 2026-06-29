@@ -37,6 +37,9 @@ class Transaction(Base):
     __table_args__ = (
         Index("ix_transactions_date", "date"),
         Index("ix_transactions_type", "type"),
+        Index("ix_transactions_type_date", "type", "date"),
+        Index("ix_transactions_project", "project_id", "type"),
+        Index("ix_transactions_status", "status"),
     )
 
 

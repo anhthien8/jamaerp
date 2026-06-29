@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Transaction, AccountingSummary, Commission, PayrollEntry } from '@/lib/api';
+import { api, Transaction, AccountingSummary, Commission, PayrollEntry, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 
@@ -34,16 +34,16 @@ export default function AccountingPage() {
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [s, t, c, p] = await Promise.all([
+      const [s, tResult, cResult, pResult] = await Promise.all([
         api.getAccountingSummary(),
         api.getTransactions(),
         api.getCommissions(),
         api.getPayroll(),
       ]);
       setSummary(s);
-      setTransactions(t);
-      setCommissions(c);
-      setPayroll(p);
+      setTransactions(extractItems(tResult));
+      setCommissions(extractItems(cResult));
+      setPayroll(extractItems(pResult));
     } catch (e) {
       console.warn('Accounting API error:', e);
     } finally {

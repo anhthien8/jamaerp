@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, User, Team } from '@/lib/api';
+import { api, User, Team, extractItems } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 
@@ -42,8 +42,8 @@ export default function HRPage() {
 
   const load = useCallback(async () => {
     try {
-      const [u, t] = await Promise.all([api.getUsers(), api.getTeams()]);
-      setUsers(u);
+      const [uResult, t] = await Promise.all([api.getUsers(), api.getTeams()]);
+      setUsers(extractItems(uResult));
       setTeams(t);
     } catch { toast('Không thể tải nhân sự', 'error'); } finally {
       setLoadingData(false);

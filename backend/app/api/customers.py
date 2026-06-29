@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,12 +16,14 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerRespons
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
-@router.get("", response_model=list[CustomerResponse])
+@router.get("")
 async def list_customers(
     type: str | None = None,
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List all customers."""
     q = select(Customer).order_by(Customer.created_at.desc())
@@ -31,9 +33,22 @@ async def list_customers(
         q = q.where(
             Customer.name.ilike(f"%{search}%") | Customer.phone.ilike(f"%{search}%")
         )
+
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     customers = result.scalars().all()
-    return [CustomerResponse.model_validate(c) for c in customers]
+
+    return {
+        "items": [CustomerResponse.model_validate(c) for c in customers],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/{customer_id}")

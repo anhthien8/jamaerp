@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Contract } from '@/lib/api';
+import { api, Contract, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -54,7 +54,7 @@ export default function ContractsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api.getContracts();
+      const data = extractItems(await api.getContracts());
       setContracts(data);
     } catch { toast('Không thể tải hợp đồng', 'error'); } finally {
       setLoadingData(false);

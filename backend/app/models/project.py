@@ -63,6 +63,9 @@ class Project(Base):
 
     __table_args__ = (
         Index("ix_projects_status", "status"),
+        Index("ix_projects_stage_status", "stage", "status"),
+        Index("ix_projects_pm", "pm_id", "status"),
+        Index("ix_projects_created", "created_at"),
     )
 
     def __repr__(self) -> str:
@@ -95,6 +98,12 @@ class Task(Base):
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User", foreign_keys=[assigned_to])
     activities = relationship("TaskActivity", back_populates="task", order_by="TaskActivity.created_at.desc()")
+
+    __table_args__ = (
+        Index("ix_tasks_project_stage", "project_id", "stage"),
+        Index("ix_tasks_status", "status"),
+        Index("ix_tasks_department", "department"),
+    )
 
     def __repr__(self) -> str:
         return f"<Task {self.title} ({self.status})>"

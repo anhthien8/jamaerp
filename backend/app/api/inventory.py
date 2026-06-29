@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,12 +27,14 @@ def verify_inventory_access(user: User = Depends(get_current_user)):
     return user
 
 
-@router.get("", response_model=list[MaterialResponse])
+@router.get("")
 async def list_materials(
     category: str | None = None,
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(verify_inventory_access),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List all materials."""
     q = select(Material).order_by(Material.name)
@@ -40,9 +42,22 @@ async def list_materials(
         q = q.where(Material.category == category)
     if search:
         q = q.where(Material.name.ilike(f"%{search}%"))
+
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     materials = result.scalars().all()
-    return [MaterialResponse.model_validate(m) for m in materials]
+
+    return {
+        "items": [MaterialResponse.model_validate(m) for m in materials],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/low-stock")

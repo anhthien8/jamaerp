@@ -19,6 +19,20 @@ async function getDemoData() {
   return _demoData;
 }
 
+/** Wrap an array in a PaginatedResponse shape for demo mode. */
+function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedResponse<T> {
+  const page = parseInt(params?.page || '1', 10);
+  const pageSize = parseInt(params?.page_size || '50', 10);
+  const start = (page - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    total: items.length,
+    page,
+    page_size: pageSize,
+    total_pages: Math.ceil(items.length / pageSize),
+  };
+}
+
 /** Map API endpoints to demo data resolvers */
 async function resolveDemo<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
   const d = await getDemoData();
@@ -38,7 +52,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
       if (params.source && params.source !== 'all') leads = leads.filter(l => l.source === params.source);
       if (params.priority && params.priority !== 'all') leads = leads.filter(l => l.priority === params.priority);
     }
-    return leads as T;
+    return toPaginated(leads, params) as T;
   }
   if (path.match(/\/leads\/[^/]+\/activities$/)) {
     const leadId = path.split('/')[2];
@@ -51,7 +65,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
   if (path === '/projects') {
     let projects = [...d.DEMO_PROJECTS];
     if (params?.status && params.status !== 'all') projects = projects.filter(p => p.status === params.status);
-    return projects as T;
+    return toPaginated(projects, params) as T;
   }
   if (path.match(/^\/projects\/[^/]+\/tasks$/)) {
     const projectId = path.split('/')[2];
@@ -68,25 +82,25 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
 
   // ── Accounting ──
   if (path === '/accounting/summary') return d.DEMO_ACCOUNTING_SUMMARY as T;
-  if (path === '/accounting/transactions') return d.DEMO_TRANSACTIONS as T;
-  if (path === '/accounting/commissions') return d.DEMO_COMMISSIONS as T;
-  if (path === '/accounting/payroll') return d.DEMO_PAYROLL as T;
+  if (path === '/accounting/transactions') return toPaginated(d.DEMO_TRANSACTIONS, params) as T;
+  if (path === '/accounting/commissions') return toPaginated(d.DEMO_COMMISSIONS, params) as T;
+  if (path === '/accounting/payroll') return toPaginated(d.DEMO_PAYROLL, params) as T;
 
   // ── Customers ──
-  if (path === '/customers') return d.DEMO_CUSTOMERS as T;
+  if (path === '/customers') return toPaginated(d.DEMO_CUSTOMERS, params) as T;
 
   // ── Contracts ──
-  if (path === '/contracts') return d.DEMO_CONTRACTS as T;
+  if (path === '/contracts') return toPaginated(d.DEMO_CONTRACTS, params) as T;
 
   // ── Quotations ──
-  if (path === '/quotations') return d.DEMO_QUOTATIONS as T;
+  if (path === '/quotations') return toPaginated(d.DEMO_QUOTATIONS, params) as T;
 
   // ── Inventory ──
-  if (path === '/inventory') return d.DEMO_MATERIALS as T;
-  if (path === '/inventory/low-stock') return d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock) as T;
+  if (path === '/inventory') return toPaginated(d.DEMO_MATERIALS, params) as T;
+  if (path === '/inventory/low-stock') return toPaginated(d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock), params) as T;
 
   // ── Users / Teams ──
-  if (path === '/users') return d.DEMO_USERS as T;
+  if (path === '/users') return toPaginated(d.DEMO_USERS, params) as T;
   if (path === '/users/teams') return d.DEMO_TEAMS as T;
 
   // ── P&L ──
@@ -196,7 +210,7 @@ class ApiClient {
 
   // Leads
   async getLeads(params?: Record<string, string>) {
-    return this.request<Lead[]>('/leads', { params });
+    return this.request<PaginatedResponse<Lead>>('/leads', { params });
   }
 
   async getLead(id: string) {
@@ -247,7 +261,7 @@ class ApiClient {
 
   // Projects
   async getProjects(params?: Record<string, string>) {
-    return this.request<Project[]>('/projects', { params });
+    return this.request<PaginatedResponse<Project>>('/projects', { params });
   }
 
   async getProject(id: string) {
@@ -301,7 +315,7 @@ class ApiClient {
 
   // Accounting
   async getTransactions(params?: Record<string, string>) {
-    return this.request<Transaction[]>('/accounting/transactions', { params });
+    return this.request<PaginatedResponse<Transaction>>('/accounting/transactions', { params });
   }
 
   async getAccountingSummary() {
@@ -309,11 +323,11 @@ class ApiClient {
   }
 
   async getCommissions(params?: Record<string, string>) {
-    return this.request<Commission[]>('/accounting/commissions', { params });
+    return this.request<PaginatedResponse<Commission>>('/accounting/commissions', { params });
   }
 
   async getPayroll(params?: Record<string, string>) {
-    return this.request<PayrollEntry[]>('/accounting/payroll', { params });
+    return this.request<PaginatedResponse<PayrollEntry>>('/accounting/payroll', { params });
   }
 
   // Dashboard
@@ -342,7 +356,7 @@ class ApiClient {
 
   // === ERP: Customers ===
   async getCustomers(params?: Record<string, string>) {
-    return this.request<Customer[]>('/customers', { params });
+    return this.request<PaginatedResponse<Customer>>('/customers', { params });
   }
   async getCustomer(id: string) {
     return this.request<Customer>(`/customers/${id}`);
@@ -355,8 +369,8 @@ class ApiClient {
   }
 
   // === ERP: Contracts ===
-  async getContracts() {
-    return this.request<Contract[]>('/contracts');
+  async getContracts(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<Contract>>('/contracts', { params });
   }
   async getContract(id: string) {
     return this.request<Contract>(`/contracts/${id}`);
@@ -375,8 +389,8 @@ class ApiClient {
   }
 
   // === ERP: Quotations ===
-  async getQuotations() {
-    return this.request<Quotation[]>('/quotations');
+  async getQuotations(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<Quotation>>('/quotations', { params });
   }
   async getQuotation(id: string) {
     return this.request<Quotation>(`/quotations/${id}`);
@@ -392,8 +406,8 @@ class ApiClient {
   }
 
   // === ERP: Inventory ===
-  async getMaterials() {
-    return this.request<Material[]>('/inventory');
+  async getMaterials(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<Material>>('/inventory', { params });
   }
   async getMaterial(id: string) {
     return this.request<Material>(`/inventory/${id}`);
@@ -418,8 +432,8 @@ class ApiClient {
   }
 
   // === ERP: Users (HR) ===
-  async getUsers() {
-    return this.request<User[]>('/users');
+  async getUsers(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<User>>('/users', { params });
   }
   async getTeams() {
     return this.request<Team[]>('/users/teams');
@@ -859,6 +873,21 @@ export interface PnLProjectDetail {
     design: number;
     construction: number;
   };
+}
+
+// === Pagination ===
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+/** Extract items from either a PaginatedResponse or a plain array (backward compat). */
+export function extractItems<T>(response: T[] | PaginatedResponse<T>): T[] {
+  if (Array.isArray(response)) return response;
+  return (response as PaginatedResponse<T>).items ?? [];
 }
 
 // Export singleton

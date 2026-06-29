@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
-import { api, Customer } from '@/lib/api';
+import { api, Customer, extractItems } from '@/lib/api';
 
 const TYPE_LABELS: Record<string, string> = {
   individual: 'Cá nhân',
@@ -78,7 +78,8 @@ export default function CustomersPage() {
       const params: Record<string, string> = {};
       if (typeFilter !== 'all') params.type = typeFilter;
       if (search.trim()) params.search = search.trim();
-      const data = await api.getCustomers(params);
+      const result = await api.getCustomers(params);
+      const data = extractItems(result);
       setCustomers(data);
       setSelected(prev => (prev ? data.find(c => c.id === prev.id) || prev : prev));
     } catch (e) {

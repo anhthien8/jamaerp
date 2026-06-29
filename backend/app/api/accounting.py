@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app.models.payroll import Transaction, Commission, Payroll
 from app.schemas.accounting import (
     TransactionCreate, TransactionUpdate, CommissionCreate, CommissionStatusUpdate,
 )
+from app.cache import cache, cached
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
@@ -23,6 +24,8 @@ async def list_transactions(
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List transactions."""
     q = select(Transaction).order_by(Transaction.date.desc())
@@ -31,19 +34,32 @@ async def list_transactions(
     if category:
         q = q.where(Transaction.category == category)
 
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     txns = result.scalars().all()
-    return [
-        {
-            "id": t.id, "code": t.code, "type": t.type, "category": t.category,
-            "description": t.description, "amount": t.amount,
-            "project_id": t.project_id, "status": t.status,
-            "date": str(t.date), "created_at": str(t.created_at),
-        }
-        for t in txns
-    ]
+
+    return {
+        "items": [
+            {
+                "id": t.id, "code": t.code, "type": t.type, "category": t.category,
+                "description": t.description, "amount": t.amount,
+                "project_id": t.project_id, "status": t.status,
+                "date": str(t.date), "created_at": str(t.created_at),
+            }
+            for t in txns
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
+@cached(ttl=300, prefix="accounting")
 @router.get("/summary")
 async def accounting_summary(
     db: AsyncSession = Depends(get_db),
@@ -87,6 +103,8 @@ async def list_commissions(
     period: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List commissions."""
     q = (
@@ -97,18 +115,30 @@ async def list_commissions(
     if period:
         q = q.where(Commission.period == period)
 
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    return [
-        {
-            "id": c.id, "user_id": c.user_id, "user_name": name,
-            "project_id": c.project_id, "type": c.type,
-            "rate": c.rate, "base_amount": c.base_amount,
-            "commission_amount": c.commission_amount,
-            "milestone": c.milestone, "status": c.status,
-            "period": c.period,
-        }
-        for c, name in result.all()
-    ]
+
+    return {
+        "items": [
+            {
+                "id": c.id, "user_id": c.user_id, "user_name": name,
+                "project_id": c.project_id, "type": c.type,
+                "rate": c.rate, "base_amount": c.base_amount,
+                "commission_amount": c.commission_amount,
+                "milestone": c.milestone, "status": c.status,
+                "period": c.period,
+            }
+            for c, name in result.all()
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/payroll")
@@ -116,6 +146,8 @@ async def list_payroll(
     period: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List payroll entries — admin/accountant only."""
     if current_user.role not in ("admin", "accountant"):
@@ -128,17 +160,29 @@ async def list_payroll(
     if period:
         q = q.where(Payroll.period == period)
 
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    return [
-        {
-            "id": p.id, "user_id": p.user_id, "user_name": name,
-            "period": p.period, "base_salary": p.base_salary,
-            "commission_total": p.commission_total, "bonus": p.bonus,
-            "deductions": p.deductions, "net_salary": p.net_salary,
-            "status": p.status,
-        }
-        for p, name in result.all()
-    ]
+
+    return {
+        "items": [
+            {
+                "id": p.id, "user_id": p.user_id, "user_name": name,
+                "period": p.period, "base_salary": p.base_salary,
+                "commission_total": p.commission_total, "bonus": p.bonus,
+                "deductions": p.deductions, "net_salary": p.net_salary,
+                "status": p.status,
+            }
+            for p, name in result.all()
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 # --- CRUD Endpoints ---
@@ -165,6 +209,7 @@ async def create_transaction(
     )
     db.add(txn)
     await db.flush()
+    cache.clear_prefix("accounting")
     return {
         "id": txn.id, "code": txn.code, "type": txn.type,
         "category": txn.category, "amount": txn.amount, "status": txn.status,
@@ -188,6 +233,7 @@ async def update_transaction(
     for k, v in update_fields.items():
         setattr(txn, k, v)
     await db.flush()
+    cache.clear_prefix("accounting")
     return {"id": txn.id, "code": txn.code, "status": txn.status, "amount": txn.amount}
 
 
@@ -204,6 +250,7 @@ async def delete_transaction(
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
     txn.status = "cancelled"
     await db.flush()
+    cache.clear_prefix("accounting")
     return {"id": txn.id, "status": "cancelled"}
 
 

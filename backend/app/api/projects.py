@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.project import Project, Task, TaskActivity
+from app.cache import cache
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectResponse, TaskResponse,
     TaskActivityCreate, TaskActivityResponse
@@ -34,19 +35,34 @@ class ProjectKanbanStage(BaseModel):
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.get("", response_model=list[ProjectResponse])
+@router.get("")
 async def list_projects(
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List projects."""
     q = select(Project).order_by(Project.created_at.desc())
     if status:
         q = q.where(Project.status == status)
+
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     projects = result.scalars().all()
-    return [ProjectResponse.model_validate(p) for p in projects]
+
+    return {
+        "items": [ProjectResponse.model_validate(p) for p in projects],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -93,6 +109,12 @@ async def update_project(
         setattr(project, k, v)
     project.updated_at = datetime.now(timezone.utc)
     await db.flush()
+
+    # Invalidate caches if stage or status was changed
+    update_fields = data.model_dump(exclude_unset=True)
+    if "stage" in update_fields or "status" in update_fields:
+        cache.clear_prefix("pl")
+        cache.clear_prefix("dashboard")
 
     return ProjectResponse.model_validate(project)
 
@@ -159,6 +181,11 @@ async def update_project_stage(
     project.stage = data.stage
     project.updated_at = datetime.now(timezone.utc)
     await db.flush()
+
+    # Invalidate caches affected by project stage changes
+    cache.clear_prefix("pl")
+    cache.clear_prefix("dashboard")
+
     return ProjectResponse.model_validate(project)
 
 

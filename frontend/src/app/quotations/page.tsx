@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Quotation } from '@/lib/api';
+import { api, Quotation, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -40,7 +40,7 @@ export default function QuotationsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api.getQuotations();
+      const data = extractItems(await api.getQuotations());
       setQuotations(data);
     } catch { toast('Không thể tải báo giá', 'error'); } finally {
       setLoadingData(false);

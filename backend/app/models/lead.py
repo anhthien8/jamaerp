@@ -82,6 +82,9 @@ class Lead(Base):
         Index("ix_leads_assigned_stage", "assigned_to", "stage"),
         Index("ix_leads_team_stage", "team_id", "stage"),
         Index("ix_leads_created", "created_at"),
+        Index("ix_leads_stage_created", "stage", "created_at"),
+        Index("ix_leads_source_stage", "source", "stage"),
+        Index("ix_leads_priority_stage", "priority", "stage"),
     )
 
     def __repr__(self) -> str:

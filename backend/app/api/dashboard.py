@@ -11,10 +11,12 @@ from app.middleware.auth import get_current_user
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity
 from app.models.project import Project
+from app.cache import cache, cached
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+@cached(ttl=120, prefix="dashboard")
 @router.get("/executive")
 async def executive_dashboard(
     db: AsyncSession = Depends(get_db),

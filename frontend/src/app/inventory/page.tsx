@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Material } from '@/lib/api';
+import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 
@@ -42,6 +42,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
+  const [pageInfo, setPageInfo] = useState<{ page: number; total_pages: number; total: number }>({ page: 1, total_pages: 1, total: 0 });
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -52,17 +53,27 @@ export default function InventoryPage() {
     if (isDemo) {
       setMaterials(DEMO_MATERIALS);
       setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
+      setPageInfo({ page: 1, total_pages: 1, total: DEMO_MATERIALS.length });
       setLoadingData(false);
       return;
     }
     try {
-      const [mats, low] = await Promise.all([api.getMaterials(), api.getLowStock()]);
+      const [matResult, lowResult] = await Promise.all([api.getMaterials(), api.getLowStock()]);
+      const mats = extractItems(matResult);
+      const low = extractItems(lowResult);
       setMaterials(mats);
       setLowStock(low);
+      // Track pagination info if available
+      if (!Array.isArray(matResult) && matResult.total_pages) {
+        setPageInfo({ page: matResult.page, total_pages: matResult.total_pages, total: matResult.total });
+      } else {
+        setPageInfo({ page: 1, total_pages: 1, total: mats.length });
+      }
     } catch {
       // Fallback to demo data if API fails
       setMaterials(DEMO_MATERIALS);
       setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
+      setPageInfo({ page: 1, total_pages: 1, total: DEMO_MATERIALS.length });
     } finally {
       setLoadingData(false);
     }
@@ -251,6 +262,12 @@ export default function InventoryPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Pagination info */}
+          {!loadingData && (
+            <div className="px-5 py-3 text-xs text-[var(--text-muted)]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              Trang {pageInfo.page}/{pageInfo.total_pages} — Tổng {pageInfo.total} mặt hàng
             </div>
           )}
         </div>

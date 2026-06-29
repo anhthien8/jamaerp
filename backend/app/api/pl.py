@@ -12,6 +12,7 @@ from app.models.contract import Contract
 from app.models.payroll import Transaction
 from app.models.inventory import MaterialUsage
 from app.schemas.pl import PLProjectItem, PLProjectDetail, PLCostCategory, PLSummary
+from app.cache import cache, cached
 
 router = APIRouter(prefix="/pl", tags=["pl"])
 
@@ -91,6 +92,7 @@ async def _build_project_revenues(db: AsyncSession) -> dict[str, float]:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+@cached(ttl=300, prefix="pl")
 @router.get("/summary", response_model=PLSummary)
 async def company_pl_summary(
     db: AsyncSession = Depends(get_db),
@@ -118,6 +120,7 @@ async def company_pl_summary(
     )
 
 
+@cached(ttl=300, prefix="pl")
 @router.get("/projects", response_model=list[PLProjectItem])
 async def project_pl_list(
     db: AsyncSession = Depends(get_db),

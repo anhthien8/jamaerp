@@ -12,7 +12,7 @@ import {
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
-import { api, Lead, Activity } from '@/lib/api';
+import { api, Lead, Activity, extractItems } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -98,7 +98,7 @@ function LeadsContent() {
       const params: Record<string, string> = {};
       if (filterSource !== 'all') params.source = filterSource;
       if (filterPriority !== 'all') params.priority = filterPriority;
-      const allLeads = await api.getLeads(params);
+      const allLeads = extractItems(await api.getLeads(params));
       // Normalize tags: backend may return JSON string instead of array
       for (const lead of allLeads) {
         if (typeof lead.tags === 'string') {

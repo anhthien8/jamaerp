@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -74,7 +74,7 @@ export default function ProjectsPage() {
     try {
       const params: Record<string, string> = {};
       if (filterStatus !== 'all') params.status = filterStatus;
-      const data = await api.getProjects(params);
+      const data = extractItems(await api.getProjects(params));
       setProjects(data);
     } catch (e) {
       console.warn('Projects API error:', e);

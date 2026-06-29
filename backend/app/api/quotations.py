@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -15,12 +15,14 @@ from app.schemas.quotation import QuotationCreate, QuotationUpdate, QuotationRes
 router = APIRouter(prefix="/quotations", tags=["quotations"])
 
 
-@router.get("", response_model=list[QuotationResponse])
+@router.get("")
 async def list_quotations(
     type: str | None = None,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List quotations."""
     q = select(Quotation).order_by(Quotation.created_at.desc())
@@ -28,9 +30,22 @@ async def list_quotations(
         q = q.where(Quotation.type == type)
     if status:
         q = q.where(Quotation.status == status)
+
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     quotations = result.scalars().all()
-    return [QuotationResponse.model_validate(qt) for qt in quotations]
+
+    return {
+        "items": [QuotationResponse.model_validate(qt) for qt in quotations],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/{quotation_id}", response_model=QuotationResponse)

@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -19,6 +19,8 @@ async def list_users(
     department: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     """List all users."""
     q = select(User).order_by(User.full_name)
@@ -26,17 +28,30 @@ async def list_users(
         q = q.where(User.role == role)
     if department:
         q = q.where(User.department == department)
+
+    # Count total (before pagination)
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     users = result.scalars().all()
-    return [
-        {
-            "id": u.id, "full_name": u.full_name, "email": u.email,
-            "phone": u.phone, "role": u.role, "department": u.department,
-            "team_id": u.team_id, "is_active": u.is_active,
-            "created_at": str(u.created_at),
-        }
-        for u in users
-    ]
+
+    return {
+        "items": [
+            {
+                "id": u.id, "full_name": u.full_name, "email": u.email,
+                "phone": u.phone, "role": u.role, "department": u.department,
+                "team_id": u.team_id, "is_active": u.is_active,
+                "created_at": str(u.created_at),
+            }
+            for u in users
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.get("/teams")
