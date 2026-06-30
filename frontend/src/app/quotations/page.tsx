@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Quotation, extractItems } from '@/lib/api';
+import { api, Quotation, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { getPermissions } from '@/lib/roles';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -25,6 +26,28 @@ function fmtVND(n?: number) {
   return new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
 }
 
+interface QuotationFormData {
+  title: string;
+  type: string;
+  project_id: string;
+  total_amount: string;
+  tax_amount: string;
+  valid_until: string;
+  notes: string;
+  items: string;
+}
+
+const EMPTY_FORM: QuotationFormData = {
+  title: '',
+  type: 'design',
+  project_id: '',
+  total_amount: '',
+  tax_amount: '',
+  valid_until: '',
+  notes: '',
+  items: '[]',
+};
+
 export default function QuotationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -33,6 +56,18 @@ export default function QuotationsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [selected, setSelected] = useState<Quotation | null>(null);
   const [filter, setFilter] = useState('all');
+
+  // Create/Edit form state
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Quotation | null>(null);
+  const [formData, setFormData] = useState<QuotationFormData>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  // Projects list for the select dropdown
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  const perms = user ? getPermissions(user.role as any) : null;
+  const canCreate = perms?.canCreateQuotations ?? false;
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -47,7 +82,14 @@ export default function QuotationsPage() {
     }
   }, [toast]);
 
-  useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = extractItems(await api.getProjects());
+      setProjects(data);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { if (user) { void Promise.resolve().then(load); void Promise.resolve().then(loadProjects); } }, [user, load, loadProjects]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -55,6 +97,74 @@ export default function QuotationsPage() {
       setQuotations(prev => prev.map(q => q.id === updated.id ? updated : q));
       setSelected(updated);
     } catch { toast('Duyệt báo giá thất bại', 'error'); }
+  };
+
+  const openCreateForm = () => {
+    setEditing(null);
+    setFormData(EMPTY_FORM);
+    setShowForm(true);
+  };
+
+  const openEditForm = (q: Quotation, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditing(q);
+    setFormData({
+      title: q.title,
+      type: q.type || 'design',
+      project_id: q.project_id || '',
+      total_amount: q.total_amount != null ? String(q.total_amount) : '',
+      tax_amount: q.tax_amount != null ? String(q.tax_amount) : '',
+      valid_until: q.valid_until ? q.valid_until.slice(0, 10) : '',
+      notes: q.notes || '',
+      items: q.items ? JSON.stringify(q.items, null, 2) : '[]',
+    });
+    setShowForm(true);
+  };
+
+  const handleFormSubmit = async () => {
+    if (!formData.title.trim()) {
+      toast('Tiêu đề không được để trống', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      let items: unknown = undefined;
+      try {
+        items = JSON.parse(formData.items);
+      } catch {
+        toast('JSON mục báo giá không hợp lệ', 'error');
+        setSaving(false);
+        return;
+      }
+
+      const payload: Partial<Quotation> = {
+        title: formData.title.trim(),
+        type: formData.type,
+        project_id: formData.project_id || undefined,
+        total_amount: formData.total_amount ? Number(formData.total_amount) : undefined,
+        tax_amount: formData.tax_amount ? Number(formData.tax_amount) : undefined,
+        valid_until: formData.valid_until || undefined,
+        notes: formData.notes.trim() || undefined,
+        items,
+      };
+
+      let updated: Quotation;
+      if (editing) {
+        updated = await api.updateQuotation(editing.id, payload);
+        setQuotations(prev => prev.map(q => q.id === updated.id ? updated : q));
+        toast('Cập nhật báo giá thành công', 'success');
+      } else {
+        updated = await api.createQuotation(payload);
+        setQuotations(prev => [updated, ...prev]);
+        toast('Tạo báo giá thành công', 'success');
+      }
+      setShowForm(false);
+      setEditing(null);
+    } catch {
+      toast(editing ? 'Cập nhật báo giá thất bại' : 'Tạo báo giá thất bại', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading || !user) return null;
@@ -69,6 +179,15 @@ export default function QuotationsPage() {
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Báo giá</h1>
           <p className="text-sm text-[var(--text-tertiary)] mt-1">{quotations.length} báo giá</p>
         </div>
+        {canCreate && (
+          <button
+            onClick={openCreateForm}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
+          >
+            + Tạo báo giá mới
+          </button>
+        )}
       </div>
 
       {/* Filter tabs */}
@@ -122,7 +241,18 @@ export default function QuotationsPage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 text-xs text-[var(--text-muted)]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <span>Rev. {q.revision}</span>
-                  <span>{q.valid_until ? `HH: ${new Date(q.valid_until).toLocaleDateString('vi-VN')}` : '—'}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{q.valid_until ? `HH: ${new Date(q.valid_until).toLocaleDateString('vi-VN')}` : '—'}</span>
+                    {canCreate && (
+                      <button
+                        onClick={(e) => openEditForm(q, e)}
+                        className="px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+                        style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}
+                      >
+                        Sửa
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -131,7 +261,7 @@ export default function QuotationsPage() {
       )}
 
       {/* Detail modal */}
-      {selected && (
+      {selected && !showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pt-[6vh] px-4" onClick={() => setSelected(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[80vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
@@ -164,15 +294,171 @@ export default function QuotationsPage() {
               </div>
             )}
 
-            {selected.status === 'draft' && (
-              <button
-                onClick={() => handleApprove(selected.id)}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
-              >
-                Duyệt báo giá
-              </button>
-            )}
+            <div className="flex gap-2">
+              {selected.status === 'draft' && (
+                <button
+                  onClick={() => handleApprove(selected.id)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
+                >
+                  Duyệt báo giá
+                </button>
+              )}
+              {canCreate && (
+                <button
+                  onClick={() => { setSelected(null); openEditForm(selected); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  Chỉnh sửa
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit quotation modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[6vh] px-4" onClick={() => { setShowForm(false); setEditing(null); }}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => { setShowForm(false); setEditing(null); }} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">
+              {editing ? 'Chỉnh sửa báo giá' : 'Tạo báo giá mới'}
+            </h2>
+
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Tiêu đề <span style={{color:'#f87171'}}>*</span></label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Nhập tiêu đề báo giá"
+                  className="w-full px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Type */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Loại báo giá</label>
+                <select
+                  value={formData.type}
+                  onChange={e => setFormData(p => ({ ...p, type: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                >
+                  <option value="design">Thiết kế</option>
+                  <option value="construction">Thi công</option>
+                </select>
+              </div>
+
+              {/* Project */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Dự án</label>
+                <select
+                  value={formData.project_id}
+                  onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                >
+                  <option value="">-- Chọn dự án --</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Amounts row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Tổng tiền</label>
+                  <input
+                    type="number"
+                    value={formData.total_amount}
+                    onChange={e => setFormData(p => ({ ...p, total_amount: e.target.value }))}
+                    placeholder="0"
+                    min="0"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Thuế</label>
+                  <input
+                    type="number"
+                    value={formData.tax_amount}
+                    onChange={e => setFormData(p => ({ ...p, tax_amount: e.target.value }))}
+                    placeholder="0"
+                    min="0"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Valid until */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Hiệu lực đến</label>
+                <input
+                  type="date"
+                  value={formData.valid_until}
+                  onChange={e => setFormData(p => ({ ...p, valid_until: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Ghi chú</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Ghi chú thêm..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl text-sm resize-none"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Items JSON */}
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Mục báo giá (JSON)</label>
+                <textarea
+                  value={formData.items}
+                  onChange={e => setFormData(p => ({ ...p, items: e.target.value }))}
+                  placeholder={'[{"name": "Mục 1", "quantity": 1, "unit_price": 0}]'}
+                  rows={5}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-mono resize-none"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Submit buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setShowForm(false); setEditing(null); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleFormSubmit}
+                  disabled={saving || !formData.title.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
+                >
+                  {saving ? 'Đang lưu...' : editing ? 'Cập nhật' : 'Tạo mới'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

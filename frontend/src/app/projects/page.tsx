@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, extractItems } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -83,7 +83,22 @@ export default function ProjectsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [savingTask, setSavingTask] = useState(false);
 
+  // File upload state (designers)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+
+  // Material request state (PMs)
+  const [showMaterialRequest, setShowMaterialRequest] = useState(false);
+  const [materialRequestForm, setMaterialRequestForm] = useState({ material_id: '', quantity: '', note: '' });
+  const [materialsList, setMaterialsList] = useState<Material[]>([]);
+  const [savingMaterialRequest, setSavingMaterialRequest] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setUploadedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -148,6 +163,7 @@ export default function ProjectsPage() {
   const openTaskDetail = async (task: ProjectTask) => {
     setSelectedTask(task);
     setTaskFileUrl(task.final_file_url || '');
+    setUploadedFiles([]);
     setTaskActivities([]);
     setLoadingActivities(true);
     try {
@@ -191,13 +207,50 @@ export default function ProjectsPage() {
     }
   };
 
+  const openMaterialRequest = async () => {
+    setMaterialRequestForm({ material_id: '', quantity: '', note: '' });
+    setShowMaterialRequest(true);
+    try {
+      const data = extractItems(await api.getMaterials());
+      setMaterialsList(data);
+    } catch {
+      setMaterialsList([]);
+    }
+  };
+
+  const handleSubmitMaterialRequest = async () => {
+    if (!selectedProject || !materialRequestForm.material_id || !materialRequestForm.quantity) return;
+    setSavingMaterialRequest(true);
+    try {
+      await api.useMaterial({
+        material_id: materialRequestForm.material_id,
+        project_id: selectedProject.id,
+        quantity: Number(materialRequestForm.quantity),
+        note: materialRequestForm.note || undefined,
+      });
+      toast('Yêu cầu vật tư thành công', 'success');
+      setShowMaterialRequest(false);
+    } catch {
+      toast('Lỗi khi gửi yêu cầu vật tư', 'error');
+    } finally {
+      setSavingMaterialRequest(false);
+    }
+  };
+
   const handleAddTaskActivity = async () => {
     if (!selectedTask || !newActivityContent.trim()) return;
     try {
-      const act = await api.createTaskActivity(selectedTask.id, newActivityContent, newActivityMedia || undefined);
+      // Append uploaded file info to content
+      let content = newActivityContent.trim();
+      if (uploadedFiles.length > 0) {
+        const fileInfo = uploadedFiles.map(f => `[File: ${f.name} (${(f.size / 1024).toFixed(0)} KB)]`).join(' ');
+        content = `${content}\n\nĐính kèm: ${fileInfo}`;
+      }
+      const act = await api.createTaskActivity(selectedTask.id, content, newActivityMedia || undefined);
       setTaskActivities(prev => [act, ...prev]);
       setNewActivityContent('');
       setNewActivityMedia('');
+      setUploadedFiles([]);
       toast('Thêm ghi chú thành công', 'success');
     } catch {
       toast('Lỗi khi thêm ghi chú', 'error');
@@ -779,14 +832,24 @@ export default function ProjectsPage() {
                   <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
                     Đầu việc theo giai đoạn vận hành
                   </h3>
-                  {permissions?.canCreateTasks && (
-                    <button
-                      onClick={openTaskForm}
-                      className="text-xs px-3 py-1 rounded-lg font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] transition-all"
-                    >
-                      + Thêm công việc
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {permissions?.canCreateProjects && (
+                      <button
+                        onClick={openMaterialRequest}
+                        className="text-xs px-3 py-1 rounded-lg font-medium bg-[#10B981] text-white hover:bg-[#059669] transition-all"
+                      >
+                        📦 Yêu cầu vật tư
+                      </button>
+                    )}
+                    {permissions?.canCreateTasks && (
+                      <button
+                        onClick={openTaskForm}
+                        className="text-xs px-3 py-1 rounded-lg font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] transition-all"
+                      >
+                        + Thêm công việc
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {loadingTasks ? (
                   <p className="text-sm text-center text-[var(--text-muted)] py-4">Đang tải...</p>
@@ -917,6 +980,29 @@ export default function ProjectsPage() {
                     >
                       {selectedTask.final_file_url.startsWith('data:') ? '📎 Xem ảnh đính kèm (Base64)' : selectedTask.final_file_url}
                     </a>
+                  </div>
+                )}
+              </div>
+
+              {/* File Upload Zone */}
+              <div className="mt-4 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
+                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Upload file thiết kế / tài liệu</p>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.dwg,.skp"
+                  onChange={handleFileUpload}
+                  className="w-full text-xs text-[var(--text-muted)]"
+                />
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {uploadedFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <span>📄</span>
+                        <span>{f.name}</span>
+                        <span className="text-[var(--text-muted)]">({(f.size / 1024).toFixed(0)} KB)</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1187,6 +1273,76 @@ export default function ProjectsPage() {
                   className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] disabled:opacity-50 transition-all"
                 >
                   {savingTask ? 'Đang lưu...' : 'Thêm công việc'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Material Request Modal ── */}
+      {showMaterialRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowMaterialRequest(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl animate-in p-6"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white">📦 Yêu cầu vật tư</h2>
+              <button onClick={() => setShowMaterialRequest(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Vật tư *</label>
+                <select
+                  value={materialRequestForm.material_id}
+                  onChange={e => setMaterialRequestForm(f => ({ ...f, material_id: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                >
+                  <option value="">-- Chọn vật tư --</option>
+                  {materialsList.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.unit} - tồn: {m.quantity_in_stock})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Số lượng *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={materialRequestForm.quantity}
+                  onChange={e => setMaterialRequestForm(f => ({ ...f, quantity: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Nhập số lượng"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ghi chú</label>
+                <textarea
+                  value={materialRequestForm.note}
+                  onChange={e => setMaterialRequestForm(f => ({ ...f, note: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white resize-none bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Ghi chú (không bắt buộc)"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowMaterialRequest(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSubmitMaterialRequest}
+                  disabled={savingMaterialRequest || !materialRequestForm.material_id || !materialRequestForm.quantity}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50 transition-all"
+                >
+                  {savingMaterialRequest ? 'Đang gửi...' : 'Gửi yêu cầu'}
                 </button>
               </div>
             </div>

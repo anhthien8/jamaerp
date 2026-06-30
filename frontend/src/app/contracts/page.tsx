@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Contract, extractItems } from '@/lib/api';
+import { api, Contract, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { getPermissions, UserRole } from '@/lib/roles';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -48,6 +49,21 @@ export default function ContractsPage() {
   const [viewProof, setViewProof] = useState<string | null>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
 
+  // Contract create/edit form state
+  const [formOpen, setFormOpen] = useState(false);
+  const [formEdit, setFormEdit] = useState<Contract | null>(null);
+  const [formSaving, setFormSaving] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [form, setForm] = useState({
+    title: '',
+    project_id: '',
+    total_value: '',
+    working_days: '',
+    start_date: '',
+    signed_date: '',
+    notes: '',
+  });
+
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
@@ -61,7 +77,14 @@ export default function ContractsPage() {
     }
   }, [toast]);
 
-  useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = extractItems(await api.getProjects());
+      setProjects(data);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { if (user) void Promise.resolve().then(() => { load(); loadProjects(); }); }, [user, load, loadProjects]);
 
   if (loading || !user) return null;
 
@@ -98,12 +121,76 @@ export default function ContractsPage() {
     setConfirmChecked(false);
   };
 
+  // Contract create/edit handlers
+  const permissions = getPermissions(user.role as UserRole);
+
+  const openCreateForm = () => {
+    setFormEdit(null);
+    setForm({ title: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: '', notes: '' });
+    setFormOpen(true);
+  };
+
+  const openEditForm = (contract: Contract, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFormEdit(contract);
+    setForm({
+      title: contract.title,
+      project_id: contract.project_id || '',
+      total_value: contract.total_value ? String(contract.total_value) : '',
+      working_days: contract.working_days ? String(contract.working_days) : '',
+      start_date: contract.start_date || '',
+      signed_date: contract.signed_date || '',
+      notes: contract.notes || '',
+    });
+    setFormOpen(true);
+  };
+
+  const handleFormSubmit = async () => {
+    if (!form.title.trim()) { toast('Vui lòng nhập tiêu đề hợp đồng', 'error'); return; }
+    setFormSaving(true);
+    try {
+      const payload: Partial<Contract> = {
+        title: form.title.trim(),
+        project_id: form.project_id || undefined,
+        total_value: form.total_value ? Number(form.total_value) : undefined,
+        working_days: form.working_days ? Number(form.working_days) : undefined,
+        start_date: form.start_date || undefined,
+        signed_date: form.signed_date || undefined,
+        notes: form.notes.trim() || undefined,
+      };
+      let updated: Contract;
+      if (formEdit) {
+        updated = await api.updateContract(formEdit.id, payload);
+        setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+        toast('Cập nhật hợp đồng thành công!', 'success');
+      } else {
+        updated = await api.createContract(payload);
+        setContracts(prev => [updated, ...prev]);
+        toast('Tạo hợp đồng thành công!', 'success');
+      }
+      setFormOpen(false);
+    } catch { toast(formEdit ? 'Cập nhật thất bại' : 'Tạo hợp đồng thất bại', 'error'); } finally {
+      setFormSaving(false);
+    }
+  };
+
   return (
     <Sidebar>
       <div className="p-6 space-y-6 animate-in">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Hợp đồng</h1>
-          <p className="text-sm text-[var(--text-tertiary)] mt-1">{contracts.length} hợp đồng</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Hợp đồng</h1>
+            <p className="text-sm text-[var(--text-tertiary)] mt-1">{contracts.length} hợp đồng</p>
+          </div>
+          {permissions.canCreateContracts && (
+            <button
+              onClick={openCreateForm}
+              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
+            >
+              + Tạo hợp đồng mới
+            </button>
+          )}
         </div>
 
         {/* Summary cards */}
@@ -166,6 +253,17 @@ export default function ContractsPage() {
                           <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{timeLeft.label}</span>
                         </div>
                       )}
+                      {permissions.canCreateContracts && (
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            onClick={(ev) => openEditForm(c, ev)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                            style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}
+                          >
+                            Sửa
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -181,6 +279,7 @@ export default function ContractsPage() {
                     <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
                     <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thanh toán</th>
                     <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Thời gian</th>
+                    {permissions.canCreateContracts && <th className="text-center px-5 py-3 text-[var(--text-tertiary)] font-medium">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -227,6 +326,17 @@ export default function ContractsPage() {
                             <span className="text-xs text-[var(--text-muted)]">—</span>
                           )}
                         </td>
+                        {permissions.canCreateContracts && (
+                          <td className="px-5 py-3.5 text-center">
+                            <button
+                              onClick={(ev) => openEditForm(c, ev)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                              style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}
+                            >
+                              Sửa
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -418,6 +528,132 @@ export default function ContractsPage() {
                 ✕ Đóng
               </button>
               <img src={viewProof} alt="Sao kê thanh toán" className="max-h-[80vh] rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }} />
+            </div>
+          </div>
+        )}
+
+        {/* Create / Edit contract modal */}
+        {formOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center pt-[6vh] px-4" onClick={() => setFormOpen(false)}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-lg mx-4 rounded-2xl p-4 sm:p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+              <button onClick={() => setFormOpen(false)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+              <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">{formEdit ? 'Sửa hợp đồng' : 'Tạo hợp đồng mới'}</h2>
+
+              <div className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Tiêu đề hợp đồng <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                    placeholder="VD: HĐ Thi công Nhà phố Q7"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+
+                {/* Project */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Dự án</label>
+                  <select
+                    value={form.project_id}
+                    onChange={e => setForm(p => ({ ...p, project_id: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">-- Chọn dự án --</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Total value */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Giá trị hợp đồng (VND)</label>
+                  <input
+                    type="number"
+                    value={form.total_value}
+                    onChange={e => setForm(p => ({ ...p, total_value: e.target.value }))}
+                    placeholder="VD: 500000000"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+
+                {/* Working days */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Số ngày thi công</label>
+                  <input
+                    type="number"
+                    value={form.working_days}
+                    onChange={e => setForm(p => ({ ...p, working_days: e.target.value }))}
+                    placeholder="VD: 120"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[var(--text-muted)] mb-1 block">Ngày bắt đầu</label>
+                    <input
+                      type="date"
+                      value={form.start_date}
+                      onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[var(--text-muted)] mb-1 block">Ngày ký</label>
+                    <input
+                      type="date"
+                      value={form.signed_date}
+                      onChange={e => setForm(p => ({ ...p, signed_date: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Ghi chú</label>
+                  <textarea
+                    value={form.notes}
+                    onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    placeholder="Ghi chú thêm về hợp đồng..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl text-sm resize-none"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Submit */}
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setFormOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleFormSubmit}
+                  disabled={formSaving || !form.title.trim()}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
+                >
+                  {formSaving ? 'Đang lưu...' : formEdit ? 'Cập nhật' : 'Tạo hợp đồng'}
+                </button>
+              </div>
             </div>
           </div>
         )}
