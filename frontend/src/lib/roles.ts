@@ -15,11 +15,15 @@ export interface RolePermissions {
   canViewCommissionOthers: boolean; // see OTHER people's commission
   canViewHR: boolean;
   canManageUsers: boolean;
+  canViewProjects: boolean;        // view projects (designer: assigned only)
   canViewContracts: boolean;
   canViewQuotations: boolean;
   canViewInventory: boolean;
   canViewReports: boolean;
   canViewPnL: boolean;              // profit & loss statement
+  canCreateProjects: boolean;
+  canCreateTasks: boolean;
+  canEditTasks: boolean;            // designer: own tasks only
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -28,64 +32,72 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewLeads: true, leadsScope: 'all',
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: true,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: true, canViewInventory: true,
     canViewReports: true, canViewPnL: true,
+    canCreateProjects: true, canCreateTasks: true, canEditTasks: true,
   },
   leader: {
     canViewDashboard: true, dashboardType: 'team',
     canViewLeads: true, leadsScope: 'team',
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: true, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
+    canViewProjects: true, canViewContracts: true, canViewQuotations: true, canViewInventory: false, // Restricted
     canViewReports: true, canViewPnL: false,
+    canCreateProjects: true, canCreateTasks: true, canEditTasks: true,
   },
   data_entry: {
     canViewDashboard: true, dashboardType: 'personal',
     canViewLeads: true, leadsScope: 'own',
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: false, canViewInventory: false,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: false, canViewInventory: false,
     canViewReports: true, canViewPnL: false,
+    canCreateProjects: false, canCreateTasks: false, canEditTasks: false,
   },
   accountant: {
     canViewDashboard: true, dashboardType: 'financial',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: true, canViewPayroll: true, canViewCommissionOthers: true,
     canViewHR: true, canManageUsers: true,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: true, // Accountant needs inventory for cost tracking
+    canViewProjects: true, canViewContracts: true, canViewQuotations: true, canViewInventory: true, // Accountant needs inventory for cost tracking
     canViewReports: true, canViewPnL: true,
+    canCreateProjects: false, canCreateTasks: false, canEditTasks: false,
   },
   executive: {
     canViewDashboard: true, dashboardType: 'executive',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: false, canViewInventory: false,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: false, canViewInventory: false,
     canViewReports: true, canViewPnL: true,
+    canCreateProjects: true, canCreateTasks: false, canEditTasks: false,
   },
   purchasing: {
     canViewDashboard: true, dashboardType: 'personal',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: false, canViewInventory: true,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: false, canViewInventory: true,
     canViewReports: false, canViewPnL: false,
+    canCreateProjects: false, canCreateTasks: false, canEditTasks: false,
   },
   designer: {
     canViewDashboard: true, dashboardType: 'personal',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewContracts: false, canViewQuotations: true, canViewInventory: false,
+    canViewProjects: true, canViewContracts: false, canViewQuotations: true, canViewInventory: false,
     canViewReports: false, canViewPnL: false,
+    canCreateProjects: false, canCreateTasks: true, canEditTasks: true,
   },
   pm: {
     canViewDashboard: true, dashboardType: 'team',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewContracts: true, canViewQuotations: true, canViewInventory: true,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: true, canViewInventory: true,
     canViewReports: true, canViewPnL: false,
+    canCreateProjects: true, canCreateTasks: true, canEditTasks: true,
   },
 };
 

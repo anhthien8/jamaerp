@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
+import { getPermissions, UserRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, extractItems } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -66,6 +67,21 @@ export default function ProjectsPage() {
   const [newActivityContent, setNewActivityContent] = useState('');
   const [newActivityMedia, setNewActivityMedia] = useState('');
   const [taskFileUrl, setTaskFileUrl] = useState('');
+
+  // Project form modal state
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [projectForm, setProjectForm] = useState({
+    name: '', client_name: '', client_phone: '', address: '',
+    project_type: 'design_build', total_value: '', start_date: '', target_end_date: '',
+  });
+  const [savingProject, setSavingProject] = useState(false);
+
+  // Task form modal state
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: '', stage: 'design', department: 'design', assigned_to: '' });
+  const [users, setUsers] = useState<User[]>([]);
+  const [savingTask, setSavingTask] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -217,6 +233,96 @@ export default function ProjectsPage() {
     reader.readAsDataURL(file);
   };
 
+  // Open project form for create or edit
+  const openProjectForm = (project?: Project) => {
+    if (project) {
+      setEditingProject(project);
+      setProjectForm({
+        name: project.name,
+        client_name: project.client_name,
+        client_phone: project.client_phone || '',
+        address: project.address || '',
+        project_type: project.project_type || 'design_build',
+        total_value: project.total_value ? String(project.total_value) : '',
+        start_date: project.start_date || '',
+        target_end_date: project.target_end_date || '',
+      });
+    } else {
+      setEditingProject(null);
+      setProjectForm({ name: '', client_name: '', client_phone: '', address: '', project_type: 'design_build', total_value: '', start_date: '', target_end_date: '' });
+    }
+    setShowProjectForm(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!projectForm.name.trim() || !projectForm.client_name.trim()) {
+      toast('Tên dự án và tên khách hàng là bắt buộc', 'error');
+      return;
+    }
+    setSavingProject(true);
+    try {
+      const payload: Partial<Project> = {
+        name: projectForm.name.trim(),
+        client_name: projectForm.client_name.trim(),
+        client_phone: projectForm.client_phone.trim() || undefined,
+        address: projectForm.address.trim() || undefined,
+        project_type: projectForm.project_type,
+        total_value: projectForm.total_value ? Number(projectForm.total_value) : undefined,
+        start_date: projectForm.start_date || undefined,
+        target_end_date: projectForm.target_end_date || undefined,
+      };
+      if (editingProject) {
+        const updated = await api.updateProject(editingProject.id, payload);
+        setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+        if (selectedProject?.id === updated.id) setSelectedProject(updated);
+        toast('Cập nhật dự án thành công', 'success');
+      } else {
+        const created = await api.createProject(payload);
+        setProjects(prev => [created, ...prev]);
+        toast('Tạo dự án mới thành công', 'success');
+      }
+      setShowProjectForm(false);
+      refreshData();
+    } catch {
+      toast(editingProject ? 'Lỗi khi cập nhật dự án' : 'Lỗi khi tạo dự án', 'error');
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  // Open task creation form
+  const openTaskForm = async () => {
+    setTaskForm({ title: '', stage: selectedProject?.stage || 'design', department: 'design', assigned_to: '' });
+    setShowTaskForm(true);
+    try {
+      const data = extractItems(await api.getUsers());
+      setUsers(data);
+    } catch {
+      setUsers([]);
+    }
+  };
+
+  const handleSaveTask = async () => {
+    if (!selectedProject || !taskForm.title.trim()) return;
+    setSavingTask(true);
+    try {
+      const newTask = await api.createTask(selectedProject.id, {
+        title: taskForm.title.trim(),
+        stage: taskForm.stage,
+        department: taskForm.department || undefined,
+        assigned_to: taskForm.assigned_to || undefined,
+      });
+      setTasks(prev => [...prev, newTask]);
+      setShowTaskForm(false);
+      toast('Thêm công việc thành công', 'success');
+      refreshData();
+    } catch {
+      toast('Lỗi khi thêm công việc', 'error');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   if (loading || !user) return null;
   if (error) {
     return (
@@ -234,6 +340,7 @@ export default function ProjectsPage() {
 
 
   const activeCount = projects.filter(p => p.status === 'active').length;
+  const permissions = user ? getPermissions(user.role as UserRole) : null;
 
   const calcProjectTimeLeft = (p: Project) => {
     if (!p.start_date || !p.target_end_date) return null;
@@ -270,25 +377,35 @@ export default function ProjectsPage() {
           </div>
 
           {/* View Toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-[var(--border-subtle)] p-0.5 bg-[var(--surface-2)] self-start sm:self-auto">
-            <button
-              onClick={() => setViewMode('pipeline')}
-              className={cn(
-                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
-                viewMode === 'pipeline' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
-              )}
-            >
-              📊 Pipeline Kanban
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
-                viewMode === 'list' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
-              )}
-            >
-              📋 Danh sách
-            </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {permissions?.canCreateProjects && (
+              <button
+                onClick={() => openProjectForm()}
+                className="px-4 py-1.5 text-xs font-semibold rounded-xl transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)]"
+              >
+                + Tạo dự án mới
+              </button>
+            )}
+            <div className="flex rounded-xl overflow-hidden border border-[var(--border-subtle)] p-0.5 bg-[var(--surface-2)]">
+              <button
+                onClick={() => setViewMode('pipeline')}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                  viewMode === 'pipeline' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                📊 Pipeline Kanban
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                  viewMode === 'list' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                📋 Danh sách
+              </button>
+            </div>
           </div>
         </div>
 
@@ -602,7 +719,17 @@ export default function ProjectsPage() {
                 </div>
                 <h2 className="text-lg font-bold mt-1 text-white">{selectedProject.name}</h2>
               </div>
-              <button onClick={() => setSelectedProject(null)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
+              <div className="flex items-center gap-2">
+                {permissions?.canCreateProjects && (
+                  <button
+                    onClick={() => openProjectForm(selectedProject)}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)] transition-all"
+                  >
+                    Chỉnh sửa
+                  </button>
+                )}
+                <button onClick={() => setSelectedProject(null)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
+              </div>
             </div>
 
             <div className="p-5 space-y-5">
@@ -648,9 +775,19 @@ export default function ProjectsPage() {
 
               {/* Tasks - Grouped by Operational Stage */}
               <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-4">
-                  Đầu việc theo giai đoạn vận hành
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                    Đầu việc theo giai đoạn vận hành
+                  </h3>
+                  {permissions?.canCreateTasks && (
+                    <button
+                      onClick={openTaskForm}
+                      className="text-xs px-3 py-1 rounded-lg font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] transition-all"
+                    >
+                      + Thêm công việc
+                    </button>
+                  )}
+                </div>
                 {loadingTasks ? (
                   <p className="text-sm text-center text-[var(--text-muted)] py-4">Đang tải...</p>
                 ) : tasks.length === 0 ? (
@@ -854,6 +991,203 @@ export default function ProjectsPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Project Create/Edit Form Modal ── */}
+      {showProjectForm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowProjectForm(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-in p-6"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white">{editingProject ? 'Chỉnh sửa dự án' : 'Tạo dự án mới'}</h2>
+              <button onClick={() => setShowProjectForm(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tên dự án *</label>
+                <input
+                  type="text" value={projectForm.name}
+                  onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Nhập tên dự án"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tên khách hàng *</label>
+                <input
+                  type="text" value={projectForm.client_name}
+                  onChange={e => setProjectForm(f => ({ ...f, client_name: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Nhập tên khách hàng"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Số điện thoại</label>
+                  <input
+                    type="text" value={projectForm.client_phone}
+                    onChange={e => setProjectForm(f => ({ ...f, client_phone: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                    placeholder="SĐT khách hàng"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Loại dự án</label>
+                  <select
+                    value={projectForm.project_type}
+                    onChange={e => setProjectForm(f => ({ ...f, project_type: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  >
+                    <option value="design_build">Thiết kế & Thi công</option>
+                    <option value="design_only">Chỉ Thiết kế</option>
+                    <option value="construction_only">Chỉ Thi công</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Địa chỉ</label>
+                <input
+                  type="text" value={projectForm.address}
+                  onChange={e => setProjectForm(f => ({ ...f, address: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Địa chỉ công trình"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tổng giá trị (VND)</label>
+                <input
+                  type="number" value={projectForm.total_value}
+                  onChange={e => setProjectForm(f => ({ ...f, total_value: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày bắt đầu</label>
+                  <input
+                    type="date" value={projectForm.start_date}
+                    onChange={e => setProjectForm(f => ({ ...f, start_date: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày dự kiến hoàn thành</label>
+                  <input
+                    type="date" value={projectForm.target_end_date}
+                    onChange={e => setProjectForm(f => ({ ...f, target_end_date: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowProjectForm(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveProject}
+                  disabled={savingProject || !projectForm.name.trim() || !projectForm.client_name.trim()}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] disabled:opacity-50 transition-all"
+                >
+                  {savingProject ? 'Đang lưu...' : editingProject ? 'Cập nhật' : 'Tạo dự án'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Task Create Form Modal ── */}
+      {showTaskForm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowTaskForm(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md rounded-2xl animate-in p-6"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white">Thêm công việc mới</h2>
+              <button onClick={() => setShowTaskForm(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tiêu đề *</label>
+                <input
+                  type="text" value={taskForm.title}
+                  onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Nhập tên công việc"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Giai đoạn</label>
+                  <select
+                    value={taskForm.stage}
+                    onChange={e => setTaskForm(f => ({ ...f, stage: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  >
+                    {Object.entries(STAGE_LABELS).filter(([k]) => k !== 'completed').map(([k, label]) => (
+                      <option key={k} value={k}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Phòng ban</label>
+                  <select
+                    value={taskForm.department}
+                    onChange={e => setTaskForm(f => ({ ...f, department: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  >
+                    {Object.entries(DEPT_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Người phụ trách</label>
+                <select
+                  value={taskForm.assigned_to}
+                  onChange={e => setTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                >
+                  <option value="">-- Chọn người --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowTaskForm(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveTask}
+                  disabled={savingTask || !taskForm.title.trim()}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] disabled:opacity-50 transition-all"
+                >
+                  {savingTask ? 'Đang lưu...' : 'Thêm công việc'}
+                </button>
               </div>
             </div>
           </div>

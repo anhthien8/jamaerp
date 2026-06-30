@@ -304,6 +304,32 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Personal: Today's Tasks */}
+        {isPersonal && (
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">📋 Việc cần làm hôm nay</h3>
+            <div className="space-y-2">
+              {/* Overdue leads */}
+              {(data?.overdue_leads ?? 0) > 0 && (
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-red-500/10">
+                  <span className="text-red-400">⚠️</span>
+                  <span className="text-sm text-red-400">{data?.overdue_leads ?? 0} leads quá hạn cần follow-up</span>
+                </div>
+              )}
+              {/* New leads today */}
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10">
+                <span className="text-blue-400">🆕</span>
+                <span className="text-sm text-blue-400">Pipeline: {data?.total_leads ?? 0} leads đang quản lý</span>
+              </div>
+              {/* Pipeline value */}
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-500/10">
+                <span className="text-emerald-400">💰</span>
+                <span className="text-sm text-emerald-400">Giá trị pipeline: {formatCurrency(data?.pipeline_value)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Personal: Quick Actions */}
         {isPersonal && (
           <div className="glass-card p-6">

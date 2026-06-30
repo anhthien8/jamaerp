@@ -36,6 +36,13 @@ const ACTIVITY_ICONS: Record<string, string> = {
 const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'];
 const ALL_STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
 const OVERDUE_DAYS = 3;
+const LOST_REASONS = [
+  'Ngân sách không phù hợp',
+  'Đã chọn đối thủ',
+  'Không phản hồi',
+  'Thay đổi kế hoạch',
+  'Lý do khác',
+];
 
 function getLeadTimestamp(lead: Lead) {
   return lead.last_contacted_at || lead.updated_at || lead.created_at;
@@ -57,6 +64,82 @@ function TagBadge({ tag }: { tag: string }) {
     >
       {tag}
     </span>
+  );
+}
+
+function LostReasonSelector({ onConfirm, onCancel }: { onConfirm: (reason: string) => void; onCancel: () => void }) {
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleConfirm = () => {
+    const reason = selectedReason === 'Lý do khác' ? customReason.trim() : selectedReason;
+    if (!reason) return;
+    onConfirm(reason);
+    setIsOpen(false);
+    setSelectedReason('');
+    setCustomReason('');
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+      {!isOpen ? (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
+          style={{
+            background: 'rgba(239,68,68,0.1)',
+            color: '#EF4444',
+            border: '1px solid rgba(239,68,68,0.3)',
+          }}
+        >
+          🚫 Chuyển sang Mất lead
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-red-400">Chọn lý do mất lead:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {LOST_REASONS.map(reason => (
+              <button
+                key={reason}
+                onClick={() => setSelectedReason(reason)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                style={{
+                  background: selectedReason === reason ? 'rgba(239,68,68,0.25)' : 'var(--surface-2)',
+                  color: selectedReason === reason ? '#EF4444' : 'var(--text-secondary)',
+                  border: `1px solid ${selectedReason === reason ? 'rgba(239,68,68,0.4)' : 'var(--border-subtle)'}`,
+                }}
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+          {selectedReason === 'Lý do khác' && (
+            <input
+              value={customReason}
+              onChange={e => setCustomReason(e.target.value)}
+              placeholder="Nhập lý do cụ thể..."
+              className="w-full px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-red-400"
+            />
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirm}
+              disabled={!selectedReason || (selectedReason === 'Lý do khác' && !customReason.trim())}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-30 transition-all"
+            >
+              Xác nhận mất lead
+            </button>
+            <button
+              onClick={() => { setIsOpen(false); setSelectedReason(''); setCustomReason(''); onCancel(); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -82,6 +165,7 @@ function LeadsContent() {
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [searchQuery, setSearchQuery] = useState('');
+  const [lostReason, setLostReason] = useState('');
   const searchParams = useSearchParams();
   const urlStage = searchParams.get('stage');
   const urlFilter = searchParams.get('filter');
@@ -166,12 +250,22 @@ function LeadsContent() {
     }
   };
 
-  const handleStageChange = async (lead: Lead, newStage: string) => {
+  const handleStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
+    const effectiveReason = reasonOverride || lostReason;
+    if (newStage === 'lost' && !effectiveReason) {
+      toast('Vui lòng chọn lý do mất lead', 'error');
+      return;
+    }
     try {
-      await api.changeStage(lead.id, newStage);
+      if (newStage === 'lost' && effectiveReason) {
+        await api.updateLead(lead.id, { stage: newStage, lost_reason: effectiveReason });
+      } else {
+        await api.changeStage(lead.id, newStage);
+      }
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
       fetchLeads();
       setSelectedLead(null);
+      setLostReason('');
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     }
@@ -799,6 +893,14 @@ function LeadsContent() {
                 </div>
               </div>
 
+              {/* Lost Reason (shown when stage is lost) */}
+              {selectedLead.stage === 'lost' && selectedLead.lost_reason && (
+                <div className="glass-card p-4">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">Lý do mất lead</h3>
+                  <p className="text-sm text-red-400">{selectedLead.lost_reason}</p>
+                </div>
+              )}
+
               {/* Stage Actions */}
               <div className="glass-card p-4">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Chuyển giai đoạn</h3>
@@ -818,6 +920,13 @@ function LeadsContent() {
                     </button>
                   ))}
                 </div>
+                {/* Lost reason selector — visible before confirming lost */}
+                <LostReasonSelector
+                  onConfirm={(reason) => {
+                    handleStageChange(selectedLead, 'lost', reason);
+                  }}
+                  onCancel={() => setLostReason('')}
+                />
               </div>
 
               {/* Timestamps */}
@@ -825,6 +934,7 @@ function LeadsContent() {
                 <span>Tạo: {new Date(selectedLead.created_at).toLocaleDateString('vi-VN')}</span>
                 <span>Cập nhật: {new Date(selectedLead.updated_at).toLocaleDateString('vi-VN')}</span>
                 <span>Liên hệ: {selectedLead.last_contacted_at ? timeAgo(selectedLead.last_contacted_at) : 'Chưa'}</span>
+                {selectedLead.lost_reason && <span className="text-red-400">Mất: {selectedLead.lost_reason}</span>}
               </div>
             </div>
           </div>

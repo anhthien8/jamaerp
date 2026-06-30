@@ -293,6 +293,10 @@ class ApiClient {
     return this.request<ProjectTask[]>(`/projects/${projectId}/tasks`);
   }
 
+  async createTask(projectId: string, data: { title: string; stage: string; department?: string; assigned_to?: string }) {
+    return this.request<ProjectTask>(`/projects/${projectId}/tasks`, { method: 'POST', body: data });
+  }
+
   async getProjectKanban() {
     return this.request<ProjectKanban[]>('/projects/pipeline/kanban');
   }
@@ -525,6 +529,7 @@ export interface Lead {
   plan_type?: 'online' | 'offline' | 'survey' | 'none';
   tags?: string[];
   deal_value?: number;
+  lost_reason?: string;
 }
 
 export interface Activity {

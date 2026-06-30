@@ -170,6 +170,25 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
+                {/* Receivables Aging */}
+                <div className="glass-card p-5">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Aging Receivables</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[var(--text-secondary)]">Chưa thu (Tất cả)</span>
+                      <span className="text-sm font-semibold text-amber-400">{formatCurrency(1800000000)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[var(--text-secondary)]">Quá hạn &gt; 30 ngày</span>
+                      <span className="text-sm font-semibold text-red-400">{formatCurrency(450000000)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[var(--text-secondary)]">Đến hạn trong 30 ngày</span>
+                      <span className="text-sm font-semibold text-emerald-400">{formatCurrency(1350000000)}</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* By Category */}
                 <div className="glass-card p-5">
                   <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Theo danh mục</h3>
@@ -259,6 +278,44 @@ export default function AccountingPage() {
                         💰 Số tiền {txSort === 'amount' ? (txSortAsc ? '↑' : '↓') : ''}
                       </button>
                     </div>
+
+                    {/* Export CSV */}
+                    <button
+                      onClick={() => {
+                        const filtered = transactions
+                          .filter(tx => txType === 'all' || tx.type === txType)
+                          .filter(tx => txCategory === 'all' || tx.category === txCategory)
+                          .filter(tx => txSearch === '' || tx.description.toLowerCase().includes(txSearch.toLowerCase()) || tx.code.toLowerCase().includes(txSearch.toLowerCase()))
+                          .filter(tx => {
+                            if (!dateFrom && !dateTo) return true;
+                            const txDate = new Date(tx.date);
+                            if (dateFrom && txDate < new Date(dateFrom)) return false;
+                            if (dateTo && txDate > new Date(dateTo + 'T23:59:59')) return false;
+                            return true;
+                          });
+                        const headers = ['Mã', 'Loại', 'Danh mục', 'Mô tả', 'Số tiền', 'Ngày', 'Trạng thái'];
+                        const rows = filtered.map(tx => [
+                          tx.code,
+                          tx.type === 'income' ? 'Thu' : 'Chi',
+                          tx.category,
+                          tx.description,
+                          tx.amount,
+                          new Date(tx.date).toLocaleDateString('vi-VN'),
+                          tx.status === 'completed' ? 'Đã xử lý' : 'Chờ duyệt',
+                        ]);
+                        const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+                        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `giao-dich-${new Date().toISOString().slice(0,10)}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    >
+                      📥 Export CSV
+                    </button>
                   </div>
 
                   {/* Category filter */}
