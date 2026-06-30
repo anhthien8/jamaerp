@@ -20,6 +20,10 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
+  // NOTE: This always fetches the executive dashboard regardless of the user's role.
+  // Personal users get their data via the same endpoint with role-based filtering on the backend.
+  // Fixing this properly would require separate API calls per role (getPersonalDashboard vs
+  // getExecutiveDashboard) and conditional rendering per dashboardType -- deferred to a future sprint.
   useEffect(() => {
     if (user) {
       api.getExecutiveDashboard()

@@ -178,7 +178,9 @@ class ApiClient {
         try {
           return await resolveDemo<T>(endpoint, params);
         } catch {
-          return {} as T;
+          // POST/PUT in demo mode: simulate success with generated ID
+          const fakeResponse = { ...(body as Record<string, unknown> || {}), id: `demo-${Date.now()}`, code: `DEMO-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+          return fakeResponse as T;
         }
       }
     }

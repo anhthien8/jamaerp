@@ -624,7 +624,9 @@ function LeadsContent() {
                               title="Ghi chú nhanh"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                api.createActivity(lead.id, { type: 'call', content: `Liên hệ lúc ${new Date().toLocaleTimeString('vi-VN')}` });
+                                api.createActivity(lead.id, { type: 'call', content: `Liên hệ lúc ${new Date().toLocaleTimeString('vi-VN')}` })
+                                  .then(() => toast('Đã ghi nhận cuộc gọi', 'success'))
+                                  .catch(() => toast('Lỗi ghi nhận', 'error'));
                               }}
                             >
                               📞

@@ -10,8 +10,9 @@ import { useToast } from '@/components/ui/Toast';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Admin', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
-  director: { label: 'Giám đốc', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
-  sales_lead: { label: 'Trưởng Sales', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+  leader: { label: 'Trưởng phòng', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+  executive: { label: 'Ban Quản Trị', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+  purchasing: { label: 'Thu mua', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
   data_entry: { label: 'Sales Rep', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
   designer: { label: 'Thiết kế', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
   pm: { label: 'Project Manager', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
@@ -81,6 +82,8 @@ export default function HRPage() {
     }
   };
 
+  const permissions = user ? getPermissions(user.role as UserRole) : null;
+
   if (loading || !user) return null;
 
   // Group by department
@@ -120,12 +123,14 @@ export default function HRPage() {
           >
             Phòng ban
           </button>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
-          >
-            + Thêm nhân viên
-          </button>
+          {permissions?.canManageUsers && (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
+            >
+              + Thêm nhân viên
+            </button>
+          )}
         </div>
       </div>
 
@@ -303,7 +308,7 @@ export default function HRPage() {
         </div>
       )}
     </div>
-    {showCreateForm && (
+    {showCreateForm && permissions?.canManageUsers && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateForm(false)}>
         <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Thêm nhân viên mới</h3>

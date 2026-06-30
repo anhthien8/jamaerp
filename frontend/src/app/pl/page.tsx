@@ -391,7 +391,7 @@ export default function PLPage() {
               <div className="p-5 pb-0">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Lợi nhuận theo Dự án</h3>
               </div>
-              <div className="overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
