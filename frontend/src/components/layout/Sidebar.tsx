@@ -112,6 +112,16 @@ const NAV_SECTIONS = [
         ),
         requiresPnL: true,
       },
+      {
+        href: '/finance',
+        label: 'Finance',
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
+          </svg>
+        ),
+        requiresFinance: true,
+      },
     ],
   },
   {
@@ -189,6 +199,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         if (item.href === '/inventory' && !perms.canViewInventory) return false;
         if (item.href === '/reports' && !perms.canViewReports) return false;
         if ('requiresPnL' in item && !perms.canViewPnL) return false;
+        if ('requiresFinance' in item && !perms.canViewAccounting) return false;
         return true;
       }),
     })).filter(section => section.items.length > 0);

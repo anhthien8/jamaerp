@@ -475,6 +475,27 @@ class ApiClient {
     return this.request<PnLProjectDetail>(`/pl/projects/${projectId}`);
   }
 
+  // Finance Module
+  async getSalaryGrades() { return this.request<SalaryGrade[]>('/salary-grades'); }
+  async createSalaryGrade(data: Partial<SalaryGrade>) { return this.request<SalaryGrade>('/salary-grades', { method: 'POST', body: data }); }
+  async updateSalaryGrade(id: string, data: Partial<SalaryGrade>) { return this.request<SalaryGrade>(`/salary-grades/${id}`, { method: 'PUT', body: data }); }
+  async deleteSalaryGrade(id: string) { return this.request<unknown>(`/salary-grades/${id}`, { method: 'DELETE' }); }
+
+  async getFixedCosts(month?: string) { return this.request<FixedCost[]>('/fixed-costs', { params: month ? { month } : undefined }); }
+  async createFixedCost(data: Partial<FixedCost>) { return this.request<FixedCost>('/fixed-costs', { method: 'POST', body: data }); }
+  async updateFixedCost(id: string, data: Partial<FixedCost>) { return this.request<FixedCost>(`/fixed-costs/${id}`, { method: 'PUT', body: data }); }
+  async deleteFixedCost(id: string) { return this.request<unknown>(`/fixed-costs/${id}`, { method: 'DELETE' }); }
+
+  async getVariableCosts(month?: string) { return this.request<VariableCost[]>('/variable-costs', { params: month ? { month } : undefined }); }
+  async createVariableCost(data: Partial<VariableCost>) { return this.request<VariableCost>('/variable-costs', { method: 'POST', body: data }); }
+  async updateVariableCost(id: string, data: Partial<VariableCost>) { return this.request<VariableCost>(`/variable-costs/${id}`, { method: 'PUT', body: data }); }
+  async deleteVariableCost(id: string) { return this.request<unknown>(`/variable-costs/${id}`, { method: 'DELETE' }); }
+
+  async getCommissionStructures() { return this.request<CommissionStructure[]>('/commission-structures'); }
+  async createCommissionStructure(data: Partial<CommissionStructure>) { return this.request<CommissionStructure>('/commission-structures', { method: 'POST', body: data }); }
+  async updateCommissionStructure(id: string, data: Partial<CommissionStructure>) { return this.request<CommissionStructure>(`/commission-structures/${id}`, { method: 'PUT', body: data }); }
+  async deleteCommissionStructure(id: string) { return this.request<unknown>(`/commission-structures/${id}`, { method: 'DELETE' }); }
+
   logout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('jama_token');
@@ -893,6 +914,47 @@ export interface PnLProjectDetail {
     design: number;
     construction: number;
   };
+}
+
+// === Finance Module Types ===
+export interface SalaryGrade {
+  id: string;
+  grade_name: string;
+  base_salary: number;
+  bhxh_rate: number;
+  bhxh_company_rate: number;
+  bhyt_rate: number;
+  bhtn_rate: number;
+  effective_date: string;
+  created_at: string;
+}
+
+export interface FixedCost {
+  id: string;
+  category: string;
+  amount: number;
+  month: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface VariableCost {
+  id: string;
+  category: string;
+  amount: number;
+  project_id?: string;
+  month: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface CommissionStructure {
+  id: string;
+  department: string;
+  commission_type: string;
+  rate: number;
+  effective_date: string;
+  created_at: string;
 }
 
 // === Pagination ===

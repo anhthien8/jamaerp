@@ -584,4 +584,44 @@ async def seed_database(db: AsyncSession):
         db.add(u)
 
     await db.flush()
-    print("[OK] Seed complete: 5 users, 4 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials")
+
+    # ── Salary Grades ──
+    from app.models.salary_grade import SalaryGrade
+    grades = [
+        SalaryGrade(id=_id(), grade_name="Bac 1", base_salary=8000000, effective_date=_dt(365).date()),
+        SalaryGrade(id=_id(), grade_name="Bac 2", base_salary=10000000, effective_date=_dt(365).date()),
+        SalaryGrade(id=_id(), grade_name="Bac 3", base_salary=12000000, effective_date=_dt(365).date()),
+        SalaryGrade(id=_id(), grade_name="Bac 4", base_salary=15000000, effective_date=_dt(365).date()),
+        SalaryGrade(id=_id(), grade_name="Bac 5", base_salary=20000000, effective_date=_dt(365).date()),
+        SalaryGrade(id=_id(), grade_name="Bac 6", base_salary=25000000, effective_date=_dt(365).date()),
+    ]
+    for g in grades:
+        db.add(g)
+    await db.flush()
+
+    # ── Commission Structures ──
+    from app.models.commission_structure import CommissionStructure
+    comms = [
+        CommissionStructure(id=_id(), department="sales", commission_type="design_contract", rate=0.03, effective_date=_dt(365).date()),
+        CommissionStructure(id=_id(), department="sales", commission_type="construction_contract", rate=0.02, effective_date=_dt(365).date()),
+        CommissionStructure(id=_id(), department="leader", commission_type="leader_override", rate=0.005, effective_date=_dt(365).date()),
+        CommissionStructure(id=_id(), department="design", commission_type="design_fee", rate=0.01, effective_date=_dt(365).date()),
+        CommissionStructure(id=_id(), department="pm", commission_type="project_value", rate=0.005, effective_date=_dt(365).date()),
+    ]
+    for c in comms:
+        db.add(c)
+    await db.flush()
+
+    # ── Fixed Costs (June 2026) ──
+    from app.models.fixed_cost import FixedCost
+    fixed_costs = [
+        FixedCost(id=_id(), category="Tien mat bang", amount=15000000, month="2026-06", notes="Van phong Q1", created_by=admin_id),
+        FixedCost(id=_id(), category="Dien nuoc", amount=3500000, month="2026-06", created_by=admin_id),
+        FixedCost(id=_id(), category="Internet", amount=1200000, month="2026-06", created_by=admin_id),
+        FixedCost(id=_id(), category="Bao hiem office", amount=2000000, month="2026-06", created_by=admin_id),
+    ]
+    for fc in fixed_costs:
+        db.add(fc)
+    await db.flush()
+
+    print("[OK] Seed complete: 5 users, 4 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials, 6 salary grades, 5 commission structures, 4 fixed costs")

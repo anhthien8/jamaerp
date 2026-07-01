@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     # Import all models so Base.metadata knows them
     from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll  # noqa
     from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
+    from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
 
     # Create tables
     async with engine.begin() as conn:
@@ -74,6 +75,10 @@ from app.api.contracts import router as contracts_router
 from app.api.quotations import router as quotations_router
 from app.api.inventory import router as inventory_router
 from app.api.pl import router as pl_router
+from app.api.salary_grades import router as salary_grades_router
+from app.api.fixed_costs import router as fixed_costs_router
+from app.api.variable_costs import router as variable_costs_router
+from app.api.commission_structures import router as commission_structures_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -87,3 +92,7 @@ app.include_router(contracts_router, prefix="/api/v1")
 app.include_router(quotations_router, prefix="/api/v1")
 app.include_router(inventory_router, prefix="/api/v1")
 app.include_router(pl_router, prefix="/api/v1")
+app.include_router(salary_grades_router, prefix="/api/v1")
+app.include_router(fixed_costs_router, prefix="/api/v1")
+app.include_router(variable_costs_router, prefix="/api/v1")
+app.include_router(commission_structures_router, prefix="/api/v1")
