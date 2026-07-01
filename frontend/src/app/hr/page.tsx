@@ -182,7 +182,7 @@ export default function HRPage() {
                     <span>{u.email}</span>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    {u.id !== user?.id && (
+                    {permissions?.canManageUsers && u.id !== user?.id && (
                       u.is_active ? (
                         <button
                           onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}
@@ -247,7 +247,7 @@ export default function HRPage() {
                     <td className="px-5 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
-                        {u.id !== user?.id && (
+                        {permissions?.canManageUsers && u.id !== user?.id && (
                           u.is_active ? (
                             <button
                               onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}

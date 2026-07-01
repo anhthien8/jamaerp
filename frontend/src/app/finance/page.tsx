@@ -54,6 +54,7 @@ export default function FinancePage() {
   const [loadingData, setLoadingData] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [projectsList, setProjectsList] = useState<Array<{id: string, name: string}>>([]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -89,6 +90,11 @@ export default function FinancePage() {
           setVariableCosts(DEMO_VARIABLE_COSTS);
           setCommissions(DEMO_COMMISSIONS);
         }
+        try {
+          const pResult = await api.getProjects();
+          const pItems = Array.isArray(pResult) ? pResult : (pResult as any).items || [];
+          setProjectsList(pItems.map((p: any) => ({ id: p.id, name: p.name })));
+        } catch {}
       }
     } finally {
       setLoadingData(false);
@@ -99,6 +105,8 @@ export default function FinancePage() {
 
   if (loading) return <Sidebar><div className="p-6"><div className="skeleton h-8 w-64 rounded-xl" /></div></Sidebar>;
   if (!user) return null;
+
+  const projectMap = projectsList.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {} as Record<string, string>);
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'salary-grades', label: 'Bac luong', icon: '💰' },
@@ -253,7 +261,7 @@ export default function FinancePage() {
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{c.category}</td>
                           <td className="p-3 text-right text-amber-400 font-mono">{formatCurrency(c.amount)}</td>
-                          <td className="p-3 text-xs text-[var(--text-muted)]">{c.project_id || 'Chung'}</td>
+                          <td className="p-3 text-xs text-[var(--text-muted)]">{c.project_id ? (projectMap[c.project_id] || 'Dự án chung') : 'Chung'}</td>
                           <td className="p-3 text-xs text-[var(--text-muted)]">{c.notes || '—'}</td>
                         </tr>
                       ))}

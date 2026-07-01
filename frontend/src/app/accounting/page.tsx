@@ -90,6 +90,31 @@ export default function AccountingPage() {
     return true;
   });
 
+  // Filter by period for overview
+  const filterByPeriod = (txs: Transaction[]) => {
+    if (periodFilter === 'all') return txs;
+    const now = new Date();
+    return txs.filter(tx => {
+      const txDate = new Date(tx.date);
+      if (periodFilter === 'month') {
+        return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+      }
+      if (periodFilter === 'quarter') {
+        const q = Math.floor(now.getMonth() / 3);
+        const txQ = Math.floor(txDate.getMonth() / 3);
+        return txDate.getFullYear() === now.getFullYear() && txQ === q;
+      }
+      if (periodFilter === 'year') {
+        return txDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  };
+
+  const filteredTx = filterByPeriod(transactions);
+  const filteredIncome = filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const filteredExpense = filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
   // Filter commissions based on role
   const visibleCommissions = commissions.filter(c => {
     if (user.role === 'data_entry') return c.user_id === user.id;
@@ -156,35 +181,33 @@ export default function AccountingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="glass-card p-5 border-l-2 border-l-emerald-500">
                     <p className="text-xs text-[var(--text-muted)] mb-1">💵 Tổng thu</p>
-                    <p className="text-xl font-bold text-emerald-400">{formatCurrency(summary.total_income)}</p>
+                    <p className="text-xl font-bold text-emerald-400">{formatCurrency(filteredIncome)}</p>
                   </div>
                   <div className="glass-card p-5 border-l-2 border-l-red-500">
                     <p className="text-xs text-[var(--text-muted)] mb-1">💸 Tổng chi</p>
-                    <p className="text-xl font-bold text-red-400">{formatCurrency(summary.total_expense)}</p>
+                    <p className="text-xl font-bold text-red-400">{formatCurrency(filteredExpense)}</p>
                   </div>
                   <div className="glass-card p-5 border-l-2 border-l-blue-500">
                     <p className="text-xs text-[var(--text-muted)] mb-1">📈 Lợi nhuận</p>
-                    <p className={cn('text-xl font-bold', summary.net >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                      {formatCurrency(summary.net)}
+                    <p className={cn('text-xl font-bold', (filteredIncome - filteredExpense) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {formatCurrency(filteredIncome - filteredExpense)}
                     </p>
                   </div>
                 </div>
 
-                {/* Receivables Aging */}
+                {/* Financial Summary */}
                 <div className="glass-card p-5">
-                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Aging Receivables</h3>
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Tóm tắt tài chính</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-[var(--text-secondary)]">Chưa thu (Tất cả)</span>
-                      <span className="text-sm font-semibold text-amber-400">{formatCurrency(1800000000)}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">Tỷ lệ chi/thu</span>
+                      <span className="text-sm font-semibold text-amber-400">
+                        {summary.total_income > 0 ? ((summary.total_expense / summary.total_income) * 100).toFixed(1) : '0'}%
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-[var(--text-secondary)]">Quá hạn &gt; 30 ngày</span>
-                      <span className="text-sm font-semibold text-red-400">{formatCurrency(450000000)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-[var(--text-secondary)]">Đến hạn trong 30 ngày</span>
-                      <span className="text-sm font-semibold text-emerald-400">{formatCurrency(1350000000)}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">Số giao dịch tháng này</span>
+                      <span className="text-sm font-semibold text-blue-400">{transactions.length}</span>
                     </div>
                   </div>
                 </div>
@@ -303,7 +326,8 @@ export default function AccountingPage() {
                           new Date(tx.date).toLocaleDateString('vi-VN'),
                           tx.status === 'completed' ? 'Đã xử lý' : 'Chờ duyệt',
                         ]);
-                        const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+                        const escape = (s: string) => s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+                        const csv = [headers, ...rows].map(r => r.map(c => escape(String(c))).join(',')).join('\n');
                         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
