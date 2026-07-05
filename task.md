@@ -71,16 +71,17 @@
 - `[x]` `MaterialRequest` model for approval workflow
 - `[x]` Router registered in `main.py`
 
-## 9. Telegram Bot Commands - [CẦN HOÀN THÀNH ⏳]
+## 9. Telegram Bot Commands - [ĐÃ HOÀN THÀNH ✅]
 - `[x]` `/start` — Auth + welcome
-- `[x]` `/lead` — Lead intake from Zalo
+- `[x]` `/lead` — Lead intake from Zalo (AI parse)
 - `[x]` `/pipeline` — Pipeline overview
 - `[x]` `/briefing` — Daily briefing
-- `[ ]` `/duan [Mã]` — Quick project lookup
-- `[ ]` `/baocao [Mã] [Nội dung]` — Site report + photos
-- `[ ]` `/vatlieu [Mã] [Tên] - [SL]` — Material request
-- `[ ]` `/suco [Mã] [Mô tả]` — Incident report
-- `[ ]` `/checkin` / `/checkout` — GPS check-in/out
+- `[x]` `/duan [Mã]` — Quick project lookup
+- `[x]` `/baocao [Mã] [Nội dung]` — Site report + photos (FSM)
+- `[x]` `/vatlieu [Mã] [Tên] - [SL]` — Material request + inline approve
+- `[x]` `/suco [Mã] [Mô tả]` — Incident report + photo evidence
+- `[x]` `/checkin [Mã]` / `/checkout [Mã]` — GPS check-in/out
+- `[x]` `/cancel` — Clear FSM state
 
 ## 10. Unit Tests - [CẦN HOÀN THÀNH ⏳]
 - `[ ]` Backend tests for P&L calculation
