@@ -163,7 +163,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Try real API first
+    // If currently in demo mode, use demo login directly (skip real API)
+    if (mode === 'demo') {
+      const demoEntry = DEMO_USERS[email.toLowerCase()];
+      if (demoEntry && demoEntry.password === password) {
+        setUser(demoEntry.user);
+        setModeState('demo');
+        localStorage.setItem('jama_mode', 'demo');
+        localStorage.setItem('jama_token', 'demo-token');
+        localStorage.setItem('jama_user', JSON.stringify(demoEntry.user));
+        localStorage.setItem('jama_demo', 'true');
+        return;
+      }
+      throw new Error('Email hoặc mật khẩu không đúng (Demo Mode)');
+    }
+
+    // Work mode: try real API first
     try {
       const data = await api.login(email, password);
       setUser(data.user);
@@ -175,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // API unavailable — fallback to demo
     }
 
-    // Demo login
+    // Demo fallback if API unavailable
     const demoEntry = DEMO_USERS[email.toLowerCase()];
     if (demoEntry && demoEntry.password === password) {
       setUser(demoEntry.user);
