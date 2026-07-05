@@ -106,6 +106,107 @@ class APIClient:
             )
             return resp.json() if resp.status_code == 200 else None
 
+    # ── Telegram workflow endpoints ──────────────────────────────────────────
+
+    async def get_project(self, tg_user_id: int, project_code: str) -> dict | None:
+        """Quick project lookup by code — returns project info + task summary."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{self._base_url}/telegram/project/{project_code}",
+                headers=self._headers(tg_user_id),
+            )
+            return resp.json() if resp.status_code == 200 else None
+
+    async def create_site_report(self, tg_user_id: int, data: dict) -> dict | None:
+        """Submit a site report with optional photos."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/site-report",
+                json=data,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi gui bao cao cong trinh")}
+
+    async def create_material_request(self, tg_user_id: int, data: dict) -> dict | None:
+        """Submit a material purchase request."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/material-request",
+                json=data,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi gui yeu cau vat tu")}
+
+    async def report_incident(self, tg_user_id: int, data: dict) -> dict | None:
+        """Report a construction incident."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/incident",
+                json=data,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi bao cao su co")}
+
+    async def checkin(self, tg_user_id: int, data: dict) -> dict | None:
+        """GPS check-in at project site."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/checkin",
+                json=data,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi check-in")}
+
+    async def checkout(self, tg_user_id: int, data: dict) -> dict | None:
+        """GPS check-out from project site."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/checkout",
+                json=data,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi check-out")}
+
+    async def approve_material(self, tg_user_id: int, request_id: str, data: dict | None = None) -> dict | None:
+        """Approve a material request (Thu mua / Ke toan)."""
+        payload = {"approver_tg_id": tg_user_id}
+        if data:
+            payload.update(data)
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/approve/{request_id}",
+                json=payload,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi duyet vat tu")}
+
+    async def reject_material(self, tg_user_id: int, request_id: str, reason: str | None = None) -> dict | None:
+        """Reject a material request (Thu mua / Ke toan)."""
+        payload = {"approver_tg_id": tg_user_id}
+        if reason:
+            payload["reason"] = reason
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base_url}/telegram/reject/{request_id}",
+                json=payload,
+                headers=self._headers(tg_user_id),
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return {"error": resp.json().get("detail", "Loi khi tu choi vat tu")}
+
 
 # Singleton
 api = APIClient()

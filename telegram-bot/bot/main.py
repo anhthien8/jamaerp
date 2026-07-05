@@ -10,7 +10,16 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
-from bot.handlers import start, lead_intake, pipeline, briefing
+from bot.handlers import (
+    start,
+    lead_intake,
+    pipeline,
+    briefing,
+    site_report,
+    material_request,
+    incident,
+    checkin_out,
+)
 
 load_dotenv()
 
@@ -38,6 +47,10 @@ async def main():
     dp.include_router(lead_intake.router)
     dp.include_router(pipeline.router)
     dp.include_router(briefing.router)
+    dp.include_router(site_report.router)
+    dp.include_router(material_request.router)
+    dp.include_router(incident.router)
+    dp.include_router(checkin_out.router)
 
     logger.info("🚀 JAMA HOME CRM Bot starting...")
     await dp.start_polling(bot)
