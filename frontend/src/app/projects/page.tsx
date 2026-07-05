@@ -42,6 +42,30 @@ const taskStatusConfig: Record<string, { label: string; color: string; icon: str
   completed: { label: 'Hoàn thành', color: '#3B82F6', icon: '✅' },
 };
 
+function AccessDenied() {
+  const router = useRouter();
+  return (
+    <Sidebar>
+      <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
+        <div className="glass-card p-12 text-center max-w-md">
+          <span className="text-5xl block mb-4">🔒</span>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
+          <p className="text-sm text-[var(--text-muted)] mb-6">
+            Bạn không có quyền truy cập trang này.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
+          >
+            Quay về Dashboard
+          </button>
+        </div>
+      </div>
+    </Sidebar>
+  );
+}
+
 export default function ProjectsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -392,8 +416,10 @@ export default function ProjectsPage() {
   }
 
 
+  const permissions = getPermissions(user.role as UserRole);
+  if (!permissions.canViewProjects) return <AccessDenied />;
+
   const activeCount = projects.filter(p => p.status === 'active').length;
-  const permissions = user ? getPermissions(user.role as UserRole) : null;
 
   const calcProjectTimeLeft = (p: Project) => {
     if (!p.start_date || !p.target_end_date) return null;

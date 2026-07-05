@@ -1,6 +1,5 @@
 """Lead intake handler — parse Zalo messages + confirm + save."""
 
-import json
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup

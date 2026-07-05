@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 import { api, Customer, extractItems } from '@/lib/api';
+import { getPermissions, UserRole } from '@/lib/roles';
 
 const TYPE_LABELS: Record<string, string> = {
   individual: 'Cá nhân',
@@ -51,6 +52,30 @@ function toForm(customer?: Customer | null): CustomerForm {
 function cleanPayload(form: CustomerForm) {
   return Object.fromEntries(
     Object.entries(form).map(([key, value]) => [key, value.trim() || undefined])
+  );
+}
+
+function AccessDenied() {
+  const router = useRouter();
+  return (
+    <Sidebar>
+      <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
+        <div className="glass-card p-12 text-center max-w-md">
+          <span className="text-5xl block mb-4">🔒</span>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
+          <p className="text-sm text-[var(--text-muted)] mb-6">
+            Bạn không có quyền truy cập trang này.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
+          >
+            Quay về Dashboard
+          </button>
+        </div>
+      </div>
+    </Sidebar>
   );
 }
 
@@ -108,6 +133,8 @@ export default function CustomersPage() {
     );
   }
 
+  const perms = getPermissions(user.role as UserRole);
+  if (!perms?.canViewProjects) return <AccessDenied />;
 
   const openCreate = () => {
     setEditing(null);

@@ -20,6 +20,8 @@ async def lifespan(app: FastAPI):
     from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
     from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
     from app.api.telegram_workflow import MaterialRequest  # noqa — ensure table created
+    from app.models.contract import Contract  # noqa
+    from app.models.quotation import Quotation  # noqa
 
     # Create tables
     async with engine.begin() as conn:

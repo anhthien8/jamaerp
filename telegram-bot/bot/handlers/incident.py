@@ -130,6 +130,7 @@ async def finish_incident_report(message: types.Message, state: FSMContext):
         "description": description,
         "severity": "high",
         "reporter_tg_id": message.from_user.id,
+        "photos": photos,
     }
 
     result = await api.report_incident(message.from_user.id, incident_data)

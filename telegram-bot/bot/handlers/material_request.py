@@ -103,7 +103,8 @@ async def cmd_vatlieu(message: types.Message):
 
     lines.append(f"\n📝 {status_text}")
 
-    await message.answer("\n".join(lines))
+    keyboard = build_material_keyboard(result.get("request_id", ""))
+    await message.answer("\n".join(lines), reply_markup=keyboard)
 
     # If over budget, add a note about requiring extra approval
     if over_budget:
@@ -121,8 +122,6 @@ async def cmd_vatlieu(message: types.Message):
 async def callback_approve_material(callback: CallbackQuery):
     """Handle approve button press from Thu mua / Ke toan."""
     request_id = callback.data.split(":", 1)[1]
-
-    await callback.answer("Dang xu ly...")
 
     result = await api.approve_material(callback.from_user.id, request_id)
 
@@ -211,36 +210,35 @@ def _parse_material_args(text: str) -> dict | None:
         JMH-0601 Sat thep phi 12 - 200kg
         JMH-0601 Da 4x6 - 10m3
     """
-    # Split on the dash separator
-    parts = text.split(" - ", 1)
-    if len(parts) != 2:
-        # Try with just a dash (no spaces)
-        parts = text.split("-", 1)
-        if len(parts) != 2:
-            return None
-
-    left = parts[0].strip()
-    right = parts[1].strip()
-
-    # Extract project code (first token, e.g. JMH-0601)
-    left_parts = left.split(maxsplit=1)
-    if len(left_parts) < 2:
+    # Use regex that captures the project code as a token (letters+digits+dash+digits),
+    # avoiding splitting on dashes inside the project code like JMH-0601.
+    # Try " - " separator first (space-dash-space), then fall back to bare "-".
+    match = re.match(
+        r'^([A-Za-z][\w]*-\d+)\s+'  # project code
+        r'(.+?)\s+-\s+'             # material name + " - " separator
+        r'(\d+(?:[.,]\d+)?)'        # quantity
+        r'\s*(.*?)$',                # unit (optional)
+        text,
+    )
+    if not match:
+        match = re.match(
+            r'^([A-Za-z][\w]*-\d+)\s+'  # project code
+            r'(.+?)'                     # material name
+            r'-\s*'                      # bare "-" separator
+            r'(\d+(?:[.,]\d+)?)'         # quantity
+            r'\s*(.*?)$',                # unit (optional)
+            text,
+        )
+    if not match:
         return None
 
-    project_code = left_parts[0].strip().upper()
-    material_name = left_parts[1].strip()
+    project_code = match.group(1).upper()
+    material_name = match.group(2).strip()
+    quantity_str = match.group(3).replace(",", ".")
+    unit = match.group(4).strip()
 
     if not material_name:
         return None
-
-    # Extract quantity and unit from right side
-    # e.g. "50 bao" or "200kg" or "10m3"
-    right_match = re.match(r"(\d+(?:[.,]\d+)?)\s*(.*)", right)
-    if not right_match:
-        return None
-
-    quantity_str = right_match.group(1).replace(",", ".")
-    unit = right_match.group(2).strip()
 
     try:
         quantity = float(quantity_str)

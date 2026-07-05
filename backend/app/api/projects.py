@@ -108,6 +108,39 @@ async def list_projects(
     }
 
 
+@router.get("/pipeline/kanban", response_model=list[ProjectKanbanStage])
+async def project_kanban(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_project_access),
+):
+    """Kanban board data — projects grouped by stage."""
+    stages = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
+    stage_labels = {
+        "design": "Thiết kế",
+        "quotation": "Báo giá",
+        "procurement": "Thu mua",
+        "construction": "Thi công",
+        "acceptance": "Nghiệm thu",
+        "completed": "Hoàn thành",
+    }
+    kanban = []
+
+    for stage in stages:
+        q = select(Project).where(Project.stage == stage).order_by(Project.updated_at.desc())
+        result = await db.execute(q)
+        projects = result.scalars().all()
+        responses = [ProjectResponse.model_validate(p) for p in projects]
+
+        kanban.append(ProjectKanbanStage(
+            stage=stage,
+            stage_label=stage_labels.get(stage, stage),
+            projects=responses,
+            count=len(responses),
+        ))
+
+    return kanban
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
@@ -145,7 +178,7 @@ async def update_project(
     current_user: User = Depends(require_project_access),
 ):
     """Update project."""
-    if current_user.role in ("accountant", "purchasing", "sales"):
+    if current_user.role in ("accountant", "purchasing", "data_entry"):
         raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
@@ -177,39 +210,6 @@ async def list_tasks(
     result = await db.execute(q)
     tasks = result.scalars().all()
     return [TaskResponse.model_validate(t) for t in tasks]
-
-
-@router.get("/pipeline/kanban", response_model=list[ProjectKanbanStage])
-async def project_kanban(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_project_access),
-):
-    """Kanban board data — projects grouped by stage."""
-    stages = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
-    stage_labels = {
-        "design": "Thiết kế",
-        "quotation": "Báo giá",
-        "procurement": "Thu mua",
-        "construction": "Thi công",
-        "acceptance": "Nghiệm thu",
-        "completed": "Hoàn thành",
-    }
-    kanban = []
-
-    for stage in stages:
-        q = select(Project).where(Project.stage == stage).order_by(Project.updated_at.desc())
-        result = await db.execute(q)
-        projects = result.scalars().all()
-        responses = [ProjectResponse.model_validate(p) for p in projects]
-
-        kanban.append(ProjectKanbanStage(
-            stage=stage,
-            stage_label=stage_labels.get(stage, stage),
-            projects=responses,
-            count=len(responses),
-        ))
-
-    return kanban
 
 
 @router.put("/{project_id}/stage", response_model=ProjectResponse)

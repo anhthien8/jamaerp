@@ -35,7 +35,7 @@ Trả về JSON:
 async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
     """Generate AI suggestion for a lead."""
     # Fetch lead + activities
-    result = await db.execute(select(Lead).where(Lead.id == UUID(lead_id)))
+    result = await db.execute(select(Lead).where(Lead.id == lead_id))
     lead = result.scalar_one_or_none()
 
     if not lead:
@@ -44,7 +44,7 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
     # Fetch recent activities
     act_result = await db.execute(
         select(Activity)
-        .where(Activity.lead_id == UUID(lead_id))
+        .where(Activity.lead_id == lead_id)
         .order_by(Activity.created_at.desc())
         .limit(5)
     )

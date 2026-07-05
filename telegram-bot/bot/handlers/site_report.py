@@ -1,7 +1,5 @@
 """/duan and /baocao handlers — project lookup + site reports with photos."""
 
-import re
-
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext

@@ -1,7 +1,6 @@
 """API client — communicate with FastAPI backend."""
 
 import os
-from typing import Any
 
 import httpx
 
@@ -17,8 +16,8 @@ class APIClient:
 
     async def authenticate(self, telegram_user_id: int, username: str | None = None) -> dict | None:
         """Authenticate TG user → JWT."""
-        async with httpx.AsyncClient() as client:
-            try:
+        try:
+            async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"{self._base_url}/auth/telegram",
                     json={
@@ -31,8 +30,8 @@ class APIClient:
                     self._tokens[telegram_user_id] = data["access_token"]
                     return data
                 return None
-            except Exception:
-                return None
+        except Exception:
+            return None
 
     def _headers(self, telegram_user_id: int) -> dict:
         token = self._tokens.get(telegram_user_id, "")
@@ -40,172 +39,261 @@ class APIClient:
 
     async def parse_lead(self, tg_user_id: int, text: str) -> dict | None:
         """Parse raw text via AI."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/ai/parse-lead",
-                json={"text": text},
-                headers=self._headers(tg_user_id),
-                timeout=30.0,
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/ai/parse-lead",
+                    json={"text": text},
+                    headers=self._headers(tg_user_id),
+                    timeout=30.0,
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def create_lead(self, tg_user_id: int, data: dict) -> dict | None:
         """Create lead in CRM."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/leads",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 201 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/leads",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 201:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def get_pipeline(self, tg_user_id: int) -> list | None:
         """Get kanban pipeline."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{self._base_url}/leads/pipeline/kanban",
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/leads/pipeline/kanban",
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def get_pipeline_stats(self, tg_user_id: int) -> dict | None:
         """Get pipeline stats."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{self._base_url}/leads/pipeline/stats",
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/leads/pipeline/stats",
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def get_personal_dashboard(self, tg_user_id: int) -> dict | None:
         """Get personal dashboard for daily briefing."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{self._base_url}/dashboard/personal",
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/dashboard/personal",
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def suggest_action(self, tg_user_id: int, lead_id: str) -> dict | None:
         """Get AI suggestion for a lead."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/ai/suggest-action",
-                params={"lead_id": lead_id},
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/ai/suggest-action",
+                    params={"lead_id": lead_id},
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def change_stage(self, tg_user_id: int, lead_id: str, new_stage: str, note: str = None) -> dict | None:
         """Change lead stage."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.put(
-                f"{self._base_url}/leads/{lead_id}/stage",
-                json={"new_stage": new_stage, "note": note},
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.put(
+                    f"{self._base_url}/leads/{lead_id}/stage",
+                    json={"new_stage": new_stage, "note": note},
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     # ── Telegram workflow endpoints ──────────────────────────────────────────
 
     async def get_project(self, tg_user_id: int, project_code: str) -> dict | None:
         """Quick project lookup by code — returns project info + task summary."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{self._base_url}/telegram/project/{project_code}",
-                headers=self._headers(tg_user_id),
-            )
-            return resp.json() if resp.status_code == 200 else None
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/telegram/project/{project_code}",
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
 
     async def create_site_report(self, tg_user_id: int, data: dict) -> dict | None:
         """Submit a site report with optional photos."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/site-report",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code in (200, 201):
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi gui bao cao cong trinh")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/site-report",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi gui bao cao cong trinh")
+                except Exception:
+                    detail = "Loi khi gui bao cao cong trinh"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def create_material_request(self, tg_user_id: int, data: dict) -> dict | None:
         """Submit a material purchase request."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/material-request",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code in (200, 201):
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi gui yeu cau vat tu")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/material-request",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi gui yeu cau vat tu")
+                except Exception:
+                    detail = "Loi khi gui yeu cau vat tu"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def report_incident(self, tg_user_id: int, data: dict) -> dict | None:
         """Report a construction incident."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/incident",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code in (200, 201):
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi bao cao su co")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/incident",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi bao cao su co")
+                except Exception:
+                    detail = "Loi khi bao cao su co"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def checkin(self, tg_user_id: int, data: dict) -> dict | None:
         """GPS check-in at project site."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/checkin",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code in (200, 201):
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi check-in")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/checkin",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi check-in")
+                except Exception:
+                    detail = "Loi khi check-in"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def checkout(self, tg_user_id: int, data: dict) -> dict | None:
         """GPS check-out from project site."""
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/checkout",
-                json=data,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code in (200, 201):
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi check-out")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/checkout",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi check-out")
+                except Exception:
+                    detail = "Loi khi check-out"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def approve_material(self, tg_user_id: int, request_id: str, data: dict | None = None) -> dict | None:
         """Approve a material request (Thu mua / Ke toan)."""
         payload = {"approver_tg_id": tg_user_id}
         if data:
             payload.update(data)
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/approve/{request_id}",
-                json=payload,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code == 200:
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi duyet vat tu")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/approve/{request_id}",
+                    json=payload,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi duyet vat tu")
+                except Exception:
+                    detail = "Loi khi duyet vat tu"
+                return {"error": detail}
+        except Exception:
+            return None
 
     async def reject_material(self, tg_user_id: int, request_id: str, reason: str | None = None) -> dict | None:
         """Reject a material request (Thu mua / Ke toan)."""
         payload = {"approver_tg_id": tg_user_id}
         if reason:
             payload["reason"] = reason
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/telegram/reject/{request_id}",
-                json=payload,
-                headers=self._headers(tg_user_id),
-            )
-            if resp.status_code == 200:
-                return resp.json()
-            return {"error": resp.json().get("detail", "Loi khi tu choi vat tu")}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/reject/{request_id}",
+                    json=payload,
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi khi tu choi vat tu")
+                except Exception:
+                    detail = "Loi khi tu choi vat tu"
+                return {"error": detail}
+        except Exception:
+            return None
 
 
 # Singleton

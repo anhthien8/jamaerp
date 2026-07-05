@@ -11,6 +11,8 @@ def can_view_lead(user: User, lead: Lead) -> bool:
         return True
     if user.role == "leader":
         return lead.team_id == user.team_id
+    if user.role == "executive":
+        return True
     return lead.assigned_to == user.id
 
 

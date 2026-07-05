@@ -230,7 +230,7 @@ async def score_lead(
 
     # Contact recency
     if lead.last_contacted_at:
-        from datetime import timezone, timedelta
+        from datetime import datetime, timezone, timedelta
         days_since = (datetime.now(timezone.utc) - lead.last_contacted_at.replace(tzinfo=timezone.utc)).days
         if days_since <= 1:
             score += 10
