@@ -77,7 +77,7 @@ async def seed_database(db: AsyncSession):
             role="accountant", department="ACCT",
         ),
         User(
-            id=executive_id, full_name="Đỗ Minh Tuấn", email="ceo@jamahome.vn",
+            id=executive_id, full_name="Hồ Minh Tuấn", email="ceo@jamahome.vn",
             phone="0901111222", password_hash=hash_password("ceo123"),
             role="executive", department="EXEC",
         ),

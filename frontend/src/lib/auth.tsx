@@ -10,7 +10,7 @@ const DEMO_USERS: Record<string, { password: string; user: User }> = {
     password: 'admin123',
     user: {
       id: 'demo-admin-001',
-      full_name: 'Nguyễn Văn Admin',
+      full_name: 'Hồ Minh Tuấn',
       email: 'admin@jamahome.vn',
       phone: '0901234567',
       role: 'admin',

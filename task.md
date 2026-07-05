@@ -34,15 +34,56 @@
 
 ---
 
-## 5. Phase tiếp theo: Xây dựng Module P&L (KISS) - [KẾ HOẠCH TRIỂN KHAI ⏳]
-- `[ ]` **Backend P&L API:**
-  - `[ ]` Thêm API tính P&L cho từng dự án `GET /accounting/projects/{project_id}/pl`
-  - `[ ]` Thêm API tính P&L tổng quan doanh nghiệp theo tháng/năm `GET /accounting/company/pl`
-- `[ ]` **Frontend P&L UI:**
-  - `[ ]` Cập nhật `ROLE_PERMISSIONS` cho phép `accountant` xem báo cáo tài chính P&L.
-  - `[ ]` Tích hợp tab **Báo cáo P&L** trong `/accounting` trên giao diện.
-  - `[ ]` Thiết kế bảng lợi nhuận trực tiếp trên từng dự án (có điểm cảnh báo dự án tỉ suất thấp).
-  - `[ ]` Thiết kế thẻ thống kê OPEX và lợi nhuận ròng doanh nghiệp.
-- `[ ]` **Kiểm thử & Đưa vào hoạt động:**
-  - `[ ]` Viết unit test tự động tính toán số liệu P&L.
-  - `[ ]` Kiểm tra tích hợp, chạy thử và deploy lên Railway.
+## 5. Module P&L (KISS) - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` **Backend P&L API:**
+  - `[x]` API tính P&L từng dự án `GET /pl/projects/{project_id}`
+  - `[x]` API P&L tổng quan `GET /pl/summary`
+  - `[x]` API danh sách P&L dự án `GET /pl/projects`
+- `[x]` **Frontend P&L UI:**
+  - `[x]` Trang `/pl` với summary cards + per-project table + mobile view
+  - `[x]` Phân quyền C-level only (admin/executive/accountant)
+  - `[x]` Date filtering (month/quarter/year/custom)
+  - `[x]` Sort by revenue/profit/margin
+
+---
+
+## 6. AI Agents (5/5) - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` Lead Intake Agent (`backend/app/agents/lead_intake.py`) — LLM + regex fallback
+- `[x]` Sales Co-Pilot Agent (`backend/app/agents/sales_copilot.py`) — LLM + rule-based fallback
+- `[x]` Lead Scoring Agent (`backend/app/agents/lead_scoring.py`) — LLM + rule-based scoring 0-100
+- `[x]` Task Coordinator Agent (`backend/app/agents/task_coordinator.py`) — 19 tasks blueprint + LLM enrichment
+- `[x]` Insight Agent (`backend/app/agents/insight_agent.py`) — weekly insights + LLM narrative
+
+## 7. Background Worker - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` `backend/app/worker.py` — asyncio queue, periodic lead scoring, insight generation
+- `[x]` Graceful shutdown (SIGTERM/SIGINT)
+- `[x]` Health check endpoint support
+
+## 8. Telegram Workflow API - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` `GET /telegram/project/{project_code}` — Quick project lookup
+- `[x]` `POST /telegram/site-report` — Site report with photos (/baocao)
+- `[x]` `POST /telegram/material-request` — Material request (/vatlieu)
+- `[x]` `POST /telegram/incident` — Incident report (/suco)
+- `[x]` `POST /telegram/checkin` — GPS check-in
+- `[x]` `POST /telegram/checkout` — GPS check-out
+- `[x]` `POST /telegram/approve/{id}` — Approve material (inline button)
+- `[x]` `POST /telegram/reject/{id}` — Reject material (inline button)
+- `[x]` `MaterialRequest` model for approval workflow
+- `[x]` Router registered in `main.py`
+
+## 9. Telegram Bot Commands - [CẦN HOÀN THÀNH ⏳]
+- `[x]` `/start` — Auth + welcome
+- `[x]` `/lead` — Lead intake from Zalo
+- `[x]` `/pipeline` — Pipeline overview
+- `[x]` `/briefing` — Daily briefing
+- `[ ]` `/duan [Mã]` — Quick project lookup
+- `[ ]` `/baocao [Mã] [Nội dung]` — Site report + photos
+- `[ ]` `/vatlieu [Mã] [Tên] - [SL]` — Material request
+- `[ ]` `/suco [Mã] [Mô tả]` — Incident report
+- `[ ]` `/checkin` / `/checkout` — GPS check-in/out
+
+## 10. Unit Tests - [CẦN HOÀN THÀNH ⏳]
+- `[ ]` Backend tests for P&L calculation
+- `[ ]` Backend tests for lead scoring
+- `[ ]` Backend tests for auth + RBAC
+- `[ ]` Backend tests for Telegram workflow API

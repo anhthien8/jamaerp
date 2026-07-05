@@ -19,6 +19,10 @@ async function getDemoData() {
   return _demoData;
 }
 
+/** In-memory store for demo activities added during session */
+const _demoActivitiesCache: Activity[] = [];
+const _demoTaskActivitiesCache: TaskActivity[] = [];
+
 /** Wrap an array in a PaginatedResponse shape for demo mode. */
 function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedResponse<T> {
   const page = parseInt(params?.page || '1', 10);
@@ -34,10 +38,11 @@ function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedR
 }
 
 /** Map API endpoints to demo data resolvers */
-async function resolveDemo<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+async function resolveDemo<T>(endpoint: string, params?: Record<string, string>, options?: { method?: string; body?: unknown }): Promise<T> {
   const d = await getDemoData();
   // Normalize: strip query params
   const path = endpoint.split('?')[0].replace(/\/$/, '');
+  const method = options?.method || 'GET';
 
   // ── Auth ──
   if (path === '/auth/me') {
@@ -54,9 +59,29 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
     }
     return toPaginated(leads, params) as T;
   }
+  // ── Lead Activities (POST = create note, GET = list) ──
   if (path.match(/\/leads\/[^/]+\/activities$/)) {
     const leadId = path.split('/')[2];
-    return d.DEMO_ACTIVITIES.filter(a => a.lead_id === leadId) as T;
+    if (method === 'POST') {
+      const body = options?.body as { type?: string; content?: string } || {};
+      const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+      const currentUser = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
+      const newActivity: Activity = {
+        id: `demo-act-${Date.now()}`,
+        lead_id: leadId,
+        user_id: currentUser.id,
+        user_name: currentUser.full_name,
+        type: body.type || 'note',
+        content: body.content || '',
+        created_at: new Date().toISOString(),
+      };
+      _demoActivitiesCache.push(newActivity);
+      return newActivity as T;
+    }
+    // GET: merge static demo activities + cached ones
+    const staticActs = d.DEMO_ACTIVITIES.filter(a => a.lead_id === leadId);
+    const cachedActs = _demoActivitiesCache.filter(a => a.lead_id === leadId);
+    return [...staticActs, ...cachedActs] as T;
   }
   if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
   if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) return d.DEMO_PIPELINE_KANBAN as T;
@@ -78,7 +103,25 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>)
     return kanban as T;
   }
   if (path.match(/^\/projects\/tasks\/[^/]+\/activities$/)) {
-    return [] as T; // No demo activities for tasks
+    const taskId = path.split('/')[3];
+    if (method === 'POST') {
+      const body = options?.body as { content?: string; media_url?: string } || {};
+      const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+      const currentUser = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
+      const newAct: TaskActivity = {
+        id: `demo-tact-${Date.now()}`,
+        task_id: taskId,
+        user_id: currentUser.id,
+        user_name: currentUser.full_name,
+        content: body.content || '',
+        media_url: body.media_url || undefined,
+        created_at: new Date().toISOString(),
+      };
+      _demoTaskActivitiesCache.push(newAct);
+      return newAct as T;
+    }
+    const cached = _demoTaskActivitiesCache.filter(a => a.task_id === taskId);
+    return cached as T;
   }
   if (path.match(/^\/projects\/[^/]+\/tasks$/)) {
     const projectId = path.split('/')[2];
@@ -167,21 +210,15 @@ class ApiClient {
 
     // Demo mode: return mock data without hitting the API
     if (isDemoMode()) {
-      if (method === 'GET') {
-        try {
-          return await resolveDemo<T>(endpoint, params);
-        } catch {
-          // Fall through to real API
-        }
-      } else {
-        // POST/PUT in demo mode: simulate success
-        try {
-          return await resolveDemo<T>(endpoint, params);
-        } catch {
+      try {
+        return await resolveDemo<T>(endpoint, params, { method, body });
+      } catch {
+        if (method !== 'GET') {
           // POST/PUT in demo mode: simulate success with generated ID
           const fakeResponse = { ...(body as Record<string, unknown> || {}), id: `demo-${Date.now()}`, code: `DEMO-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
           return fakeResponse as T;
         }
+        // Fall through to real API for GET
       }
     }
 

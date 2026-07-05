@@ -6,6 +6,31 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, DashboardExecutive, AccountingSummary } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
+import { getPermissions, UserRole } from '@/lib/roles';
+
+function AccessDenied() {
+  const router = useRouter();
+  return (
+    <Sidebar>
+      <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
+        <div className="glass-card p-12 text-center max-w-md">
+          <span className="text-5xl block mb-4">🔒</span>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
+          <p className="text-sm text-[var(--text-muted)] mb-6">
+            Trang này chỉ dành cho Ban Giám đốc, Kế toán và Ban Quản trị.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
+          >
+            Quay về Dashboard
+          </button>
+        </div>
+      </div>
+    </Sidebar>
+  );
+}
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();
@@ -30,7 +55,11 @@ export default function ReportsPage() {
     }
   }, [user]);
 
-  if (loading || !user) return null;
+  if (loading) return null;
+  if (!user) return null;
+
+  const perms = getPermissions(user.role as UserRole);
+  if (!perms.canViewReports) return <AccessDenied />;
 
   return (
     <Sidebar>
@@ -132,28 +161,46 @@ export default function ReportsPage() {
             <div className="glass-card p-6 md:col-span-2">
               <h2 className="text-lg font-semibold mb-4">Hiệu suất đội nhóm</h2>
               {dashboard?.team_performance && dashboard.team_performance.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-2 text-xs text-[var(--text-muted)]">Đội</th>
-                        <th className="text-right p-2 text-xs text-[var(--text-muted)]">Leads</th>
-                        <th className="text-right p-2 text-xs text-[var(--text-muted)]">Ký HĐ</th>
-                        <th className="text-right p-2 text-xs text-[var(--text-muted)]">Chuyển đổi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.team_performance.map((team, i) => (
-                        <tr key={i} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <td className="p-2 font-medium">{team.team}</td>
-                          <td className="p-2 text-right">{team.total_leads}</td>
-                          <td className="p-2 text-right text-[#C9A96E]">{team.signed}</td>
-                          <td className="p-2 text-right">{team.conversion.toFixed(1)}%</td>
+                <>
+                  {/* Mobile card view */}
+                  <div className="md:hidden space-y-3">
+                    {dashboard.team_performance.map((team, i) => (
+                      <div key={i} className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div>
+                          <p className="font-medium text-sm">{team.team}</p>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Chuyển đổi: {team.conversion.toFixed(1)}%</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-mono">{team.total_leads} leads</p>
+                          <p className="text-xs text-[#C9A96E] font-semibold">{team.signed} ký HĐ</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop table view */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <th className="text-left p-2 text-xs text-[var(--text-muted)]">Đội</th>
+                          <th className="text-right p-2 text-xs text-[var(--text-muted)]">Leads</th>
+                          <th className="text-right p-2 text-xs text-[var(--text-muted)]">Ký HĐ</th>
+                          <th className="text-right p-2 text-xs text-[var(--text-muted)]">Chuyển đổi</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {dashboard.team_performance.map((team, i) => (
+                          <tr key={i} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <td className="p-2 font-medium">{team.team}</td>
+                            <td className="p-2 text-right">{team.total_leads}</td>
+                            <td className="p-2 text-right text-[#C9A96E]">{team.signed}</td>
+                            <td className="p-2 text-right">{team.conversion.toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               ) : (
                 <p className="text-sm text-[var(--text-muted)]">Chưa có dữ liệu đội nhóm</p>
               )}

@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll  # noqa
     from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
     from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
+    from app.api.telegram_workflow import MaterialRequest  # noqa — ensure table created
 
     # Create tables
     async with engine.begin() as conn:
@@ -79,6 +80,7 @@ from app.api.salary_grades import router as salary_grades_router
 from app.api.fixed_costs import router as fixed_costs_router
 from app.api.variable_costs import router as variable_costs_router
 from app.api.commission_structures import router as commission_structures_router
+from app.api.telegram_workflow import router as telegram_workflow_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -96,3 +98,4 @@ app.include_router(salary_grades_router, prefix="/api/v1")
 app.include_router(fixed_costs_router, prefix="/api/v1")
 app.include_router(variable_costs_router, prefix="/api/v1")
 app.include_router(commission_structures_router, prefix="/api/v1")
+app.include_router(telegram_workflow_router, prefix="/api/v1")

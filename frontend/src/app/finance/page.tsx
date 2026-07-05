@@ -8,38 +8,9 @@ import { api, SalaryGrade, FixedCost, VariableCost, CommissionStructure } from '
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
+import { DEMO_SALARY_GRADES, DEMO_FIXED_COSTS, DEMO_VARIABLE_COSTS, DEMO_COMMISSION_STRUCTURES as DEMO_COMMISSIONS } from '@/lib/demo-data';
 
 type Tab = 'salary-grades' | 'fixed-costs' | 'variable-costs' | 'commissions';
-
-// Demo data
-const DEMO_SALARY_GRADES: SalaryGrade[] = [
-  { id: 'sg-1', grade_name: 'Bac 1', base_salary: 8000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'sg-2', grade_name: 'Bac 2', base_salary: 10000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'sg-3', grade_name: 'Bac 3', base_salary: 12000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'sg-4', grade_name: 'Bac 4', base_salary: 15000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'sg-5', grade_name: 'Bac 5', base_salary: 20000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'sg-6', grade_name: 'Bac 6', base_salary: 25000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-];
-
-const DEMO_FIXED_COSTS: FixedCost[] = [
-  { id: 'fc-1', category: 'Tien mat bang', amount: 15000000, month: '2026-06', notes: 'Van phong Q1', created_at: '2026-06-01T00:00:00Z' },
-  { id: 'fc-2', category: 'Dien nuoc', amount: 3500000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
-  { id: 'fc-3', category: 'Internet', amount: 1200000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
-  { id: 'fc-4', category: 'Bao hiem office', amount: 2000000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
-];
-
-const DEMO_VARIABLE_COSTS: VariableCost[] = [
-  { id: 'vc-1', category: 'Di lai du an', amount: 5000000, month: '2026-06', notes: 'Xang xe thang 6', created_at: '2026-06-01T00:00:00Z' },
-  { id: 'vc-2', category: 'Vun thi cong', amount: 3200000, month: '2026-06', notes: 'Hao hut vat lieu', created_at: '2026-06-01T00:00:00Z' },
-];
-
-const DEMO_COMMISSIONS: CommissionStructure[] = [
-  { id: 'cs-1', department: 'sales', commission_type: 'design_contract', rate: 0.03, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'cs-2', department: 'sales', commission_type: 'construction_contract', rate: 0.02, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'cs-3', department: 'leader', commission_type: 'leader_override', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'cs-4', department: 'design', commission_type: 'design_fee', rate: 0.01, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'cs-5', department: 'pm', commission_type: 'project_value', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-];
 
 export default function FinancePage() {
   const { user, loading, isDemo } = useAuth();
@@ -168,7 +139,31 @@ export default function FinancePage() {
                 <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
                   <h3 className="text-sm font-bold">💰 Bac luong ({salaryGrades.length} bac)</h3>
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-3">
+                  {salaryGrades.map(g => {
+                    const totalDeduct = g.base_salary * (g.bhxh_rate + g.bhyt_rate + g.bhtn_rate) / 100;
+                    return (
+                      <div key={g.id} className="p-3 rounded-xl space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-sm">{g.grade_name}</span>
+                          <span className="text-emerald-400 font-mono font-bold text-sm">{formatCurrency(g.base_salary)}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div><span className="text-[var(--text-muted)]">BHXH</span><br/><span className="text-red-400 font-mono">{g.bhxh_rate}%</span></div>
+                          <div><span className="text-[var(--text-muted)]">BHYT</span><br/><span className="text-red-400 font-mono">{g.bhyt_rate}%</span></div>
+                          <div><span className="text-[var(--text-muted)]">BHTN</span><br/><span className="text-red-400 font-mono">{g.bhtn_rate}%</span></div>
+                        </div>
+                        <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          <span className="text-[var(--text-muted)]">Tong khau tru</span>
+                          <span className="text-amber-400 font-mono font-semibold">{formatCurrency(totalDeduct)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -203,12 +198,29 @@ export default function FinancePage() {
             {/* Fixed Costs Tab */}
             {tab === 'fixed-costs' && (
               <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <h3 className="text-sm font-bold">🏢 Chi phi co dinh — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-3">
+                  {fixedCosts.map(c => (
+                    <div key={c.id} className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div>
+                        <p className="font-medium text-sm">{c.category}</p>
+                        {c.notes && <p className="text-xs text-[var(--text-muted)] mt-0.5">{c.notes}</p>}
+                      </div>
+                      <span className="text-amber-400 font-mono font-bold text-sm">{formatCurrency(c.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid var(--gold-500)' }}>
+                    <span className="font-bold text-sm gold-gradient">TONG CONG</span>
+                    <span className="text-[var(--gold-400)] font-mono font-bold">{formatCurrency(totalFixedCosts)}</span>
+                  </div>
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -239,12 +251,34 @@ export default function FinancePage() {
             {/* Variable Costs Tab */}
             {tab === 'variable-costs' && (
               <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <h3 className="text-sm font-bold">📊 Chi phi bien phi — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-3">
+                  {variableCosts.length === 0 ? (
+                    <p className="text-center py-8 text-sm text-[var(--text-muted)]">Chua co chi phi bien phi</p>
+                  ) : variableCosts.map(c => (
+                    <div key={c.id} className="p-3 rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-sm">{c.category}</span>
+                        <span className="text-amber-400 font-mono font-bold text-sm">{formatCurrency(c.amount)}</span>
+                      </div>
+                      <div className="flex gap-3 text-xs text-[var(--text-muted)]">
+                        <span>📁 {c.project_id ? (projectMap[c.project_id] || 'Dự án chung') : 'Chung'}</span>
+                        {c.notes && <span>📝 {c.notes}</span>}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid var(--gold-500)' }}>
+                    <span className="font-bold text-sm gold-gradient">TONG CONG</span>
+                    <span className="text-[var(--gold-400)] font-mono font-bold">{formatCurrency(totalVariableCosts)}</span>
+                  </div>
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -283,7 +317,21 @@ export default function FinancePage() {
                 <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <h3 className="text-sm font-bold">🎁 Co cau hoa hong theo phong ban</h3>
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden p-3 space-y-3">
+                  {commissions.map(c => (
+                    <div key={c.id} className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div>
+                        <p className="font-medium text-sm capitalize">{c.department}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">{c.commission_type}</p>
+                        <p className="text-xs text-[var(--text-muted)]">Từ {c.effective_date}</p>
+                      </div>
+                      <span className="text-[var(--gold-400)] font-mono font-bold text-lg">{(c.rate * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>

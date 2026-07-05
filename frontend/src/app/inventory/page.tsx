@@ -5,22 +5,9 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
+import { DEMO_MATERIALS } from '@/lib/demo-data';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
-
-// Demo materials for when API is unavailable
-const DEMO_MATERIALS: Material[] = [
-  { id: 'demo-mat-001', code: 'VT-001', name: 'Gỗ MDF lõi xanh', category: 'wood', unit: 'tấm', unit_price: 350000, quantity_in_stock: 120, min_stock: 20, supplier: 'An Cương', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-002', code: 'VT-002', name: 'Sàn gỗ Egger 12mm', category: 'wood', unit: 'm²', unit_price: 650000, quantity_in_stock: 85, min_stock: 50, supplier: 'Egger Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-003', code: 'VT-003', name: 'Đá granite đen Ấn Độ', category: 'stone', unit: 'm²', unit_price: 1200000, quantity_in_stock: 45, min_stock: 15, supplier: 'Đá Hoàng Gia', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-004', code: 'VT-004', name: 'Sơn Dulux nội thất cao cấp', category: 'paint', unit: 'thùng', unit_price: 890000, quantity_in_stock: 30, min_stock: 10, supplier: 'AkzoNobel', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-005', code: 'VT-005', name: 'Inox 304 ống vuông 40x40', category: 'metal', unit: 'cây', unit_price: 285000, quantity_in_stock: 60, min_stock: 20, supplier: 'Inox Đại Dương', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-006', code: 'VT-006', name: 'Kính cường lực 10mm', category: 'glass', unit: 'm²', unit_price: 480000, quantity_in_stock: 35, min_stock: 10, supplier: 'Kính Hưng Thịnh', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-007', code: 'VT-007', name: 'Đèn LED panel 600x600', category: 'electrical', unit: 'cái', unit_price: 320000, quantity_in_stock: 8, min_stock: 15, supplier: 'Rạng Đông', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-008', code: 'VT-008', name: 'Vải sofa nhập Bỉ', category: 'fabric', unit: 'm', unit_price: 950000, quantity_in_stock: 40, min_stock: 10, supplier: 'Vải Hoàng Hà', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-009', code: 'VT-009', name: 'Ống PPR nóng 25mm', category: 'plumbing', unit: 'cây', unit_price: 125000, quantity_in_stock: 100, min_stock: 30, supplier: 'Vesbo', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-mat-010', code: 'VT-010', name: 'Bản lề giảm chấn Blum', category: 'furniture', unit: 'cái', unit_price: 85000, quantity_in_stock: 200, min_stock: 50, supplier: 'Blum Việt Nam', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-25T00:00:00Z' },
-];
 
 function fmtVND(n?: number) {
   if (!n) return '—';

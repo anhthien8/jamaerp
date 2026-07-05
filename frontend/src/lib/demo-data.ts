@@ -8,11 +8,12 @@ import type {
   Transaction, AccountingSummary, Commission, PayrollEntry,
   PipelineStats, PipelineKanban, DashboardExecutive, DashboardPersonal,
   Customer, Contract, Quotation, Material, MaterialUsage, AISuggestion,
+  SalaryGrade, FixedCost, VariableCost, CommissionStructure,
 } from './api';
 
 // ─── Users ──────────────────────────────────────────────
 export const DEMO_USERS: User[] = [
-  { id: 'demo-admin-001', full_name: 'Nguyễn Văn Admin', email: 'admin@jamahome.vn', phone: '0901234567', role: 'admin', department: 'EXEC', team_id: 'demo-team-04', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'demo-admin-001', full_name: 'Hồ Minh Tuấn', email: 'admin@jamahome.vn', phone: '0901234567', role: 'admin', department: 'EXEC', team_id: 'demo-team-04', is_active: true, created_at: '2026-01-01T00:00:00Z' },
   { id: 'demo-leader-001', full_name: 'Lê Văn Leader', email: 'leader@jamahome.vn', phone: '0909876543', role: 'leader', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-10T00:00:00Z' },
   { id: 'demo-sales-001', full_name: 'Trần Thị Sales', email: 'sales@jamahome.vn', phone: '0907654321', role: 'data_entry', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-15T00:00:00Z' },
   { id: 'demo-acct-001', full_name: 'Phạm Thị Kế Toán', email: 'accountant@jamahome.vn', phone: '0905555666', role: 'accountant', department: 'ACCT', is_active: true, created_at: '2026-01-20T00:00:00Z' },
@@ -302,7 +303,7 @@ export const DEMO_COMMISSIONS: Commission[] = [
 
 // ─── Payroll (3) ────────────────────────────────────────
 export const DEMO_PAYROLL: PayrollEntry[] = [
-  { id: 'demo-pay-001', user_id: 'demo-admin-001', user_name: 'Nguyễn Văn Admin', period: '2026-06', base_salary: 25000000, commission_total: 0, bonus: 0, deductions: 0, net_salary: 25000000, status: 'approved' },
+  { id: 'demo-pay-001', user_id: 'demo-admin-001', user_name: 'Hồ Minh Tuấn', period: '2026-06', base_salary: 25000000, commission_total: 0, bonus: 0, deductions: 0, net_salary: 25000000, status: 'approved' },
   { id: 'demo-pay-002', user_id: 'demo-leader-001', user_name: 'Lê Văn Leader', period: '2026-06', base_salary: 15000000, commission_total: 2500000, bonus: 2000000, deductions: 1500000, net_salary: 18000000, status: 'approved' },
   { id: 'demo-pay-003', user_id: 'demo-sales-001', user_name: 'Trần Thị Sales', period: '2026-06', base_salary: 8000000, commission_total: 10450000, bonus: 1000000, deductions: 1200000, net_salary: 18250000, status: 'approved' },
 ];
@@ -335,7 +336,7 @@ export const DEMO_DASHBOARD_EXECUTIVE: DashboardExecutive = {
   conversion_rate: 0,
   pipeline_value: 23168000000,
   total_contracts: 3,
-  total_contract_value: 3680000000,
+  total_contract_value: 264_900_000_000,
   active_projects: 3,
   avg_project_progress: 50,
   sla_compliance: 85.7,
@@ -349,27 +350,27 @@ export const DEMO_DASHBOARD_EXECUTIVE: DashboardExecutive = {
   stage_funnel: { new: 0, interested: 7, survey_scheduled: 2, potential: 0, signed_design: 0, lost: 0, dormant: 0 },
   monthly_trend: [],
   financial_summary: {
-    total_revenue_ytd: 8750000000,
-    total_cost_ytd: 4200000000,
-    net_profit_ytd: 4550000000,
-    roi: 108.3,
-    yoy_growth: 23.5,
-    avg_project_margin: 18.5,
-    cash_flow: 2100000000,
-    outstanding_receivable: 1800000000,
+    total_revenue_ytd: 264_900_000_000,
+    total_cost_ytd: 212_600_000_000,
+    net_profit_ytd: 52_300_000_000,
+    roi: 24.6,
+    yoy_growth: 35.2,
+    avg_project_margin: 19.7,
+    cash_flow: 38_500_000_000,
+    outstanding_receivable: 22_300_000_000,
   },
   forecast: {
-    q3_2026: 3200000000,
-    q4_2026: 4100000000,
-    full_year_2026: 15200000000,
-    full_year_2025: 12300000000,
+    q3_2026: 58_500_000_000,
+    q4_2026: 72_800_000_000,
+    full_year_2026: 420_000_000_000,
+    full_year_2025: 310_000_000_000,
   },
   growth_metrics: {
     lead_growth_rate: 15.2,
     conversion_improvement: 3.8,
-    avg_deal_size: 1200000000,
-    customer_acquisition_cost: 5000000,
-    customer_lifetime_value: 850000000,
+    avg_deal_size: 8_500_000_000,
+    customer_acquisition_cost: 25_000_000,
+    customer_lifetime_value: 15_800_000_000,
     pipeline_velocity: 35,
   },
   risk_hedging: {
@@ -533,14 +534,69 @@ export const DEMO_AI_SUGGESTIONS: AISuggestion[] = [
 
 // ─── P&L Summary ───────────────────────────────────────
 export const DEMO_PNL_SUMMARY = {
-  total_revenue: 3680000000,
-  total_costs: 982000000,
-  net_profit: 2698000000,
-  margin_pct: 73.3,
+  total_revenue: 264_900_000_000,
+  total_costs: 212_600_000_000,
+  net_profit: 52_300_000_000,
+  margin_pct: 19.7,
   revenue_by_project: [
-    { project_id: 'demo-proj-001', project_code: 'PRJ-2026-001', project_name: 'Nhà phố Q7 - Chị Mai', revenue: 500000000, costs: 375000000, profit: 125000000, margin_pct: 25.0, status: 'active' },
-    { project_id: 'demo-proj-002', project_code: 'PRJ-2026-002', project_name: 'Biệt thự Bình Chánh - Anh Tuấn', revenue: 2500000000, costs: 750000000, profit: 1750000000, margin_pct: 70.0, status: 'active' },
-    { project_id: 'demo-proj-003', project_code: 'PRJ-2026-003', project_name: 'Căn hộ Sunrise - Chị Hương', revenue: 180000000, costs: 162000000, profit: 18000000, margin_pct: 10.0, status: 'active' },
-    { project_id: 'demo-proj-005', project_code: 'PRJ-2026-005', project_name: 'Nhà phố Gò Vấp - Chị Lan', revenue: 680000000, costs: 374000000, profit: 306000000, margin_pct: 45.0, status: 'active' },
+    { project_id: 'proj-001', project_code: 'JMH-0601', project_name: 'Biệt thự An Lạc - Long An', revenue: 25_800_000_000, costs: 20_100_000_000, profit: 5_700_000_000, margin_pct: 22.1, status: 'active' },
+    { project_id: 'proj-002', project_code: 'JMH-0608', project_name: 'Villa Thảo Điền - Quận 2', revenue: 28_500_000_000, costs: 22_800_000_000, profit: 5_700_000_000, margin_pct: 20.0, status: 'active' },
+    { project_id: 'proj-003', project_code: 'JMH-0593', project_name: 'Penthouse Sky Garden - Quận 7', revenue: 22_300_000_000, costs: 17_400_000_000, profit: 4_900_000_000, margin_pct: 22.0, status: 'completed' },
+    { project_id: 'proj-004', project_code: 'JMH-0612', project_name: 'Biệt thự Phú Mỹ Hưng - Quận 7', revenue: 20_500_000_000, costs: 16_400_000_000, profit: 4_100_000_000, margin_pct: 20.0, status: 'active' },
+    { project_id: 'proj-005', project_code: 'JMH-0618', project_name: 'Villa Riviera - Quận 2', revenue: 24_200_000_000, costs: 18_700_000_000, profit: 5_500_000_000, margin_pct: 22.7, status: 'active' },
+    { project_id: 'proj-006', project_code: 'JMH-0587', project_name: 'Nhà phố Sunrise - Quận 7', revenue: 15_500_000_000, costs: 12_400_000_000, profit: 3_100_000_000, margin_pct: 20.0, status: 'active' },
+    { project_id: 'proj-007', project_code: 'JMH-0595', project_name: 'Căn hộ Penthouse - Thủ Đức', revenue: 12_200_000_000, costs: 9_500_000_000, profit: 2_700_000_000, margin_pct: 22.1, status: 'completed' },
+    { project_id: 'proj-008', project_code: 'JMH-0610', project_name: 'Villa The Manor - Bình Chánh', revenue: 11_800_000_000, costs: 9_400_000_000, profit: 2_400_000_000, margin_pct: 20.3, status: 'active' },
+    { project_id: 'proj-009', project_code: 'JMH-0622', project_name: 'Nhà phố Lakeview - Quận 9', revenue: 9_500_000_000, costs: 7_600_000_000, profit: 1_900_000_000, margin_pct: 20.0, status: 'active' },
+    { project_id: 'proj-010', project_code: 'JMH-0578', project_name: 'Căn hộ Vinhomes Central Park', revenue: 14_200_000_000, costs: 11_400_000_000, profit: 2_800_000_000, margin_pct: 19.7, status: 'completed' },
+    { project_id: 'proj-011', project_code: 'JMH-0603', project_name: 'Duplex Masteri Thảo Điền', revenue: 8_800_000_000, costs: 7_000_000_000, profit: 1_800_000_000, margin_pct: 20.5, status: 'active' },
+    { project_id: 'proj-012', project_code: 'JMH-0585', project_name: 'Nhà phố Mega Village - Quận 9', revenue: 7_500_000_000, costs: 6_000_000_000, profit: 1_500_000_000, margin_pct: 20.0, status: 'completed' },
+    { project_id: 'proj-013', project_code: 'JMH-0625', project_name: 'Căn hộ Diamond Island - Quận 2', revenue: 10_800_000_000, costs: 8_600_000_000, profit: 2_200_000_000, margin_pct: 20.4, status: 'active' },
+    { project_id: 'proj-014', project_code: 'JMH-0575', project_name: 'Căn hộ The Sun Avenue - Quận 2', revenue: 5_500_000_000, costs: 4_400_000_000, profit: 1_100_000_000, margin_pct: 20.0, status: 'completed' },
+    { project_id: 'proj-015', project_code: 'JMH-0582', project_name: 'Studio Gateway Thảo Điền', revenue: 3_200_000_000, costs: 2_600_000_000, profit: 600_000_000, margin_pct: 18.8, status: 'completed' },
+    { project_id: 'proj-016', project_code: 'JMH-0598', project_name: 'Căn hộ Saigon Pearl - Bình Thạnh', revenue: 4_800_000_000, costs: 3_800_000_000, profit: 1_000_000_000, margin_pct: 20.8, status: 'active' },
+    { project_id: 'proj-017', project_code: 'JMH-0614', project_name: 'Nhà phố Bình Thạnh - Chị Hương', revenue: 4_500_000_000, costs: 3_600_000_000, profit: 900_000_000, margin_pct: 20.0, status: 'completed' },
+    { project_id: 'proj-018', project_code: 'JMH-0628', project_name: 'Văn phòng Quận 1 - Interior', revenue: 3_800_000_000, costs: 3_000_000_000, profit: 800_000_000, margin_pct: 21.1, status: 'active' },
+    { project_id: 'proj-019', project_code: 'JMH-0632', project_name: 'Căn hộ Estella Heights - Quận 2', revenue: 6_200_000_000, costs: 5_000_000_000, profit: 1_200_000_000, margin_pct: 19.4, status: 'active' },
+    { project_id: 'proj-020', project_code: 'JMH-0572', project_name: 'Sửa chữa VP Tân Bình', revenue: 2_500_000_000, costs: 2_000_000_000, profit: 500_000_000, margin_pct: 20.0, status: 'completed' },
+    { project_id: 'proj-021', project_code: 'JMH-0635', project_name: 'Căn hộ Midtown Phú Mỹ Hưng', revenue: 4_800_000_000, costs: 3_800_000_000, profit: 1_000_000_000, margin_pct: 20.8, status: 'active' },
+    { project_id: 'proj-022', project_code: 'JMH-0640', project_name: 'Nhà phố Gò Vấp - Chị Lan', revenue: 3_500_000_000, costs: 2_800_000_000, profit: 700_000_000, margin_pct: 20.0, status: 'active' },
+    { project_id: 'proj-023', project_code: 'JMH-0616', project_name: 'Căn hộ Masteri An Phú', revenue: 5_200_000_000, costs: 4_200_000_000, profit: 1_000_000_000, margin_pct: 19.2, status: 'active' },
+    { project_id: 'proj-024', project_code: 'JMH-0615', project_name: 'Shophouse Bến Thành - Quận 1', revenue: 6_500_000_000, costs: 6_900_000_000, profit: -400_000_000, margin_pct: -6.2, status: 'at_risk' },
+    { project_id: 'proj-025', project_code: 'JMH-0630', project_name: 'Căn hộ Quận 8 - Renovation', revenue: 2_800_000_000, costs: 3_200_000_000, profit: -400_000_000, margin_pct: -14.3, status: 'at_risk' },
   ],
 };
+
+// ─── Salary Grades (Finance) ────────────────────────────
+export const DEMO_SALARY_GRADES: SalaryGrade[] = [
+  { id: 'sg-1', grade_name: 'Bac 1', base_salary: 8000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'sg-2', grade_name: 'Bac 2', base_salary: 10000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'sg-3', grade_name: 'Bac 3', base_salary: 12000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'sg-4', grade_name: 'Bac 4', base_salary: 15000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'sg-5', grade_name: 'Bac 5', base_salary: 20000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'sg-6', grade_name: 'Bac 6', base_salary: 25000000, bhxh_rate: 10.5, bhxh_company_rate: 21.5, bhyt_rate: 1.5, bhtn_rate: 1.0, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+];
+
+// ─── Fixed Costs (Finance) ──────────────────────────────
+export const DEMO_FIXED_COSTS: FixedCost[] = [
+  { id: 'fc-1', category: 'Tien mat bang', amount: 15000000, month: '2026-06', notes: 'Van phong Q1', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'fc-2', category: 'Dien nuoc', amount: 3500000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'fc-3', category: 'Internet', amount: 1200000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'fc-4', category: 'Bao hiem office', amount: 2000000, month: '2026-06', created_at: '2026-06-01T00:00:00Z' },
+];
+
+// ─── Variable Costs (Finance) ───────────────────────────
+export const DEMO_VARIABLE_COSTS: VariableCost[] = [
+  { id: 'vc-1', category: 'Di lai du an', amount: 5000000, month: '2026-06', notes: 'Xang xe thang 6', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'vc-2', category: 'Vun thi cong', amount: 3200000, month: '2026-06', notes: 'Hao hut vat lieu', created_at: '2026-06-01T00:00:00Z' },
+];
+
+// ─── Commission Structures (Finance) ────────────────────
+export const DEMO_COMMISSION_STRUCTURES: CommissionStructure[] = [
+  { id: 'cs-1', department: 'sales', commission_type: 'design_contract', rate: 0.03, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'cs-2', department: 'sales', commission_type: 'construction_contract', rate: 0.02, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'cs-3', department: 'leader', commission_type: 'leader_override', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'cs-4', department: 'design', commission_type: 'design_fee', rate: 0.01, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'cs-5', department: 'pm', commission_type: 'project_value', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+];
+
