@@ -8,6 +8,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
+import AccessDenied from '@/components/ui/AccessDenied';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Đang thực hiện', color: '#10B981' },
@@ -42,30 +43,6 @@ const taskStatusConfig: Record<string, { label: string; color: string; icon: str
   completed: { label: 'Hoàn thành', color: '#3B82F6', icon: '✅' },
 };
 
-function AccessDenied() {
-  const router = useRouter();
-  return (
-    <Sidebar>
-      <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
-        <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
-          <p className="text-sm text-[var(--text-muted)] mb-6">
-            Bạn không có quyền truy cập trang này.
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
-          >
-            Quay về Dashboard
-          </button>
-        </div>
-      </div>
-    </Sidebar>
-  );
-}
-
 export default function ProjectsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -80,14 +57,6 @@ export default function ProjectsPage() {
   const [filterQuarter, setFilterQuarter] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [searchProject, setSearchProject] = useState('');
-
-  // Cross-project task board (Feature 1)
-  const [allTasks, setAllTasks] = useState<(ProjectTask & { project_code?: string; project_name?: string })[]>([]);
-  const [loadingAllTasks, setLoadingAllTasks] = useState(false);
-  const [taskFilterProject, setTaskFilterProject] = useState('all');
-  const [taskFilterDept, setTaskFilterDept] = useState('all');
-  const [taskFilterAssigned, setTaskFilterAssigned] = useState('all');
-  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);

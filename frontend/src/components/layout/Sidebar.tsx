@@ -153,6 +153,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 relative"
               style={{
                 background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',
@@ -188,6 +189,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 relative"
                   style={{
                     background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',

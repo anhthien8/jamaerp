@@ -4,9 +4,16 @@ import re
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from bot.api_client import api
+
+
+class RejectState(StatesGroup):
+    """FSM state for collecting reject reason."""
+    waiting_reason = State()
 
 router = Router()
 
@@ -153,27 +160,80 @@ async def callback_approve_material(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("mat_reject:"))
-async def callback_reject_material(callback: CallbackQuery):
+async def callback_reject_material(callback: CallbackQuery, state: FSMContext):
     """Handle reject button press from Thu mua / Ke toan."""
     request_id = callback.data.split(":", 1)[1]
 
-    # Ask for reason
+    # Store request_id in FSM state and ask for reason
+    await state.update_data(reject_request_id=request_id)
+    await state.set_state(RejectState.waiting_reason)
+
     await callback.message.answer(
         f"❌ <b>Từ chối yêu cầu</b>\n\n"
         f"Gửi lý do từ chối (hoặc gửi <code>/skip</code> để bỏ qua):\n"
         f"Mã yêu cầu: <code>{request_id[:8]}</code>"
     )
 
-    # Store the request_id in a simple way via callback data
-    # We'll use a follow-up message handler
     await callback.answer()
 
 
-@router.message(Command("skip"))
-async def cmd_skip(message: types.Message):
-    """Skip providing reject reason — this is a simple handler."""
-    # This is a simplified flow; in production you'd use FSM
-    await message.answer("Đã bỏ qua lý do. Yêu cầu đã được xử lý.")
+@router.message(Command("skip"), RejectState.waiting_reason)
+async def cmd_skip(message: types.Message, state: FSMContext):
+    """Skip providing reject reason — reject without a reason."""
+    data = await state.get_data()
+    request_id = data.get("reject_request_id")
+    await state.clear()
+
+    if not request_id:
+        await message.answer("Không tìm thấy yêu cầu để từ chối.")
+        return
+
+    result = await api.reject_material(message.from_user.id, request_id, reason=None)
+
+    if not result:
+        await message.answer("❌ Lỗi kết nối server khi từ chối.")
+        return
+    if result.get("error"):
+        await message.answer(f"❌ <b>Lỗi:</b> {result['error']}")
+        return
+
+    await message.answer(
+        f"❌ <b>Đã từ chối yêu cầu vật tư</b>\n\n"
+        f"🆔 Mã: <code>{request_id[:8]}</code>\n"
+        f"👤 Xử lý bởi: {result.get('approver', '—')}\n"
+        f"🕐 Thời gian: {result.get('resolved_at', '—')}"
+    )
+
+
+@router.message(RejectState.waiting_reason)
+async def process_reject_reason(message: types.Message, state: FSMContext):
+    """Catch the reject reason text, call API, show confirmation."""
+    data = await state.get_data()
+    request_id = data.get("reject_request_id")
+    reason = message.text.strip() if message.text else None
+    await state.clear()
+
+    if not request_id:
+        await message.answer("Không tìm thấy yêu cầu để từ chối.")
+        return
+
+    result = await api.reject_material(message.from_user.id, request_id, reason=reason)
+
+    if not result:
+        await message.answer("❌ Lỗi kết nối server khi từ chối.")
+        return
+    if result.get("error"):
+        await message.answer(f"❌ <b>Lỗi:</b> {result['error']}")
+        return
+
+    reason_line = f"\n📝 Lý do: {reason}" if reason else ""
+    await message.answer(
+        f"❌ <b>Đã từ chối yêu cầu vật tư</b>\n\n"
+        f"🆔 Mã: <code>{request_id[:8]}</code>\n"
+        f"👤 Xử lý bởi: {result.get('approver', '—')}\n"
+        f"🕐 Thời gian: {result.get('resolved_at', '—')}"
+        f"{reason_line}"
+    )
 
 
 # ---------------------------------------------------------------------------

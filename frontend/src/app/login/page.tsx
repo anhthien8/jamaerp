@@ -123,7 +123,7 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+              <label htmlFor="login-email" className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Email
               </label>
               <input
@@ -140,7 +140,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+              <label htmlFor="login-password" className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Mật khẩu
               </label>
               <input
@@ -186,7 +186,7 @@ export default function LoginPage() {
 
           {/* Demo Credentials — only visible in demo mode */}
           {selectedMode === 'demo' && (
-            <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }} open>
+            <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
               <summary className="cursor-pointer px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors select-none flex items-center gap-2">
                 <span>&#x1F511;</span> Tài khoản demo
               </summary>

@@ -11,7 +11,7 @@ import { getPermissions, UserRole } from '@/lib/roles';
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [data, setData] = useState<DashboardExecutive | null>(null);
+  const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -20,13 +20,12 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  // NOTE: This always fetches the executive dashboard regardless of the user's role.
-  // Personal users get their data via the same endpoint with role-based filtering on the backend.
-  // Fixing this properly would require separate API calls per role (getPersonalDashboard vs
-  // getExecutiveDashboard) and conditional rendering per dashboardType -- deferred to a future sprint.
   useEffect(() => {
     if (user) {
-      api.getExecutiveDashboard()
+      const fetchFn = user.role === 'executive' || user.role === 'admin'
+        ? api.getExecutiveDashboard()
+        : api.getPersonalDashboard();
+      fetchFn
         .then(setData)
         .catch((e) => setError(e.message));
     }
@@ -282,7 +281,7 @@ export default function DashboardPage() {
                   { team: 'Đội Huỳnh Trần', total_leads: 8, signed: 2, conversion: 25.0 },
                   { team: 'Đội Huỳnh Tiến', total_leads: 7, signed: 1, conversion: 14.3 },
                   { team: 'Đội Lưu Mạnh Hồng', total_leads: 5, signed: 0, conversion: 0 },
-                ]).map((team, i) => (
+                ]).map((team: { team: string; total_leads: number; signed: number; conversion: number }, i: number) => (
                   <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
                     <div className="w-8 h-8 rounded-lg bg-[#1A535C] flex items-center justify-center text-sm">
                       {i + 1}

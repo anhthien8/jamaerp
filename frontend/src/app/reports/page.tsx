@@ -7,30 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, DashboardExecutive, AccountingSummary } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
-
-function AccessDenied() {
-  const router = useRouter();
-  return (
-    <Sidebar>
-      <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
-        <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
-          <p className="text-sm text-[var(--text-muted)] mb-6">
-            Trang này chỉ dành cho Ban Giám đốc, Kế toán và Ban Quản trị.
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
-          >
-            Quay về Dashboard
-          </button>
-        </div>
-      </div>
-    </Sidebar>
-  );
-}
+import AccessDenied from '@/components/ui/AccessDenied';
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();

@@ -27,6 +27,11 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Security: ensure JWT secret is configured
+    if not settings.JWT_SECRET_KEY:
+        print("[FATAL] JWT_SECRET_KEY is not set. Please set it in .env — refusing to start.")
+        raise RuntimeError("JWT_SECRET_KEY must be set in environment")
+
     # Auto-seed
     from app.database import async_session
     from app.seed import seed_database

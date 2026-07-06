@@ -99,18 +99,24 @@ async def list_leads(
     count_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
+    # Build activity count subquery to avoid N+1 queries
+    act_count_sq = (
+        select(Activity.lead_id, func.count(Activity.id).label("activity_count"))
+        .group_by(Activity.lead_id)
+        .subquery()
+    )
+
+    q = q.outerjoin(act_count_sq, Lead.id == act_count_sq.c.lead_id)
+    q = q.add_columns(act_count_sq.c.activity_count)
+
     q = q.order_by(Lead.updated_at.desc())
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     rows = result.all()
 
     leads = []
-    for lead, user_name, team_name in rows:
-        # Count activities
-        act_q = select(func.count(Activity.id)).where(Activity.lead_id == lead.id)
-        act_result = await db.execute(act_q)
-        act_count = act_result.scalar() or 0
-        leads.append(_lead_response(lead, user_name, team_name, act_count))
+    for lead, user_name, team_name, act_count in rows:
+        leads.append(_lead_response(lead, user_name, team_name, act_count or 0))
 
     return {
         "items": leads,

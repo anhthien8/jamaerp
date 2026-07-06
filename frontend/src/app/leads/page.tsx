@@ -59,7 +59,7 @@ function TagBadge({ tag }: { tag: string }) {
   const color = TAG_COLORS[tag] || '#6B7280';
   return (
     <span
-      className="inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+      className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full font-medium"
       style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}
     >
       {tag}
