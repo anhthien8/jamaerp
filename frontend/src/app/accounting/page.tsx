@@ -397,6 +397,17 @@ export default function AccountingPage() {
                       </button>
                     </div>
 
+                    {/* Create Transaction */}
+                    {perms?.canViewAccounting && (
+                      <button
+                        onClick={openTxForm}
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                        style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
+                      >
+                        + Giao dịch mới
+                      </button>
+                    )}
+
                     {/* Export CSV */}
                     <button
                       onClick={() => {
@@ -721,6 +732,131 @@ export default function AccountingPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── Create Transaction Modal ── */}
+        {showTxForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTxForm(false)}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative glass-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold mb-4 gold-gradient">Tạo giao dịch mới</h3>
+
+              {/* Type toggle */}
+              <div className="flex gap-2 mb-4">
+                {[
+                  { key: 'income', label: 'Thu nhập', color: '#10B981' },
+                  { key: 'expense', label: 'Chi phí', color: '#EF4444' },
+                ].map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTxForm(f => ({ ...f, type: t.key }))}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: txForm.type === t.key ? `${t.color}20` : 'var(--surface-2)',
+                      border: `1px solid ${txForm.type === t.key ? t.color : 'var(--border-subtle)'}`,
+                      color: txForm.type === t.key ? t.color : 'var(--text-muted)',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Danh mục</label>
+                <select
+                  value={txForm.category}
+                  onChange={e => setTxForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                >
+                  <option value="design_contract">HĐ Thiết kế</option>
+                  <option value="construction_contract">HĐ Thi công</option>
+                  <option value="material">Vật tư</option>
+                  <option value="labor">Nhân công</option>
+                  <option value="salary">Lương</option>
+                  <option value="commission">Hoa hồng</option>
+                  <option value="rent">Tiền mặt bằng</option>
+                  <option value="utilities">Điện nước</option>
+                  <option value="other">Khác</option>
+                </select>
+              </div>
+
+              {/* Description */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Mô tả</label>
+                <input
+                  type="text"
+                  value={txForm.description}
+                  onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Nhập mô tả giao dịch..."
+                  className="w-full px-3 py-2.5 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Amount */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Số tiền (VND)</label>
+                <input
+                  type="text"
+                  value={txAmountDisplay}
+                  onChange={e => handleTxAmountChange(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: txForm.type === 'income' ? '#10B981' : '#EF4444' }}
+                />
+              </div>
+
+              {/* Date */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày</label>
+                <input
+                  type="date"
+                  value={txForm.date}
+                  onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Project (optional) */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Liên kết dự án (tùy chọn)</label>
+                <select
+                  value={txForm.project_id}
+                  onChange={e => setTxForm(f => ({ ...f, project_id: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                >
+                  <option value="">Không liên kết</option>
+                  {activeProjects.map(p => (
+                    <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTxForm(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleCreateTransaction}
+                  disabled={savingTx || !txForm.description.trim() || !txForm.amount}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
+                >
+                  {savingTx ? 'Đang lưu...' : 'Tạo giao dịch'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </Sidebar>

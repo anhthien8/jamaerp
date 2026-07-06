@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import SearchModal from '@/components/ui/SearchModal';
-import NotificationCenter, { useNotificationCount } from '@/components/ui/NotificationCenter';
+import NotificationCenter from '@/components/ui/NotificationCenter';
+import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
 import { api, extractItems } from '@/lib/api';
 import type { Lead, Project } from '@/lib/api';
@@ -467,6 +468,12 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
       {/* Global Search Modal */}
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Notification Center */}
+      <NotificationCenter />
+
+      {/* Onboarding Checklist (first login) */}
+      <OnboardingChecklist />
     </div>
   );
 }

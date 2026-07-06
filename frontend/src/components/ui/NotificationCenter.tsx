@@ -124,8 +124,8 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
 // ── Main component ───────────────────────────────────────────────────
 
 interface NotificationCenterProps {
-  leads: Lead[];
-  projects: Project[];
+  leads?: Lead[];
+  projects?: Project[];
   /** Called when unread count changes so the bell badge can update. */
   onCountChange?: (count: number) => void;
 }
@@ -136,11 +136,28 @@ export function useNotificationCount(leads: Lead[], projects: Project[]): number
   return notifs.filter(n => !n.read).length;
 }
 
-export default function NotificationCenter({ leads, projects, onCountChange }: NotificationCenterProps) {
+export default function NotificationCenter({ leads: leadsProp, projects: projectsProp, onCountChange }: NotificationCenterProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [readIds, setReadIdsState] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
+  const [internalLeads, setInternalLeads] = useState<Lead[]>([]);
+  const [internalProjects, setInternalProjects] = useState<Project[]>([]);
+
+  const leads = leadsProp ?? internalLeads;
+  const projects = projectsProp ?? internalProjects;
+
+  // Auto-fetch if not provided
+  useEffect(() => {
+    if (!leadsProp) {
+      import('@/lib/api').then(({ api, extractItems }) => {
+        Promise.all([
+          api.getLeads().then(r => setInternalLeads(extractItems(r))),
+          api.getProjects().then(r => setInternalProjects(extractItems(r))),
+        ]).catch(() => {});
+      });
+    }
+  }, [leadsProp]);
 
   // Load read IDs on mount
   useEffect(() => {
