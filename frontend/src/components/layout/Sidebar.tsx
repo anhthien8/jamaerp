@@ -12,147 +12,52 @@ import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
 import { api, extractItems } from '@/lib/api';
 import type { Lead, Project } from '@/lib/api';
 
-const NAV_SECTIONS = [
-  {
-    label: 'CRM',
-    items: [
-      {
-        href: '/',
-        label: 'Dashboard',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          </svg>
-        ),
-      },
-      {
-        href: '/leads',
-        label: 'Pipeline',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
-        ),
-      },
-      {
-        href: '/projects',
-        label: 'Dự án',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7-6H4a2 2 0 0 0-2 2v16z" />
-            <path d="M14 2v6h6" />
-          </svg>
-        ),
-      },
-      {
-        href: '/customers',
-        label: 'Khách hàng',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: 'ERP',
-    items: [
-      {
-        href: '/contracts',
-        label: 'Hợp đồng',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
-          </svg>
-        ),
-      },
-      {
-        href: '/quotations',
-        label: 'Báo giá',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 5H2v7l6.29 6.29c.94.94 2.48.94 3.42 0l4.58-4.58c.94-.94.94-2.48 0-3.42L9 5z" /><circle cx="6" cy="9" r="1" />
-          </svg>
-        ),
-      },
-      {
-        href: '/inventory',
-        label: 'Kho vật tư',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-        ),
-      },
-      {
-        href: '/accounting',
-        label: 'Kế toán',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 1v22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-        ),
-      },
-      {
-        href: '/hr',
-        label: 'Nhân sự',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-          </svg>
-        ),
-      },
-      {
-        href: '/pl',
-        label: 'P&L',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-        ),
-        requiresPnL: true,
-      },
-      {
-        href: '/finance',
-        label: 'Finance',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-          </svg>
-        ),
-        requiresFinance: true,
-      },
-    ],
-  },
-  {
-    label: 'Hệ thống',
-    items: [
-      {
-        href: '/reports',
-        label: 'Báo cáo',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
-          </svg>
-        ),
-      },
-      {
-        href: '/settings',
-        label: 'Cài đặt',
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        ),
-      },
-    ],
-  },
+// ── SVG Icons (reusable) ──────────────────────────────────────────────
+const Icon = {
+  dashboard: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
+  pipeline: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
+  projects: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7-6H4a2 2 0 0 0-2 2v16z" /><path d="M14 2v6h6" /></svg>,
+  customers: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  contracts: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
+  quotations: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H2v7l6.29 6.29c.94.94 2.48.94 3.42 0l4.58-4.58c.94-.94.94-2.48 0-3.42L9 5z" /><circle cx="6" cy="9" r="1" /></svg>,
+  inventory: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>,
+  accounting: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1v22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  hr: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
+  pnl: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  finance: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>,
+  reports: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>,
+  settings: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
+  more: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>,
+};
+
+// ── All nav items (flat list) ────────────────────────────────────────
+const ALL_ITEMS = [
+  { href: '/', label: 'Dashboard', icon: Icon.dashboard },
+  { href: '/leads', label: 'Pipeline', icon: Icon.pipeline, perm: 'canViewLeads' },
+  { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
+  { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
+  { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
+  { href: '/quotations', label: 'Báo giá', icon: Icon.quotations, perm: 'canViewQuotations' },
+  { href: '/inventory', label: 'Kho vật tư', icon: Icon.inventory, perm: 'canViewInventory' },
+  { href: '/accounting', label: 'Kế toán', icon: Icon.accounting, perm: 'canViewAccounting' },
+  { href: '/hr', label: 'Nhân sự', icon: Icon.hr, perm: 'canViewHR' },
+  { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
+  { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
+  { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
+  { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
+
+// ── Role → essential items (KISS: only show what matters most) ───────
+const ROLE_ESSENTIALS: Record<string, string[]> = {
+  admin:      ['/', '/leads', '/projects', '/contracts', '/accounting'],
+  executive:  ['/', '/projects', '/pl', '/reports'],
+  leader:     ['/', '/leads', '/projects', '/reports'],
+  data_entry: ['/', '/leads', '/projects', '/contracts'],
+  designer:   ['/', '/projects', '/quotations'],
+  pm:         ['/', '/projects', '/inventory', '/contracts'],
+  accountant: ['/', '/accounting', '/pl', '/finance'],
+  purchasing: ['/', '/projects', '/inventory'],
+};
 
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -188,26 +93,21 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     void Promise.resolve().then(() => setMobileOpen(false));
   }, [pathname]);
 
-  // Filter nav sections based on user role (must be above early return to respect rules-of-hooks)
+  // KISS: Split nav into essential items (always visible) + extra items (expandable)
   const perms = user ? getPermissions(user.role as UserRole) : null;
-  const filteredSections = useMemo(() => {
-    if (!perms) return [];
-    return NAV_SECTIONS.map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        if (item.href === '/leads' && !perms.canViewLeads) return false;
-        if (item.href === '/accounting' && !perms.canViewAccounting) return false;
-        if (item.href === '/hr' && !perms.canViewHR) return false;
-        if (item.href === '/contracts' && !perms.canViewContracts) return false;
-        if (item.href === '/quotations' && !perms.canViewQuotations) return false;
-        if (item.href === '/inventory' && !perms.canViewInventory) return false;
-        if (item.href === '/reports' && !perms.canViewReports) return false;
-        if ('requiresPnL' in item && !perms.canViewPnL) return false;
-        if ('requiresFinance' in item && !perms.canViewAccounting) return false;
-        return true;
-      }),
-    })).filter(section => section.items.length > 0);
-  }, [perms]);
+  const [showMore, setShowMore] = useState(false);
+
+  const { essentialItems, extraItems } = useMemo(() => {
+    if (!perms) return { essentialItems: [], extraItems: [] };
+    const allowed = ALL_ITEMS.filter(item => {
+      if (!item.perm) return true;
+      return (perms as any)[item.perm] === true;
+    });
+    const essentialHrefs = ROLE_ESSENTIALS[user?.role || 'admin'] || ROLE_ESSENTIALS.admin;
+    const essential = allowed.filter(item => essentialHrefs.includes(item.href));
+    const extra = allowed.filter(item => !essentialHrefs.includes(item.href));
+    return { essentialItems: essential, extraItems: extra };
+  }, [perms, user?.role]);
 
   if (!user) return <>{children}</>;
   const sidebarContent = (
@@ -247,52 +147,65 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-        {filteredSections.map((section) => (
-          <div key={section.label} className="mb-2">
-            {!collapsed && (
-              <p className="text-overline text-[var(--text-disabled)] px-3 mb-1 mt-2" style={{ fontSize: '0.6rem', letterSpacing: '0.08em' }}>{section.label}</p>
-            )}
-            {section.items.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href));
+      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+        {/* Essential items — always visible */}
+        {essentialItems.map((item) => {
+          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 relative"
+              style={{
+                background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',
+                color: isActive ? 'var(--gold-400)' : 'var(--text-tertiary)',
+              }}
+              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)'; } }}
+            >
+              {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
+              <span className="flex-shrink-0">{item.icon}</span>
+              {!collapsed && <span className="font-medium">{item.label}</span>}
+            </Link>
+          );
+        })}
+
+        {/* "Xem thêm" toggle — only when there are extra items */}
+        {extraItems.length > 0 && !collapsed && (
+          <>
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm w-full transition-all duration-200"
+              style={{ color: 'var(--text-disabled)' }}
+            >
+              <span className="flex-shrink-0 transition-transform duration-200" style={{ transform: showMore ? 'rotate(90deg)' : 'rotate(0deg)' }}>{Icon.more}</span>
+              <span className="font-medium">{showMore ? 'Thu gọn' : 'Xem thêm'}</span>
+              {!showMore && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-disabled)' }}>{extraItems.length}</span>}
+            </button>
+
+            {/* Extra items — expandable */}
+            {showMore && extraItems.map((item) => {
+              const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 group relative"
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 relative"
                   style={{
-                    background: isActive ? 'rgba(201, 169, 110, 0.1)' : 'transparent',
-                    color: isActive ? 'var(--gold-400)' : 'var(--text-tertiary)',
+                    background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',
+                    color: isActive ? 'var(--gold-400)' : 'var(--text-disabled)',
                   }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-tertiary)';
-                    }
-                  }}
+                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-disabled)'; } }}
                 >
-                  {isActive && (
-                    <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                      style={{ background: 'var(--gold-500)' }}
-                    />
-                  )}
+                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
                   <span className="flex-shrink-0">{item.icon}</span>
-                  {!collapsed && (
-                    <span className="font-medium">{item.label}</span>
-                  )}
+                  <span className="font-medium">{item.label}</span>
                 </Link>
               );
             })}
-          </div>
-        ))}
+          </>
+        )}
       </nav>
 
       {/* Mode Toggle Badge */}

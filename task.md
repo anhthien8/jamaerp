@@ -83,8 +83,9 @@
 - `[x]` `/checkin [Mã]` / `/checkout [Mã]` — GPS check-in/out
 - `[x]` `/cancel` — Clear FSM state
 
-## 10. Unit Tests - [CẦN HOÀN THÀNH ⏳]
-- `[ ]` Backend tests for P&L calculation
-- `[ ]` Backend tests for lead scoring
-- `[ ]` Backend tests for auth + RBAC
-- `[ ]` Backend tests for Telegram workflow API
+## 10. Unit Tests - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` Backend tests for P&L calculation (`backend/tests/test_pl.py` — 16 tests)
+- `[x]` Backend tests for lead scoring (`backend/tests/test_lead_scoring.py` — 14 tests)
+- `[x]` Backend tests for auth + RBAC (`backend/tests/test_auth_rbac.py` — 18 tests)
+- `[x]` Backend tests for Telegram workflow API (`backend/tests/test_telegram_workflow.py` — 16 tests)
+- Total: 64 tests, all passing
