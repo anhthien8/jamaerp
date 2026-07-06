@@ -20,6 +20,12 @@ class CheckoutState(StatesGroup):
     waiting_location = State()
 
 
+@router.message(Command("cancel"))
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Đã hủy. Gõ lệnh để bắt đầu lại.")
+
+
 # ---------------------------------------------------------------------------
 # /checkin — GPS check-in at project site
 # ---------------------------------------------------------------------------

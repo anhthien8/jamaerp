@@ -385,7 +385,7 @@ async def change_stage(
                     title=title,
                     description=desc,
                     stage=tstage,
-                    status="todo",
+                    status="not_started",
                     order=order,
                 )
                 db.add(task)

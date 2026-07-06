@@ -84,6 +84,7 @@ class IncidentRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=5000)
     severity: str = Field(default="high", pattern=r"^(low|medium|high|critical)$")
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
+    photos: list[str] = Field(default_factory=list)
 
 
 class CheckinRequest(BaseModel):

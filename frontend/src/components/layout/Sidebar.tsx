@@ -9,8 +9,6 @@ import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
-import { api, extractItems } from '@/lib/api';
-import type { Lead, Project } from '@/lib/api';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {

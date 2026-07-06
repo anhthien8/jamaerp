@@ -16,6 +16,12 @@ class IncidentState(StatesGroup):
     collecting_photos = State()
 
 
+@router.message(Command("cancel"))
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Đã hủy. Gõ lệnh để bắt đầu lại.")
+
+
 # ---------------------------------------------------------------------------
 # /suco — Report incident
 # ---------------------------------------------------------------------------

@@ -257,8 +257,8 @@ class BackgroundWorker:
         """Coordinate pending CRM tasks (reminders, follow-ups, escalations)."""
         logger.info("Running task coordination...")
         try:
-            from app.agents.task_coordinator import process_pending_tasks
-            result = await process_pending_tasks()
+            from app.agents.task_coordinator import coordinate_tasks
+            result = await coordinate_tasks()
             return {"status": "completed", "result": result}
         except Exception as exc:
             logger.exception("Task coordination failed: %s", exc)

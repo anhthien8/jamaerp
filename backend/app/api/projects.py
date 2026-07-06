@@ -63,6 +63,16 @@ async def require_project_access(
 class ProjectStageUpdate(BaseModel):
     stage: str
 
+class TaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    stage: str = "design"
+    department: str | None = None
+    assigned_to: str | None = None
+    order: int = 0
+    status: str = "not_started"
+
+
 class TaskStatusUpdate(BaseModel):
     status: str
 
@@ -210,6 +220,36 @@ async def list_tasks(
     result = await db.execute(q)
     tasks = result.scalars().all()
     return [TaskResponse.model_validate(t) for t in tasks]
+
+
+@router.post("/{project_id}/tasks", response_model=TaskResponse)
+async def create_task(
+    project_id: str,
+    data: TaskCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new task under a project — admin, leader, pm only."""
+    if current_user.role not in ("admin", "leader", "pm"):
+        raise HTTPException(status_code=403, detail="Không có quyền tạo đầu việc")
+    # Verify project exists
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Dự án không tồn tại")
+    task = Task(
+        project_id=project_id,
+        title=data.title,
+        description=data.description,
+        stage=data.stage,
+        department=data.department,
+        assigned_to=data.assigned_to,
+        order=data.order,
+        status=data.status,
+    )
+    db.add(task)
+    await db.flush()
+    return TaskResponse.model_validate(task)
 
 
 @router.put("/{project_id}/stage", response_model=ProjectResponse)
