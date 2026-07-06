@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
@@ -78,8 +78,42 @@ const PLAN_TYPE_OPTIONS = [
   { value: 'none', label: 'Chưa có' },
 ];
 
-export default function CreateLeadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [form, setForm] = useState<CreateLeadForm>(INITIAL);
+export interface CreateLeadInitialData {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  needs?: string;
+  source?: string;
+  property_type?: string;
+  area_sqm?: number;
+  estimated_budget?: number;
+  confidence?: number;
+}
+
+export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOpen: boolean; onClose: () => void; initialData?: CreateLeadInitialData | null }) {
+  const buildInitial = (): CreateLeadForm => {
+    if (!initialData) return INITIAL;
+    return {
+      name: initialData.name || '',
+      phone: initialData.phone || '',
+      email: initialData.email || '',
+      address: initialData.address || '',
+      property_type: initialData.property_type || 'townhouse',
+      area_sqm: initialData.area_sqm ? String(initialData.area_sqm) : '',
+      estimated_budget: initialData.estimated_budget ? String(initialData.estimated_budget) : '',
+      source: initialData.source || 'zalo',
+      needs: initialData.needs || '',
+      priority: 'medium',
+      property_class: 'mid_range',
+      price_per_sqm: '',
+      region: '',
+      segment: 'townhouse',
+      plan_type: 'none',
+      tags: [],
+    };
+  };
+  const [form, setForm] = useState<CreateLeadForm>(buildInitial);
   const [errors, setErrors] = useState<Partial<Record<keyof CreateLeadForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();

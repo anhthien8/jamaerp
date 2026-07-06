@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Transaction, AccountingSummary, Commission, PayrollEntry, extractItems } from '@/lib/api';
+import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
+import { useToast } from '@/components/ui/Toast';
 
 type Tab = 'overview' | 'transactions' | 'commissions' | 'payroll';
 
@@ -37,6 +38,7 @@ function AccessDenied() {
 export default function AccountingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('overview');
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -54,6 +56,20 @@ export default function AccountingPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
+
+  // Create Transaction modal state
+  const [showTxForm, setShowTxForm] = useState(false);
+  const [txForm, setTxForm] = useState({
+    type: 'expense',
+    category: 'other',
+    description: '',
+    amount: '',
+    date: new Date().toISOString().slice(0, 10),
+    project_id: '',
+  });
+  const [savingTx, setSavingTx] = useState(false);
+  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
+  const [txAmountDisplay, setTxAmountDisplay] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -83,6 +99,59 @@ export default function AccountingPage() {
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchData);
   }, [user, fetchData]);
+
+  // Format number with thousand separators for VND display
+  const formatAmountInput = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return '';
+    return Number(digits).toLocaleString('vi-VN');
+  };
+
+  const openTxForm = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setTxForm({ type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '' });
+    setTxAmountDisplay('');
+    setShowTxForm(true);
+    // Load active projects for optional dropdown
+    try {
+      const result = extractItems(await api.getProjects({ status: 'active' }));
+      setActiveProjects(result);
+    } catch {
+      setActiveProjects([]);
+    }
+  };
+
+  const handleTxAmountChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    setTxForm(f => ({ ...f, amount: digits }));
+    setTxAmountDisplay(formatAmountInput(digits));
+  };
+
+  const handleCreateTransaction = async () => {
+    if (!txForm.description.trim() || !txForm.amount || Number(txForm.amount) <= 0) {
+      toast('Vui lòng nhập đầy đủ mô tả và số tiền', 'error');
+      return;
+    }
+    setSavingTx(true);
+    try {
+      const created = await api.createTransaction({
+        type: txForm.type,
+        category: txForm.category,
+        description: txForm.description.trim(),
+        amount: Number(txForm.amount),
+        date: txForm.date,
+        project_id: txForm.project_id || undefined,
+      });
+      setTransactions(prev => [created, ...prev]);
+      setShowTxForm(false);
+      toast('Tạo giao dịch thành công', 'success');
+      fetchData();
+    } catch {
+      toast('Lỗi khi tạo giao dịch', 'error');
+    } finally {
+      setSavingTx(false);
+    }
+  };
 
   if (loading || !user) return null;
   if (error) {

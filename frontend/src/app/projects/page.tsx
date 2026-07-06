@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, extractItems } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -75,11 +75,19 @@ export default function ProjectsPage() {
   const [kanbanData, setKanbanData] = useState<ProjectKanban[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingProjects, setLoadingProjects] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'pipeline'>('pipeline');
+  const [viewMode, setViewMode] = useState<'list' | 'pipeline' | 'tasks'>('pipeline');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterQuarter, setFilterQuarter] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [searchProject, setSearchProject] = useState('');
+
+  // Cross-project task board (Feature 1)
+  const [allTasks, setAllTasks] = useState<(ProjectTask & { project_code?: string; project_name?: string })[]>([]);
+  const [loadingAllTasks, setLoadingAllTasks] = useState(false);
+  const [taskFilterProject, setTaskFilterProject] = useState('all');
+  const [taskFilterDept, setTaskFilterDept] = useState('all');
+  const [taskFilterAssigned, setTaskFilterAssigned] = useState('all');
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -106,6 +114,11 @@ export default function ProjectsPage() {
   const [taskForm, setTaskForm] = useState({ title: '', stage: 'design', department: 'design', assigned_to: '' });
   const [users, setUsers] = useState<User[]>([]);
   const [savingTask, setSavingTask] = useState(false);
+
+  // Linked documents (Feature 2 - contract & quotation status)
+  const [projectContracts, setProjectContracts] = useState<Contract[]>([]);
+  const [projectQuotations, setProjectQuotations] = useState<Quotation[]>([]);
+  const [loadingLinkedDocs, setLoadingLinkedDocs] = useState(false);
 
   // File upload state (designers)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);

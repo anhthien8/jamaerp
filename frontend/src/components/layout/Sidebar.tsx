@@ -6,7 +6,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import SearchModal from '@/components/ui/SearchModal';
+import NotificationCenter, { useNotificationCount } from '@/components/ui/NotificationCenter';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
+import { api, extractItems } from '@/lib/api';
+import type { Lead, Project } from '@/lib/api';
 
 const NAV_SECTIONS = [
   {

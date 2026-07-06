@@ -374,6 +374,10 @@ class ApiClient {
     return this.request<PaginatedResponse<Transaction>>('/accounting/transactions', { params });
   }
 
+  async createTransaction(data: { type: string; category: string; description: string; amount: number; date: string; project_id?: string }) {
+    return this.request<Transaction>('/accounting/transactions', { method: 'POST', body: data });
+  }
+
   async getAccountingSummary() {
     return this.request<AccountingSummary>('/accounting/summary');
   }
