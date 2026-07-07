@@ -24,9 +24,9 @@ const SOURCE_LABELS: Record<string, string> = {
   referral: 'Giới thiệu', tiktok: 'TikTok', other: 'Khác',
 };
 const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
-  urgent: { label: 'Khẩn cấp', color: '#EF4444' },
-  high: { label: 'Cao', color: '#F59E0B' },
-  medium: { label: 'Trung bình', color: '#3B82F6' },
+  urgent: { label: 'Khẩn cấp', color: 'var(--danger)' },
+  high: { label: 'Cao', color: 'var(--warning)' },
+  medium: { label: 'Trung bình', color: 'var(--info)' },
   low: { label: 'Thấp', color: '#6B7280' },
 };
 const ACTIVITY_ICONS: Record<string, string> = {

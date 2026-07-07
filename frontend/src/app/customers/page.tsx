@@ -223,9 +223,13 @@ export default function CustomersPage() {
           {loadingData ? (
             <div className="p-12 text-center text-[var(--text-muted)]">Đang tải...</div>
           ) : customers.length === 0 ? (
-            <div className="p-12 text-center text-[var(--text-muted)]">
-              <p className="text-lg mb-1">📭 Chưa có khách hàng phù hợp</p>
-              <p className="text-sm">Thử đổi bộ lọc hoặc tạo khách hàng mới.</p>
+            <div className="text-center py-12">
+              <span className="text-4xl block mb-3">👥</span>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Chưa có khách hàng</h3>
+              <p className="text-sm text-[var(--text-muted)] mb-4">Khách hàng sẽ xuất hiện khi lead ký hợp đồng</p>
+              <button onClick={openCreate} className="px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all">
+                + Thêm khách hàng
+              </button>
             </div>
           ) : (
             <>

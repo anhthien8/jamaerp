@@ -219,7 +219,11 @@ export default function InventoryPage() {
           {loadingData ? (
             <div className="p-12 text-center text-[var(--text-muted)]">Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-[var(--text-muted)]">Không tìm thấy vật tư</div>
+            <div className="text-center py-12">
+              <span className="text-4xl block mb-3">📦</span>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Không tìm thấy vật tư</h3>
+              <p className="text-sm text-[var(--text-muted)]">Thử đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+            </div>
           ) : (
             <>
               {/* Mobile card view */}
