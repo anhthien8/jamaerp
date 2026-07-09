@@ -9,11 +9,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-# Stage values
+# Stage values — 6 active stages + 2 end states
 LEAD_STAGES = ["new", "interested", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
 LEAD_SOURCES = ["facebook", "zalo", "website", "referral", "tiktok", "other"]
+# Kênh phân bổ: phân biệt với Source (platform). Source = từ đâu, Channel = kênh nào bán/giới thiệu
+LEAD_CHANNELS = ["kenh_a", "kenh_b", "kenh_chinh", "kenh_sale", "kenh_affiliate", "khac"]
 PROPERTY_TYPES = ["townhouse", "apartment", "villa", "office", "shophouse", "other"]
 LEAD_PRIORITIES = ["low", "medium", "high", "urgent"]
+# Tình trạng liên hệ
+CONTACT_STATUSES = ["reachable", "unreachable", "wrong_number", "no_need", "pending"]
 ACTIVITY_TYPES = ["call", "email", "meeting", "survey", "note", "stage_change", "assignment"]
 
 
@@ -30,10 +34,16 @@ class Lead(Base):
     needs: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Classification
-    source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # Platform: facebook, zalo, etc.
+    channel: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Kênh phân bổ: kenh_a, kenh_b, etc.
     property_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     area_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
     estimated_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Contact & survey status
+    contact_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # reachable/unreachable/wrong_number/no_need
+    survey_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    survey_photos: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of photo URLs
 
     # Extended classification (from Lark CRM)
     property_class: Mapped[str | None] = mapped_column(String(20), nullable=True)  # luxury/mid_range/budget

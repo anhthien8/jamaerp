@@ -16,6 +16,7 @@ from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task
 import random
+import uuid
 from app.schemas.lead import (
     LeadCreate, LeadUpdate, LeadResponse, LeadStageChange, LeadAssign,
     ActivityCreate, ActivityResponse, PipelineStats, PipelineKanban,
@@ -24,8 +25,13 @@ from app.schemas.lead import (
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 STAGE_LABELS = {
-    "new": "Mới", "interested": "Quan tâm", "survey_scheduled": "Hẹn khảo sát",
-    "potential": "Tiềm năng", "signed_design": "Ký HĐ TK", "lost": "Mất", "dormant": "Ngủ đông",
+    "new": "Tiếp nhận mới",
+    "interested": "Đang tư vấn",
+    "survey_scheduled": "Khảo sát",
+    "potential": "Dự toán & tư vấn",
+    "signed_design": "Ký HĐ Thiết kế",
+    "lost": "Mất",
+    "dormant": "Ngủ đông",
 }
 
 
@@ -33,8 +39,11 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
     return LeadResponse(
         id=lead.id, name=lead.name, phone=lead.phone, email=lead.email,
         contact_person=lead.contact_person, address=lead.address, needs=lead.needs,
-        source=lead.source, property_type=lead.property_type,
+        source=lead.source, channel=lead.channel,
+        property_type=lead.property_type,
         area_sqm=lead.area_sqm, estimated_budget=lead.estimated_budget,
+        contact_status=lead.contact_status,
+        survey_date=lead.survey_date, survey_photos=lead.survey_photos,
         property_class=lead.property_class, price_per_sqm=lead.price_per_sqm,
         region=lead.region, segment=lead.segment,
         plan_type=lead.plan_type, tags=lead.tags, deal_value=lead.deal_value,
@@ -236,10 +245,15 @@ async def create_lead(
     lead = Lead(
         name=data.name, phone=data.phone, email=data.email,
         contact_person=data.contact_person, address=data.address,
-        needs=data.needs, source=data.source,
+        needs=data.needs, source=data.source, channel=data.channel,
         property_type=data.property_type, area_sqm=data.area_sqm,
-        estimated_budget=data.estimated_budget, priority=data.priority,
-        notes=data.notes,
+        estimated_budget=data.estimated_budget,
+        contact_status=data.contact_status,
+        survey_date=data.survey_date, survey_photos=data.survey_photos,
+        property_class=data.property_class, price_per_sqm=data.price_per_sqm,
+        region=data.region, segment=data.segment,
+        plan_type=data.plan_type, tags=data.tags, deal_value=data.deal_value,
+        priority=data.priority, notes=data.notes,
         assigned_to=current_user.id, team_id=current_user.team_id,
     )
     db.add(lead)
@@ -332,18 +346,23 @@ async def change_stage(
         project = proj_res.scalar_one_or_none()
         if not project:
             year = datetime.now(timezone.utc).year
-            # Ensure unique project code
-            while True:
-                code = f"PRJ-{year}-{random.randint(1000, 9999)}"
-                code_q = select(Project).where(Project.code == code)
+            # Ensure unique project code (max 100 attempts to avoid infinite loop)
+            code = None
+            for _attempt in range(100):
+                candidate = f"PRJ-{year}-{random.randint(1000, 9999)}"
+                code_q = select(Project).where(Project.code == candidate)
                 code_res = await db.execute(code_q)
                 if not code_res.scalar_one_or_none():
+                    code = candidate
                     break
+            if not code:
+                code = f"PRJ-{year}-{uuid.uuid4().hex[:8]}"
 
             project = Project(
                 code=code,
                 name=f"Dự án {lead.name}",
                 lead_id=lead.id,
+                customer_id=customer.id,
                 client_name=lead.name,
                 client_phone=lead.phone,
                 address=lead.address,
@@ -385,17 +404,25 @@ async def change_stage(
                 ("Bảo hành – Bảo trì", "Thiết lập kỳ bảo hành; tiếp nhận & xử lý yêu cầu", "acceptance", 19),
             ]
 
+            tasks_created = 0
             for title, desc, tstage, order in default_tasks:
-                task = Task(
-                    project_id=project.id,
-                    title=title,
-                    description=desc,
-                    stage=tstage,
-                    status="not_started",
-                    order=order,
-                )
-                db.add(task)
-            await db.flush()
+                try:
+                    task = Task(
+                        project_id=project.id,
+                        title=title,
+                        description=desc,
+                        stage=tstage,
+                        status="not_started",
+                        order=order,
+                    )
+                    db.add(task)
+                    await db.flush()
+                    tasks_created += 1
+                except Exception as e:
+                    print(f"[WARN] Failed to create task '{title}' for project {code}: {e}")
+
+            if tasks_created == 0:
+                print(f"[ERROR] No tasks created for project {code} — lead {lead.id}")
 
     # Log activity
     content = f"Chuyển stage: {STAGE_LABELS.get(old_stage)} → {STAGE_LABELS.get(data.new_stage)}"

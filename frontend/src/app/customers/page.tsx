@@ -89,6 +89,8 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selected, setSelected] = useState<Customer | null>(null);
+  const [customerDetail, setCustomerDetail] = useState<Customer | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState<CustomerForm>(EMPTY_FORM);
@@ -97,6 +99,16 @@ export default function CustomersPage() {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
+
+  // Fetch customer detail with projects when selected
+  useEffect(() => {
+    if (!selected) { setCustomerDetail(null); return; }
+    setLoadingDetail(true);
+    api.getCustomer(selected.id)
+      .then(d => setCustomerDetail(d as Customer))
+      .catch(() => setCustomerDetail(selected))
+      .finally(() => setLoadingDetail(false));
+  }, [selected]);
 
   const load = useCallback(async () => {
     setLoadingData(true);
@@ -254,6 +266,11 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                       {c.phone && <span>{c.phone}</span>}
                       {c.email && <span className="truncate">{c.email}</span>}
+                      {'project_count' in c && (c as Customer).project_count ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(201,169,110,0.1)', color: '#C9A96E' }}>
+                          {(c as Customer).project_count} dự án
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
@@ -341,6 +358,43 @@ export default function CustomersPage() {
                     <span className="text-[var(--text-primary)] text-right max-w-[65%]">{value}</span>
                   </div>
                 ))}
+              </div>
+              {/* Projects section */}
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                  <span>📋 Dự án</span>
+                  {customerDetail?.project_count != null && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>
+                      {customerDetail.project_count}
+                    </span>
+                  )}
+                </h3>
+                {loadingDetail ? (
+                  <p className="text-xs text-[var(--text-muted)]">Đang tải...</p>
+                ) : customerDetail?.projects && customerDetail.projects.length > 0 ? (
+                  <div className="space-y-2">
+                    {customerDetail.projects.map(p => (
+                      <div key={p.id} className="p-3 rounded-xl text-xs" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-[var(--text-primary)]">{p.code} — {p.name}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px]" style={{
+                            background: p.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: p.status === 'active' ? '#34d399' : '#f87171',
+                          }}>{p.status === 'active' ? 'Đang chạy' : p.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[var(--text-muted)]">
+                          <span>{p.total_value ? `${(p.total_value / 1_000_000).toFixed(0)}tr` : '—'}</span>
+                          <span>Tiến độ: {p.progress}%</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${p.progress}%`, background: 'linear-gradient(90deg, var(--gold-500), var(--gold-700))' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">Chưa có dự án</p>
+                )}
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setSelected(null)} className="px-3 py-2 rounded-xl text-sm bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 transition-all">Đóng</button>

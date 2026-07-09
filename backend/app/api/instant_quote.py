@@ -24,7 +24,9 @@ from app.models.pricing import PriceItem, PRICE_CATEGORIES, PRICE_UNITS
 from app.services.instant_quote import (
     ensure_price_items,
     format_quote_for_zalo,
+    format_renovation_quote_for_zalo,
     generate_quote,
+    generate_renovation_quote,
     suggest_tier,
 )
 
@@ -52,6 +54,8 @@ def _check_public_rate_limit(ip: str) -> None:
 # ---------------------------------------------------------------------------
 
 class QuoteRequest(BaseModel):
+    # Mode: "new" = xây mới, "renovation" = cải tạo
+    mode: str = "new"
     # Cách 1: số liệu trực tiếp
     area_sqm: float | None = Field(default=None, gt=0, le=5000)
     property_type: str = "apartment"
@@ -59,15 +63,20 @@ class QuoteRequest(BaseModel):
     budget: float | None = Field(default=None, ge=0)
     # Cách 2: text mơ hồ từ Zalo → AI parse
     raw_text: str | None = Field(default=None, max_length=3000)
+    # Renovation-specific
+    floors: int = Field(default=3, ge=1, le=4)
+    scope: str = "full"  # full or partial
 
 
 class PublicQuoteRequest(BaseModel):
     name: str = Field(min_length=1, max_length=150)
     phone: str = Field(min_length=8, max_length=20)
+    mode: str = "new"
     area_sqm: float = Field(gt=0, le=5000)
     property_type: str = "apartment"
     bedrooms: int | None = Field(default=None, ge=0, le=10)
     budget: float | None = Field(default=None, ge=0)
+    floors: int = Field(default=3, ge=1, le=4)
     note: str | None = Field(default=None, max_length=500)
 
 
@@ -127,6 +136,17 @@ async def generate(
             detail="Không xác định được diện tích — nhập số m² hoặc text có kèm diện tích",
         )
 
+    # Route to correct engine based on mode
+    if payload.mode == "renovation":
+        quote = generate_renovation_quote(area, payload.floors, payload.scope)
+        return {
+            **quote,
+            "customer_budget": budget,
+            "zalo_text": format_renovation_quote_for_zalo(quote),
+            "parsed": parsed,
+        }
+
+    # Default: new construction mode
     quote = await generate_quote(db, area, ptype, bedrooms)
     tier = suggest_tier(quote, budget)
     return {
@@ -151,10 +171,47 @@ async def public_quote(
     client_ip = request.client.host if request.client else "unknown"
     _check_public_rate_limit(client_ip)
 
+    # Route to correct engine
+    if payload.mode == "renovation":
+        quote = generate_renovation_quote(payload.area_sqm, payload.floors)
+        # Tạo lead
+        phone_clean = "".join(c for c in payload.phone if c.isdigit() or c == "+")
+        existing = await db.execute(
+            select(Lead).where(Lead.phone == phone_clean, Lead.stage.notin_(["lost"]))
+        )
+        if not existing.scalars().first():
+            db.add(Lead(
+                name=payload.name.strip(),
+                phone=phone_clean,
+                source="website",
+                property_type="townhouse",
+                area_sqm=payload.area_sqm,
+                estimated_budget=payload.budget,
+                needs=(payload.note or f"Cải tạo {payload.floors} tầng").strip() or None,
+                notes=(
+                    f"🤖 Báo giá cải tạo tự động ({datetime.now(timezone.utc).strftime('%d/%m/%Y')}). "
+                    f"~{quote['total'] / 1_000_000:,.0f} triệu ({payload.floors} tầng)."
+                ),
+                priority="high",
+            ))
+            await db.commit()
+        return {
+            "mode": "renovation",
+            "area_sqm": quote["area_sqm"],
+            "floors": quote["floors"],
+            "total": quote["total"],
+            "range_low": quote["range_low"],
+            "range_high": quote["range_high"],
+            "per_sqm": quote["per_sqm"],
+            "disclaimer": quote["disclaimer"],
+            "message": "JAMA HOME sẽ liên hệ trong 24h để đặt lịch khảo sát miễn phí!",
+        }
+
+    # Default: new construction
     quote = await generate_quote(db, payload.area_sqm, payload.property_type, payload.bedrooms)
     tier = suggest_tier(quote, payload.budget)
 
-    # Tự tạo lead (nguồn website) — sale sẽ nhận và gọi lại
+    # Tạo lead
     phone_clean = "".join(c for c in payload.phone if c.isdigit() or c == "+")
     existing = await db.execute(
         select(Lead).where(Lead.phone == phone_clean, Lead.stage.notin_(["lost"]))
@@ -173,12 +230,12 @@ async def public_quote(
                 f"Phương án gợi ý: {quote['tiers'][tier]['label']} "
                 f"~{quote['tiers'][tier]['total'] / 1_000_000:,.0f} triệu."
             ),
-            priority="high",  # khách tự tìm đến = lead nóng
+            priority="high",
         ))
         await db.commit()
 
-    # Chỉ trả khoảng giá 3 phương án — KHÔNG trả chi tiết đơn giá từng hạng mục
     return {
+        "mode": "new",
         "area_sqm": quote["area_sqm"],
         "property_type": quote["property_type"],
         "bedrooms": quote["bedrooms"],

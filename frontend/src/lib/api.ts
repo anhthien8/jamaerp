@@ -125,7 +125,16 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path.match(/^\/projects\/[^/]+\/tasks$/)) {
     const projectId = path.split('/')[2];
-    return d.DEMO_TASKS.filter(t => t.project_id === projectId) as T;
+    return d.DEMO_TASKS.filter(t => t.project_id === projectId).sort((a, b) => a.order - b.order) as T;
+  }
+  // PUT /projects/tasks/{taskId}/status — demo mode status update
+  if (path.match(/^\/projects\/tasks\/[^/]+\/status$/) && method === 'PUT') {
+    const taskId = path.split('/')[3];
+    const task = d.DEMO_TASKS.find(t => t.id === taskId);
+    if (task) {
+      task.status = (options?.body as Record<string, string>)?.status || task.status;
+      return task as T;
+    }
   }
   if (path.match(/^\/projects\/[^/]+$/)) {
     const projectId = path.split('/')[2];
@@ -144,6 +153,15 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
 
   // ── Customers ──
   if (path === '/customers') return toPaginated(d.DEMO_CUSTOMERS, params) as T;
+  if (path.match(/^\/customers\/[^/]+$/) && method === 'GET') {
+    const custId = path.split('/')[2];
+    const custList = d.DEMO_CUSTOMERS as unknown as Array<Record<string, unknown>>;
+    const projList = d.DEMO_PROJECTS as unknown as Array<Record<string, unknown>>;
+    const cust = custList.find(c => c.id === custId) || custList[0];
+    // Enrich with linked projects
+    const linkedProjects = projList.filter(p => p.lead_id === cust.lead_id || p.customer_id === cust.id);
+    return { ...cust, projects: linkedProjects, project_count: linkedProjects.length } as T;
+  }
 
   // ── Contracts ──
   if (path === '/contracts') return toPaginated(d.DEMO_CONTRACTS, params) as T;
@@ -633,8 +651,8 @@ class ApiClient {
 
   // === Instant Quote (báo giá sơ bộ tức thì) ===
   async generateInstantQuote(data: {
-    area_sqm?: number; property_type?: string; bedrooms?: number | null;
-    budget?: number | null; raw_text?: string;
+    mode?: string; area_sqm?: number; property_type?: string; bedrooms?: number | null;
+    budget?: number | null; raw_text?: string; floors?: number; scope?: string;
   }) {
     return this.request<InstantQuoteResult>('/instant-quote/generate', { method: 'POST', body: data });
   }
@@ -676,9 +694,13 @@ export interface Lead {
   address?: string;
   needs?: string;
   source?: string;
+  channel?: string;
   property_type?: string;
   area_sqm?: number;
   estimated_budget?: number;
+  contact_status?: string;
+  survey_date?: string;
+  survey_photos?: string[];
   stage: string;
   priority: string;
   assigned_to?: string;
@@ -720,6 +742,7 @@ export interface Project {
   code: string;
   name: string;
   lead_id?: string;
+  customer_id?: string;
   client_name: string;
   client_phone?: string;
   address?: string;
@@ -942,6 +965,8 @@ export interface Customer {
   notes?: string;
   created_at: string;
   updated_at: string;
+  projects?: Array<{ id: string; code: string; name: string; status: string; stage: string; total_value?: number; spent?: number; progress: number; created_at: string }>;
+  project_count?: number;
 }
 
 export interface Contract {
@@ -1139,10 +1164,28 @@ export interface QuoteTier {
   range_low: number; range_high: number; per_sqm: number;
 }
 
+export interface RenovationCategory {
+  label: string; total: number; count: number;
+}
+
+export interface MaterialOption {
+  category: string;
+  options: Array<{ name: string; price_delta: number; unit: string }>;
+}
+
 export interface InstantQuoteResult {
-  area_sqm: number; property_type: string; bedrooms: number;
-  tiers: { basic: QuoteTier; standard: QuoteTier; premium: QuoteTier };
-  suggested_tier: 'basic' | 'standard' | 'premium';
+  mode?: string;
+  area_sqm: number; property_type?: string; bedrooms?: number;
+  floors?: number;
+  tiers?: { basic: QuoteTier; standard: QuoteTier; premium: QuoteTier };
+  suggested_tier?: 'basic' | 'standard' | 'premium';
+  categories?: Record<string, Array<{ code: string; name: string; unit: string; qty: number; unit_price: number; total: number; note?: string }>>;
+  category_totals?: Record<string, RenovationCategory>;
+  total?: number;
+  per_sqm?: number;
+  range_low?: number;
+  range_high?: number;
+  material_options?: MaterialOption[];
   customer_budget: number | null;
   zalo_text: string;
   disclaimer: string;

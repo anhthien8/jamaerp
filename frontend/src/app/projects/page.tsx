@@ -66,7 +66,7 @@ export default function ProjectsPage() {
   const [taskActivities, setTaskActivities] = useState<TaskActivity[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [newActivityContent, setNewActivityContent] = useState('');
-  const [newActivityMedia, setNewActivityMedia] = useState('');
+  const [newActivityMedia, setNewActivityMedia] = useState<string[]>([]);
   const [taskFileUrl, setTaskFileUrl] = useState('');
 
   // Project form modal state
@@ -252,10 +252,11 @@ export default function ProjectsPage() {
         const fileInfo = uploadedFiles.map(f => `[File: ${f.name} (${(f.size / 1024).toFixed(0)} KB)]`).join(' ');
         content = `${content}\n\nĐính kèm: ${fileInfo}`;
       }
-      const act = await api.createTaskActivity(selectedTask.id, content, newActivityMedia || undefined);
+      // Use first photo as media_url (API supports single URL)
+      const act = await api.createTaskActivity(selectedTask.id, content, newActivityMedia[0] || undefined);
       setTaskActivities(prev => [act, ...prev]);
       setNewActivityContent('');
-      setNewActivityMedia('');
+      setNewActivityMedia([]);
       setUploadedFiles([]);
       toast('Thêm ghi chú thành công', 'success');
     } catch {
@@ -277,19 +278,27 @@ export default function ProjectsPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast('File tối đa 5MB', 'error');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      setNewActivityMedia(result);
-      toast('Đã đính kèm ảnh', 'success');
-    };
-    reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const validFiles = Array.from(files).filter(f => {
+      if (f.size > 5 * 1024 * 1024) { toast(`${f.name}: tối đa 5MB`, 'error'); return false; }
+      return true;
+    });
+    let loaded = 0;
+    const results: string[] = [];
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        results.push(reader.result as string);
+        loaded++;
+        if (loaded === validFiles.length) {
+          setNewActivityMedia(prev => [...prev, ...results]);
+          toast(`Đã chọn ${results.length} ảnh`, 'success');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   // Open project form for create or edit
@@ -520,7 +529,7 @@ export default function ProjectsPage() {
             <div className="flex items-center gap-3 mb-4 flex-wrap">
               <input
                 type="text"
-                placeholder="Tim du an..."
+                placeholder="Tìm dự án..."
                 value={searchProject}
                 onChange={e => setSearchProject(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-48"
@@ -534,7 +543,7 @@ export default function ProjectsPage() {
                   className="rounded border-[var(--border-subtle)]"
                   style={{ accentColor: '#C9A96E' }}
                 />
-                <span className="text-xs text-[var(--text-secondary)]">Cong viec cua toi</span>
+                <span className="text-xs text-[var(--text-secondary)]">Công việc của tôi</span>
               </label>
             </div>
 
@@ -647,7 +656,7 @@ export default function ProjectsPage() {
             <div className="flex items-center gap-3 mb-4 flex-wrap">
               <input
                 type="text"
-                placeholder="Tim du an..."
+                placeholder="Tìm dự án..."
                 value={searchProject}
                 onChange={e => setSearchProject(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-48"
@@ -660,7 +669,7 @@ export default function ProjectsPage() {
                   className="rounded border-[var(--border-subtle)]"
                   style={{ accentColor: '#C9A96E' }}
                 />
-                <span className="text-xs text-[var(--text-secondary)]">Cong viec cua toi</span>
+                <span className="text-xs text-[var(--text-secondary)]">Công việc của tôi</span>
               </label>
             </div>
           <div className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
@@ -1029,25 +1038,46 @@ export default function ProjectsPage() {
                   />
                   <div className="flex justify-between items-center">
                     {/* Media attach buttons */}
-                    <div className="flex gap-2">
-                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                    <div className="flex gap-2 items-center">
+                      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
                       <button
                         onClick={() => fileRef.current?.click()}
                         type="button"
-                        className="text-[10px] px-2.5 py-1 rounded bg-white/5 border border-white/10 text-white hover:bg-white/10"
+                        className="text-[10px] px-2.5 py-1 rounded bg-white/5 border border-white/10 text-white hover:bg-white/10 relative"
                       >
-                        📷 {newActivityMedia ? 'Đã chọn ảnh' : 'Đính kèm ảnh'}
+                        📷 Đính kèm ảnh
+                        {newActivityMedia.length > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-[#C9A96E] text-black">
+                            {newActivityMedia.length}
+                          </span>
+                        )}
                       </button>
-                      {newActivityMedia && (
+                      {newActivityMedia.length > 0 && (
                         <button
-                          onClick={() => setNewActivityMedia('')}
+                          onClick={() => setNewActivityMedia([])}
                           type="button"
                           className="text-[10px] px-1.5 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
                         >
-                          Xóa ảnh
+                          Xóa ({newActivityMedia.length})
                         </button>
                       )}
                     </div>
+                    {/* Photo thumbnails preview */}
+                    {newActivityMedia.length > 0 && (
+                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                        {newActivityMedia.map((src, i) => (
+                          <div key={i} className="relative group">
+                            <img src={src} alt={`Ảnh ${i+1}`} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
+                            <button
+                              onClick={() => setNewActivityMedia(prev => prev.filter((_, idx) => idx !== i))}
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <button
                       onClick={handleAddTaskActivity}
                       disabled={!newActivityContent.trim()}

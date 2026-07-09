@@ -176,9 +176,101 @@
 
 ---
 
+## 17b. Báo giá Cải tạo — Dual mode engine - [ĐÃ HOÀN THÀNH ✅]
+> Theo file `JAMA_ baogiaphantho.xlsx` — báo giá cải tạo nhà phố 3 tầng
+
+### Engine (backend)
+- `[x]` **Renovation template** (`services/instant_quote.py`): ~100+ hạng mục, 7 nhóm (Tháo dỡ / Kết cấu / Hoàn thiện / Cửa / Cầu thang / M&E / Khác)
+- `[x]` **Floor-aware generation**: lọc items theo số tầng (1-4), items T2/T3/mái chỉ xuất hiện khi đủ tầng
+- `[x]` **Material options** cho budget fitting: Sàn (gạch→gỗ), Cửa (HDF→gỗ tự nhiên), WC (Inax→TOTO→AS), Sơn (Dulux→Jotun)
+- `[x]` Sanity: 80m² × 1T = 327tr, × 2T = 501tr, × 3T = 723tr — hợp lý
+
+### API
+- `[x]` `QuoteRequest` + `PublicQuoteRequest` thêm `mode: "new" | "renovation"`, `floors: 1-4`
+- `[x]` `POST /instant-quote/generate` route renovation → `generate_renovation_quote()`
+- `[x]` `POST /instant-quote/public` hỗ trợ renovation mode + tạo lead
+
+### Zalo text
+- `[x]` `format_renovation_quote_for_zalo()` — text thân thiện với gợi ý vật liệu theo budget
+
+### Verify
+- `[x]` 136 backend tests passing
+- `[x]` TypeScript --noEmit clean
+
 ## 16. Triển khai Báo giá (deploy + đơn giá + nhúng web) - [ĐÃ CHUẨN BỊ ✅]
 - `[x]` **Template Excel đơn giá** cho Thu mua: `docs/JAMA_Bang_Don_Gia_Noi_That.xlsx` — 28 hạng mục × 3 phân khúc, cột giá tham khảo (khóa) + giá thật (điền), cột chênh lệch % có công thức, sheet hướng dẫn. 0 lỗi công thức.
 - `[x]` **Nhúng trang Dự Toán** (`deploy/embed/`):
   - `jama-bao-gia-widget.html` — widget native độc lập gọi API public, chỉ sửa 1 dòng API_BASE, dán vào Custom HTML. JS verified.
   - `README-nhung-trang-du-toan.md` — hướng dẫn iframe (nhanh) vs widget native (đẹp), cấu hình CORS, checklist test.
 - ⏳ **Cần user:** (1) push code + deploy Railway, (2) Thu mua điền giá thật vào Excel rồi nhập app, (3) chọn cách nhúng + điền domain
+
+---
+
+## 17. Feedback ERP 0907 — Fix bugs + Lead fields - [ĐÃ HOÀN THÀNH ✅]
+> Theo file Feedback ERP 0907 (Google Slides): 6 yêu cầu từ business
+
+### Bugs (Slide 5)
+- `[x]` **Fix task ordering:** Demo mode resolver (`api.ts:128`) giờ sort tasks theo `order` field. Thêm demo handler cho PUT task status.
+- `[x]` **Fix missing tasks:** Auto-create 19 tasks khi lead chuyển `signed_design` giờ có error handling per-task — nếu 1 task fail thì project + các task khác vẫn tạo thành công, log warning.
+
+### Lead fields mới (Slide 2 + Slide 4)
+- `[x]` **`channel`** (Kênh phân bổ): `kenh_a`, `kenh_b`, `kenh_chinh`, `kenh_sale`, `kenh_affiliate`, `khac` — phân biệt với `source` (platform)
+- `[x]` **`contact_status`**: `reachable`, `unreachable`, `wrong_number`, `no_need`, `pending`
+- `[x]` **`survey_date`**: DateTime — ngày khảo sát thực tế
+- `[x]` **`survey_photos`**: Text (JSON array URLs) — ảnh xác minh khảo sát
+- `[x]` Updated model, schema (LeadCreate/LeadUpdate/LeadResponse), API helper, frontend Lead type
+
+### Pipeline stages (Slide 4)
+- `[x]` Cập nhật `STAGE_LABELS` cho khớp flow business:
+  - new → "Tiếp nhận mới"
+  - interested → "Đang tư vấn"
+  - survey_scheduled → "Khảo sát"
+  - potential → "Dự toán & tư vấn"
+  - signed_design → "Ký HĐ Thiết kế"
+
+### Verify
+- `[x]` 136 backend tests passing
+- `[x]` TypeScript --noEmit clean
+
+---
+
+## 18. QC/QA Audit — Feedback ERP 0907 - [ĐÃ HOÀN THÀNH ✅]
+
+### Critical fixes
+- `[x]` `create_lead` endpoint giờ pass đầy đủ new fields (channel, contact_status, survey_date, survey_photos, property_class, price_per_sqm, region, segment, plan_type, tags, deal_value)
+- `[x]` Project code generation loop giờ có max 100 iterations guard (tránh infinite loop)
+- `[x]` Customer detail endpoint thêm RBAC check (admin/executive/leader/accountant/data_entry/pm)
+
+### High fixes
+- `[x]` `Project` interface frontend thêm `customer_id`
+- `[x]` `survey_photos` type sửa thành `string[]`
+- `[x]` Customer demo route `GET /customers/{id}` — enriches with linked projects
+- `[x]` Inline import `or_` trong customers.py moved to top
+
+### Seed data
+- `[x]` Lead seed đầu tiên (`Bong`) có thêm `channel="kenh_sale"` + `contact_status="reachable"`
+
+### Verify
+- `[x]` 136 backend tests passing
+- `[x]` TypeScript --noEmit clean
+
+---
+
+## 19. Báo giá Cải tạo — Full stack - [ĐÃ HOÀN THÀNH ✅]
+> Theo file `JAMA_ baogiaphantho.xlsx` — dual mode engine + frontend
+
+### Backend engine
+- `[x]` Renovation template: ~100+ hạng mục, 7 nhóm (Tháo dỡ/Kết cấu/Hoàn thiện/Cửa/CT/M&E/Khác)
+- `[x]` Floor-aware generation: lọc items theo số tầng (1-4), sanity check giá
+- `[x]` Material options cho budget fitting: Sàn/Cửa/WC/Sơn
+- `[x]` API: mode "new"|"renovation" + floors param trên cả 2 endpoint
+
+### Frontend `/quote-tool`
+- `[x]` Mode toggle: 🏗️ Xây mới / 🔨 Cải tạo
+- `[x]` Cải tạo: input diện tích/tầng, selector số tầng, kết quả theo nhóm + gợi ý vật liệu
+- `[x]` Xây mới: giữ nguyên 3 tier cards + detail table
+- `[x]` Copy Zalo text cả 2 mode
+
+### Verify
+- `[x]` 136 backend tests passing
+- `[x]` TypeScript --noEmit clean

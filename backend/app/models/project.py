@@ -16,6 +16,7 @@ class Project(Base):
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     lead_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("leads.id"), nullable=True)
+    customer_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("customers.id"), nullable=True)
     client_name: Mapped[str] = mapped_column(String(255), nullable=False)
     client_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -54,6 +55,7 @@ class Project(Base):
 
     # Relationships
     lead = relationship("Lead", back_populates="project")
+    customer = relationship("Customer", foreign_keys=[customer_id], back_populates="projects")
     pm = relationship("User", foreign_keys=[pm_id])
     designer = relationship("User", foreign_keys=[designer_id])
     sales = relationship("User", foreign_keys=[sales_id])

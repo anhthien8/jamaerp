@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -68,26 +68,31 @@ async def get_customer(
     current_user: User = Depends(get_current_user),
 ):
     """Get customer detail with linked projects."""
+    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "pm"):
+        raise HTTPException(status_code=403, detail="Không có quyền xem thông tin khách hàng")
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalar_one_or_none()
     if not customer:
         raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
 
-    # Get linked projects via lead_id
-    projects = []
+    # Get all projects linked to this customer (direct customer_id or via lead)
+    proj_conditions = [Project.customer_id == customer.id]
     if customer.lead_id:
-        proj_result = await db.execute(
-            select(Project).where(Project.lead_id == customer.lead_id)
-        )
-        proj = proj_result.scalars().all()
-        projects = [
-            {"id": p.id, "code": p.code, "name": p.name, "status": p.status,
-             "total_value": p.total_value, "progress": p.progress}
-            for p in proj
-        ]
+        proj_conditions.append(Project.lead_id == customer.lead_id)
+
+    proj_result = await db.execute(
+        select(Project).where(or_(*proj_conditions)).order_by(Project.created_at.desc())
+    )
+    projects = [
+        {"id": p.id, "code": p.code, "name": p.name, "status": p.status,
+         "stage": p.stage, "total_value": p.total_value, "spent": p.spent,
+         "progress": p.progress, "created_at": p.created_at.isoformat()}
+        for p in proj_result.scalars().all()
+    ]
 
     resp = CustomerResponse.model_validate(customer).model_dump()
     resp["projects"] = projects
+    resp["project_count"] = len(projects)
     return resp
 
 

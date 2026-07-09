@@ -38,6 +38,7 @@ class Customer(Base):
 
     # Relationships
     lead = relationship("Lead", foreign_keys=[lead_id])
+    projects = relationship("Project", back_populates="customer", foreign_keys="Project.customer_id")
 
     __table_args__ = (
         Index("ix_customers_type", "type"),
