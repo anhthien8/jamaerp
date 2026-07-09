@@ -61,7 +61,7 @@ const ROLE_ESSENTIALS: Record<string, string[]> = {
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout, isDemo, mode, setMode } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = false; // sidebar always expanded
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Track desktop breakpoint (1024px = lg) — SSR-safe
@@ -308,7 +308,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         style={{
-          width: collapsed ? 72 : 256,
+          width: 256,
           transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         className="fixed top-0 left-0 h-full z-40 hidden lg:flex flex-col border-r bg-[var(--surface-1)]"
@@ -317,21 +317,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       >
         {sidebarContent}
 
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110"
-          style={{
-            background: 'var(--surface-3)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-tertiary)',
-          }}
-          aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            {collapsed ? <polyline points="9 18 15 12 9 6" /> : <polyline points="15 18 9 12 15 6" />}
-          </svg>
-        </button>
+        {/* Sidebar always expanded — no collapse toggle */}
       </aside>
 
       {/* Mobile sidebar */}
