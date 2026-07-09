@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_WEBHOOK_URL: str = ""
+    # Bí mật chia sẻ giữa bot ↔ backend cho /auth/telegram.
+    # Khi được đặt, backend BẮT BUỘC bot gửi header X-Telegram-Bot-Secret khớp,
+    # ngăn kẻ tấn công mạo danh nhân viên chỉ bằng telegram_user_id.
+    TELEGRAM_AUTH_SECRET: str = ""
 
     # API
     API_BASE_URL: str = "http://localhost:8000"

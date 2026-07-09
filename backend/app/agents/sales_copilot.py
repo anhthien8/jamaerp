@@ -3,12 +3,12 @@
 import json
 from uuid import UUID
 
-from litellm import acompletion
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.lead import Lead, Activity
+from app.services.llm_config import llm_complete
 
 settings = get_settings()
 
@@ -62,9 +62,7 @@ Số lần tương tác: {len(activities)}
 Hoạt động gần nhất: {activities[0].content if activities else 'Chưa có'}"""
 
     try:
-        response = await acompletion(
-            model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
+        response = await llm_complete(
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": context},

@@ -89,3 +89,96 @@
 - `[x]` Backend tests for auth + RBAC (`backend/tests/test_auth_rbac.py` — 18 tests)
 - `[x]` Backend tests for Telegram workflow API (`backend/tests/test_telegram_workflow.py` — 16 tests)
 - Total: 64 tests, all passing
+
+---
+
+## 11. Tự động hóa CSKH + Báo cáo BOD - [ĐÃ HOÀN THÀNH ✅]
+> Theo Brief: "Nhắc cập nhật CSKH mỗi 3-5 ngày, quá hạn thu hồi lead giao sale khác, nhắc hẹn thanh toán, báo cáo gửi tự động cho BOD hàng ngày/tuần/tháng"
+
+- `[x]` **Models:** `Notification` (in-app notification + dedupe) và `SystemSetting` (key-value settings) — `backend/app/models/notification.py`
+- `[x]` **Services** (`backend/app/services/`):
+  - `automation.py` — nhắc follow-up (3 ngày), thu hồi lead quá hạn (7 ngày, giao sale ít việc nhất cùng team), nhắc thanh toán đợt pending
+  - `bod_report.py` — báo cáo ngày/tuần/tháng (leads, doanh thu, top sales, AI insight) gửi admin/executive
+  - `telegram_notify.py` — push Telegram từ backend (no-op nếu chưa cấu hình token)
+- `[x]` **API mới:**
+  - `GET /notifications`, `PUT /notifications/{id}/read`, `PUT /notifications/read-all`
+  - `GET|PUT /automation/settings` (admin/executive)
+  - `POST /automation/run/{followups|recall|payments|all}` — trigger thủ công
+  - `POST /automation/run/bod-report/{period}`, `GET /automation/bod-report/{period}/preview`
+- `[x]` **Worker scheduler:** automation chạy 07:00 VN hàng ngày; báo cáo BOD 08:00 (cấu hình được) — ngày luôn gửi, tuần vào thứ Hai, tháng vào mùng 1
+- `[x]` **Frontend:**
+  - `NotificationCenter` lấy thông báo thật từ backend (poll 60s, work mode), mark read đồng bộ server
+  - Trang Settings: mục "Tự động hóa CSKH & Báo cáo" cho admin/executive (chỉnh ngưỡng ngày, bật/tắt, chạy ngay, gửi báo cáo test)
+  - API client: notifications + automation methods
+- `[x]` **Tests:** `backend/tests/test_automation.py` — ~28 tests (follow-up, recall, payment, settings API, BOD report, notifications API)
+- `[x]` TypeScript type-check pass (tsc --noEmit, exit 0)
+
+---
+
+## 12. Cấu hình AI tập trung + Nhóm Telegram công ty - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` **LLM config service** (`backend/app/services/llm_config.py`):
+  - Admin cấu hình model chính (free) + model fallback + API keys, lưu `system_settings`, cache 60s, áp dụng ngay không cần restart
+  - `llm_complete()`: model chính lỗi → fallback model → raise (agent dùng rule-based)
+  - Presets model free: Groq, Gemini, OpenRouter, Ollama
+- `[x]` **Refactor 5 AI agents** dùng `llm_complete`/`llm_available` trung tâm (lead_intake, sales_copilot, lead_scoring, insight_agent, task_coordinator)
+- `[x]` **API `/ai-settings`** (admin only): GET (key được mask), PUT, POST /test (test kết nối model)
+- `[x]` **Nhóm Telegram công ty:**
+  - Setting `telegram_group_chat_id` + `group_briefing_enabled`
+  - `send_group_briefing()` — briefing sáng vào nhóm (KHÔNG kèm số liệu tài chính)
+  - Worker gửi briefing nhóm cùng giờ báo cáo BOD
+  - Bot: lệnh `/id` (lấy Chat ID), tự chào khi được thêm vào nhóm
+  - Fix bảo mật: auto-parse lead chỉ hoạt động trong chat riêng (không đọc nhóm)
+- `[x]` **Frontend Settings:** mục "🧠 Cấu hình AI Model" (admin) + ô Chat ID nhóm + nút test/gửi briefing
+- `[x]` **Docs:** `docs/HUONG_DAN_TELEGRAM_NHOM.md` — hướng dẫn 5 phần cài đặt nhóm công ty
+- `[x]` Verify: python syntax pass toàn bộ, tsc --noEmit pass
+
+---
+
+## 13. Sao lưu tự động (Local + Google Drive) - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` **Backup service** (`backend/app/services/backup_service.py`):
+  - Snapshot SQLite an toàn (sqlite3 backup API) → zip kèm metadata vào `backend/backups/`
+  - Retention: tự xóa bản cũ hơn N ngày (mặc định 180, **tối đa 180**) — cả local và Drive
+  - Google Drive OAuth 2.0: authorization code flow, lưu refresh_token, tự tạo thư mục JAMA-CRM-Backups, upload multipart, dọn file cũ trên Drive
+  - PostgreSQL → skip kèm hướng dẫn pg_dump
+- `[x]` **API `/backup`** (admin only): GET/PUT settings, POST /run (sao lưu ngay), OAuth flow (auth-url → callback với state token → disconnect)
+- `[x]` **Worker:** backup hàng ngày lúc **5h sáng VN** (giờ chỉnh được, bật/tắt được)
+- `[x]` **Frontend Settings** (admin): section 💾 — toggle + giờ + retention, kết nối/ngắt Google Drive, form OAuth Client, danh sách 10 bản backup gần nhất, nút Sao lưu ngay
+- `[x]` `.gitignore` thêm `backend/backups/`
+- `[x]` **Tests:** `backend/tests/test_backup.py` — ~17 tests (settings clamp, snapshot zip, retention cleanup, RBAC, OAuth state, run flow)
+- `[x]` Docs: cập nhật mục Backup trong `huong-dan-it.html`
+- `[x]` Verify: python syntax pass, tsc --noEmit pass
+
+---
+
+## 14. QC Bảo mật - [ĐÃ HOÀN THÀNH ✅]
+- `[x]` **Vá Critical:** `/auth/telegram` yêu cầu bí mật chia sẻ `TELEGRAM_AUTH_SECRET` (header X-Telegram-Bot-Secret, hmac.compare_digest) — chặn mạo danh nhân viên qua telegram_user_id
+- `[x]` **Vá High:** chặn JWT secret yếu/placeholder (<32 ký tự → từ chối khởi động); create_user bỏ default password, bắt buộc ≥8 ký tự + validate role/email; security headers middleware (nosniff, X-Frame-Options, HSTS...)
+- `[x]` Rate-limit `/auth/telegram` khi chưa có secret; VALID_ROLES cho update_user
+- `[x]` Báo cáo đầy đủ: `docs/SECURITY_QC.md` (1 Critical + 3 High đã vá, 2 Medium theo dõi, checklist production)
+- ⚠️ Deploy cần đặt `TELEGRAM_AUTH_SECRET` giống nhau ở backend + telegram-bot
+
+---
+
+## 15. Báo giá sơ bộ tức thì (Instant Quote) - [ĐÃ HOÀN THÀNH ✅]
+> Sale phản hồi "khoảng bao nhiêu tiền?" trong 30 giây thay vì 3-7 ngày — nâng tỷ lệ chốt + bảo vệ margin
+
+- `[x]` **Price book** (`backend/app/models/pricing.py`): 28 hạng mục × 3 phân khúc (Cơ bản/Tiêu chuẩn/Cao cấp), seed đơn giá tham khảo HCM — **Thu mua phải rà lại trước khi dùng thật**
+- `[x]` **Engine** (`backend/app/services/instant_quote.py`): template hạng mục theo loại nhà (căn hộ/nhà phố/villa/văn phòng), công thức qty = base + hệ_số×m² + hệ_số×PN, villa ×1.25, khoảng giá ±15%, gợi ý phương án theo ngân sách khách, format text Zalo
+- `[x]` **API:**
+  - `POST /instant-quote/generate` (sale) — nhập số liệu hoặc paste text Zalo (AI parse + regex fallback)
+  - `POST /instant-quote/public` (không auth, rate-limit 5 lần/giờ/IP) — mini-app khách tự báo giá → **tự tạo lead nóng** (source=website, priority=high, chống trùng SĐT), chỉ trả khoảng giá không lộ đơn giá chi tiết
+  - CRUD `/instant-quote/price-items` — admin/purchasing sửa giá, mọi user xem
+- `[x]` **Frontend:**
+  - `/quote-tool` (sale/leader, có trong sidebar): 2 chế độ nhập, 3 card phương án, bảng chi tiết, nút Copy text Zalo, bảng đơn giá sửa inline cho Thu mua
+  - `/bao-gia` (public, không login): landing lead magnet cho khách tự nhập → nhận khoảng giá + CTA khảo sát miễn phí
+- `[x]` **Tests:** `backend/tests/test_instant_quote.py` — ~24 tests (engine math, tiers tăng dần, template theo loại nhà, public tạo lead + chống trùng, RBAC price book)
+- `[x]` Verify: sanity check giá (căn hộ 75m² ≈ 184/338/702tr — hợp lý thị trường), tsc pass
+
+---
+
+## 16. Triển khai Báo giá (deploy + đơn giá + nhúng web) - [ĐÃ CHUẨN BỊ ✅]
+- `[x]` **Template Excel đơn giá** cho Thu mua: `docs/JAMA_Bang_Don_Gia_Noi_That.xlsx` — 28 hạng mục × 3 phân khúc, cột giá tham khảo (khóa) + giá thật (điền), cột chênh lệch % có công thức, sheet hướng dẫn. 0 lỗi công thức.
+- `[x]` **Nhúng trang Dự Toán** (`deploy/embed/`):
+  - `jama-bao-gia-widget.html` — widget native độc lập gọi API public, chỉ sửa 1 dòng API_BASE, dán vào Custom HTML. JS verified.
+  - `README-nhung-trang-du-toan.md` — hướng dẫn iframe (nhanh) vs widget native (đẹp), cấu hình CORS, checklist test.
+- ⏳ **Cần user:** (1) push code + deploy Railway, (2) Thu mua điền giá thật vào Excel rồi nhập app, (3) chọn cách nhúng + điền domain

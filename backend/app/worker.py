@@ -12,8 +12,12 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Coroutine, Optional
+from zoneinfo import ZoneInfo
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,9 @@ class BackgroundWorker:
         # --- tracking ---
         self._last_lead_scoring: float = 0.0
         self._last_insight_generation: float = 0.0
+        self._last_automation_date: str = ""      # "YYYY-MM-DD" (VN time)
+        self._last_bod_report_date: str = ""      # "YYYY-MM-DD" (VN time)
+        self._last_backup_date: str = ""          # "YYYY-MM-DD" (VN time)
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -214,6 +221,42 @@ class BackgroundWorker:
                     priority=TaskPriority.LOW,
                 )
 
+            # --- daily CSKH automation + BOD reports (VN time-of-day) ---
+            vn_now = datetime.now(VN_TZ)
+            today_str = vn_now.strftime("%Y-%m-%d")
+
+            # CSKH automation runs once per day at 07:00 VN
+            if vn_now.hour >= 7 and self._last_automation_date != today_str:
+                self._last_automation_date = today_str
+                self.enqueue_task(
+                    "cskh_automation",
+                    process_automation,
+                    priority=TaskPriority.HIGH,
+                )
+
+            # Daily backup at configured hour (default 05:00 VN)
+            if self._last_backup_date != today_str:
+                backup_hour = await _get_backup_hour()
+                if backup_hour is not None and vn_now.hour >= backup_hour:
+                    self._last_backup_date = today_str
+                    self.enqueue_task(
+                        "daily_backup",
+                        process_backup,
+                        priority=TaskPriority.HIGH,
+                    )
+
+            # BOD report at configured hour (default 08:00 VN)
+            if self._last_bod_report_date != today_str:
+                bod_hour = await _get_bod_report_hour()
+                if bod_hour is not None and vn_now.hour >= bod_hour:
+                    self._last_bod_report_date = today_str
+                    self.enqueue_task(
+                        "bod_report",
+                        process_bod_reports,
+                        vn_now,
+                        priority=TaskPriority.NORMAL,
+                    )
+
     # ------------------------------------------------------------------
     # Health check loop (for Docker HEALTHCHECK / monitoring)
     # ------------------------------------------------------------------
@@ -337,6 +380,96 @@ async def process_task_coordination() -> dict[str, Any]:
         return {"status": "completed", "coordinated": coordinated}
     except Exception as exc:
         logger.exception("Task coordination failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def _get_bod_report_hour() -> Optional[int]:
+    """Return configured BOD report hour, or None when reporting is disabled."""
+    try:
+        from app.database import async_session
+        from app.services.automation import get_automation_settings
+
+        async with async_session() as session:
+            settings = await get_automation_settings(session)
+        if settings.get("bod_report_enabled", "true") != "true":
+            return None
+        return max(0, min(23, int(settings.get("bod_report_hour", "8"))))
+    except Exception as exc:
+        logger.warning("Could not load BOD report settings: %s", exc)
+        return 8
+
+
+async def _get_backup_hour() -> Optional[int]:
+    """Return configured backup hour, or None when backup is disabled."""
+    try:
+        from app.database import async_session
+        from app.services.backup_service import get_backup_settings
+
+        async with async_session() as session:
+            cfg = await get_backup_settings(session)
+        if cfg.get("backup_enabled", "true") != "true":
+            return None
+        return max(0, min(23, int(cfg.get("backup_hour", "5"))))
+    except Exception as exc:
+        logger.warning("Could not load backup settings: %s", exc)
+        return 5
+
+
+async def process_backup() -> dict[str, Any]:
+    """Run daily database backup (local + Google Drive) with retention."""
+    logger.info("Starting daily backup...")
+    try:
+        from app.database import async_session
+        from app.services.backup_service import run_backup
+
+        async with async_session() as session:
+            result = await run_backup(session)
+        logger.info("Daily backup finished: %s", result.get("status"))
+        return {"status": "completed", "result": result}
+    except Exception as exc:
+        logger.exception("Daily backup failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_automation() -> dict[str, Any]:
+    """Run CSKH automation: follow-up reminders, lead recall, payment reminders."""
+    logger.info("Starting CSKH automation batch...")
+    try:
+        from app.database import async_session
+        from app.services.automation import run_all_automation
+
+        async with async_session() as session:
+            result = await run_all_automation(session)
+        logger.info("CSKH automation finished: %s", result)
+        return {"status": "completed", "result": result}
+    except Exception as exc:
+        logger.exception("CSKH automation failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_bod_reports(vn_now: datetime) -> dict[str, Any]:
+    """Send BOD reports: daily always; weekly on Monday; monthly on the 1st."""
+    logger.info("Starting BOD report delivery...")
+    try:
+        from app.database import async_session
+        from app.services.bod_report import send_bod_report
+
+        results: dict[str, Any] = {}
+        async with async_session() as session:
+            results["daily"] = await send_bod_report(session, "daily")
+            if vn_now.weekday() == 0:  # Monday
+                results["weekly"] = await send_bod_report(session, "weekly")
+            if vn_now.day == 1:
+                results["monthly"] = await send_bod_report(session, "monthly")
+
+            # Briefing nhóm công ty (không kèm tài chính)
+            from app.services.bod_report import send_group_briefing
+            results["group_briefing"] = await send_group_briefing(session)
+
+        logger.info("BOD report delivery finished: %s", list(results.keys()))
+        return {"status": "completed", "result": results}
+    except Exception as exc:
+        logger.exception("BOD report delivery failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

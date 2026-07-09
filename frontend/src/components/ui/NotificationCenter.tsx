@@ -136,6 +136,22 @@ export function useNotificationCount(leads: Lead[], projects: Project[]): number
   return notifs.filter(n => !n.read).length;
 }
 
+const SERVER_NOTIF_ICONS: Record<string, string> = {
+  followup_reminder: '⏰',
+  lead_recalled: '⚠️',
+  lead_assigned: '📥',
+  payment_reminder: '💰',
+  bod_report: '📊',
+  system: '🔔',
+};
+
+const SERVER_ACTION_TYPES = new Set(['followup_reminder', 'lead_recalled', 'payment_reminder']);
+
+function isDemoMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('jama_demo') === 'true';
+}
+
 export default function NotificationCenter({ leads: leadsProp, projects: projectsProp, onCountChange }: NotificationCenterProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -143,6 +159,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const panelRef = useRef<HTMLDivElement>(null);
   const [internalLeads, setInternalLeads] = useState<Lead[]>([]);
   const [internalProjects, setInternalProjects] = useState<Project[]>([]);
+  const [serverNotifs, setServerNotifs] = useState<Notification[]>([]);
 
   const leads = leadsProp ?? internalLeads;
   const projects = projectsProp ?? internalProjects;
@@ -159,15 +176,51 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     }
   }, [leadsProp]);
 
+  // Work mode: fetch real notifications from backend (poll every 60s)
+  useEffect(() => {
+    if (isDemoMode()) return;
+    let cancelled = false;
+
+    const fetchServer = () => {
+      import('@/lib/api').then(({ api }) => {
+        api.getNotifications().then(res => {
+          if (cancelled) return;
+          setServerNotifs(res.items.map(n => ({
+            id: `srv-${n.id}`,
+            group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
+            title: n.title,
+            description: n.body ? n.body.split('\n')[0] : '',
+            icon: SERVER_NOTIF_ICONS[n.type] || '🔔',
+            href: n.link || '/',
+            timestamp: n.created_at,
+            read: n.read,
+            type: 'pending_approval' as const,
+          })));
+        }).catch(() => {});
+      });
+    };
+
+    fetchServer();
+    const timer = setInterval(fetchServer, 60_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
   // Load read IDs on mount
   useEffect(() => {
     setReadIdsState(getReadIds());
   }, []);
 
-  const notifications = useMemo(
-    () => generateNotifications(leads, projects, readIds),
-    [leads, projects, readIds],
-  );
+  const notifications = useMemo(() => {
+    const generated = generateNotifications(leads, projects, readIds);
+    if (serverNotifs.length === 0) return generated;
+    // Merge: server notifications first, then locally generated ones
+    const merged = [...serverNotifs, ...generated];
+    merged.sort((a, b) => {
+      if (a.group !== b.group) return a.group === 'action_required' ? -1 : 1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+    return merged;
+  }, [leads, projects, readIds, serverNotifs]);
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.read).length,
@@ -185,10 +238,21 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     for (const n of notifications) allIds.add(n.id);
     setReadIdsState(allIds);
     setReadIds(allIds);
-  }, [readIds, notifications]);
+    // Also mark server notifications read
+    if (!isDemoMode() && serverNotifs.some(n => !n.read)) {
+      setServerNotifs(prev => prev.map(n => ({ ...n, read: true })));
+      import('@/lib/api').then(({ api }) => api.markAllNotificationsRead().catch(() => {}));
+    }
+  }, [readIds, notifications, serverNotifs]);
 
-  const handleNavigate = useCallback((href: string) => {
+  const handleNavigate = useCallback((href: string, notifId?: string) => {
     setOpen(false);
+    // Server notification: mark read on backend
+    if (notifId?.startsWith('srv-') && !isDemoMode()) {
+      const serverId = notifId.slice(4);
+      setServerNotifs(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+      import('@/lib/api').then(({ api }) => api.markNotificationRead(serverId).catch(() => {}));
+    }
     router.push(href);
   }, [router]);
 
@@ -254,7 +318,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const renderNotification = (n: Notification) => (
     <button
       key={n.id}
-      onClick={() => handleNavigate(n.href)}
+      onClick={() => handleNavigate(n.href, n.id)}
       className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
       style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >

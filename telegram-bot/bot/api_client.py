@@ -5,6 +5,8 @@ import os
 import httpx
 
 API_BASE = os.getenv("API_BASE_URL", "http://backend:8000")
+# Bí mật chia sẻ với backend (phải trùng TELEGRAM_AUTH_SECRET ở backend)
+TELEGRAM_AUTH_SECRET = os.getenv("TELEGRAM_AUTH_SECRET", "")
 
 
 class APIClient:
@@ -24,6 +26,7 @@ class APIClient:
                         "telegram_user_id": telegram_user_id,
                         "telegram_username": username,
                     },
+                    headers={"X-Telegram-Bot-Secret": TELEGRAM_AUTH_SECRET},
                 )
                 if resp.status_code == 200:
                     data = resp.json()

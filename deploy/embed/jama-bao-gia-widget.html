@@ -1,0 +1,150 @@
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  JAMA HOME — Widget Báo giá nội thất (nhúng vào trang Dự Toán)
+  ───────────────────────────────────────────────────────────────────────
+  CÁCH DÙNG:
+  1. Sửa dòng API_BASE bên dưới thành domain backend đã deploy của bạn.
+     Ví dụ: "https://jamacrm-production.up.railway.app/api/v1"
+  2. Copy TOÀN BỘ file này, dán vào 1 khối "HTML tùy chỉnh"/"Custom HTML"
+     trong trang Dự Toán (WordPress: block Custom HTML; Wix: khối Embed HTML).
+  3. Backend phải cho phép domain website gọi API: thêm jamahome.vn vào
+     biến môi trường CORS_ORIGINS của backend rồi restart. (xem README)
+
+  Widget này KHÔNG lộ đơn giá chi tiết — chỉ hiển thị khoảng giá và tự tạo
+  lead nóng vào JAMA CRM. Không cần thư viện ngoài, chạy độc lập.
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<div id="jama-quote-widget"></div>
+<script>
+(function () {
+  // ⚙️ SỬA DÒNG NÀY thành domain backend của bạn (giữ đuôi /api/v1):
+  var API_BASE = "https://YOUR-BACKEND-DOMAIN/api/v1";
+
+  var root = document.getElementById("jama-quote-widget");
+  var GOLD = "#C9A96E", TEAL = "#1A535C", DARK = "#12100B";
+  var PTYPES = [
+    ["apartment", "Căn hộ"], ["townhouse", "Nhà phố"], ["villa", "Biệt thự"],
+    ["office", "Văn phòng"], ["shophouse", "Shophouse"]
+  ];
+  function fmtM(v) {
+    if (v >= 1e9) return (v / 1e9).toFixed(2).replace(/\.?0+$/, "") + " tỷ";
+    return Math.round(v / 1e6).toLocaleString("vi-VN") + " triệu";
+  }
+  function el(html) { var d = document.createElement("div"); d.innerHTML = html; return d.firstElementChild; }
+
+  var css = ""
+    + "#jama-quote-widget *{box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}"
+    + ".jqw-card{max-width:640px;margin:0 auto;background:#fff;border:1px solid #eae6dc;border-radius:16px;padding:26px;box-shadow:0 6px 30px rgba(26,83,92,.06);}"
+    + ".jqw-head{text-align:center;margin-bottom:18px;}"
+    + ".jqw-badge{display:inline-block;width:44px;height:44px;line-height:44px;border-radius:11px;background:" + TEAL + ";color:#fff;font-size:22px;}"
+    + ".jqw-title{font-size:21px;font-weight:700;color:" + TEAL + ";margin:8px 0 2px;}"
+    + ".jqw-sub{font-size:13px;color:#8a8478;}"
+    + ".jqw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}"
+    + ".jqw-field label{display:block;font-size:12px;color:#6b6558;margin-bottom:5px;}"
+    + ".jqw-field input,.jqw-field select{width:100%;padding:11px 12px;border:1px solid #ded9cd;border-radius:10px;font-size:14px;outline:none;}"
+    + ".jqw-field input:focus,.jqw-field select:focus{border-color:" + GOLD + ";}"
+    + ".jqw-btn{width:100%;margin-top:16px;padding:13px;border:none;border-radius:11px;background:" + GOLD + ";color:" + DARK + ";font-size:15px;font-weight:700;cursor:pointer;}"
+    + ".jqw-btn:hover{opacity:.92;} .jqw-btn:disabled{opacity:.5;cursor:default;}"
+    + ".jqw-note{font-size:11px;color:#9a9384;text-align:center;margin-top:9px;}"
+    + ".jqw-err{color:#c0392b;font-size:13px;margin-top:10px;}"
+    + ".jqw-tiers{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0;}"
+    + ".jqw-tier{text-align:center;padding:14px 8px;border-radius:12px;border:1px solid #eae6dc;background:#fbf9f4;}"
+    + ".jqw-tier.on{border:2px solid " + GOLD + ";background:#fdf8ec;}"
+    + ".jqw-tier .lb{font-size:13px;font-weight:600;color:#4a4638;}"
+    + ".jqw-tier .pr{font-size:16px;font-weight:700;color:" + TEAL + ";margin-top:4px;}"
+    + ".jqw-tier .ps{font-size:11px;color:#9a9384;margin-top:2px;}"
+    + ".jqw-tier .tag{font-size:10px;font-weight:700;color:" + DARK + ";background:" + GOLD + ";border-radius:20px;padding:2px 8px;}"
+    + ".jqw-ok{background:#eef7ee;border:1px solid #cfe6cf;border-radius:12px;padding:16px;text-align:center;color:#2e6b2e;}"
+    + ".jqw-reset{width:100%;margin-top:10px;padding:10px;background:#fff;border:1px solid #ded9cd;border-radius:10px;font-size:13px;color:#6b6558;cursor:pointer;}"
+    + "@media(max-width:520px){.jqw-grid{grid-template-columns:1fr;}.jqw-tiers{grid-template-columns:1fr;}}";
+  var style = document.createElement("style"); style.textContent = css; root.appendChild(style);
+
+  function optionTags() {
+    return PTYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join("");
+  }
+
+  function renderForm() {
+    root.appendChild(el(
+      '<div class="jqw-card">'
+      + '<div class="jqw-head"><div class="jqw-badge">&#127968;</div>'
+      + '<div class="jqw-title">Báo giá nội thất trong 30 giây</div>'
+      + '<div class="jqw-sub">Nhập thông tin căn nhà — nhận ngay khoảng chi phí + lịch khảo sát miễn phí</div></div>'
+      + '<div class="jqw-grid">'
+      + '<div class="jqw-field"><label>Họ tên *</label><input id="jqw-name" placeholder="Nguyễn Văn A"></div>'
+      + '<div class="jqw-field"><label>Số điện thoại *</label><input id="jqw-phone" placeholder="09xx xxx xxx"></div>'
+      + '<div class="jqw-field"><label>Diện tích (m²) *</label><input id="jqw-area" type="number" placeholder="75"></div>'
+      + '<div class="jqw-field"><label>Loại nhà</label><select id="jqw-ptype">' + optionTags() + '</select></div>'
+      + '<div class="jqw-field"><label>Số phòng ngủ</label><input id="jqw-br" type="number" placeholder="2"></div>'
+      + '<div class="jqw-field"><label>Ngân sách (triệu)</label><input id="jqw-budget" type="number" placeholder="300"></div>'
+      + '</div>'
+      + '<div class="jqw-field" style="margin-top:12px"><label>Mô tả thêm (phong cách, yêu cầu...)</label><input id="jqw-note" placeholder="Hiện đại tối giản"></div>'
+      + '<div id="jqw-err" class="jqw-err"></div>'
+      + '<button id="jqw-submit" class="jqw-btn">&#9889; Nhận báo giá ngay</button>'
+      + '<div class="jqw-note">Miễn phí &middot; Không ràng buộc &middot; JAMA HOME liên hệ trong 24h</div>'
+      + '</div>'
+    ));
+    document.getElementById("jqw-submit").addEventListener("click", submit);
+  }
+
+  function submit() {
+    var name = (document.getElementById("jqw-name").value || "").trim();
+    var phone = (document.getElementById("jqw-phone").value || "").trim();
+    var area = parseFloat(document.getElementById("jqw-area").value);
+    var errBox = document.getElementById("jqw-err");
+    errBox.textContent = "";
+    if (!name || phone.replace(/\D/g, "").length < 9) { errBox.textContent = "Vui lòng nhập họ tên và số điện thoại hợp lệ."; return; }
+    if (!area || area <= 0) { errBox.textContent = "Vui lòng nhập diện tích (m²)."; return; }
+
+    var brRaw = document.getElementById("jqw-br").value;
+    var budgetRaw = document.getElementById("jqw-budget").value;
+    var body = {
+      name: name, phone: phone, area_sqm: area,
+      property_type: document.getElementById("jqw-ptype").value,
+      bedrooms: brRaw ? parseInt(brRaw, 10) : null,
+      budget: budgetRaw ? parseFloat(budgetRaw) * 1e6 : null,
+      note: (document.getElementById("jqw-note").value || "").trim() || null
+    };
+    var btn = document.getElementById("jqw-submit");
+    btn.disabled = true; btn.textContent = "⏳ Đang tính toán...";
+
+    fetch(API_BASE + "/instant-quote/public", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "Có lỗi xảy ra, vui lòng thử lại.");
+        renderResult(res.d);
+      })
+      .catch(function (e) {
+        errBox.textContent = e.message || "Không kết nối được. Vui lòng thử lại sau.";
+        btn.disabled = false; btn.textContent = "⚡ Nhận báo giá ngay";
+      });
+  }
+
+  function renderResult(d) {
+    root.innerHTML = ""; root.appendChild(style);
+    var pl = (PTYPES.filter(function (t) { return t[0] === d.property_type; })[0] || ["", "Công trình"])[1];
+    var order = ["basic", "standard", "premium"];
+    var tiersHtml = order.map(function (k) {
+      var t = d.tiers[k]; var on = d.suggested_tier === k;
+      return '<div class="jqw-tier' + (on ? ' on' : '') + '">'
+        + (on ? '<div class="tag">PHÙ HỢP</div>' : '<div style="height:16px"></div>')
+        + '<div class="lb">' + t.label + '</div>'
+        + '<div class="pr">' + fmtM(t.range_low) + ' – ' + fmtM(t.range_high) + '</div>'
+        + '<div class="ps">≈ ' + (t.per_sqm / 1e6).toFixed(1) + ' tr/m²</div></div>';
+    }).join("");
+    root.appendChild(el(
+      '<div class="jqw-card">'
+      + '<div class="jqw-head"><div class="jqw-title" style="font-size:18px">Báo giá sơ bộ của bạn</div>'
+      + '<div class="jqw-sub">&#128208; ' + d.area_sqm + 'm² &middot; ' + pl + (d.bedrooms ? ' &middot; ' + d.bedrooms + ' phòng ngủ' : '') + '</div></div>'
+      + '<div class="jqw-tiers">' + tiersHtml + '</div>'
+      + '<div class="jqw-ok"><b>&#9989; ' + (d.message || "JAMA HOME sẽ liên hệ với bạn sớm!") + '</b>'
+      + '<div style="font-size:11px;color:#7a8a7a;margin-top:6px">' + (d.disclaimer || "") + '</div></div>'
+      + '<button class="jqw-reset" id="jqw-again">← Báo giá căn khác</button>'
+      + '</div>'
+    ));
+    document.getElementById("jqw-again").addEventListener("click", function () { root.innerHTML = ""; root.appendChild(style); renderForm(); });
+  }
+
+  renderForm();
+})();
+</script>

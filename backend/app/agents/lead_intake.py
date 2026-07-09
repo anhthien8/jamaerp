@@ -4,9 +4,9 @@ import json
 import re
 from decimal import Decimal
 
-from litellm import acompletion
 from app.config import get_settings
 from app.schemas.lead import LeadParseResponse
+from app.services.llm_config import llm_complete
 
 settings = get_settings()
 
@@ -36,9 +36,7 @@ Quy tắc:
 async def parse_lead_text(raw_text: str) -> LeadParseResponse:
     """Parse raw text using LLM → structured lead data."""
     try:
-        response = await acompletion(
-            model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
+        response = await llm_complete(
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": raw_text},

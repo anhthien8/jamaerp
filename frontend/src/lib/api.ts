@@ -172,6 +172,12 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/ai/parse-lead') return { name: '', phone: '', confidence: 0.95, raw_text: '' } as T;
   if (path === '/ai/suggest-action') return d.DEMO_AI_SUGGESTIONS[0] as T;
 
+  // ── Notifications (demo: NotificationCenter generates locally) ──
+  if (path === '/notifications') return { items: [], unread_count: 0 } as T;
+  if (path.match(/^\/notifications\/.+\/read$/) || path === '/notifications/read-all') {
+    return { status: 'ok' } as T;
+  }
+
   // Fallback: throw so caller shows error
   throw new Error(`Demo mode: no data for ${path}`);
 }
@@ -536,6 +542,108 @@ class ApiClient {
   async createCommissionStructure(data: Partial<CommissionStructure>) { return this.request<CommissionStructure>('/commission-structures', { method: 'POST', body: data }); }
   async updateCommissionStructure(id: string, data: Partial<CommissionStructure>) { return this.request<CommissionStructure>(`/commission-structures/${id}`, { method: 'PUT', body: data }); }
   async deleteCommissionStructure(id: string) { return this.request<unknown>(`/commission-structures/${id}`, { method: 'DELETE' }); }
+
+  // === Notifications ===
+  async getNotifications(unreadOnly = false) {
+    return this.request<{ items: ServerNotification[]; unread_count: number }>(
+      '/notifications', { params: unreadOnly ? { unread_only: 'true' } : undefined }
+    );
+  }
+  async markNotificationRead(id: string) {
+    return this.request<{ status: string }>(`/notifications/${id}/read`, { method: 'PUT' });
+  }
+  async markAllNotificationsRead() {
+    return this.request<{ status: string }>('/notifications/read-all', { method: 'PUT' });
+  }
+
+  // === Automation (admin/executive) ===
+  async getAutomationSettings() {
+    return this.request<AutomationSettings>('/automation/settings');
+  }
+  async updateAutomationSettings(data: Partial<{
+    followup_reminder_days: number;
+    lead_recall_days: number;
+    lead_recall_enabled: boolean;
+    payment_reminder_days: number;
+    bod_report_enabled: boolean;
+    bod_report_hour: number;
+    telegram_group_chat_id: string;
+    group_briefing_enabled: boolean;
+  }>) {
+    return this.request<AutomationSettings>('/automation/settings', { method: 'PUT', body: data });
+  }
+  async runAutomation(job: 'followups' | 'recall' | 'payments' | 'all') {
+    return this.request<Record<string, unknown>>(`/automation/run/${job}`, { method: 'POST' });
+  }
+  async sendBodReport(period: 'daily' | 'weekly' | 'monthly') {
+    return this.request<Record<string, unknown>>(`/automation/run/bod-report/${period}`, { method: 'POST' });
+  }
+  async previewBodReport(period: 'daily' | 'weekly' | 'monthly') {
+    return this.request<{ period: string; text: string; metrics: Record<string, number> }>(
+      `/automation/bod-report/${period}/preview`
+    );
+  }
+  async sendGroupBriefing() {
+    return this.request<{ status: string; reason?: string }>('/automation/run/group-briefing', { method: 'POST' });
+  }
+
+  // === AI Settings (admin only) ===
+  async getAISettings() {
+    return this.request<AISettingsResponse>('/ai-settings');
+  }
+  async updateAISettings(data: Partial<{
+    llm_model: string;
+    llm_api_key: string;
+    llm_fallback_model: string;
+    llm_fallback_api_key: string;
+  }>) {
+    return this.request<AISettingsResponse>('/ai-settings', { method: 'PUT', body: data });
+  }
+  async testAIConnection() {
+    return this.request<{ status: string; model?: string; reply?: string; detail?: string }>(
+      '/ai-settings/test', { method: 'POST' }
+    );
+  }
+
+  // === Backup (admin only) ===
+  async getBackupSettings() {
+    return this.request<BackupSettingsResponse>('/backup/settings');
+  }
+  async updateBackupSettings(data: Partial<{
+    backup_enabled: boolean;
+    backup_hour: number;
+    backup_retention_days: number;
+    backup_gdrive_enabled: boolean;
+    gdrive_client_id: string;
+    gdrive_client_secret: string;
+  }>) {
+    return this.request<BackupSettingsResponse>('/backup/settings', { method: 'PUT', body: data });
+  }
+  async runBackupNow() {
+    return this.request<{ status: string; file?: string; size_mb?: number; gdrive_uploaded?: boolean; reason?: string }>(
+      '/backup/run', { method: 'POST' }
+    );
+  }
+  async getGdriveAuthUrl() {
+    return this.request<{ auth_url: string }>('/backup/gdrive/auth-url');
+  }
+  async disconnectGdrive() {
+    return this.request<{ status: string }>('/backup/gdrive/disconnect', { method: 'POST' });
+  }
+
+  // === Instant Quote (báo giá sơ bộ tức thì) ===
+  async generateInstantQuote(data: {
+    area_sqm?: number; property_type?: string; bedrooms?: number | null;
+    budget?: number | null; raw_text?: string;
+  }) {
+    return this.request<InstantQuoteResult>('/instant-quote/generate', { method: 'POST', body: data });
+  }
+  async getPriceItems() {
+    return this.request<PriceItemDTO[]>('/instant-quote/price-items');
+  }
+  async updatePriceItem(id: string, data: Partial<Omit<PriceItemDTO, 'id' | 'code' | 'updated_at'>>) {
+    return this.request<{ status: string }>(`/instant-quote/price-items/${id}`, { method: 'PUT', body: data });
+  }
 
   logout() {
     if (typeof window !== 'undefined') {
@@ -998,6 +1106,80 @@ export interface CommissionStructure {
   created_at: string;
 }
 
+// === Notifications & Automation ===
+export interface ServerNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface AutomationSettings {
+  followup_reminder_days: string;
+  lead_recall_days: string;
+  lead_recall_enabled: string;
+  payment_reminder_days: string;
+  bod_report_enabled: string;
+  bod_report_hour: string;
+  telegram_group_chat_id: string;
+  group_briefing_enabled: string;
+}
+
+// === Instant Quote ===
+export interface QuoteLineItem {
+  code: string; name: string; category: string; unit: string;
+  qty: number; unit_price: number; total: number;
+}
+
+export interface QuoteTier {
+  label: string; items: QuoteLineItem[]; total: number;
+  range_low: number; range_high: number; per_sqm: number;
+}
+
+export interface InstantQuoteResult {
+  area_sqm: number; property_type: string; bedrooms: number;
+  tiers: { basic: QuoteTier; standard: QuoteTier; premium: QuoteTier };
+  suggested_tier: 'basic' | 'standard' | 'premium';
+  customer_budget: number | null;
+  zalo_text: string;
+  disclaimer: string;
+  parsed: { name?: string; phone?: string } | null;
+}
+
+export interface PriceItemDTO {
+  id: string; code: string; name: string; category: string; unit: string;
+  price_basic: number; price_standard: number; price_premium: number;
+  note: string | null; is_active: boolean; updated_at: string | null;
+}
+
+export interface BackupSettingsResponse {
+  backup_enabled: string;
+  backup_hour: string;
+  backup_retention_days: string;
+  backup_gdrive_enabled: string;
+  max_retention_days: number;
+  gdrive_connected: boolean;
+  gdrive_account_email: string;
+  gdrive_client_id_set: boolean;
+  last_run: string;
+  last_status: { status: string; file?: string; size_mb?: number; gdrive_uploaded?: boolean; reason?: string } | null;
+  local_backup_count: number;
+  local_backups: { name: string; size_bytes: number; created_at: string }[];
+}
+
+export interface AISettingsResponse {
+  llm_model: string;
+  llm_api_key_masked: string;
+  llm_api_key_set: boolean;
+  llm_fallback_model: string;
+  llm_fallback_api_key_masked: string;
+  llm_fallback_api_key_set: boolean;
+  presets: { label: string; model: string }[];
+}
+
 // === Pagination ===
 export interface PaginatedResponse<T> {
   items: T[];
@@ -1013,5 +1195,5 @@ export function extractItems<T>(response: T[] | PaginatedResponse<T>): T[] {
   return (response as PaginatedResponse<T>).items ?? [];
 }
 
-// Export singleton
+// Export singleton instance
 export const api = new ApiClient(API_BASE);

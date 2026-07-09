@@ -149,7 +149,8 @@ async def edit_lead(callback: types.CallbackQuery, state: FSMContext):
 
 
 # Also catch forwarded/pasted messages (non-command) as lead intake
-@router.message(F.text & ~F.text.startswith("/"))
+# CHỈ trong chat riêng — tránh parse nhầm tin nhắn trò chuyện trong nhóm công ty
+@router.message(F.chat.type == "private", F.text & ~F.text.startswith("/"))
 async def auto_parse_message(message: types.Message, state: FSMContext):
     """Auto-detect lead info from any non-command text message."""
     current_state = await state.get_state()

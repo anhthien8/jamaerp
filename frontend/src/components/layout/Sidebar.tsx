@@ -32,6 +32,7 @@ const Icon = {
 const ALL_ITEMS = [
   { href: '/', label: 'Dashboard', icon: Icon.dashboard },
   { href: '/leads', label: 'Pipeline', icon: Icon.pipeline, perm: 'canViewLeads' },
+  { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations, perm: 'canViewLeads' },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
   { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
@@ -49,8 +50,8 @@ const ALL_ITEMS = [
 const ROLE_ESSENTIALS: Record<string, string[]> = {
   admin:      ['/', '/leads', '/projects', '/contracts', '/accounting'],
   executive:  ['/', '/projects', '/pl', '/reports'],
-  leader:     ['/', '/leads', '/projects', '/reports'],
-  data_entry: ['/', '/leads', '/projects', '/contracts'],
+  leader:     ['/', '/leads', '/quote-tool', '/projects', '/reports'],
+  data_entry: ['/', '/leads', '/quote-tool', '/projects', '/contracts'],
   designer:   ['/', '/projects', '/quotations'],
   pm:         ['/', '/projects', '/inventory', '/contracts'],
   accountant: ['/', '/accounting', '/pl', '/finance'],

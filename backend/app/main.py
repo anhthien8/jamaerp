@@ -22,15 +22,24 @@ async def lifespan(app: FastAPI):
     from app.api.telegram_workflow import MaterialRequest  # noqa — ensure table created
     from app.models.contract import Contract  # noqa
     from app.models.quotation import Quotation  # noqa
+    from app.models.notification import Notification, SystemSetting  # noqa
+    from app.models.pricing import PriceItem  # noqa
 
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Security: ensure JWT secret is configured
+    # Security: ensure JWT secret is configured & strong
+    _weak_secrets = {"change-me-to-a-random-64-char-string", "secret", "changeme"}
     if not settings.JWT_SECRET_KEY:
         print("[FATAL] JWT_SECRET_KEY is not set. Please set it in .env — refusing to start.")
         raise RuntimeError("JWT_SECRET_KEY must be set in environment")
+    if settings.JWT_SECRET_KEY in _weak_secrets or len(settings.JWT_SECRET_KEY) < 32:
+        print("[FATAL] JWT_SECRET_KEY is weak/placeholder. Generate a random 64-char string — refusing to start.")
+        raise RuntimeError("JWT_SECRET_KEY must be a strong random value (>= 32 chars)")
+    # Warn (không chặn) nếu bot auth chưa có bí mật chia sẻ
+    if settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_AUTH_SECRET:
+        print("[WARN] TELEGRAM_AUTH_SECRET chưa đặt — /auth/telegram chỉ dựa rate-limit. Nên đặt bí mật chia sẻ với bot.")
 
     # Auto-seed
     from app.database import async_session
@@ -64,6 +73,20 @@ app.add_middleware(
 )
 
 
+# Security headers — áp cho mọi response
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
 # Health check
 @app.get("/health")
 async def health():
@@ -88,6 +111,11 @@ from app.api.fixed_costs import router as fixed_costs_router
 from app.api.variable_costs import router as variable_costs_router
 from app.api.commission_structures import router as commission_structures_router
 from app.api.telegram_workflow import router as telegram_workflow_router
+from app.api.notifications import router as notifications_router
+from app.api.automation import router as automation_router
+from app.api.ai_settings import router as ai_settings_router
+from app.api.backup import router as backup_router
+from app.api.instant_quote import router as instant_quote_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -106,3 +134,8 @@ app.include_router(fixed_costs_router, prefix="/api/v1")
 app.include_router(variable_costs_router, prefix="/api/v1")
 app.include_router(commission_structures_router, prefix="/api/v1")
 app.include_router(telegram_workflow_router, prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")
+app.include_router(automation_router, prefix="/api/v1")
+app.include_router(ai_settings_router, prefix="/api/v1")
+app.include_router(backup_router, prefix="/api/v1")
+app.include_router(instant_quote_router, prefix="/api/v1")

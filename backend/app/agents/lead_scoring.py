@@ -4,12 +4,12 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from litellm import acompletion
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.lead import Activity, Lead
+from app.services.llm_config import llm_available, llm_complete
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -263,13 +263,11 @@ async def score_lead_agent(lead_id: str, db: AsyncSession) -> dict:
     activities = list(act_result.scalars().all())
 
     # Attempt LLM scoring
-    if settings.LLM_API_KEY:
+    if await llm_available():
         try:
             lead_context = _build_lead_context(lead, activities)
 
-            response = await acompletion(
-                model=settings.LLM_MODEL,
-                api_key=settings.LLM_API_KEY,
+            response = await llm_complete(
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": lead_context},

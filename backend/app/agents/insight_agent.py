@@ -8,11 +8,11 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-from litellm import acompletion
 from sqlalchemy import select, func, case, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.services.llm_config import llm_available, llm_complete
 from app.models.lead import Lead, Activity
 from app.models.project import Project
 from app.models.contract import Contract
@@ -82,7 +82,7 @@ async def generate_insights(db: AsyncSession, period_days: int = 7) -> dict:
     metrics = await _gather_metrics(db, now, period_start, prev_period_start)
 
     # ---- try LLM, fall back to rules ----
-    if settings.LLM_API_KEY:
+    if await llm_available():
         try:
             return await _llm_insights(metrics, period_days)
         except Exception:
@@ -353,9 +353,7 @@ async def _llm_insights(metrics: dict, period_days: int) -> dict:
         f"Số liệu:\n{json.dumps(metrics, ensure_ascii=False, indent=2, default=str)}"
     )
 
-    response = await acompletion(
-        model=settings.LLM_MODEL,
-        api_key=settings.LLM_API_KEY,
+    response = await llm_complete(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},

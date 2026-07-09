@@ -10,6 +10,8 @@ from app.models.salary_grade import SalaryGrade
 from app.models.fixed_cost import FixedCost
 from app.models.variable_cost import VariableCost
 from app.models.commission_structure import CommissionStructure
+from app.models.notification import Notification, SystemSetting
+from app.models.pricing import PriceItem
 
 __all__ = [
     "User", "Team",
@@ -19,4 +21,6 @@ __all__ = [
     "Customer",
     "Material", "MaterialUsage",
     "SalaryGrade", "FixedCost", "VariableCost", "CommissionStructure",
+    "Notification", "SystemSetting",
+    "PriceItem",
 ]

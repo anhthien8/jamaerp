@@ -6,9 +6,12 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.middleware.auth import create_access_token, decode_token, hash_password, verify_password
 from app.models.user import User
 from tests.conftest import auth_header, _uid
+
+_settings = get_settings()
 
 
 # ── Password hashing ──────────────────────────────────────────────────────
@@ -155,12 +158,20 @@ class TestListUsers:
 
 # ── POST /api/v1/auth/telegram ────────────────────────────────────────────
 
+_TG_SECRET_HEADER = (
+    {"X-Telegram-Bot-Secret": _settings.TELEGRAM_AUTH_SECRET}
+    if _settings.TELEGRAM_AUTH_SECRET
+    else {}
+)
+
+
 @pytest.mark.asyncio
 class TestTelegramAuth:
     async def test_telegram_auth_success(self, client: AsyncClient, admin_user: User):
         resp = await client.post(
             "/api/v1/auth/telegram",
             json={"telegram_user_id": 900001, "telegram_username": "admin_tg"},
+            headers=_TG_SECRET_HEADER,
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -170,6 +181,7 @@ class TestTelegramAuth:
         resp = await client.post(
             "/api/v1/auth/telegram",
             json={"telegram_user_id": 999999},
+            headers=_TG_SECRET_HEADER,
         )
         assert resp.status_code == 404
 
@@ -190,5 +202,6 @@ class TestTelegramAuth:
         resp = await client.post(
             "/api/v1/auth/telegram",
             json={"telegram_user_id": 888888},
+            headers=_TG_SECRET_HEADER,
         )
         assert resp.status_code == 403

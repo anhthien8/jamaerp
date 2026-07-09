@@ -105,17 +105,34 @@ async def create_user(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ admin mới được tạo user")
 
+    from app.schemas.user import VALID_ROLES
+
+    # Validate bắt buộc — endpoint nhận dict thô nên phải tự kiểm tra
+    full_name = (data.get("full_name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    role = data.get("role", "data_entry")
+
+    if not full_name or not email:
+        raise HTTPException(status_code=400, detail="Thiếu họ tên hoặc email")
+    if "@" not in email:
+        raise HTTPException(status_code=400, detail="Email không hợp lệ")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải từ 8 ký tự trở lên")
+    if role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+
     # Check email exists
-    existing = await db.execute(select(User).where(User.email == data.get("email")))
+    existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
     user = User(
-        full_name=data["full_name"],
-        email=data["email"],
+        full_name=full_name,
+        email=email,
         phone=data.get("phone"),
-        password_hash=hash_password(data.get("password", "jama2026")),
-        role=data.get("role", "data_entry"),
+        password_hash=hash_password(password),
+        role=role,
         department=data.get("department", "SALES"),
         team_id=data.get("team_id"),
         is_active=True,
@@ -149,6 +166,12 @@ async def update_user(
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi vai trò")
     if "is_active" in data and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi trạng thái")
+    if "role" in data:
+        from app.schemas.user import VALID_ROLES
+        if data["role"] not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+    if "password" in data and data["password"] and len(data["password"]) < 8:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải từ 8 ký tự trở lên")
 
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_username"]
     for k in allowed:

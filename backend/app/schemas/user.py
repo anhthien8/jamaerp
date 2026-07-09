@@ -1,7 +1,14 @@
 """Pydantic schemas for auth & users."""
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+
+
+# Vai trò hợp lệ — chặn gán role tùy ý (privilege escalation qua giá trị lạ)
+VALID_ROLES = {
+    "admin", "executive", "leader", "data_entry",
+    "accountant", "purchasing", "designer", "pm",
+}
 
 
 class UserLogin(BaseModel):
@@ -10,12 +17,12 @@ class UserLogin(BaseModel):
 
 
 class UserCreate(BaseModel):
-    full_name: str
-    email: str
-    password: str
+    full_name: str = Field(min_length=1, max_length=150)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
     role: str = "data_entry"
     department: str = "SALES"
-    phone: str | None = None
+    phone: str | None = Field(default=None, max_length=20)
     team_id: str | None = None
 
 

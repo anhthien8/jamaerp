@@ -31,6 +31,8 @@ from app.models.salary_grade import SalaryGrade  # noqa
 from app.models.fixed_cost import FixedCost  # noqa
 from app.models.variable_cost import VariableCost  # noqa
 from app.models.commission_structure import CommissionStructure  # noqa
+from app.models.notification import Notification, SystemSetting  # noqa
+from app.models.pricing import PriceItem  # noqa
 from app.api.telegram_workflow import MaterialRequest  # noqa
 
 

@@ -41,3 +41,6 @@ npm-debug.log*
 
 # Uploads
 /uploads/
+
+# Backups (chứa snapshot database — không commit)
+backend/backups/

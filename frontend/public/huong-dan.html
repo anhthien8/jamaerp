@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng dẫn sử dụng JAMA HOME CRM</title>
+<style>
+  :root {
+    --gold: #C9A96E;
+    --teal: #1A535C;
+    --bg: #0D1117;
+    --surface: #161B22;
+    --surface-2: #1C2430;
+    --border: rgba(255,255,255,0.08);
+    --text: #E6EDF3;
+    --text-2: #9BA7B4;
+    --text-3: #6B7683;
+    --green: #3FB950;
+    --red: #F85149;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.65;
+  }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, rgba(201,169,110,0.12), rgba(26,83,92,0.25)), var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 40px; text-align: center;
+  }
+  .hero .logo { font-size: 44px; }
+  .hero h1 { font-size: clamp(26px, 4vw, 38px); margin: 12px 0 8px; }
+  .hero h1 span { color: var(--gold); }
+  .hero p { color: var(--text-2); max-width: 640px; margin: 0 auto; font-size: 16px; }
+  .hero .badges { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .badge {
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--text-2);
+  }
+
+  /* ── Role selector ── */
+  .role-nav { position: sticky; top: 0; z-index: 50; background: rgba(13,17,23,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .role-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 12px 0; }
+  .role-tab {
+    flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
+    padding: 8px 16px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600;
+    transition: all .15s; white-space: nowrap;
+  }
+  .role-tab:hover { border-color: var(--gold); color: var(--text); }
+  .role-tab.active { background: var(--gold); color: #12100B; border-color: var(--gold); }
+
+  /* ── Sections ── */
+  section.panel { display: none; padding: 36px 0 20px; animation: fade .25s ease; }
+  section.panel.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .role-header { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+  .role-icon { font-size: 40px; }
+  .role-header h2 { font-size: 26px; }
+  .role-header .sub { color: var(--text-2); font-size: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 22px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+  }
+  .card.full { grid-column: 1 / -1; }
+  .card h3 { font-size: 16px; margin-bottom: 12px; color: var(--gold); display: flex; align-items: center; gap: 8px; }
+  .card p { color: var(--text-2); font-size: 14px; }
+
+  /* Access chips */
+  .access { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font-size: 13px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); }
+  .chip.yes { background: rgba(63,185,80,0.12); color: var(--green); border-color: rgba(63,185,80,0.3); }
+  .chip.no { background: rgba(248,81,73,0.07); color: var(--text-3); border-color: transparent; text-decoration: line-through; }
+
+  /* Steps */
+  ol.steps { list-style: none; counter-reset: step; }
+  ol.steps li {
+    counter-increment: step; position: relative; padding: 0 0 14px 44px; font-size: 14px; color: var(--text-2);
+  }
+  ol.steps li strong { color: var(--text); }
+  ol.steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0;
+    width: 28px; height: 28px; border-radius: 50%; background: var(--teal); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+  }
+  ol.steps li:not(:last-child)::after {
+    content: ''; position: absolute; left: 13.5px; top: 30px; bottom: 2px; width: 1px; background: var(--border);
+  }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+  td:first-child { color: var(--text); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px 7px; font-size: 13px; color: var(--gold); font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  }
+
+  /* Tip box */
+  .tip {
+    background: rgba(201,169,110,0.08); border: 1px solid rgba(201,169,110,0.25);
+    border-radius: 12px; padding: 14px 16px; font-size: 14px; color: var(--text-2); margin-top: 14px;
+  }
+  .tip b { color: var(--gold); }
+  .warn {
+    background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.25);
+    border-radius: 12px; padding: 14px 16px; font-size: 14px; color: var(--text-2); margin-top: 14px;
+  }
+  .warn b { color: var(--red); }
+
+  /* Rhythm: nhịp làm việc ngày/tuần/tháng */
+  .rhythm { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .rhythm .col { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .rhythm h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .rhythm .col.d h4 { color: var(--green); }
+  .rhythm .col.w h4 { color: var(--gold); }
+  .rhythm .col.m h4 { color: #58A6FF; }
+  .rhythm ul { list-style: none; }
+  .rhythm li { font-size: 13.5px; color: var(--text-2); padding: 4px 0 4px 18px; position: relative; }
+  .rhythm li::before { content: '›'; position: absolute; left: 4px; color: var(--text-3); }
+  .rhythm li b { color: var(--text); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--border); margin-top: 44px; padding: 26px 0 40px; text-align: center; color: var(--text-3); font-size: 13px; }
+  footer a { color: var(--gold); text-decoration: none; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 36px 0 28px; }
+    .role-header h2 { font-size: 21px; }
+    td:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="container">
+    <div class="logo">🏠</div>
+    <h1>JAMA HOME <span>CRM</span> — Hướng dẫn sử dụng</h1>
+    <p>Chọn đúng vai trò của bạn bên dưới để xem hướng dẫn dành riêng cho công việc của mình. Đọc 5 phút là dùng được ngay.</p>
+    <div class="badges">
+      <span class="badge">🌐 Web App</span>
+      <span class="badge">🤖 Telegram Bot</span>
+      <span class="badge">🔍 Tìm nhanh: Ctrl + K</span>
+      <span class="badge">🔔 Chuông thông báo góc trên</span>
+    </div>
+  </div>
+</header>
+
+<nav class="role-nav">
+  <div class="container">
+    <div class="role-tabs" id="tabs">
+      <button class="role-tab active" data-panel="common">🚀 Bắt đầu</button>
+      <button class="role-tab" data-panel="sales">💼 Sale</button>
+      <button class="role-tab" data-panel="leader">👑 Trưởng phòng KD</button>
+      <button class="role-tab" data-panel="designer">🎨 Thiết kế</button>
+      <button class="role-tab" data-panel="pm">🏗️ Trưởng Dự án</button>
+      <button class="role-tab" data-panel="supervisor">👷 Giám sát</button>
+      <button class="role-tab" data-panel="purchasing">📦 Thu mua</button>
+      <button class="role-tab" data-panel="accountant">🧮 Kế toán / NS</button>
+      <button class="role-tab" data-panel="executive">📊 Ban Quản Trị</button>
+      <button class="role-tab" data-panel="admin">⚙️ Giám đốc</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- ═══════════ BẮT ĐẦU (CHUNG) ═══════════ -->
+  <section class="panel active" id="common">
+    <div class="role-header">
+      <div class="role-icon">🚀</div>
+      <div><h2>Bắt đầu — dành cho mọi nhân viên</h2>
+      <div class="sub">3 việc cần làm trong ngày đầu tiên</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>✅ Ngày đầu tiên: 3 bước</h3>
+        <ol class="steps">
+          <li><strong>Đăng nhập web CRM</strong> — mở link CRM công ty, đăng nhập bằng email <code>@jamahome.vn</code> và mật khẩu do Giám đốc/Kế toán cấp. Đổi thiết bị vẫn dùng tài khoản đó.</li>
+          <li><strong>Liên kết Telegram</strong> — chat riêng với bot công ty → gõ <code>/id</code> → gửi số User ID cho admin → admin điền vào hồ sơ của bạn → gõ <code>/start</code>, thấy "Chào mừng [Tên bạn]" là xong.</li>
+          <li><strong>Vào nhóm Telegram công ty</strong> — nhờ quản lý thêm vào nhóm <em>JAMA HOME — Công việc</em>. Mỗi sáng 8h bot gửi briefing công việc tại topic 📢.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>🧭 Thao tác dùng mọi ngày</h3>
+        <table>
+          <tr><td><code>Ctrl + K</code></td><td>Tìm kiếm toàn hệ thống (lead, dự án, khách hàng...)</td></tr>
+          <tr><td>🔔 Chuông</td><td>Thông báo cần xử lý: lead quá hạn, việc được giao, nhắc thanh toán</td></tr>
+          <tr><td>Sidebar</td><td>Chỉ hiện các trang bạn có quyền — không thấy nghĩa là không thuộc việc của bạn</td></tr>
+          <tr><td>Chế độ Demo</td><td>Dữ liệu giả để tập luyện — banner màu hiện rõ khi đang ở Demo</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>🤖 Lệnh bot ai cũng dùng được</h3>
+        <table>
+          <tr><td><code>/start</code></td><td>Đăng nhập bot + xem danh sách lệnh</td></tr>
+          <tr><td><code>/duan JMH-001</code></td><td>Tra cứu nhanh dự án: tiến độ, PM, tasks</td></tr>
+          <tr><td><code>/briefing</code></td><td>Briefing công việc cá nhân</td></tr>
+          <tr><td><code>/id</code></td><td>Lấy User ID (chat riêng) hoặc Chat ID (trong nhóm)</td></tr>
+        </table>
+        <div class="tip"><b>Mẹo:</b> bot hoạt động 24/7 trên điện thoại — ở công trường hay gặp khách đều thao tác được, không cần mở máy tính.</div>
+      </div>
+      <div class="card full">
+        <h3>📢 Nhóm Telegram công ty — gửi đúng topic</h3>
+        <table>
+          <tr><th>Topic</th><th>Dùng để làm gì</th></tr>
+          <tr><td>📢 Briefing &amp; Thông báo</td><td>Bot đăng briefing sáng + thông báo chung (chỉ đọc)</td></tr>
+          <tr><td>🏗️ Báo cáo công trình</td><td>Giám sát gõ <code>/baocao</code> kèm ảnh tiến độ</td></tr>
+          <tr><td>📦 Vật tư &amp; Duyệt</td><td>Gõ <code>/vatlieu</code> — sếp bấm nút Duyệt ngay trong topic</td></tr>
+          <tr><td>🚨 Sự cố</td><td>Gõ <code>/suco</code> kèm ảnh — xử lý ưu tiên, không bị trôi</td></tr>
+          <tr><td>⏰ Chấm công</td><td><code>/checkin</code> · <code>/checkout</code> GPS tại công trình</td></tr>
+          <tr><td>💬 Trao đổi chung</td><td>Chat tự do của team</td></tr>
+        </table>
+        <div class="warn"><b>Lưu ý bảo mật:</b> nhập lead khách hàng (<code>/lead</code>) chỉ làm trong <b>chat riêng</b> với bot — không paste SĐT khách vào nhóm chung.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ SALE ═══════════ -->
+  <section class="panel" id="sales">
+    <div class="role-header">
+      <div class="role-icon">💼</div>
+      <div><h2>Nhân viên Kinh doanh (Sale)</h2>
+      <div class="sub">Chăm sóc lead của mình theo pipeline · thấy dữ liệu của riêng bạn</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard cá nhân</span><span class="chip yes">Pipeline (lead của tôi)</span>
+          <span class="chip yes">Dự án</span><span class="chip yes">Khách hàng</span><span class="chip yes">Hợp đồng</span>
+          <span class="chip yes">Báo cáo</span>
+          <span class="chip no">Kho</span><span class="chip no">Kế toán</span><span class="chip no">Nhân sự</span><span class="chip no">P&amp;L</span>
+        </div>
+      </div>
+      <div class="card full">
+        <h3>🔄 Quy trình chăm sóc 1 lead (quan trọng nhất)</h3>
+        <ol class="steps">
+          <li><strong>Nhận lead</strong> — admin phân lead cho bạn, bot Telegram báo ngay. Nguyên tắc vàng: <strong>liên hệ trong ngày</strong>.</li>
+          <li><strong>Cập nhật sau mỗi lần liên hệ</strong> — mở lead → gõ ghi chú (đã gọi, khách nói gì, hẹn gì) → Gửi. Hệ thống tính đây là "đã chăm sóc".</li>
+          <li><strong>Chuyển giai đoạn đúng thực tế</strong> — Mới → Có nhu cầu → Hẹn khảo sát → Tiềm năng → Ký thiết kế. Khi ký, nhập giá trị hợp đồng thiết kế.</li>
+          <li><strong>Lead ký xong</strong> — hệ thống tự tạo dự án + 19 đầu việc, bạn không phải nhập lại gì cả. Hoa hồng tính theo dữ liệu này.</li>
+        </ol>
+        <div class="warn"><b>Quy tắc thu hồi lead:</b> quá <b>3 ngày</b> không cập nhật → bot nhắc bạn. Quá <b>7 ngày</b> → hệ thống <b>tự thu hồi lead giao cho sale khác</b> và ghi log. Cập nhật ghi chú thường xuyên để giữ lead của mình!</div>
+      </div>
+      <div class="card">
+        <h3>📱 Nhập lead từ Zalo bằng AI (30 giây)</h3>
+        <ol class="steps">
+          <li>Khách nhắn Zalo → <strong>copy nguyên tin nhắn</strong></li>
+          <li>Mở chat riêng với bot → gõ <code>/lead</code> → paste</li>
+          <li>AI tự tách tên, SĐT, ngân sách, diện tích → bạn bấm xác nhận là lead vào hệ thống</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>🤖 Lệnh bot cho Sale</h3>
+        <table>
+          <tr><td><code>/lead</code></td><td>Nhập lead từ tin Zalo (chat riêng)</td></tr>
+          <tr><td><code>/pipeline</code></td><td>Xem pipeline của mình trên điện thoại</td></tr>
+          <tr><td><code>/briefing</code></td><td>Sáng: việc cần làm, lead cần gọi</td></tr>
+          <tr><td><code>/suggest</code></td><td>AI gợi ý cách xử lý lead khó</td></tr>
+        </table>
+        <div class="tip"><b>Mẹo:</b> lead có <b>điểm AI 0-100</b> — ưu tiên gọi lead điểm cao trước (ngân sách lớn, nguồn tốt, tương tác nhiều).</div>
+      </div>
+      <div class="card full">
+        <h3>⚡ Công cụ Báo giá tức thì (mới) — vũ khí chốt sale</h3>
+        <p style="color:var(--text-2);font-size:14px;margin-bottom:12px">Thay vì hẹn khách "để em báo lại sau vài ngày", trả lời khoảng giá ngay khi khách còn đang quan tâm. Vào sidebar → <strong>Báo giá tức thì</strong>.</p>
+        <ol class="steps">
+          <li><strong>Khách hỏi giá qua Zalo/điện thoại</strong> — copy tin nhắn khách → mở tab <em>Paste tin Zalo (AI)</em> → dán → AI tự tách diện tích, loại nhà, ngân sách.</li>
+          <li><strong>Xem 3 phương án</strong> — Cơ bản / Tiêu chuẩn / Cao cấp, hệ thống tự tô đậm phương án gần ngân sách khách nhất.</li>
+          <li><strong>Bấm "Copy text gửi Zalo"</strong> — dán thẳng cho khách. Text đã có sẵn khoảng giá + lời mời khảo sát miễn phí.</li>
+          <li><strong>Chốt lịch khảo sát</strong> — mục tiêu của báo giá sơ bộ KHÔNG phải bán ngay, mà là <strong>hẹn được buổi khảo sát</strong>. Có khảo sát = 80% đường đến hợp đồng.</li>
+        </ol>
+        <div class="tip"><b>Mẹo neo giá:</b> khi khách phân vân, chỉ vào phương án Tiêu chuẩn làm mốc — đa số khách chọn mức giữa. Đừng thổi khách lên Cao cấp bằng mọi giá, mất niềm tin.</div>
+        <div class="warn"><b>Luôn nói rõ:</b> đây là giá <b>sơ bộ ±15%</b>, giá chính xác có sau khảo sát. Không cam kết cứng con số này với khách để tránh kẹt khi giá thực khác.</div>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Sale</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>8:00</b> — đọc briefing bot + Dashboard: hôm nay gọi ai, lead nào sắp quá hạn</li>
+            <li><b>Trong ngày</b> — gọi/nhắn lead mới <b>trong ngày nhận</b>; sau mỗi cuộc gọi gõ ghi chú ngay</li>
+            <li><b>Khách nhắn Zalo</b> — copy → <b>/lead</b> vào bot, 30 giây có lead mới</li>
+            <li><b>Khách hỏi giá</b> — mở <b>Báo giá tức thì</b> → gửi khoảng giá + hẹn khảo sát ngay, đừng để khách chờ</li>
+            <li><b>16:30</b> — check 🔔: lead nào bot nhắc 3 ngày chưa chăm → xử lý trước khi về</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li><b>Thứ 2</b> — rà cả pipeline: lead nào đủ điều kiện đẩy giai đoạn tiếp theo</li>
+            <li>Dọn lead hết nhu cầu → chuyển Dormant/Lost <b>kèm lý do</b> (dữ liệu cho công ty học)</li>
+            <li><b>Thứ 6</b> — xem báo cáo cá nhân: tỷ lệ chuyển đổi, so với tuần trước</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Đối chiếu <b>hoa hồng</b> các deal đã nghiệm thu (kế toán duyệt cuối tháng)</li>
+            <li>Review với trưởng phòng: nguồn lead nào chốt tốt nhất → xin thêm lead nguồn đó</li>
+            <li>Chăm lại danh sách Dormant — khách "ngủ" 2-3 tháng thường có nhu cầu trở lại</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ LEADER ═══════════ -->
+  <section class="panel" id="leader">
+    <div class="role-header">
+      <div class="role-icon">👑</div>
+      <div><h2>Trưởng phòng Kinh doanh</h2>
+      <div class="sub">Quản lý lead + hiệu suất của cả team · phân lead cho sale</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard team</span><span class="chip yes">Pipeline (cả team)</span>
+          <span class="chip yes">Dự án (tạo mới)</span><span class="chip yes">Khách hàng</span><span class="chip yes">Hợp đồng (tạo mới)</span>
+          <span class="chip yes">Báo giá (tạo mới)</span><span class="chip yes">Kế toán (xem)</span><span class="chip yes">Nhân sự (xem)</span><span class="chip yes">Báo cáo</span>
+          <span class="chip no">Kho</span><span class="chip no">Lương/hoa hồng người khác</span><span class="chip no">P&amp;L</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📋 Việc hàng ngày</h3>
+        <table>
+          <tr><td>Sáng</td><td>Dashboard team → xem số lead mới, lead quá hạn của từng sale</td></tr>
+          <tr><td>Sáng</td><td><strong>Phân lead mới</strong> cho sale: mở lead → Giao cho → chọn người</td></tr>
+          <tr><td>Trong ngày</td><td>Theo dõi pipeline Kanban — kéo thả không được, sale tự cập nhật</td></tr>
+          <tr><td>Chiều</td><td>Check 🔔 thông báo lead bị thu hồi tự động → nhắc nhở sale</td></tr>
+          <tr><td>Cuối tuần</td><td>Báo cáo doanh thu theo nhân sự tại <code>/reports</code></td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>🔒 Nguyên tắc bảo mật lead</h3>
+        <p>SĐT khách của sale này <strong>không hiển thị</strong> cho sale khác — chỉ bạn và admin thấy toàn bộ team. Khi hệ thống thu hồi lead quá hạn 7 ngày, lead được giao tự động cho sale <em>ít việc nhất cùng team</em> và cả 2 sale + bạn đều nhận thông báo.</p>
+        <div class="tip"><b>Mẹo:</b> điều chỉnh ngưỡng nhắc/thu hồi không thuộc quyền bạn — nếu team cần chu kỳ khác (vd 5 ngày), đề xuất Giám đốc chỉnh trong Cài đặt.</div>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Trưởng phòng KD</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>8:30</b> — Dashboard team: lead mới chưa phân → <b>phân ngay buổi sáng</b> (sale còn cả ngày để gọi)</li>
+            <li>Check 🔔 lead bị thu hồi tự động → hỏi sale cũ lý do, dặn sale mới điểm nóng của khách</li>
+            <li>Sale nhờ hỗ trợ deal khó → mở lead xem lịch sử + gợi ý AI rồi cùng xử lý</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li><b>Thứ 2</b> — họp team 15 phút với báo cáo doanh thu theo nhân sự trên màn hình</li>
+            <li>Rà lead quá hạn của từng sale — ai lặp lại nhiều tuần thì kèm cặp riêng</li>
+            <li>Duyệt các báo giá team gửi khách trong tuần</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Chốt số liệu tháng tại /reports → báo cáo BOD: doanh thu team, tỷ lệ chốt, nguồn lead</li>
+            <li>Đánh giá KPI từng sale bằng số liệu hệ thống (không cảm tính)</li>
+            <li>Nếu chu kỳ nhắc/thu hồi chưa hợp lý → đề xuất Giám đốc chỉnh trong Cài đặt</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ DESIGNER ═══════════ -->
+  <section class="panel" id="designer">
+    <div class="role-header">
+      <div class="role-icon">🎨</div>
+      <div><h2>Nhân viên Thiết kế</h2>
+      <div class="sub">Nhận task thiết kế · cập nhật tiến độ · nộp file bản vẽ</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard cá nhân</span><span class="chip yes">Dự án được giao</span>
+          <span class="chip yes">Task của mình (tạo/sửa)</span><span class="chip yes">Báo giá (tạo mới)</span>
+          <span class="chip no">Lead</span><span class="chip no">Kế toán</span><span class="chip no">Kho</span><span class="chip no">Hợp đồng</span>
+        </div>
+      </div>
+      <div class="card full">
+        <h3>🔄 Quy trình làm 1 task thiết kế</h3>
+        <ol class="steps">
+          <li><strong>Nhận việc</strong> — khi khách ký thiết kế, TPTK/PM phân công bạn. Bot báo qua Telegram + chuông 🔔.</li>
+          <li><strong>Bắt đầu làm</strong> — mở <code>/projects</code> → click dự án → click task của bạn → đổi trạng thái sang <em>Đang làm</em>.</li>
+          <li><strong>Ghi chú tiến độ</strong> — mỗi mốc quan trọng (concept xong, khách duyệt 2D...) gõ ghi chú kèm ảnh vào dòng lịch sử của task.</li>
+          <li><strong>Nộp file cuối</strong> — upload file 2D/3D/DWG/SKP/PDF vào ô <em>Final File</em> → đổi trạng thái <em>Hoàn thành</em>. PM nhận thông báo để nghiệm thu.</li>
+        </ol>
+        <div class="tip"><b>Mẹo:</b> tiến độ dự án tính từ trạng thái task — cập nhật đúng giúp cả công ty thấy tiến độ thật, và là căn cứ tính thưởng khối lượng công việc của bạn.</div>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Thiết kế</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>Sáng</b> — Dashboard cá nhân: task nào đến hạn hôm nay, task nào PM vừa giao (🔔)</li>
+            <li>Bắt đầu việc gì → đổi trạng thái task sang <b>Đang làm</b> (PM nhìn Kanban là biết, đỡ bị hỏi)</li>
+            <li>Xong mốc nào (concept, 2D khách duyệt...) → ghi chú + ảnh vào task ngay trong ngày</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li>Rà task sắp đến deadline tuần này — cái nào trễ báo PM <b>trước</b> khi trễ</li>
+            <li>Nộp <b>Final File</b> (2D/3D/DWG/SKP) các task hoàn thành → đổi trạng thái Hoàn thành</li>
+            <li>Tạo/cập nhật báo giá thiết kế nếu được yêu cầu</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Xem lại khối lượng việc đã hoàn thành trong tháng — căn cứ tính thưởng của bạn</li>
+            <li>Dọn dẹp: đảm bảo mọi task đóng đều có Final File đính kèm (hồ sơ dự án đầy đủ)</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ PM ═══════════ -->
+  <section class="panel" id="pm">
+    <div class="role-header">
+      <div class="role-icon">🏗️</div>
+      <div><h2>Trưởng Dự án (PM)</h2>
+      <div class="sub">Điều phối 19 đầu việc mỗi dự án · vật tư · nghiệm thu</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard team</span><span class="chip yes">Dự án (tạo/quản lý)</span>
+          <span class="chip yes">Task (tạo/phân công/sửa)</span><span class="chip yes">Kho vật tư</span>
+          <span class="chip yes">Hợp đồng (tạo)</span><span class="chip yes">Báo giá (tạo)</span><span class="chip yes">Khách hàng</span><span class="chip yes">Báo cáo</span>
+          <span class="chip no">Lead</span><span class="chip no">Kế toán</span><span class="chip no">P&amp;L</span>
+        </div>
+      </div>
+      <div class="card full">
+        <h3>🔄 Vòng đời 1 dự án qua tay bạn</h3>
+        <ol class="steps">
+          <li><strong>Dự án sinh ra tự động</strong> — lead ký thiết kế → hệ thống tạo dự án + 19 tasks chia theo 5 giai đoạn, AI gợi ý sẵn người phù hợp.</li>
+          <li><strong>Review &amp; phân công</strong> — mở dự án → duyệt lại từng task, đổi người nhận nếu cần (designer, giám sát, thu mua).</li>
+          <li><strong>Theo dõi Kanban</strong> — kéo dự án qua các giai đoạn; nhìn màu task trễ deadline mỗi sáng.</li>
+          <li><strong>Vật tư</strong> — cần vật tư → mở dự án → <em>📦 Yêu cầu vật tư</em> (hoặc <code>/vatlieu</code> trên Telegram) → Thu mua/Giám đốc duyệt → kho xuất.</li>
+          <li><strong>Nghiệm thu</strong> — kiểm tra Final File từng task → xác nhận hoàn thành → giai đoạn cuối bàn giao khách.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>🤖 Lệnh bot cho PM</h3>
+        <table>
+          <tr><td><code>/duan JMH-001</code></td><td>Tra nhanh tiến độ khi đang họp/di chuyển</td></tr>
+          <tr><td><code>/vatlieu JMH-001 Sơn Dulux - 10 thùng</code></td><td>Yêu cầu vật tư ngay tại công trường</td></tr>
+          <tr><td><code>/baocao</code> · <code>/suco</code></td><td>Xem hướng dẫn tab 👷 Giám sát</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>⚠️ Ba thứ cần để mắt mỗi ngày</h3>
+        <table>
+          <tr><td>Topic 🚨 Sự cố</td><td>Giám sát báo sự cố → bạn là người xử lý đầu tiên</td></tr>
+          <tr><td>Task quá hạn</td><td>Dashboard đánh dấu đỏ — hỏi người nhận ngay</td></tr>
+          <tr><td>Topic 📦 Vật tư</td><td>Yêu cầu chờ duyệt lâu = công trình đứng chờ</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của PM</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>8:00</b> — 3 điểm nóng: task trễ deadline (đỏ), topic 🚨 Sự cố, topic 📦 vật tư chờ duyệt</li>
+            <li>Dự án mới sinh từ lead ký → review 19 tasks, chỉnh phân công trong ngày đầu tiên</li>
+            <li>Cuối ngày lướt báo cáo ảnh từ giám sát (topic 🏗️) — nắm hiện trường không cần ra công trình</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li><b>Thứ 2</b> — rà từng dự án trên Kanban: % thực tế vs kế hoạch, dự án nào tụt thì hỏi tại sao</li>
+            <li>Nghiệm thu Final File các task thiết kế/thi công hoàn thành trong tuần</li>
+            <li>Dự báo vật tư tuần tới → gửi yêu cầu sớm cho thu mua (đừng để công trình chờ)</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Tổng kết dự án về đích: đóng tasks, đủ hồ sơ ảnh nghiệm thu → chuyển giai đoạn Bàn giao</li>
+            <li>Phối hợp kế toán xác nhận <b>milestone thanh toán</b> (thô xong, nội thất xong...) để thu tiền đợt</li>
+            <li>Rút kinh nghiệm: dự án nào trễ nhiều nhất ở giai đoạn nào → chỉnh kế hoạch dự án sau</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ GIÁM SÁT ═══════════ -->
+  <section class="panel" id="supervisor">
+    <div class="role-header">
+      <div class="role-icon">👷</div>
+      <div><h2>Giám sát công trình</h2>
+      <div class="sub">Làm việc 100% qua Telegram — không cần mở máy tính</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>📱 Một ngày của giám sát (toàn bộ trên điện thoại)</h3>
+        <ol class="steps">
+          <li><strong>Đến công trình</strong> — gõ <code>/checkin JMH-001</code> → gửi vị trí GPS khi bot hỏi. Hệ thống ghi giờ + tọa độ.</li>
+          <li><strong>Trong ngày, báo cáo tiến độ</strong> — vào topic 🏗️ gõ <code>/baocao JMH-001 Đã xong trần thạch cao tầng 2</code> → bot hỏi ảnh → chụp gửi luôn. Về thẳng hồ sơ dự án trong CRM.</li>
+          <li><strong>Thiếu vật tư</strong> — gõ <code>/vatlieu JMH-001 Xi măng PC40 - 20 bao</code> → yêu cầu hiện trong topic 📦 kèm nút Duyệt — sếp bấm là kho biết ngay.</li>
+          <li><strong>Gặp sự cố</strong> — gõ <code>/suco JMH-001 Thấm nước tường tầng 2</code> + ảnh → PM và Ban điều hành được báo ưu tiên.</li>
+          <li><strong>Ra về</strong> — gõ <code>/checkout JMH-001</code> → chấm công hoàn tất, tính giờ công tự động.</li>
+        </ol>
+        <div class="tip"><b>Mẹo:</b> gõ sai hoặc muốn hủy giữa chừng — gõ <code>/cancel</code> là bot quên thao tác đang dở.</div>
+      </div>
+      <div class="card full">
+        <h3>📸 Chuẩn ảnh báo cáo đẹp</h3>
+        <p>Ảnh rõ hạng mục vừa làm, chụp ngang, đủ sáng. Mỗi báo cáo 2-4 ảnh: toàn cảnh + cận cảnh chi tiết. Ảnh này là bằng chứng nghiệm thu và thanh toán đợt với khách — chụp kỹ giúp công ty thu tiền nhanh hơn.</p>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Giám sát</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>Đến công trình</b> — <b>/checkin</b> + GPS trước khi bắt đầu</li>
+            <li><b>Trưa hoặc cuối buổi</b> — <b>/baocao</b> kèm 2-4 ảnh hạng mục vừa làm (topic 🏗️)</li>
+            <li>Thiếu gì gõ <b>/vatlieu</b> ngay lúc phát hiện — đừng đợi cuối ngày, sếp duyệt online trong vài phút</li>
+            <li>Sự cố → <b>/suco</b> + ảnh ngay tại chỗ · <b>Ra về</b> — <b>/checkout</b></li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li>Chụp bộ ảnh <b>tổng kết giai đoạn</b> (toàn cảnh từng khu) — dùng cho nghiệm thu đợt với khách</li>
+            <li>Đối chiếu vật tư đã yêu cầu vs đã nhận — thiếu cái gì nhắc thu mua trong topic 📦</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Chốt công GPS với kế toán — checkin/checkout đầy đủ thì lương tính tự động, không phải giải trình</li>
+            <li>Rà lại các sự cố đã báo trong tháng: cái nào chưa xử lý xong → nhắc PM</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ PURCHASING ═══════════ -->
+  <section class="panel" id="purchasing">
+    <div class="role-header">
+      <div class="role-icon">📦</div>
+      <div><h2>Nhân viên Thu mua</h2>
+      <div class="sub">Quản lý kho vật tư · xử lý yêu cầu vật tư từ công trình</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard cá nhân</span><span class="chip yes">Kho vật tư (toàn quyền)</span>
+          <span class="chip yes">Dự án (xem)</span><span class="chip yes">Hợp đồng (xem)</span>
+          <span class="chip no">Lead</span><span class="chip no">Kế toán</span><span class="chip no">Báo giá</span><span class="chip no">Nhân sự</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📋 Việc hàng ngày</h3>
+        <table>
+          <tr><td>Sáng</td><td>Mở <code>/inventory</code> → check mục <strong>tồn kho thấp</strong> (hệ thống tự cảnh báo)</td></tr>
+          <tr><td>Trong ngày</td><td>Theo dõi topic 📦 — yêu cầu vật tư mới từ công trình</td></tr>
+          <tr><td>Khi nhập hàng</td><td>Cập nhật số lượng: click vật tư → Điều chỉnh tồn → ghi lý do</td></tr>
+          <tr><td>Khi xuất kho</td><td>Xuất cho dự án: chọn vật tư → Dùng cho dự án → chọn mã DA + số lượng</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>💡 Vì sao phải gắn vật tư với mã dự án?</h3>
+        <p>Mỗi lần xuất kho gắn đúng mã dự án (JMH-xxx) thì chi phí vật tư tự chảy vào <strong>P&amp;L của dự án đó</strong> — Giám đốc thấy ngay dự án nào lời lỗ. Xuất kho không gắn mã = chi phí "mồ côi", cuối tháng kế toán phải truy lại rất mất công.</p>
+        <div class="tip"><b>Mẹo:</b> giá vật tư thay đổi theo đợt nhập — cập nhật đơn giá mới ngay khi nhập hàng để báo giá của công ty không bị lỗi thời.</div>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Thu mua</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>Sáng</b> — mở /inventory check cảnh báo <b>tồn kho thấp</b> trước tiên</li>
+            <li>Theo dõi topic 📦 — yêu cầu vật tư mới từ công trình, phản hồi trong ngày</li>
+            <li>Hàng về → nhập kho ngay: điều chỉnh tồn + cập nhật đơn giá đợt mới</li>
+            <li>Xuất kho → <b>luôn gắn mã dự án</b> (JMH-xxx) để chi phí chảy đúng P&amp;L</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li>Xem tiến độ các dự án đang chạy → dự trù vật tư 1-2 tuần tới, đặt hàng sớm món lâu về</li>
+            <li>So giá 2-3 nhà cung cấp cho các món giá trị lớn trước khi đặt</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li><b>Kiểm kê kho</b> — đối chiếu tồn thực tế vs hệ thống, điều chỉnh kèm lý do</li>
+            <li>Đối chiếu chi phí vật tư theo dự án với kế toán (số liệu P&amp;L tháng)</li>
+            <li>Rà đơn giá cả danh mục — giá thị trường đổi thì báo giá công ty phải đổi theo</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ACCOUNTANT ═══════════ -->
+  <section class="panel" id="accountant">
+    <div class="role-header">
+      <div class="role-icon">🧮</div>
+      <div><h2>Kế toán / Nhân sự</h2>
+      <div class="sub">Thu chi · lương &amp; hoa hồng · hồ sơ nhân viên · công nợ</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard tài chính</span><span class="chip yes">Kế toán (toàn quyền)</span>
+          <span class="chip yes">Lương / Hoa hồng</span><span class="chip yes">Nhân sự (quản lý)</span>
+          <span class="chip yes">Kho (xem giá vốn)</span><span class="chip yes">Hợp đồng</span><span class="chip yes">P&amp;L</span><span class="chip yes">Tài chính</span>
+          <span class="chip no">Lead / Pipeline</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💰 Thu chi &amp; công nợ</h3>
+        <table>
+          <tr><td>Ghi thu/chi</td><td><code>/accounting</code> → + Giao dịch → chọn loại, <strong>gắn mã dự án</strong></td></tr>
+          <tr><td>Nhắc thanh toán</td><td>Bot tự nhắc bạn các đợt thanh toán hợp đồng còn pending (🔔 + Telegram)</td></tr>
+          <tr><td>Xác nhận đã thu</td><td>Mở hợp đồng → đợt thanh toán → đánh dấu đã thu + ảnh UNC</td></tr>
+          <tr><td>Tuổi nợ</td><td>Mục Receivables aging — khoản nào quá hạn lâu nhất gọi trước</td></tr>
+          <tr><td>Xuất Excel</td><td>Nút CSV export trên trang kế toán, nộp thuế/lưu trữ</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>👥 Nhân sự &amp; lương</h3>
+        <table>
+          <tr><td>Thêm nhân viên</td><td><code>/hr</code> → + Nhân viên → chọn đúng <strong>role</strong> (quyết định quyền truy cập)</td></tr>
+          <tr><td>Liên kết Telegram</td><td>Điền Telegram User ID (nhân viên gõ <code>/id</code> với bot để lấy)</td></tr>
+          <tr><td>Nghỉ việc</td><td>Hồ sơ → Nghỉ việc — tài khoản khóa ngay, lead được thu hồi</td></tr>
+          <tr><td>Duyệt hoa hồng</td><td>Danh sách hoa hồng chờ duyệt mỗi tháng → duyệt sau khi đủ nghiệm thu</td></tr>
+          <tr><td>Bậc lương / định phí</td><td>Trang <code>/finance</code>: bậc lương, chi phí cố định, cơ cấu hoa hồng</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>📊 P&amp;L — báo cáo lời lỗ</h3>
+        <p>Trang <code>/pl</code> (chỉ C-level thấy): doanh thu từ hợp đồng − chi phí vật tư − chi phí giao dịch = lãi gộp từng dự án. Lọc theo tháng/quý/năm, sort theo margin. <strong>Điều kiện để số đúng:</strong> mọi giao dịch và xuất kho đều phải gắn mã dự án — hãy nhắc thu mua và PM làm đúng.</p>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Kế toán / Nhân sự</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li>Ghi nhận thu/chi phát sinh trong ngày — <b>gắn mã dự án</b> cho mọi giao dịch</li>
+            <li>Check 🔔 nhắc thanh toán từ bot → gọi khách các đợt đến hạn</li>
+            <li>Tiền về → mở hợp đồng đánh dấu đợt đã thu + đính ảnh UNC</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li><b>Thứ 2</b> — xem Receivables aging: khoản nợ già nhất gọi trước</li>
+            <li>Xuất CSV đối soát ngân hàng, kiểm tra giao dịch lệch</li>
+            <li>Hồ sơ nhân sự mới/nghỉ việc phát sinh trong tuần → cập nhật ngay (nghỉ = khóa tài khoản trong ngày)</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li><b>Ngày 1-5</b> — chốt bảng lương tháng trước + trình <b>duyệt hoa hồng</b> các deal đủ nghiệm thu</li>
+            <li>Chốt P&amp;L tháng tại /pl — đối chiếu chi phí vật tư với thu mua trước khi báo cáo BOD</li>
+            <li>Xuất bộ CSV lưu trữ + số liệu nộp thuế</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ EXECUTIVE ═══════════ -->
+  <section class="panel" id="executive">
+    <div class="role-header">
+      <div class="role-icon">📊</div>
+      <div><h2>Ban Quản Trị (Executive)</h2>
+      <div class="sub">Nhìn toàn cảnh · nhận báo cáo tự động · không sa vào vận hành</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Dashboard điều hành</span><span class="chip yes">Dự án (xem/tạo)</span>
+          <span class="chip yes">Hợp đồng (xem)</span><span class="chip yes">Báo cáo</span><span class="chip yes">P&amp;L</span>
+          <span class="chip no">Lead chi tiết</span><span class="chip no">Kế toán chi tiết</span><span class="chip no">Kho</span><span class="chip no">Nhân sự</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📬 Báo cáo tự đến với bạn</h3>
+        <table>
+          <tr><td>Hàng ngày 8h</td><td>Báo cáo qua Telegram (chat riêng): lead mới, ký TK, pipeline, thu chi, top sales</td></tr>
+          <tr><td>Thứ Hai</td><td>Báo cáo tuần + <strong>AI Insight</strong>: xu hướng, cảnh báo, khuyến nghị</td></tr>
+          <tr><td>Mùng 1</td><td>Báo cáo tháng tổng hợp</td></tr>
+        </table>
+        <div class="tip"><b>Lưu ý:</b> báo cáo tài chính chỉ gửi vào <b>chat riêng</b> của bạn với bot — không bao giờ xuất hiện trong nhóm chung.</div>
+      </div>
+      <div class="card">
+        <h3>🎯 3 màn hình đáng xem mỗi tuần</h3>
+        <table>
+          <tr><td>Dashboard</td><td>KPI realtime: doanh thu mục tiêu/thực đạt, funnel chuyển đổi</td></tr>
+          <tr><td><code>/pl</code></td><td>Dự án nào lời, dự án nào đang ăn vào margin</td></tr>
+          <tr><td><code>/reports</code></td><td>Hiệu suất theo team/nhân sự — quyết định thưởng phạt có số liệu</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Ban Quản Trị</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>8:00</b> — đọc báo cáo BOD trên Telegram (2 phút): lead, ký TK, thu chi, top sales</li>
+            <li>Số nào bất thường → mở Dashboard xem chi tiết, hỏi đúng người phụ trách</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li><b>Thứ 2</b> — đọc báo cáo tuần kèm <b>AI Insight</b>: xu hướng, cảnh báo, khuyến nghị</li>
+            <li>Lướt /pl: margin dự án nào đang mỏng đi → yêu cầu PM/kế toán giải trình</li>
+            <li>Xem /reports hiệu suất team — khen thưởng kịp thời hơn là chờ cuối tháng</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li><b>Mùng 1</b> — báo cáo tháng tự động: so mục tiêu vs thực đạt</li>
+            <li>Họp BOD với số liệu P&amp;L + funnel chuyển đổi → chốt mục tiêu tháng mới</li>
+            <li>Quyết định đầu tư/điều chỉnh dựa trên dữ liệu 3 tháng gần nhất</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ADMIN ═══════════ -->
+  <section class="panel" id="admin">
+    <div class="role-header">
+      <div class="role-icon">⚙️</div>
+      <div><h2>Giám đốc (Admin)</h2>
+      <div class="sub">Toàn quyền hệ thống · phân lead · duyệt · cấu hình AI &amp; tự động hóa</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🗂️ Bạn được truy cập</h3>
+        <div class="access">
+          <span class="chip yes">Tất cả các trang</span><span class="chip yes">Quản lý người dùng</span>
+          <span class="chip yes">Cấu hình AI Model</span><span class="chip yes">Cấu hình Tự động hóa</span>
+          <span class="chip yes">P&amp;L · Tài chính · Lương</span><span class="chip yes">Duyệt vật tư / hoa hồng</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📥 Luồng phân lead (việc mỗi sáng)</h3>
+        <ol class="steps">
+          <li>Data từ các kênh (FB/Zalo/web) được nhập vào <code>/leads</code></li>
+          <li>Xem <strong>điểm AI</strong> của từng lead → giao cho trưởng nhóm hoặc sale trực tiếp</li>
+          <li>Hệ thống tự nhắc + thu hồi lead bỏ bê — bạn chỉ can thiệp ca đặc biệt</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>🧠 Cấu hình AI &amp; tự động hóa</h3>
+        <table>
+          <tr><td>AI Model</td><td>Cài đặt → 🧠 Cấu hình AI Model: chọn model free (Groq/Gemini), dán key, đặt model dự phòng, Test kết nối</td></tr>
+          <tr><td>Tự động hóa</td><td>Ngưỡng nhắc CSKH (3 ngày), thu hồi lead (7 ngày), giờ gửi báo cáo</td></tr>
+          <tr><td>Nhóm Telegram</td><td>Dán Chat ID nhóm (gõ <code>/id</code> trong nhóm) → bot gửi briefing sáng</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>✅ Những thứ chờ bạn duyệt</h3>
+        <table>
+          <tr><td>📦 Vật tư</td><td>Nút Duyệt/Từ chối ngay trên Telegram (topic Vật tư) — duyệt nhanh để công trình không chờ</td></tr>
+          <tr><td>💰 Hoa hồng</td><td>Cuối tháng cùng kế toán duyệt bảng hoa hồng sau nghiệm thu</td></tr>
+          <tr><td>👥 Tài khoản mới</td><td>Tạo user + chọn role trong <code>/hr</code> — role quyết định toàn bộ quyền</td></tr>
+        </table>
+        <div class="warn"><b>An toàn:</b> API key AI chỉ mình admin thấy (đã mask). Không chia sẻ mật khẩu admin; nhân viên nghỉ việc phải khóa tài khoản ngay trong ngày.</div>
+      </div>
+      <div class="card full">
+        <h3>🧲 Trang báo giá công khai — thay thế Google Form lấy lead</h3>
+        <p style="color:var(--text-2);font-size:14px;margin-bottom:12px">Link <code>jamahome.vn/du-toan</code> (hoặc <code>/bao-gia</code>) cho khách tự nhập nhu cầu → nhận khoảng giá tức thì → hệ thống <strong>tự tạo lead nóng</strong> vào pipeline. Khác Google Form ở chỗ: khách nhận được giá trị ngay nên tỷ lệ điền cao hơn, và lead vào đã kèm ngân sách + tự chấm ưu tiên cao.</p>
+        <table>
+          <tr><th>Đặt link ở đâu</th><th>Cách dùng</th></tr>
+          <tr><td>Bio Facebook / Zalo OA / TikTok</td><td>Gắn link + câu "Báo giá nội thất trong 30 giây"</td></tr>
+          <tr><td>Quảng cáo (Facebook/Google Ads)</td><td>Nút CTA dẫn thẳng về trang báo giá thay vì Messenger</td></tr>
+          <tr><td>Website (trang Dự Toán)</td><td>Nhúng công cụ vào trang</td></tr>
+          <tr><td>QR tại showroom / card visit</td><td>Khách quét → tự báo giá khi về nhà</td></tr>
+        </table>
+        <div class="tip"><b>Vận hành:</b> lead từ trang này là <b>nóng</b> — phân cho sale gọi <b>trong ngày</b>. Điểm chết của Google Form cũ là lead để nguội vài ngày; đừng lặp lại. Theo dõi tỷ lệ chuyển đổi lead website → khảo sát → ký để đo hiệu quả.</div>
+        <div class="warn"><b>Điều kiện chất lượng:</b> nhắc Thu mua rà đơn giá định kỳ (giá vật tư HCM biến động) — báo giá tự động chỉ đáng tin khi đơn giá đúng.</div>
+      </div>
+      <div class="card full">
+        <h3>⏱️ Nhịp làm việc của Giám đốc</h3>
+        <div class="rhythm">
+          <div class="col d"><h4>📅 Hàng ngày</h4><ul>
+            <li><b>8:00-8:30</b> — phân lead mới cho team/sale (nhìn điểm AI để ưu tiên)</li>
+            <li>Duyệt yêu cầu vật tư trên Telegram (topic 📦) — bấm nút là xong, công trình không chờ</li>
+            <li>Đọc báo cáo BOD 8h + check 🔔 các việc chờ quyết định</li>
+          </ul></div>
+          <div class="col w"><h4>📆 Hàng tuần</h4><ul>
+            <li>Xem log tự động hóa: bao nhiêu lead bị thu hồi tuần này → team nào đang bỏ bê khách</li>
+            <li>Đọc báo cáo tuần AI Insight + lướt pipeline tổng trên Kanban</li>
+            <li>Duyệt tài khoản mới / điều chỉnh phân quyền nếu có nhân sự thay đổi</li>
+          </ul></div>
+          <div class="col m"><h4>🗓️ Hàng tháng</h4><ul>
+            <li>Cùng kế toán duyệt <b>bảng hoa hồng + lương</b> sau khi đủ nghiệm thu</li>
+            <li>Đọc P&amp;L tháng: dự án lời/lỗ, quyết định giá và chi phí cho tháng sau</li>
+            <li>Kiểm tra sức khỏe hệ thống: Test kết nối AI (quota còn không), backup database, tài khoản nghỉ việc đã khóa hết chưa</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    🏠 JAMA HOME CRM · Cần hỗ trợ? Nhắn topic 💬 Trao đổi chung hoặc liên hệ Admin ·
+    <a href="/huong-dan-it.html">🛠️ Tài liệu cài đặt (Admin/IT)</a> ·
+    <a href="/">Về trang CRM</a>
+  </div>
+</footer>
+
+<script>
+  const tabs = document.querySelectorAll('.role-tab');
+  const panels = document.querySelectorAll('section.panel');
+  function activate(id) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.panel === id));
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.panel)));
+  // Deep-link: /huong-dan.html#pm mở thẳng tab PM
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) activate(hash);
+</script>
+
+</body>
+</html>

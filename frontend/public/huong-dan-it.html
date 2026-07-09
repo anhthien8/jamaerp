@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng dẫn cài đặt &amp; cấu hình — JAMA HOME CRM (Admin/IT)</title>
+<style>
+  :root {
+    --gold: #C9A96E; --teal: #1A535C; --bg: #0D1117; --surface: #161B22; --surface-2: #1C2430;
+    --border: rgba(255,255,255,0.08); --text: #E6EDF3; --text-2: #9BA7B4; --text-3: #6B7683;
+    --green: #3FB950; --red: #F85149; --blue: #58A6FF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  .hero { background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(26,83,92,0.28)), var(--bg); border-bottom: 1px solid var(--border); padding: 52px 0 36px; text-align: center; }
+  .hero .logo { font-size: 42px; }
+  .hero h1 { font-size: clamp(24px, 3.6vw, 34px); margin: 12px 0 8px; }
+  .hero h1 span { color: var(--gold); }
+  .hero p { color: var(--text-2); max-width: 680px; margin: 0 auto; font-size: 15px; }
+  .hero .badges { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .badge { background: var(--surface-2); border: 1px solid var(--border); padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--text-2); }
+
+  .role-nav { position: sticky; top: 0; z-index: 50; background: rgba(13,17,23,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .role-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 12px 0; }
+  .role-tab { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); color: var(--text-2); padding: 8px 16px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s; white-space: nowrap; }
+  .role-tab:hover { border-color: var(--gold); color: var(--text); }
+  .role-tab.active { background: var(--gold); color: #12100B; border-color: var(--gold); }
+
+  section.panel { display: none; padding: 34px 0 20px; animation: fade .25s ease; }
+  section.panel.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .sec-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .sec-header .ic { font-size: 36px; }
+  .sec-header h2 { font-size: 24px; }
+  .sec-header .sub { color: var(--text-2); font-size: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; min-width: 0; }
+  .card.full { grid-column: 1 / -1; }
+  .card h3 { font-size: 16px; margin-bottom: 12px; color: var(--gold); }
+  .card p { color: var(--text-2); font-size: 14px; }
+
+  ol.steps { list-style: none; counter-reset: step; }
+  ol.steps li { counter-increment: step; position: relative; padding: 0 0 14px 44px; font-size: 14px; color: var(--text-2); }
+  ol.steps li strong { color: var(--text); }
+  ol.steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+  ol.steps li:not(:last-child)::after { content: ''; position: absolute; left: 13.5px; top: 30px; bottom: 2px; width: 1px; background: var(--border); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+  td:first-child { color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+
+  code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-size: 12.5px; color: var(--gold); font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; word-break: break-all; }
+  pre { background: #0A0E14; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 10px 0; }
+  pre code { background: none; border: none; padding: 0; color: #A5D6FF; font-size: 13px; line-height: 1.6; word-break: normal; }
+  pre .cm { color: var(--text-3); }
+  pre .hl { color: var(--gold); }
+
+  .tip { background: rgba(201,169,110,0.08); border: 1px solid rgba(201,169,110,0.25); border-radius: 12px; padding: 13px 16px; font-size: 14px; color: var(--text-2); margin-top: 12px; }
+  .tip b { color: var(--gold); }
+  .warn { background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.25); border-radius: 12px; padding: 13px 16px; font-size: 14px; color: var(--text-2); margin-top: 12px; }
+  .warn b { color: var(--red); }
+  .info { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25); border-radius: 12px; padding: 13px 16px; font-size: 14px; color: var(--text-2); margin-top: 12px; }
+  .info b { color: var(--blue); }
+
+  .arch { display: flex; flex-direction: column; gap: 10px; }
+  .arch-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .arch-box { flex: 1; min-width: 140px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; text-align: center; }
+  .arch-box b { display: block; font-size: 14px; color: var(--text); }
+  .arch-box span { font-size: 12px; color: var(--text-3); }
+  .arch-box.hl { border-color: rgba(201,169,110,0.4); }
+
+  footer { border-top: 1px solid var(--border); margin-top: 44px; padding: 26px 0 40px; text-align: center; color: var(--text-3); font-size: 13px; }
+  footer a { color: var(--gold); text-decoration: none; }
+
+  @media (max-width: 640px) { .hero { padding: 34px 0 26px; } .sec-header h2 { font-size: 20px; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="container">
+    <div class="logo">🛠️</div>
+    <h1>Cài đặt &amp; Cấu hình <span>JAMA HOME CRM</span></h1>
+    <p>Tài liệu kỹ thuật dành cho <b>Admin / IT</b>: cài đặt webapp, bot Telegram, cấu hình môi trường, deploy production và vận hành hằng ngày.</p>
+    <div class="badges">
+      <span class="badge">Next.js 16 + FastAPI</span>
+      <span class="badge">SQLite / PostgreSQL</span>
+      <span class="badge">aiogram 3.x</span>
+      <span class="badge">Docker · VPS · Railway</span>
+    </div>
+  </div>
+</header>
+
+<nav class="role-nav">
+  <div class="container">
+    <div class="role-tabs" id="tabs">
+      <button class="role-tab active" data-panel="arch">🏛️ Kiến trúc</button>
+      <button class="role-tab" data-panel="windows">💻 Cài Windows</button>
+      <button class="role-tab" data-panel="deploy">🐳 Docker / VPS</button>
+      <button class="role-tab" data-panel="env">🔐 Biến môi trường</button>
+      <button class="role-tab" data-panel="bot">🤖 Bot Telegram</button>
+      <button class="role-tab" data-panel="postinstall">⚙️ Sau cài đặt</button>
+      <button class="role-tab" data-panel="ops">🚑 Vận hành &amp; Sự cố</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- ═══════ KIẾN TRÚC ═══════ -->
+  <section class="panel active" id="arch">
+    <div class="sec-header"><div class="ic">🏛️</div>
+      <div><h2>Kiến trúc hệ thống</h2><div class="sub">5 thành phần — hiểu trước khi cài</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <div class="arch">
+          <div class="arch-row">
+            <div class="arch-box hl"><b>🌐 Frontend</b><span>Next.js 16 · port 3001 (dev) / 3000 (docker)</span></div>
+            <div class="arch-box hl"><b>⚡ Backend API</b><span>FastAPI · port 8000 · /docs = Swagger</span></div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-box"><b>🔄 Worker</b><span>python -m app.worker · lead scoring, tự động hóa CSKH, báo cáo BOD</span></div>
+            <div class="arch-box"><b>🤖 Telegram Bot</b><span>python -m bot.main · aiogram polling</span></div>
+            <div class="arch-box"><b>🗄️ Database</b><span>SQLite (backend/jama.db) mặc định · PostgreSQL khi chạy Docker</span></div>
+          </div>
+        </div>
+        <div class="info"><b>Luồng dữ liệu:</b> Frontend gọi Backend qua <code>NEXT_PUBLIC_API_URL</code>. Bot gọi Backend qua <code>API_BASE_URL</code>. Worker và Backend dùng chung database. Backend <b>push</b> thông báo Telegram qua Bot API (token), Bot <b>nhận lệnh</b> qua polling — 2 chiều độc lập, cùng 1 token.</div>
+      </div>
+      <div class="card">
+        <h3>📦 Yêu cầu hệ thống</h3>
+        <table>
+          <tr><td>Python</td><td>3.11+ (backend, bot, worker)</td></tr>
+          <tr><td>Node.js</td><td>18+ (khuyến nghị 20+, frontend)</td></tr>
+          <tr><td>RAM</td><td>Tối thiểu 2GB · khuyến nghị 4GB (VPS)</td></tr>
+          <tr><td>OS</td><td>Windows 10/11 (dev) · Ubuntu 22.04/Debian 12 (VPS)</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>🗄️ SQLite hay PostgreSQL?</h3>
+        <table>
+          <tr><td>SQLite (mặc định)</td><td>Zero-config, 1 file <code>backend/jama.db</code> — đủ cho 100 nhân sự, backup = copy file</td></tr>
+          <tr><td>PostgreSQL</td><td>Khi chạy <code>docker-compose</code> — chịu tải cao hơn, nhiều kết nối đồng thời</td></tr>
+        </table>
+        <p style="margin-top:10px">Chuyển đổi chỉ cần đổi <code>DATABASE_URL</code> — bảng tự tạo khi backend khởi động (kèm seed data).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ WINDOWS ═══════ -->
+  <section class="panel" id="windows">
+    <div class="sec-header"><div class="ic">💻</div>
+      <div><h2>Cài trên Windows (dev / chạy nội bộ)</h2><div class="sub">Cách nhanh nhất: double-click start.cmd</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>⚡ Cách 1 — start.cmd (khuyến nghị)</h3>
+        <ol class="steps">
+          <li><strong>Clone repo</strong><pre><code>git clone https://github.com/anhthien8/jama-crm.git
+cd jama-crm</code></pre></li>
+          <li><strong>Cài dependencies lần đầu</strong><pre><code><span class="cm"># Backend</span>
+cd backend
+pip install -r requirements.txt
+
+<span class="cm"># Frontend</span>
+cd ../frontend
+npm install</code></pre></li>
+          <li><strong>Tạo file cấu hình</strong> — copy <code>.env.example</code> → <code>backend/.env</code>, bắt buộc điền <code>JWT_SECRET_KEY</code> (xem tab 🔐). Frontend đã có sẵn <code>frontend/.env.local</code> trỏ về <code>http://localhost:8000/api/v1</code>.</li>
+          <li><strong>Double-click <code>start.cmd</code></strong> — script tự dừng process cũ trên port 8000/3001, khởi động Backend + Frontend, mở trình duyệt tại <code>http://localhost:3001</code>.</li>
+          <li><strong>Chạy Worker + Bot</strong> (2 cửa sổ cmd riêng, nếu cần tự động hóa &amp; Telegram):<pre><code><span class="cm"># Cửa sổ 1 — Worker (tự động hóa CSKH, báo cáo BOD)</span>
+cd backend && python -m app.worker
+
+<span class="cm"># Cửa sổ 2 — Telegram Bot</span>
+cd telegram-bot && pip install -r requirements.txt && python -m bot.main</code></pre></li>
+        </ol>
+        <div class="tip"><b>Địa chỉ sau khi chạy:</b> Frontend <code>http://localhost:3001</code> · Backend <code>http://localhost:8000</code> · API Docs <code>http://localhost:8000/docs</code> · Health <code>http://localhost:8000/health</code></div>
+      </div>
+      <div class="card">
+        <h3>👤 Tài khoản seed sẵn</h3>
+        <table>
+          <tr><th>Role</th><th>Email</th></tr>
+          <tr><td>Admin</td><td>admin@jamahome.vn</td></tr>
+          <tr><td>Executive</td><td>ceo@jamahome.vn</td></tr>
+          <tr><td>Leader</td><td>leader@jamahome.vn</td></tr>
+          <tr><td>Sales</td><td>sales@jamahome.vn</td></tr>
+          <tr><td>Kế toán</td><td>accountant@jamahome.vn</td></tr>
+          <tr><td>Thu mua</td><td>purchasing@jamahome.vn</td></tr>
+        </table>
+        <div class="warn"><b>Bảo mật:</b> mật khẩu mặc định hiển thị trong <code>start.cmd</code> — <b>đổi toàn bộ</b> trước khi cho nhân viên dùng thật (trang /hr).</div>
+      </div>
+      <div class="card">
+        <h3>🔁 Chế độ chạy Frontend</h3>
+        <table>
+          <tr><td>Development (1)</td><td><code>npm run dev</code> — hot reload, dùng khi chỉnh sửa code</td></tr>
+          <tr><td>Production (2)</td><td><code>npm run build</code> trước, rồi <code>npx next start -p 3001</code> — nhanh và nhẹ hơn, dùng khi chạy thật</td></tr>
+        </table>
+        <p style="margin-top:10px"><code>start.cmd</code> sẽ hỏi bạn chọn 1 hoặc 2 khi khởi động.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ DOCKER / VPS ═══════ -->
+  <section class="panel" id="deploy">
+    <div class="sec-header"><div class="ic">🐳</div>
+      <div><h2>Deploy Production — Docker / VPS / Railway</h2><div class="sub">Chọn 1 trong 3 con đường</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>🚀 Cách 1 — VPS 1 lệnh (khuyến nghị cho production)</h3>
+        <p>Script tự cài Docker, Nginx reverse proxy, SSL Let's Encrypt, firewall UFW, Fail2ban và deploy toàn bộ 5 service:</p>
+        <pre><code><span class="cm"># SSH vào VPS (Ubuntu 22.04 / Debian 12, RAM ≥ 2GB) rồi chạy:</span>
+curl -sL https://raw.githubusercontent.com/anhthien8/jamaerp/main/deploy/setup.sh | sudo bash -s <span class="hl">your-domain.com</span> <span class="hl">your-email@gmail.com</span></code></pre>
+        <p>App được cài tại <code>/opt/jama-crm</code>. Sau khi xong, mở <code>https://your-domain.com</code>.</p>
+        <table style="margin-top:12px">
+          <tr><th>Việc thường dùng</th><th>Lệnh</th></tr>
+          <tr><td>Cập nhật phiên bản mới</td><td><code>cd /opt/jama-crm/deploy && bash quick-deploy.sh</code> (git pull + rebuild + health check)</td></tr>
+          <tr><td>Restart sau khi sửa .env</td><td><code>cd /opt/jama-crm && ./restart.sh</code></td></tr>
+          <tr><td>Xem log 1 service</td><td><code>./logs.sh backend</code> (hoặc frontend / telegram-bot / worker)</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>🐳 Cách 2 — Docker Compose thủ công</h3>
+        <ol class="steps">
+          <li>Copy <code>.env.example</code> → <code>.env</code> ở thư mục gốc, điền đủ biến (tab 🔐)</li>
+          <li>Chạy:<pre><code>docker compose up -d --build</code></pre></li>
+          <li>5 container tự lên: postgres, redis, backend, frontend, telegram-bot, worker. Kiểm tra: <code>docker compose ps</code> và <code>curl localhost:8000/health</code></li>
+        </ol>
+        <div class="info"><b>Lưu ý:</b> bản Docker dùng PostgreSQL (không phải SQLite) — dữ liệu nằm trong volume <code>postgres_data</code>.</div>
+      </div>
+      <div class="card">
+        <h3>☁️ Cách 3 — Railway (đang dùng)</h3>
+        <ol class="steps">
+          <li>Kết nối repo GitHub với Railway — mỗi lần <code>git push origin main</code> là tự deploy</li>
+          <li>Tab <strong>Variables</strong> của từng service: thêm <code>JWT_SECRET_KEY</code>, <code>TELEGRAM_BOT_TOKEN</code>, <code>LLM_API_KEY</code>, <code>CORS_ORIGINS</code> (domain frontend)</li>
+          <li>Frontend service cần <code>NEXT_PUBLIC_API_URL=https://[backend-domain]/api/v1</code></li>
+          <li>Kiểm tra health: <code>https://jamacrm-production.up.railway.app/health</code></li>
+        </ol>
+        <div class="warn"><b>SQLite trên Railway:</b> filesystem không bền vững giữa các lần deploy — gắn <b>Volume</b> cho file <code>jama.db</code> hoặc chuyển sang PostgreSQL plugin của Railway.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ ENV ═══════ -->
+  <section class="panel" id="env">
+    <div class="sec-header"><div class="ic">🔐</div>
+      <div><h2>Biến môi trường (.env)</h2><div class="sub">backend/.env (Windows) hoặc .env gốc (Docker)</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>Các biến quan trọng</h3>
+        <table>
+          <tr><th>Biến</th><th>Bắt buộc?</th><th>Giải thích</th></tr>
+          <tr><td><code>JWT_SECRET_KEY</code></td><td>✅ BẮT BUỘC</td><td>Backend <b>từ chối khởi động</b> nếu thiếu. Tạo chuỗi ngẫu nhiên 64 ký tự:<br><code>python -c "import secrets; print(secrets.token_hex(32))"</code></td></tr>
+          <tr><td><code>DATABASE_URL</code></td><td>Không</td><td>Mặc định <code>sqlite+aiosqlite:///./jama.db</code>. Docker: <code>postgresql+asyncpg://jama:...@postgres:5432/jama_crm</code></td></tr>
+          <tr><td><code>TELEGRAM_BOT_TOKEN</code></td><td>Cần cho Telegram</td><td>Token từ @BotFather — điền cho <b>cả backend và telegram-bot</b> (cùng 1 token). Thiếu = tính năng Telegram tắt êm, app vẫn chạy</td></tr>
+          <tr><td><code>LLM_API_KEY</code></td><td>Không</td><td>Key AI khởi tạo ban đầu. <b>Từ bản mới:</b> admin cấu hình model + key ngay trong UI (Cài đặt → Cấu hình AI Model), ghi đè giá trị env, không cần restart</td></tr>
+          <tr><td><code>LLM_MODEL</code> / <code>LLM_FALLBACK_MODEL</code></td><td>Không</td><td>Model mặc định: <code>groq/llama-3.3-70b-versatile</code> · fallback <code>ollama/llama3.2</code></td></tr>
+          <tr><td><code>CORS_ORIGINS</code></td><td>Production</td><td>Danh sách domain frontend, phân cách dấu phẩy. Sai biến này = frontend gọi API bị chặn</td></tr>
+          <tr><td><code>API_BASE_URL</code></td><td>Cho bot</td><td>URL backend mà bot gọi. Docker: <code>http://backend:8000</code> · Windows: <code>http://localhost:8000</code></td></tr>
+          <tr><td><code>NEXT_PUBLIC_API_URL</code></td><td>Frontend</td><td>Trong <code>frontend/.env.local</code>: URL backend + <code>/api/v1</code>. Đổi biến này phải <b>build lại</b> frontend</td></tr>
+          <tr><td><code>JWT_ACCESS_TOKEN_EXPIRE_MINUTES</code></td><td>Không</td><td>Mặc định 480 (8 giờ) — hết hạn nhân viên phải đăng nhập lại</td></tr>
+          <tr><td><code>TIMEZONE</code></td><td>Không</td><td><code>Asia/Ho_Chi_Minh</code> — lịch gửi báo cáo BOD/briefing tính theo giờ này</td></tr>
+        </table>
+        <div class="warn"><b>Không commit .env lên Git!</b> File đã nằm trong <code>.gitignore</code> — giữ nguyên như vậy. Trên Railway/VPS dùng Variables/secrets của nền tảng.</div>
+      </div>
+      <div class="card full">
+        <h3>Mẫu backend/.env tối thiểu (Windows + SQLite)</h3>
+        <pre><code><span class="cm"># Bắt buộc</span>
+JWT_SECRET_KEY=<span class="hl">dán-chuỗi-64-ký-tự-ngẫu-nhiên</span>
+
+<span class="cm"># Telegram (để trống nếu chưa dùng)</span>
+TELEGRAM_BOT_TOKEN=<span class="hl">123456789:AAH...</span>
+
+<span class="cm"># AI (có thể bỏ trống — cấu hình sau trong UI admin)</span>
+LLM_API_KEY=
+LLM_MODEL=groq/llama-3.3-70b-versatile
+
+<span class="cm"># Mặc định đã ổn cho chạy local</span>
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8000
+TIMEZONE=Asia/Ho_Chi_Minh</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ BOT ═══════ -->
+  <section class="panel" id="bot">
+    <div class="sec-header"><div class="ic">🤖</div>
+      <div><h2>Setup Bot Telegram</h2><div class="sub">Từ tạo bot đến briefing nhóm — 15 phút</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <h3>Bước 1-3: Tạo bot &amp; cấu hình token</h3>
+        <ol class="steps">
+          <li><strong>Tạo bot với @BotFather</strong> — Telegram → tìm <code>@BotFather</code> → <code>/newbot</code> → đặt tên <em>JAMA HOME Trợ lý</em> → username kết thúc bằng <code>bot</code> (vd <code>jamahome_crm_bot</code>) → nhận <b>token</b>.</li>
+          <li><strong>Điền token</strong> vào <code>TELEGRAM_BOT_TOKEN</code> ở env của <b>backend</b> (để push thông báo) và <b>telegram-bot</b> (để nhận lệnh) → restart 2 service.</li>
+          <li><strong>Giữ Group Privacy = ENABLED</strong> (mặc định của BotFather) — trong nhóm bot chỉ đọc lệnh <code>/</code>, không đọc trò chuyện của nhân viên. Kiểm tra: <code>/mybots</code> → Bot Settings → Group Privacy.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Bước 4-6: Nhóm công ty</h3>
+        <ol class="steps">
+          <li><strong>Tạo nhóm</strong> <em>JAMA HOME — Công việc</em>, bật <b>Topics</b> (Edit nhóm → Topics), thêm nhân viên + thêm bot (nên cho bot làm admin nhóm)</li>
+          <li><strong>Lấy Chat ID</strong> — gõ <code>/id</code> trong nhóm → bot trả số âm dạng <code>-100xxxx</code></li>
+          <li><strong>Dán vào CRM</strong> — Cài đặt → Tự động hóa → ô <em>📢 Nhóm Telegram công ty</em> → Lưu → bấm <em>Gửi briefing nhóm</em> để test</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Topics khuyến nghị trong nhóm</h3>
+        <table>
+          <tr><td>📢 Briefing</td><td>Bot đăng briefing 8h sáng (khóa, chỉ admin+bot)</td></tr>
+          <tr><td>🏗️ Báo cáo công trình</td><td><code>/baocao</code> + ảnh</td></tr>
+          <tr><td>📦 Vật tư &amp; Duyệt</td><td><code>/vatlieu</code> + nút duyệt inline</td></tr>
+          <tr><td>🚨 Sự cố</td><td><code>/suco</code> — không bị trôi</td></tr>
+          <tr><td>⏰ Chấm công</td><td><code>/checkin</code> · <code>/checkout</code></td></tr>
+          <tr><td>💬 Trao đổi</td><td>Chat tự do</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>Bước 7: Liên kết nhân viên (bắt buộc để dùng lệnh)</h3>
+        <ol class="steps">
+          <li>Nhân viên chat riêng với bot → gõ <code>/id</code> → nhận User ID (số dương)</li>
+          <li>Admin mở CRM → <code>/hr</code> → hồ sơ nhân viên → điền <b>Telegram User ID</b></li>
+          <li>Nhân viên gõ <code>/start</code> → bot chào đúng tên + role là thành công</li>
+        </ol>
+        <div class="tip"><b>Cơ chế xác thực:</b> bot map <code>telegram_user_id</code> → tài khoản CRM → cấp JWT — nhân viên chỉ thấy đúng dữ liệu theo role của mình, kể cả qua bot.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ SAU CÀI ĐẶT ═══════ -->
+  <section class="panel" id="postinstall">
+    <div class="sec-header"><div class="ic">⚙️</div>
+      <div><h2>Checklist cấu hình sau cài đặt</h2><div class="sub">Làm 1 lần bằng tài khoản admin, theo thứ tự</div></div>
+    </div>
+    <div class="grid">
+      <div class="card full">
+        <ol class="steps">
+          <li><strong>Đổi toàn bộ mật khẩu mặc định</strong> — <code>/hr</code> → từng tài khoản seed → đặt mật khẩu mới. Xóa/khóa tài khoản demo không dùng.</li>
+          <li><strong>Cấu hình AI Model</strong> — Cài đặt → 🧠 Cấu hình AI Model: chọn model free (Groq khuyến nghị — lấy key tại <code>console.groq.com</code>), dán key, đặt model dự phòng khác nhà cung cấp (vd Gemini — <code>aistudio.google.com</code>) → bấm <b>🔌 Test kết nối</b> → Lưu. Áp dụng ngay cho 5 AI agents + bot, không cần restart.</li>
+          <li><strong>Cấu hình Tự động hóa</strong> — Cài đặt → 🤖 Tự động hóa: ngưỡng nhắc CSKH (mặc định 3 ngày), thu hồi lead (7 ngày), giờ gửi báo cáo BOD (8h). Bấm <b>▶️ Chạy ngay</b> để test.</li>
+          <li><strong>Kết nối nhóm Telegram</strong> — dán Chat ID nhóm (tab 🤖 Bot Telegram) → test <b>📢 Gửi briefing nhóm</b>.</li>
+          <li><strong>Bật sao lưu tự động</strong> — Cài đặt → 💾 Sao lưu: mặc định 5h sáng, giữ 180 ngày. Kết nối Google Drive (OAuth) để có bản backup ngoài server → bấm <b>💾 Sao lưu ngay</b> để test.</li>
+          <li><strong>Tạo tài khoản nhân viên thật</strong> — <code>/hr</code> → + Nhân viên → chọn đúng role (role quyết định toàn bộ quyền truy cập) → điền Telegram User ID.</li>
+          <li><strong>Kiểm tra worker đang chạy</strong> — xem log worker có dòng <em>Health check | status=healthy</em> mỗi 30 giây. Không có worker = không có nhắc CSKH / báo cáo / backup tự động.</li>
+          <li><strong>Gửi link hướng dẫn cho nhân viên</strong> — <code>https://[domain]/huong-dan.html</code> (đăng vào topic 📢 của nhóm).</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ VẬN HÀNH ═══════ -->
+  <section class="panel" id="ops">
+    <div class="sec-header"><div class="ic">🚑</div>
+      <div><h2>Vận hành, Backup &amp; Xử lý sự cố</h2><div class="sub">Những gì IT cần biết khi hệ thống chạy thật</div></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>💾 Backup tự động (tích hợp sẵn)</h3>
+        <table>
+          <tr><td>Bật/tắt</td><td>Cài đặt → <b>💾 Sao lưu dữ liệu tự động</b> (admin) — mặc định <b>5h sáng</b> hàng ngày</td></tr>
+          <tr><td>Lưu trữ</td><td>Local <code>backend/backups/*.zip</code> + Google Drive (thư mục JAMA-CRM-Backups)</td></tr>
+          <tr><td>Retention</td><td>Tự xóa bản cũ hơn N ngày (chỉnh được, <b>tối đa 180 ngày</b>) — cả local lẫn Drive</td></tr>
+          <tr><td>Google Drive</td><td>OAuth 2.0: tạo Client ID/Secret tại <code>console.cloud.google.com</code> (Web application, redirect URI <code>[API_BASE_URL]/api/v1/backup/gdrive/callback</code>, bật Drive API) → dán vào Settings → bấm Kết nối</td></tr>
+          <tr><td>Snapshot an toàn</td><td>Dùng SQLite backup API — không hỏng file kể cả khi app đang ghi</td></tr>
+          <tr><td>Khôi phục</td><td>Giải nén zip → copy <code>jama.db</code> đè vào <code>backend/</code> → restart backend</td></tr>
+          <tr><td>PostgreSQL (Docker)</td><td>Backup tự động chỉ hỗ trợ SQLite — Postgres dùng: <code>docker compose exec postgres pg_dump -U jama jama_crm &gt; backup_$(date +%F).sql</code></td></tr>
+        </table>
+        <div class="tip"><b>Lưu ý:</b> backup chạy qua <b>Worker</b> — worker phải đang chạy thì 5h sáng mới có backup. Test bằng nút <b>💾 Sao lưu ngay</b> trong Settings.</div>
+      </div>
+      <div class="card">
+        <h3>📈 Giám sát nhanh</h3>
+        <table>
+          <tr><td><code>/health</code></td><td>Backend sống hay không — gắn vào UptimeRobot (free) để được báo khi sập</td></tr>
+          <tr><td><code>/docs</code></td><td>Swagger — test API trực tiếp khi nghi ngờ lỗi</td></tr>
+          <tr><td>Log worker</td><td>Dòng <em>Health check</em> mỗi 30s + kết quả các job tự động</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>🔧 Sự cố thường gặp</h3>
+        <table>
+          <tr><th>Triệu chứng</th><th>Nguyên nhân &amp; cách xử lý</th></tr>
+          <tr><td>Backend không khởi động, log báo JWT</td><td>Thiếu <code>JWT_SECRET_KEY</code> trong .env — backend cố tình từ chối chạy. Điền key rồi restart</td></tr>
+          <tr><td>Frontend trắng trang / lỗi gọi API</td><td>Sai <code>NEXT_PUBLIC_API_URL</code> (phải build lại sau khi đổi) hoặc thiếu domain trong <code>CORS_ORIGINS</code> của backend</td></tr>
+          <tr><td>Port 8000/3001 bị chiếm (Windows)</td><td>Chạy lại <code>start.cmd</code> — script tự kill process cũ. Thủ công: <code>netstat -aon | findstr :8000</code> → <code>taskkill /F /PID [pid]</code></td></tr>
+          <tr><td>Bot không trả lời lệnh</td><td>Service telegram-bot chưa chạy, hoặc token sai, hoặc <code>API_BASE_URL</code> của bot trỏ sai backend. Xem log bot</td></tr>
+          <tr><td>Bot trả lời "Chưa liên kết tài khoản"</td><td>User chưa được điền Telegram User ID trong /hr</td></tr>
+          <tr><td>Briefing nhóm không gửi</td><td>Chat ID sai (phải số âm), bot chưa ở trong nhóm, hoặc <code>TELEGRAM_BOT_TOKEN</code> thiếu ở <b>backend</b> (backend là bên push). Nhóm nâng cấp supergroup thì Chat ID đổi — gõ <code>/id</code> lấy lại</td></tr>
+          <tr><td>AI không hoạt động / parse lead lỗi</td><td>Cài đặt → Cấu hình AI Model → <b>Test kết nối</b> đọc lỗi cụ thể (hết quota, key sai...). Hệ thống vẫn chạy bằng rule-based trong lúc chờ sửa</td></tr>
+          <tr><td>Không có nhắc CSKH / báo cáo tự động</td><td>Worker chưa chạy — Windows: mở cmd <code>python -m app.worker</code>; Docker/VPS: <code>docker compose ps</code> kiểm tra container worker</td></tr>
+        </table>
+      </div>
+      <div class="card full">
+        <h3>🔄 Quy trình cập nhật phiên bản</h3>
+        <pre><code><span class="cm"># VPS (an toàn, có health check):</span>
+cd /opt/jama-crm/deploy && bash quick-deploy.sh
+
+<span class="cm"># Windows:</span>
+git pull origin main
+cd backend && pip install -r requirements.txt
+cd ../frontend && npm install && npm run build
+<span class="cm"># rồi chạy lại start.cmd</span>
+
+<span class="cm"># Railway: chỉ cần</span>
+git push origin main</code></pre>
+        <div class="warn"><b>Trước khi update production:</b> backup database + chạy <code>pytest</code> trong backend/ (100+ tests) — xanh hết mới deploy.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    🛠️ JAMA HOME CRM — Tài liệu Admin/IT ·
+    <a href="/huong-dan.html">📖 Hướng dẫn sử dụng cho nhân viên</a> ·
+    <a href="/">Về trang CRM</a>
+  </div>
+</footer>
+
+<script>
+  const tabs = document.querySelectorAll('.role-tab');
+  const panels = document.querySelectorAll('section.panel');
+  function activate(id) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.panel === id));
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.panel)));
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) activate(hash);
+</script>
+
+</body>
+</html>

@@ -19,6 +19,7 @@ from bot.handlers import (
     material_request,
     incident,
     checkin_out,
+    group_utils,
 )
 
 load_dotenv()
@@ -43,6 +44,7 @@ async def main():
     dp = Dispatcher()
 
     # Register handlers
+    dp.include_router(group_utils.router)  # /id + group welcome (trước để ưu tiên)
     dp.include_router(start.router)
     dp.include_router(lead_intake.router)
     dp.include_router(pipeline.router)

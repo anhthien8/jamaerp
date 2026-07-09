@@ -12,11 +12,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from litellm import acompletion
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.services.llm_config import llm_available, llm_complete
 from app.models.project import Project, Task, TaskActivity
 from app.models.user import User
 
@@ -344,17 +344,15 @@ async def _apply_llm_enrichment(
     assignables: list[User],
 ) -> list[dict[str, Any]]:
     """Ask the LLM to adjust assignments and descriptions, then merge."""
-    if not settings.LLM_API_KEY:
-        logger.info("No LLM_API_KEY configured — using rule-based task plan.")
+    if not await llm_available():
+        logger.info("No LLM configured — using rule-based task plan.")
         return base_tasks
 
     assignables_map = {u.email: u.id for u in assignables if u.email}
     context = _build_project_context(project, assignables)
 
     try:
-        response = await acompletion(
-            model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
+        response = await llm_complete(
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": context},
