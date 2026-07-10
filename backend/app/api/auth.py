@@ -33,7 +33,9 @@ def _check_rate_limit(bucket: str, max_attempts: int = _LOGIN_MAX_ATTEMPTS) -> N
     _login_attempts[bucket] = [
         ts for ts in _login_attempts[bucket] if now - ts < _LOGIN_WINDOW_SECONDS
     ]
-    if len(_login_attempts[bucket]) >= max_attempts:
+    if not _login_attempts[bucket]:
+        del _login_attempts[bucket]
+    elif len(_login_attempts[bucket]) >= max_attempts:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Quá nhiều yêu cầu. Vui lòng thử lại sau.",

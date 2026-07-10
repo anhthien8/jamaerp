@@ -41,7 +41,9 @@ _PUBLIC_WINDOW = 3600    # mỗi giờ / IP
 def _check_public_rate_limit(ip: str) -> None:
     now = time.time()
     _public_hits[ip] = [t for t in _public_hits[ip] if now - t < _PUBLIC_WINDOW]
-    if len(_public_hits[ip]) >= _PUBLIC_MAX:
+    if not _public_hits[ip]:
+        del _public_hits[ip]
+    elif len(_public_hits[ip]) >= _PUBLIC_MAX:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Bạn đã dùng hết lượt báo giá. Vui lòng để lại SĐT, JAMA HOME sẽ liên hệ tư vấn!",

@@ -1,6 +1,9 @@
 """Commission Structure API — CRUD for cơ cấu hoa hồng."""
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +11,20 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.commission_structure import CommissionStructure
+
+
+class CommissionStructureCreate(BaseModel):
+    department: str = Field(min_length=1, max_length=100)
+    commission_type: str = Field(min_length=1, max_length=50)
+    rate: float = Field(ge=0, le=100)
+    effective_date: date | None = None
+
+
+class CommissionStructureUpdate(BaseModel):
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    commission_type: str | None = Field(default=None, min_length=1, max_length=50)
+    rate: float | None = Field(default=None, ge=0, le=100)
+    effective_date: date | None = None
 
 router = APIRouter(prefix="/commission-structures", tags=["commission-structures"])
 
@@ -32,15 +49,14 @@ async def list_structures(db: AsyncSession = Depends(get_db), current_user: User
 
 
 @router.post("")
-async def create_structure(data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
+async def create_structure(data: CommissionStructureCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
     import uuid
-    from datetime import datetime, timezone
     structure = CommissionStructure(
         id=str(uuid.uuid4()),
-        department=data.get("department", ""),
-        commission_type=data.get("commission_type", ""),
-        rate=data.get("rate", 0),
-        effective_date=data.get("effective_date", datetime.now(timezone.utc).date()),
+        department=data.department,
+        commission_type=data.commission_type,
+        rate=data.rate,
+        effective_date=data.effective_date or datetime.now(timezone.utc).date(),
     )
     db.add(structure)
     await db.flush()
@@ -48,13 +64,13 @@ async def create_structure(data: dict, db: AsyncSession = Depends(get_db), curre
 
 
 @router.put("/{structure_id}")
-async def update_structure(structure_id: str, data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
+async def update_structure(structure_id: str, data: CommissionStructureUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
     result = await db.execute(select(CommissionStructure).where(CommissionStructure.id == structure_id))
     structure = result.scalar_one_or_none()
     if not structure:
         raise HTTPException(status_code=404, detail="Cơ cấu hoa hồng không tồn tại")
-    for k, v in data.items():
-        if hasattr(structure, k) and k not in ("id", "created_at"):
+    for k, v in data.model_dump(exclude_unset=True).items():
+        if hasattr(structure, k):
             setattr(structure, k, v)
     await db.flush()
     return {"id": structure.id, "department": structure.department, "rate": structure.rate}

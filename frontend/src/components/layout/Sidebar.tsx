@@ -61,7 +61,6 @@ const ROLE_ESSENTIALS: Record<string, string[]> = {
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout, isDemo, mode, setMode } = useAuth();
-  const collapsed = false; // sidebar always expanded
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Track desktop breakpoint (1024px = lg) — SSR-safe
@@ -100,7 +99,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     if (!perms) return { essentialItems: [], extraItems: [] };
     const allowed = ALL_ITEMS.filter(item => {
       if (!item.perm) return true;
-      return (perms as any)[item.perm] === true;
+      return (perms as unknown as Record<string, unknown>)[item.perm] === true;
     });
     const essentialHrefs = ROLE_ESSENTIALS[user?.role || 'admin'] || ROLE_ESSENTIALS.admin;
     const essential = allowed.filter(item => essentialHrefs.includes(item.href));
@@ -116,12 +115,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
           <span className="text-sm font-bold text-white tracking-tight">J</span>
         </div>
-        {!collapsed && (
-          <div className="animate-fade">
-            <span className="text-base font-bold gold-gradient tracking-tight">JAMA</span>
-            <span className="text-base font-light text-[var(--text-secondary)] ml-1">HOME</span>
-          </div>
-        )}
+        <div className="animate-fade">
+          <span className="text-base font-bold gold-gradient tracking-tight">JAMA</span>
+          <span className="text-base font-light text-[var(--text-secondary)] ml-1">HOME</span>
+        </div>
       </div>
 
       {/* Search button */}
@@ -134,14 +131,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
           </svg>
-          {!collapsed && (
-            <>
-              <span className="flex-1 text-left text-xs">Tìm kiếm...</span>
-              <kbd className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: 'var(--surface-3)', color: 'var(--text-disabled)' }}>
-                ⌘K
-              </kbd>
-            </>
-          )}
+          <span className="flex-1 text-left text-xs">Tìm kiếm...</span>
+          <kbd className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: 'var(--surface-3)', color: 'var(--text-disabled)' }}>
+            ⌘K
+          </kbd>
         </button>
       </div>
 
@@ -165,13 +158,13 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             >
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
               <span className="flex-shrink-0">{item.icon}</span>
-              {!collapsed && <span className="font-medium">{item.label}</span>}
+              <span className="font-medium">{item.label}</span>
             </Link>
           );
         })}
 
         {/* "Xem thêm" toggle — only when there are extra items */}
-        {extraItems.length > 0 && !collapsed && (
+        {extraItems.length > 0 && (
           <>
             <button
               onClick={() => setShowMore(!showMore)}
@@ -210,43 +203,24 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       </nav>
 
       {/* Mode Toggle Badge */}
-      {!collapsed && (
-        <div className="px-3 mb-3">
-          <button
-            onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[0.6875rem] font-semibold transition-all duration-200 cursor-pointer select-none"
-            style={{
-              background: mode === 'demo' ? 'rgba(251,191,36,0.1)' : 'rgba(74,222,128,0.08)',
-              border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.25)' : 'rgba(74,222,128,0.2)'}`,
-              color: mode === 'demo' ? '#FBBF24' : '#4ADE80',
-            }}
-            title={mode === 'demo' ? 'Chuyen sang Work Mode' : 'Chuyen sang Demo Mode'}
-          >
-            <span className="text-sm">{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
-            <span>{mode === 'demo' ? 'DEMO MODE' : 'WORK MODE'}</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Collapsed mode dot indicator */}
-      {collapsed && (
-        <div className="flex justify-center mb-3">
-          <button
-            onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
-            className="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer"
-            style={{
-              background: mode === 'demo' ? 'rgba(251,191,36,0.3)' : 'rgba(74,222,128,0.3)',
-              border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.5)' : 'rgba(74,222,128,0.5)'}`,
-            }}
-            title={mode === 'demo' ? 'Demo Mode - Click to switch to Work' : 'Work Mode - Click to switch to Demo'}
-          >
-            <span style={{ fontSize: '8px' }}>{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
-          </button>
-        </div>
-      )}
+      <div className="px-3 mb-3">
+        <button
+          onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[0.6875rem] font-semibold transition-all duration-200 cursor-pointer select-none"
+          style={{
+            background: mode === 'demo' ? 'rgba(251,191,36,0.1)' : 'rgba(74,222,128,0.08)',
+            border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.25)' : 'rgba(74,222,128,0.2)'}`,
+            color: mode === 'demo' ? '#FBBF24' : '#4ADE80',
+          }}
+          title={mode === 'demo' ? 'Chuyen sang Work Mode' : 'Chuyen sang Demo Mode'}
+        >
+          <span className="text-sm">{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
+          <span>{mode === 'demo' ? 'DEMO MODE' : 'WORK MODE'}</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
 
       {/* User */}
       <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -259,26 +233,22 @@ export default function Sidebar({ children }: { children: ReactNode }) {
               {user.full_name?.split(' ').pop()?.charAt(0) || 'U'}
             </span>
           </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-[0.8125rem] font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
-              <p className="text-[0.6875rem] text-[var(--text-disabled)]">{getRoleLabel(user.role as UserRole)}</p>
-            </div>
-          )}
-          {!collapsed && (
-            <button
-              onClick={logout}
-              className="p-1.5 rounded-lg transition-colors hover:bg-[rgba(248,113,113,0.1)]"
-              title="Đăng xuất"
-              aria-label="Đăng xuất"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
-          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[0.8125rem] font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
+            <p className="text-[0.6875rem] text-[var(--text-disabled)]">{getRoleLabel(user.role as UserRole)}</p>
+          </div>
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-lg transition-colors hover:bg-[rgba(248,113,113,0.1)]"
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
     </>
@@ -335,7 +305,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       <main
         className="flex-1 min-h-screen pt-14 lg:pt-0"
         style={{
-          marginLeft: isDesktop ? (collapsed ? 72 : 256) : 0,
+          marginLeft: isDesktop ? 256 : 0,
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >

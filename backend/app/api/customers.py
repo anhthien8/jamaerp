@@ -13,6 +13,10 @@ from app.models.customer import Customer
 from app.models.project import Project
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse
 
+def _escape_like(term: str) -> str:
+    return term.replace("%", "\\%").replace("_", "\\_")
+
+
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
@@ -40,8 +44,9 @@ async def list_customers(
     if type:
         q = q.where(Customer.type == type)
     if search:
+        escaped = _escape_like(search)
         q = q.where(
-            Customer.name.ilike(f"%{search}%") | Customer.phone.ilike(f"%{search}%")
+            Customer.name.ilike(f"%{escaped}%", escape="\\") | Customer.phone.ilike(f"%{escaped}%", escape="\\")
         )
 
     # Count total (before pagination)

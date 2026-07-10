@@ -929,6 +929,9 @@ export interface DashboardPersonal {
   ai_suggestions: Array<Record<string, unknown>>;
 }
 
+/** Unified dashboard type — all fields optional since exec/personal have different shapes */
+export type DashboardData = Partial<DashboardExecutive> & Partial<DashboardPersonal>;
+
 export interface LeadParseResult {
   name?: string;
   phone?: string;

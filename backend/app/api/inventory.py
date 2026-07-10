@@ -15,6 +15,10 @@ from app.schemas.inventory import (
     MaterialUsageCreate, MaterialUsageResponse, StockAdjust,
 )
 
+def _escape_like(term: str) -> str:
+    return term.replace("%", "\\%").replace("_", "\\_")
+
+
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
@@ -41,7 +45,8 @@ async def list_materials(
     if category:
         q = q.where(Material.category == category)
     if search:
-        q = q.where(Material.name.ilike(f"%{search}%"))
+        escaped = _escape_like(search)
+        q = q.where(Material.name.ilike(f"%{escaped}%", escape="\\"))
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())

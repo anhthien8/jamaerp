@@ -1,6 +1,9 @@
 """Salary Grade API — CRUD for bậc lương."""
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +11,26 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.salary_grade import SalaryGrade
+
+
+class SalaryGradeCreate(BaseModel):
+    grade_name: str = Field(min_length=1, max_length=100)
+    base_salary: float = Field(ge=0)
+    bhxh_rate: float = Field(default=10.5, ge=0, le=100)
+    bhxh_company_rate: float = Field(default=21.5, ge=0, le=100)
+    bhyt_rate: float = Field(default=1.5, ge=0, le=100)
+    bhtn_rate: float = Field(default=1.0, ge=0, le=100)
+    effective_date: date | None = None
+
+
+class SalaryGradeUpdate(BaseModel):
+    grade_name: str | None = Field(default=None, min_length=1, max_length=100)
+    base_salary: float | None = Field(default=None, ge=0)
+    bhxh_rate: float | None = Field(default=None, ge=0, le=100)
+    bhxh_company_rate: float | None = Field(default=None, ge=0, le=100)
+    bhyt_rate: float | None = Field(default=None, ge=0, le=100)
+    bhtn_rate: float | None = Field(default=None, ge=0, le=100)
+    effective_date: date | None = None
 
 router = APIRouter(prefix="/salary-grades", tags=["salary-grades"])
 
@@ -34,18 +57,17 @@ async def list_grades(db: AsyncSession = Depends(get_db), current_user: User = D
 
 
 @router.post("")
-async def create_grade(data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
+async def create_grade(data: SalaryGradeCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
     import uuid
-    from datetime import datetime, timezone
     grade = SalaryGrade(
         id=str(uuid.uuid4()),
-        grade_name=data.get("grade_name", ""),
-        base_salary=data.get("base_salary", 0),
-        bhxh_rate=data.get("bhxh_rate", 10.5),
-        bhxh_company_rate=data.get("bhxh_company_rate", 21.5),
-        bhyt_rate=data.get("bhyt_rate", 1.5),
-        bhtn_rate=data.get("bhtn_rate", 1.0),
-        effective_date=data.get("effective_date", datetime.now(timezone.utc).date()),
+        grade_name=data.grade_name,
+        base_salary=data.base_salary,
+        bhxh_rate=data.bhxh_rate,
+        bhxh_company_rate=data.bhxh_company_rate,
+        bhyt_rate=data.bhyt_rate,
+        bhtn_rate=data.bhtn_rate,
+        effective_date=data.effective_date or datetime.now(timezone.utc).date(),
     )
     db.add(grade)
     await db.flush()
@@ -53,13 +75,13 @@ async def create_grade(data: dict, db: AsyncSession = Depends(get_db), current_u
 
 
 @router.put("/{grade_id}")
-async def update_grade(grade_id: str, data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
+async def update_grade(grade_id: str, data: SalaryGradeUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
     result = await db.execute(select(SalaryGrade).where(SalaryGrade.id == grade_id))
     grade = result.scalar_one_or_none()
     if not grade:
         raise HTTPException(status_code=404, detail="Bậc lương không tồn tại")
-    for k, v in data.items():
-        if hasattr(grade, k) and k not in ("id", "created_at"):
+    for k, v in data.model_dump(exclude_unset=True).items():
+        if hasattr(grade, k):
             setattr(grade, k, v)
     await db.flush()
     return {"id": grade.id, "grade_name": grade.grade_name, "base_salary": grade.base_salary}

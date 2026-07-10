@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user, hash_password
 from app.models.user import User, Team
+from app.schemas.user import UserCreate, UserUpdate, VALID_ROLES
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -97,7 +98,7 @@ async def get_user(
 
 @router.post("")
 async def create_user(
-    data: dict,
+    data: UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -105,36 +106,22 @@ async def create_user(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ admin mới được tạo user")
 
-    from app.schemas.user import VALID_ROLES
-
-    # Validate bắt buộc — endpoint nhận dict thô nên phải tự kiểm tra
-    full_name = (data.get("full_name") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    role = data.get("role", "data_entry")
-
-    if not full_name or not email:
-        raise HTTPException(status_code=400, detail="Thiếu họ tên hoặc email")
-    if "@" not in email:
-        raise HTTPException(status_code=400, detail="Email không hợp lệ")
-    if len(password) < 8:
-        raise HTTPException(status_code=400, detail="Mật khẩu phải từ 8 ký tự trở lên")
-    if role not in VALID_ROLES:
+    if data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
     # Check email exists
-    existing = await db.execute(select(User).where(User.email == email))
+    existing = await db.execute(select(User).where(User.email == data.email.lower()))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
     user = User(
-        full_name=full_name,
-        email=email,
-        phone=data.get("phone"),
-        password_hash=hash_password(password),
-        role=role,
-        department=data.get("department", "SALES"),
-        team_id=data.get("team_id"),
+        full_name=data.full_name.strip(),
+        email=data.email.lower(),
+        phone=data.phone,
+        password_hash=hash_password(data.password),
+        role=data.role,
+        department=data.department,
+        team_id=data.team_id,
         is_active=True,
     )
     db.add(user)
@@ -148,7 +135,7 @@ async def create_user(
 @router.put("/{user_id}")
 async def update_user(
     user_id: str,
-    data: dict,
+    data: UserUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -161,24 +148,23 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
 
+    # Use exclude_unset to detect which fields were explicitly provided
+    provided = data.model_dump(exclude_unset=True)
+
     # Role escalation protection
-    if "role" in data and current_user.role != "admin":
+    if "role" in provided and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi vai trò")
-    if "is_active" in data and current_user.role != "admin":
+    if "is_active" in provided and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi trạng thái")
-    if "role" in data:
-        from app.schemas.user import VALID_ROLES
-        if data["role"] not in VALID_ROLES:
-            raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
-    if "password" in data and data["password"] and len(data["password"]) < 8:
-        raise HTTPException(status_code=400, detail="Mật khẩu phải từ 8 ký tự trở lên")
+    if "role" in provided and data.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_username"]
     for k in allowed:
-        if k in data:
-            setattr(user, k, data[k])
-    if "password" in data and data["password"]:
-        user.password_hash = hash_password(data["password"])
+        if k in provided:
+            setattr(user, k, provided[k])
+    if "password" in provided and data.password:
+        user.password_hash = hash_password(data.password)
     user.updated_at = datetime.now(timezone.utc)
     await db.flush()
 

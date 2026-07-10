@@ -165,7 +165,6 @@ function LeadsContent() {
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [searchQuery, setSearchQuery] = useState('');
-  const [lostReason, setLostReason] = useState('');
   const searchParams = useSearchParams();
   const urlStage = searchParams.get('stage');
   const urlFilter = searchParams.get('filter');
@@ -251,21 +250,19 @@ function LeadsContent() {
   };
 
   const handleStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
-    const effectiveReason = reasonOverride || lostReason;
-    if (newStage === 'lost' && !effectiveReason) {
+    if (newStage === 'lost' && !reasonOverride) {
       toast('Vui lòng chọn lý do mất lead', 'error');
       return;
     }
     try {
-      if (newStage === 'lost' && effectiveReason) {
-        await api.updateLead(lead.id, { stage: newStage, lost_reason: effectiveReason });
+      if (newStage === 'lost' && reasonOverride) {
+        await api.updateLead(lead.id, { stage: newStage, lost_reason: reasonOverride });
       } else {
         await api.changeStage(lead.id, newStage);
       }
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
       fetchLeads();
       setSelectedLead(null);
-      setLostReason('');
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     }
@@ -927,7 +924,7 @@ function LeadsContent() {
                   onConfirm={(reason) => {
                     handleStageChange(selectedLead, 'lost', reason);
                   }}
-                  onCancel={() => setLostReason('')}
+                  onCancel={() => {}}
                 />
               </div>
 

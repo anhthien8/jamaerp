@@ -41,16 +41,19 @@ async def lifespan(app: FastAPI):
     if settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_AUTH_SECRET:
         print("[WARN] TELEGRAM_AUTH_SECRET chưa đặt — /auth/telegram chỉ dựa rate-limit. Nên đặt bí mật chia sẻ với bot.")
 
-    # Auto-seed
+    # Auto-seed (skip in production)
     from app.database import async_session
     from app.seed import seed_database
-    async with async_session() as db:
-        try:
-            await seed_database(db)
-            await db.commit()
-        except Exception as e:
-            print(f"[WARN] Seed error: {e}")
-            await db.rollback()
+    if settings.APP_ENV == "production":
+        print("[INFO] Skipping database seed in production environment")
+    else:
+        async with async_session() as db:
+            try:
+                await seed_database(db)
+                await db.commit()
+            except Exception as e:
+                print(f"[WARN] Seed error: {e}")
+                await db.rollback()
 
     print(f"[OK] {settings.APP_NAME} started")
     yield
@@ -67,8 +70,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -82,6 +85,7 @@ async def security_headers(request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'"
     if request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -90,7 +94,15 @@ async def security_headers(request, call_next):
 # Health check
 @app.get("/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV}
+    from sqlalchemy import text
+    from app.database import async_session
+    try:
+        async with async_session() as db:
+            await db.execute(text("SELECT 1"))
+    except Exception:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content={"status": "error", "app": settings.APP_NAME})
+    return {"status": "ok", "app": settings.APP_NAME}
 
 
 # Register routers

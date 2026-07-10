@@ -1,6 +1,7 @@
 """Variable Cost API — CRUD for chi phí biến phí."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,22 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.variable_cost import VariableCost
+
+
+class VariableCostCreate(BaseModel):
+    category: str = Field(min_length=1, max_length=200)
+    amount: float = Field(ge=0)
+    month: str = Field(min_length=1, max_length=10)
+    project_id: str | None = None
+    notes: str | None = None
+
+
+class VariableCostUpdate(BaseModel):
+    category: str | None = Field(default=None, min_length=1, max_length=200)
+    amount: float | None = Field(default=None, ge=0)
+    month: str | None = Field(default=None, min_length=1, max_length=10)
+    project_id: str | None = None
+    notes: str | None = None
 
 router = APIRouter(prefix="/variable-costs", tags=["variable-costs"])
 
@@ -43,15 +60,15 @@ async def list_variable_costs(
 
 
 @router.post("")
-async def create_variable_cost(data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_finance)):
+async def create_variable_cost(data: VariableCostCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_finance)):
     import uuid
     cost = VariableCost(
         id=str(uuid.uuid4()),
-        category=data.get("category", ""),
-        amount=data.get("amount", 0),
-        project_id=data.get("project_id"),
-        month=data.get("month", ""),
-        notes=data.get("notes"),
+        category=data.category,
+        amount=data.amount,
+        project_id=data.project_id,
+        month=data.month,
+        notes=data.notes,
         created_by=current_user.id,
     )
     db.add(cost)
@@ -60,13 +77,13 @@ async def create_variable_cost(data: dict, db: AsyncSession = Depends(get_db), c
 
 
 @router.put("/{cost_id}")
-async def update_variable_cost(cost_id: str, data: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_finance)):
+async def update_variable_cost(cost_id: str, data: VariableCostUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_finance)):
     result = await db.execute(select(VariableCost).where(VariableCost.id == cost_id))
     cost = result.scalar_one_or_none()
     if not cost:
         raise HTTPException(status_code=404, detail="Chi phí biến không tồn tại")
-    for k, v in data.items():
-        if hasattr(cost, k) and k not in ("id", "created_at"):
+    for k, v in data.model_dump(exclude_unset=True).items():
+        if hasattr(cost, k):
             setattr(cost, k, v)
     await db.flush()
     return {"id": cost.id, "category": cost.category, "amount": cost.amount, "project_id": cost.project_id}

@@ -22,6 +22,10 @@ from app.schemas.lead import (
     ActivityCreate, ActivityResponse, PipelineStats, PipelineKanban,
 )
 
+def _escape_like(term: str) -> str:
+    return term.replace("%", "\\%").replace("_", "\\_")
+
+
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 STAGE_LABELS = {
@@ -98,10 +102,11 @@ async def list_leads(
     if assigned_to:
         q = q.where(Lead.assigned_to == assigned_to)
     if search:
+        escaped = _escape_like(search)
         q = q.where(
-            Lead.name.ilike(f"%{search}%")
-            | Lead.phone.ilike(f"%{search}%")
-            | Lead.address.ilike(f"%{search}%")
+            Lead.name.ilike(f"%{escaped}%", escape="\\")
+            | Lead.phone.ilike(f"%{escaped}%", escape="\\")
+            | Lead.address.ilike(f"%{escaped}%", escape="\\")
         )
 
     # Count total (before pagination)

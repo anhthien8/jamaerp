@@ -24,5 +24,12 @@ COPY --from=builder /app/public ./public
 
 ENV HOSTNAME="0.0.0.0"
 
+# Non-root user
+RUN addgroup -S app && adduser -S app -G app
+USER app
+
 # Railway injects PORT env var
 CMD ["sh", "-c", "node server.js -p ${PORT:-3000}"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["sh", "-c", "wget -qO- http://localhost:${PORT:-3000} || exit 1"]

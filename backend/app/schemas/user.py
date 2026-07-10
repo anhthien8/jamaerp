@@ -26,6 +26,17 @@ class UserCreate(BaseModel):
     team_id: str | None = None
 
 
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=150)
+    phone: str | None = Field(default=None, max_length=20)
+    role: str | None = None
+    department: str | None = None
+    team_id: str | None = None
+    is_active: bool | None = None
+    telegram_username: str | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: str
     full_name: str

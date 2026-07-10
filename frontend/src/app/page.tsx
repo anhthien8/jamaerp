@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, DashboardExecutive } from '@/lib/api';
+import { api, DashboardData } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
