@@ -16,7 +16,7 @@ from app.cache import cache, cached
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-@cached(ttl=120, prefix="dashboard")
+@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [kw.get("current_user").role if kw.get("current_user") else "anon"])
 @router.get("/executive")
 async def executive_dashboard(
     db: AsyncSession = Depends(get_db),

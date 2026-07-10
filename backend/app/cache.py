@@ -35,8 +35,15 @@ class MemoryCache:
 cache = MemoryCache()
 
 
-def cached(ttl: int = 300, prefix: str = ""):
-    """Decorator for caching async function results."""
+def cached(ttl: int = 300, prefix: str = "", key_fn=None):
+    """Decorator for caching async function results.
+
+    Args:
+        ttl: Cache time-to-live in seconds.
+        prefix: Cache key prefix.
+        key_fn: Optional callable(*args, **kwargs) -> list[str].
+            Extra key components to isolate caches (e.g. by user role).
+    """
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -50,6 +57,13 @@ def cached(ttl: int = 300, prefix: str = ""):
             for k, v in sorted(kwargs.items()):
                 if k not in ('db', 'current_user'):
                     key_parts.append(f"{k}={v}")
+
+            # Append extra key components from key_fn
+            if key_fn is not None:
+                extra = key_fn(*args, **kwargs)
+                if extra:
+                    key_parts.extend(str(e) for e in extra)
+
             cache_key = ":".join(key_parts)
 
             result = cache.get(cache_key)

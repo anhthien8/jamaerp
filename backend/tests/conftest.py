@@ -67,12 +67,13 @@ async def _override_get_db(db_session):
 
 @pytest_asyncio.fixture
 async def client(db_engine, db_session):
-    """AsyncClient wired to a fresh in-memory SQLite DB."""
-    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    """AsyncClient wired to a fresh in-memory SQLite DB.
 
+    Uses the same session as ``db_session`` so that ``flush()``-only
+    endpoints leave data visible to direct DB queries in tests.
+    """
     async def _get_db_override():
-        async with factory() as session:
-            yield session
+        yield db_session
 
     app.dependency_overrides[get_db] = _get_db_override
 

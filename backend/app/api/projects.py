@@ -382,17 +382,17 @@ async def update_task_status(
 
     await db.flush()
 
-    # Recalculate project progress
+    # Recalculate project progress via SQL COUNT
     proj_result = await db.execute(select(Project).where(Project.id == task.project_id))
     project = proj_result.scalar_one_or_none()
     if project:
-        tasks_q = select(Task).where(Task.project_id == project.id)
-        tasks_res = await db.execute(tasks_q)
-        all_tasks = tasks_res.scalars().all()
-        if all_tasks:
-            done_tasks = [t for t in all_tasks if t.status in ("done", "completed")]
-            project.progress = int((len(done_tasks) / len(all_tasks)) * 100)
-            project.updated_at = datetime.now(timezone.utc)
-            await db.flush()
+        count_q = select(
+            func.count(Task.id).label("total"),
+            func.count(Task.id).filter(Task.status.in_(["done", "completed"])).label("done"),
+        ).where(Task.project_id == project.id)
+        row = (await db.execute(count_q)).one()
+        project.progress = int((row.done / row.total) * 100) if row.total else 0
+        project.updated_at = datetime.now(timezone.utc)
+        await db.flush()
 
     return TaskResponse.model_validate(task)

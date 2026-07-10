@@ -485,23 +485,32 @@ async def assign_lead(
 
 # ── Activities ──
 
-@router.get("/{lead_id}/activities", response_model=list[ActivityResponse])
+@router.get("/{lead_id}/activities")
 async def list_activities(
     lead_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get activity history for a lead."""
-    q = (
+    """Get activity history for a lead (paginated)."""
+    base_q = (
         select(Activity, User.full_name.label("user_name"))
         .outerjoin(User, Activity.user_id == User.id)
         .where(Activity.lead_id == lead_id)
-        .order_by(Activity.created_at.desc())
     )
+
+    # Count total
+    count_q = select(func.count(Activity.id)).where(Activity.lead_id == lead_id)
+    total = (await db.execute(count_q)).scalar() or 0
+
+    # Paginated results
+    q = base_q.order_by(Activity.created_at.desc())
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     rows = result.all()
 
-    return [
+    items = [
         ActivityResponse(
             id=act.id, lead_id=act.lead_id, user_id=act.user_id,
             type=act.type, content=act.content, created_at=act.created_at,
@@ -509,6 +518,14 @@ async def list_activities(
         )
         for act, user_name in rows
     ]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
 
 
 @router.post("/{lead_id}/activities", response_model=ActivityResponse)
