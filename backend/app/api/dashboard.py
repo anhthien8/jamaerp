@@ -144,6 +144,32 @@ async def personal_dashboard(
            or l.last_contacted_at is None
     ]
 
+    # Compute real weekly KPIs from Activity records
+    from datetime import timedelta
+    from sqlalchemy import func as sql_func
+    from app.models.lead import Activity as ActivityModel
+
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=now.weekday())  # Monday
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    kpi_q = select(
+        ActivityModel.type,
+        sql_func.count(ActivityModel.id),
+    ).where(
+        ActivityModel.user_id == current_user.id,
+        ActivityModel.created_at >= week_start,
+    ).group_by(ActivityModel.type)
+    kpi_rows = (await db.execute(kpi_q)).all()
+    kpi_map = {row[0]: row[1] for row in kpi_rows}
+
+    # New leads created this week
+    new_leads_q = select(sql_func.count(Lead.id)).where(
+        Lead.assigned_to == current_user.id,
+        Lead.created_at >= week_start,
+    )
+    new_leads_count = (await db.execute(new_leads_q)).scalar() or 0
+
     return {
         "user_name": current_user.full_name,
         "total_active_leads": len(leads),
@@ -151,7 +177,10 @@ async def personal_dashboard(
         "overdue_followup": overdue[:10],
         "today_appointments": [],
         "weekly_kpis": {
-            "calls": 0, "meetings": 0, "surveys": 0, "new_leads": 0,
+            "calls": kpi_map.get("call", 0),
+            "meetings": kpi_map.get("meeting", 0),
+            "surveys": kpi_map.get("survey", 0),
+            "new_leads": new_leads_count,
         },
         "pipeline_value": pipeline_value,
         "ai_suggestions": [],

@@ -563,7 +563,7 @@ export default function ProjectsPage() {
                     // Search filter
                     if (searchProject) {
                       const q = searchProject.toLowerCase();
-                      if (!p.name.toLowerCase().includes(q) && !p.code.toLowerCase().includes(q) && !(p.client_name || '').toLowerCase().includes(q)) return false;
+                      if (!p.name.toLowerCase().includes(q) && !p.code.toLowerCase().includes(q) && !(p.client_name || '').toLowerCase().includes(q) && !(p.address || '').toLowerCase().includes(q) && !(p.project_type || '').toLowerCase().includes(q)) return false;
                     }
                     // My tasks filter (show only projects assigned to current user)
                     if (showMyTasks && user) {
@@ -906,9 +906,23 @@ export default function ProjectsPage() {
                                       )}
                                     </div>
                                   </div>
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded font-medium" style={{ background: `${ts.color}15`, color: ts.color }}>
-                                    {ts.label}
-                                  </span>
+                                  {/* Inline status dropdown */}
+                                  <select
+                                    className="text-[9px] px-1 py-0.5 rounded font-medium bg-transparent border border-white/10 cursor-pointer max-w-[90px]"
+                                    style={{ color: ts.color }}
+                                    value={task.status}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleTaskStatusChange(task.id, e.target.value);
+                                    }}
+                                  >
+                                    {['not_started', 'in_progress', 'done'].map(s => (
+                                      <option key={s} value={s} style={{ background: 'var(--surface-1)', color: 'var(--text-primary)' }}>
+                                        {taskStatusConfig[s]?.label || s}
+                                      </option>
+                                    ))}
+                                  </select>
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                                 </div>
                               );

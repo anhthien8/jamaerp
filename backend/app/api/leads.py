@@ -558,3 +558,95 @@ async def create_activity(
         type=activity.type, content=activity.content, created_at=activity.created_at,
         user_name=current_user.full_name,
     )
+
+
+# ── Bulk operations ──────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel
+
+
+class BulkAssign(_BaseModel):
+    lead_ids: list[str]
+    user_id: str
+
+
+class BulkStageChange(_BaseModel):
+    lead_ids: list[str]
+    new_stage: str
+
+
+@router.post("/bulk/assign")
+async def bulk_assign_leads(
+    data: BulkAssign,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk assign leads to a user (admin/leader only)."""
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Chỉ admin/leader được giao lead hàng loạt")
+    result = await db.execute(
+        select(Lead).where(Lead.id.in_(data.lead_ids))
+    )
+    leads = result.scalars().all()
+    for lead in leads:
+        lead.assigned_to = data.user_id
+        lead.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return {"updated": len(leads)}
+
+
+@router.post("/bulk/stage")
+async def bulk_change_stage(
+    data: BulkStageChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk change lead stage (admin/leader only)."""
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Chỉ admin/leader được chuyển stage hàng loạt")
+    if data.new_stage not in LEAD_STAGES:
+        raise HTTPException(status_code=400, detail=f"Giai đoạn không hợp lệ: {data.new_stage}")
+    result = await db.execute(
+        select(Lead).where(Lead.id.in_(data.lead_ids))
+    )
+    leads = result.scalars().all()
+    for lead in leads:
+        lead.stage = data.new_stage
+        lead.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return {"updated": len(leads)}
+
+
+# ── CSV Export ───────────────────────────────────────────────────────────
+
+import csv
+import io
+from fastapi.responses import StreamingResponse
+
+
+@router.get("/export")
+async def export_leads_csv(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all leads as CSV."""
+    result = await db.execute(select(Lead).order_by(Lead.created_at.desc()))
+    leads = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Tên", "SĐT", "Email", "Nguồn", "Kênh", "Giai đoạn", "Ưu tiên", "Người phụ trách", "Ngày tạo"])
+    for lead in leads:
+        writer.writerow([
+            lead.name, lead.phone, lead.email or "",
+            lead.source or "", lead.channel or "",
+            STAGE_LABELS.get(lead.stage, lead.stage), lead.priority,
+            lead.assigned_to or "", lead.created_at.strftime("%d/%m/%Y") if lead.created_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=leads_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"},
+    )

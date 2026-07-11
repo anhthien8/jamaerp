@@ -130,7 +130,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Tổng Thu"
-              value={formatCurrency(data?.pipeline_value ?? 1490000000)}
+              value={data?.pipeline_value ? formatCurrency(data.pipeline_value) : '—'}
               subtitle="Tất cả doanh thu"
               icon="💵"
               color="#10B981"
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             />
             <KPICard
               title="Tổng Chi"
-              value={formatCurrency(783500000)}
+              value={data?.financial_summary?.total_cost_ytd ? formatCurrency(data.financial_summary.total_cost_ytd) : '—'}
               subtitle="Chi phí & lương"
               icon="💸"
               color="#EF4444"
@@ -146,16 +146,16 @@ export default function DashboardPage() {
             />
             <KPICard
               title="Dự án Đang chạy"
-              value={data?.active_projects ?? 3}
-              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 50}%`}
+              value={data?.active_projects ?? 0}
+              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
               icon="🏗️"
               color="#C9A96E"
               onClick={() => router.push('/projects')}
             />
             <KPICard
               title="Hợp đồng"
-              value={data?.total_contracts ?? 3}
-              subtitle={formatCurrency(data?.total_contract_value ?? 3680000000)}
+              value={data?.total_contracts ?? 0}
+              subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
               color="#8B5CF6"
               onClick={() => router.push('/contracts')}
@@ -166,31 +166,31 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Lead Của Tôi"
-              value={data?.total_leads_month ?? 4}
-              subtitle={`${data?.total_leads ?? 4} leads đang xử lý`}
+              value={data?.total_leads_month ?? 0}
+              subtitle={`${data?.total_leads ?? 0} leads đang xử lý`}
               icon="👥"
               color="#3B82F6"
               onClick={() => router.push('/leads')}
             />
             <KPICard
               title="Pipeline Value"
-              value={formatCurrency(data?.pipeline_value ?? 12500000000)}
-              subtitle={`${data?.conversion_rate ?? 18.5}% chuyển đổi`}
+              value={data?.pipeline_value ? formatCurrency(data.pipeline_value) : '—'}
+              subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="💰"
               color="#C9A96E"
               onClick={() => router.push('/leads')}
             />
             <KPICard
               title="Hợp đồng"
-              value={data?.total_contracts ?? 2}
-              subtitle={formatCurrency(data?.total_contract_value ?? 500000000)}
+              value={data?.total_contracts ?? 0}
+              subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
               color="#8B5CF6"
               onClick={() => router.push('/contracts')}
             />
             <KPICard
               title="Hoa Hồng"
-              value={formatCurrency(10450000)}
+              value={data?.financial_summary?.outstanding_receivable ? formatCurrency(data.financial_summary.outstanding_receivable) : '—'}
               subtitle="Tháng 06/2026"
               icon="💎"
               color="#10B981"
@@ -202,7 +202,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Tổng Lead"
-              value={data?.total_leads ?? 42}
+              value={data?.total_leads ?? 0}
               subtitle={`Tháng này: ${data?.total_leads_month ?? 15}`}
               icon="👥"
               color="#3B82F6"

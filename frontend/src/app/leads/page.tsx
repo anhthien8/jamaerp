@@ -150,6 +150,7 @@ function LeadsContent() {
   const perms = getPermissions((user?.role || 'data_entry') as UserRole);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [stageChangeTarget, setStageChangeTarget] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -296,7 +297,10 @@ function LeadsContent() {
     if (activeQuickFilter === 'overdue' && !isOverdueLead(lead)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!lead.name.toLowerCase().includes(q) && !(lead.phone || '').includes(q)) return false;
+      if (!lead.name.toLowerCase().includes(q) && !(lead.phone || '').includes(q)
+        && !(lead.email || '').toLowerCase().includes(q) && !(lead.address || '').toLowerCase().includes(q)
+        && !(lead.property_type || '').toLowerCase().includes(q) && !(lead.needs || '').toLowerCase().includes(q)
+        && !(lead.region || '').toLowerCase().includes(q) && !(lead.channel || '').toLowerCase().includes(q)) return false;
     }
     return true;
   });
@@ -616,6 +620,26 @@ function LeadsContent() {
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
                               {SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
                             </span>
+                            {/* Quick stage change */}
+                            <select
+                              className="text-[9px] px-1 py-0.5 rounded bg-white/5 border border-white/10 text-[var(--text-muted)] max-w-[80px] truncate cursor-pointer"
+                              value={lead.stage}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const newStage = e.target.value;
+                                if (newStage === 'lost') {
+                                  setSelectedLead(lead);
+                                  setStageChangeTarget(newStage);
+                                } else {
+                                  handleStageChange(lead, newStage);
+                                }
+                              }}
+                            >
+                              {STAGES.map(s => (
+                                <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
+                              ))}
+                            </select>
                             <button
                               className="p-1 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E]"
                               title="Ghi chú nhanh"

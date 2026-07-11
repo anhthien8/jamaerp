@@ -311,3 +311,47 @@ async def update_commission_status(
     await db.flush()
     return {"id": comm.id, "status": comm.status}
 
+
+# ── CSV Export ───────────────────────────────────────────────────────────
+
+import csv
+import io
+from datetime import datetime, timezone
+from fastapi.responses import StreamingResponse
+
+
+@router.get("/transactions/export")
+async def export_transactions_csv(
+    type: str | None = None,
+    category: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export transactions as CSV."""
+    from app.models.payroll import Transaction
+    q = select(Transaction).order_by(Transaction.date.desc())
+    if type:
+        q = q.where(Transaction.type == type)
+    if category:
+        q = q.where(Transaction.category == category)
+
+    result = await db.execute(q)
+    txns = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Mã", "Loại", "Danh mục", "Mô tả", "Số tiền", "Trạng thái", "Ngày"])
+    for t in txns:
+        writer.writerow([
+            t.code, t.type, t.category, t.description,
+            t.amount, t.status,
+            t.date.strftime("%d/%m/%Y") if t.date else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=transactions_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"},
+    )
+
