@@ -27,6 +27,14 @@ const DEPT_LABELS: Record<string, string> = {
   management: 'Ban lãnh đạo',
 };
 
+interface ResignPreviewData {
+  user_name: string;
+  leads: Array<{ id: string; name: string; phone: string; stage: string }>;
+  tasks: Array<{ id: string; title: string; project_name: string; status: string }>;
+  lead_count: number;
+  task_count: number;
+}
+
 export default function HRPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -39,8 +47,16 @@ export default function HRPage() {
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
   });
-  const [deactivateUser, setDeactivateUser] = useState<User | null>(null);
-  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+
+  // Resignation flow state
+  const [resignTarget, setResignTarget] = useState<User | null>(null);
+  const [resignStep, setResignStep] = useState<'preview' | 'confirm'>('preview');
+  const [resignPreview, setResignPreview] = useState<ResignPreviewData | null>(null);
+  const [resignLoading, setResignLoading] = useState(false);
+  const [resignConfirmLoading, setResignConfirmLoading] = useState(false);
+  const [transferLeadsTo, setTransferLeadsTo] = useState<string>('');
+  const [transferTasksTo, setTransferTasksTo] = useState<string>('');
+  const [autoDistribute, setAutoDistribute] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -59,17 +75,61 @@ export default function HRPage() {
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
-  const handleDeactivate = async () => {
-    if (!deactivateUser) return;
+  // --- Resignation handlers ---
+
+  const openResignPreview = async (u: User) => {
+    setResignTarget(u);
+    setResignStep('preview');
+    setResignPreview(null);
+    setTransferLeadsTo('');
+    setTransferTasksTo('');
+    setAutoDistribute(true);
+    setResignLoading(true);
     try {
-      await api.updateUser(deactivateUser.id, { is_active: false });
-      toast(`Đã chuyển ${deactivateUser.full_name} sang chế độ nghỉ việc`, 'success');
-      setShowDeactivateConfirm(false);
-      setDeactivateUser(null);
+      const data = await api.resignPreview(u.id);
+      setResignPreview(data);
+      setResignStep('confirm');
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không thể tải dữ liệu'}`, 'error');
+      setResignTarget(null);
+    } finally {
+      setResignLoading(false);
+    }
+  };
+
+  const handleResignConfirm = async () => {
+    if (!resignTarget) return;
+    setResignConfirmLoading(true);
+    try {
+      const result = await api.resignUser({
+        user_id: resignTarget.id,
+        transfer_leads_to: autoDistribute ? undefined : transferLeadsTo || undefined,
+        transfer_tasks_to: autoDistribute ? undefined : transferTasksTo || undefined,
+      });
+      toast(result.message || `Đã xử lý nghỉ việc cho ${resignTarget.full_name}`, 'success');
+      closeResignModal();
       await load();
     } catch (e) {
-      toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không thể thực hiện'}`, 'error');
+    } finally {
+      setResignConfirmLoading(false);
     }
+  };
+
+  const handleUndoResign = async (u: User) => {
+    try {
+      const result = await api.undoResign(u.id);
+      toast(result.message || `Đã hoàn tác nghỉ việc cho ${u.full_name}`, 'success');
+      await load();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không thể hoàn tác'}`, 'error');
+    }
+  };
+
+  const closeResignModal = () => {
+    setResignTarget(null);
+    setResignPreview(null);
+    setResignStep('preview');
   };
 
   const handleReactivate = async (u: User) => {
@@ -80,6 +140,14 @@ export default function HRPage() {
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     }
+  };
+
+  const isRecentlyResigned = (u: User): boolean => {
+    if (!u.resign_date) return false;
+    const resignDate = new Date(u.resign_date);
+    const now = new Date();
+    const diffDays = (now.getTime() - resignDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
   };
 
   const permissions = user ? getPermissions(user.role as UserRole) : null;
@@ -93,6 +161,9 @@ export default function HRPage() {
     acc[dept].push(u);
     return acc;
   }, {} as Record<string, User[]>);
+
+  // Other active users for transfer dropdowns (exclude resign target)
+  const transferableUsers = users.filter(u => u.is_active && u.id !== resignTarget?.id);
 
   return (
     <Sidebar>
@@ -184,13 +255,23 @@ export default function HRPage() {
                   <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {permissions?.canManageUsers && u.id !== user?.id && (
                       u.is_active ? (
-                        <button
-                          onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}
-                          className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                          title="Nghỉ việc"
-                        >
-                          Nghỉ việc
-                        </button>
+                        isRecentlyResigned(u) ? (
+                          <button
+                            onClick={() => handleUndoResign(u)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                            title="Hoàn tác nghỉ việc"
+                          >
+                            Hoàn tác
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openResignPreview(u)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                            title="Nghỉ việc"
+                          >
+                            Nghỉ việc
+                          </button>
+                        )
                       ) : (
                         <button
                           onClick={() => handleReactivate(u)}
@@ -249,13 +330,23 @@ export default function HRPage() {
                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
                         {permissions?.canManageUsers && u.id !== user?.id && (
                           u.is_active ? (
-                            <button
-                              onClick={() => { setDeactivateUser(u); setShowDeactivateConfirm(true); }}
-                              className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                              title="Nghỉ việc"
-                            >
-                              Nghỉ việc
-                            </button>
+                            isRecentlyResigned(u) ? (
+                              <button
+                                onClick={() => handleUndoResign(u)}
+                                className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                                title="Hoàn tác nghỉ việc"
+                              >
+                                Hoàn tác
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openResignPreview(u)}
+                                className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                title="Nghỉ việc"
+                              >
+                                Nghỉ việc
+                              </button>
+                            )
                           ) : (
                             <button
                               onClick={() => handleReactivate(u)}
@@ -308,6 +399,8 @@ export default function HRPage() {
         </div>
       )}
     </div>
+
+    {/* Create User Modal */}
     {showCreateForm && permissions?.canManageUsers && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateForm(false)}>
         <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
@@ -355,28 +448,154 @@ export default function HRPage() {
       </div>
     )}
 
-    {/* Deactivate Confirmation Modal */}
-    {showDeactivateConfirm && deactivateUser && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowDeactivateConfirm(false)}>
-        <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-          <div className="text-center">
-            <span className="text-4xl block mb-3">⚠️</span>
-            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Xác nhận nghỉ việc</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-1">
-              Bạn có chắc muốn chuyển <strong>{deactivateUser.full_name}</strong> sang chế độ nghỉ việc?
-            </p>
-            <p className="text-xs text-[var(--text-muted)] mb-4">
-              Nhân viên sẽ không thể đăng nhập lại. Các leads, projects đang phụ trách cần được chuyển giao trước.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowDeactivateConfirm(false)} className="flex-1 py-2.5 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-white/5 transition-colors">
-              Hủy
-            </button>
-            <button onClick={handleDeactivate} className="flex-1 py-2.5 rounded-xl text-sm bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors">
-              Xác nhận nghỉ việc
-            </button>
-          </div>
+    {/* Resignation Modal */}
+    {resignTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeResignModal}>
+        <div className="glass-card p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+
+          {/* Loading state */}
+          {resignLoading && (
+            <div className="text-center py-8">
+              <div className="inline-block w-8 h-8 border-2 border-[var(--border-subtle)] border-t-[var(--gold-400)] rounded-full animate-spin mb-3" />
+              <p className="text-sm text-[var(--text-secondary)]">Đang tải dữ liệu chuyển giao...</p>
+            </div>
+          )}
+
+          {/* Confirm step */}
+          {!resignLoading && resignPreview && resignStep === 'confirm' && (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
+                  {resignPreview.user_name?.split(' ').pop()?.charAt(0) || '?'}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Nghỉ việc — {resignPreview.user_name}</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Xác nhận chuyển giao dữ liệu trước khi nghỉ</p>
+                </div>
+              </div>
+
+              {/* Leads section */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Leads cần chuyển giao</span>
+                  <span className="text-xs px-2 py-0.5 rounded-lg font-medium" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
+                    {resignPreview.lead_count} leads
+                  </span>
+                </div>
+                {resignPreview.leads.length > 0 ? (
+                  <div className="max-h-32 overflow-y-auto rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                    {resignPreview.leads.map(lead => (
+                      <div key={lead.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                        <span className="text-[var(--text-primary)] truncate">{lead.name}</span>
+                        <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{lead.stage}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)] italic">Không có leads nào</p>
+                )}
+              </div>
+
+              {/* Tasks section */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Tasks cần chuyển giao</span>
+                  <span className="text-xs px-2 py-0.5 rounded-lg font-medium" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
+                    {resignPreview.task_count} tasks
+                  </span>
+                </div>
+                {resignPreview.tasks.length > 0 ? (
+                  <div className="max-h-32 overflow-y-auto rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                    {resignPreview.tasks.map(task => (
+                      <div key={task.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                        <span className="text-[var(--text-primary)] truncate">{task.title}</span>
+                        <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{task.project_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)] italic">Không có tasks nào</p>
+                )}
+              </div>
+
+              {/* Auto distribute toggle */}
+              <div className="mb-4 p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoDistribute}
+                    onChange={e => setAutoDistribute(e.target.checked)}
+                    className="w-4 h-4 rounded accent-[var(--gold-400)]"
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">Tự động phân bổ đều</span>
+                </label>
+                <p className="text-[10px] text-[var(--text-muted)] mt-1 ml-6">Hệ thống sẽ tự động phân bổ leads và tasks cho các nhân viên còn lại</p>
+              </div>
+
+              {/* Manual transfer dropdowns */}
+              {!autoDistribute && (
+                <div className="space-y-3 mb-4">
+                  {resignPreview.lead_count > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">Chuyển leads cho</label>
+                      <select
+                        value={transferLeadsTo}
+                        onChange={e => setTransferLeadsTo(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none"
+                      >
+                        <option value="">-- Chọn nhân viên --</option>
+                        {transferableUsers.map(u => (
+                          <option key={u.id} value={u.id}>{u.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {resignPreview.task_count > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">Chuyển tasks cho</label>
+                      <select
+                        value={transferTasksTo}
+                        onChange={e => setTransferTasksTo(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none"
+                      >
+                        <option value="">-- Chọn nhân viên --</option>
+                        {transferableUsers.map(u => (
+                          <option key={u.id} value={u.id}>{u.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Warning */}
+              <div className="mb-4 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                <span className="text-amber-400">Lưu ý:</span>{' '}
+                <span className="text-[var(--text-secondary)]">Sau khi xác nhận, có thể hoàn tác trong 7 ngày</span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={closeResignModal}
+                  className="flex-1 py-2.5 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-white/5 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleResignConfirm}
+                  disabled={resignConfirmLoading}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }}
+                >
+                  {resignConfirmLoading && (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  )}
+                  {resignConfirmLoading ? 'Đang xử lý...' : 'Xác nhận nghỉ việc'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     )}

@@ -535,6 +535,32 @@ class ApiClient {
     return this.request<User>(`/users/${id}`, { method: 'PUT', body: data });
   }
 
+  // === Resignation / Transfer ===
+  async resignPreview(userId: string) {
+    return this.request<{
+      user_name: string;
+      leads: Array<{ id: string; name: string; phone: string; stage: string }>;
+      tasks: Array<{ id: string; title: string; project_name: string; status: string }>;
+      lead_count: number;
+      task_count: number;
+    }>('/hr/resign-preview', { method: 'POST', body: { user_id: userId } });
+  }
+
+  async resignUser(data: { user_id: string; transfer_leads_to?: string; transfer_tasks_to?: string }) {
+    return this.request<{
+      transferred_leads: number;
+      transferred_tasks: number;
+      message: string;
+    }>('/hr/resign', { method: 'POST', body: data });
+  }
+
+  async undoResign(userId: string) {
+    return this.request<{ status: string; message: string }>(
+      '/hr/undo-resign',
+      { method: 'POST', body: { user_id: userId } }
+    );
+  }
+
   // === ERP: P&L (C-level only) ===
   async getPnLSummary() {
     return this.request<PnLSummary>('/pl/summary');
@@ -688,6 +714,8 @@ export interface User {
   team_id?: string;
   telegram_user_id?: number;
   is_active: boolean;
+  resign_date?: string;
+  resigned_by?: string;
   created_at: string;
 }
 

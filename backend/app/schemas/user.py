@@ -48,6 +48,8 @@ class UserResponse(BaseModel):
     telegram_user_id: int | None = None
     telegram_username: str | None = None
     is_active: bool
+    resign_date: datetime | None = None
+    resigned_by: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

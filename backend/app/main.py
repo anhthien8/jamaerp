@@ -128,6 +128,7 @@ from app.api.automation import router as automation_router
 from app.api.ai_settings import router as ai_settings_router
 from app.api.backup import router as backup_router
 from app.api.instant_quote import router as instant_quote_router
+from app.api.hr import router as hr_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -151,3 +152,4 @@ app.include_router(automation_router, prefix="/api/v1")
 app.include_router(ai_settings_router, prefix="/api/v1")
 app.include_router(backup_router, prefix="/api/v1")
 app.include_router(instant_quote_router, prefix="/api/v1")
+app.include_router(hr_router, prefix="/api/v1")
