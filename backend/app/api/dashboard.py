@@ -170,6 +170,57 @@ async def personal_dashboard(
     )
     new_leads_count = (await db.execute(new_leads_q)).scalar() or 0
 
+    # My Priorities — actionable items for today
+    priorities = []
+
+    # 1. Overdue leads needing follow-up
+    for l in overdue[:5]:
+        priorities.append({
+            "type": "overdue_lead",
+            "icon": "🔴",
+            "title": f"Cần follow-up: {l['name']}",
+            "subtitle": f"SĐT: {l['phone']} · {STAGE_LABELS.get(l['stage'], l['stage'])}",
+            "href": "/leads",
+        })
+
+    # 2. Tasks due or overdue in assigned projects
+    from app.models.project import Project as ProjectModel, Task as TaskModel
+    proj_q = select(ProjectModel.id).where(
+        (ProjectModel.pm_id == current_user.id) | (ProjectModel.designer_id == current_user.id),
+        ProjectModel.status == "active",
+    )
+    proj_ids = [r[0] for r in (await db.execute(proj_q)).all()]
+    if proj_ids:
+        task_q = select(TaskModel).where(
+            TaskModel.project_id.in_(proj_ids),
+            TaskModel.status.notin_(["done", "completed"]),
+        ).order_by(TaskModel.order).limit(5)
+        tasks = (await db.execute(task_q)).scalars().all()
+        for t in tasks:
+            priorities.append({
+                "type": "task",
+                "icon": "📋",
+                "title": t.title,
+                "subtitle": f"Trạng thái: {t.status}",
+                "href": "/projects",
+            })
+
+    # 3. Pending material requests (for PMs)
+    from app.api.telegram_workflow import MaterialRequest as MatReq
+    mat_q = select(MatReq).where(
+        MatReq.requester_id == current_user.id,
+        MatReq.status == "pending",
+    ).limit(3)
+    mat_results = (await db.execute(mat_q)).scalars().all()
+    for m in mat_results:
+        priorities.append({
+            "type": "material",
+            "icon": "📦",
+            "title": f"Vật tư chờ duyệt: {m.material_name}",
+            "subtitle": f"SL: {m.quantity} {m.unit}",
+            "href": "/projects",
+        })
+
     return {
         "user_name": current_user.full_name,
         "total_active_leads": len(leads),
@@ -183,5 +234,6 @@ async def personal_dashboard(
             "new_leads": new_leads_count,
         },
         "pipeline_value": pipeline_value,
+        "priorities": priorities[:10],
         "ai_suggestions": [],
     }

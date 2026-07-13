@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { api, extractItems } from '@/lib/api';
 
 interface SearchItem {
   id: string;
@@ -14,27 +15,13 @@ interface SearchItem {
   budget?: string;
 }
 
-// Demo search index
-const SEARCH_INDEX: SearchItem[] = [
-  // Leads
-  { id: 'l1', type: 'lead', title: 'Chị Mai', subtitle: '0901234567 · Nhà phố Q7 · 500 triệu', icon: '👤', href: '/leads', stage: 'new', budget: '500tr' },
-  { id: 'l2', type: 'lead', title: 'Anh Tuấn', subtitle: '0908765432 · Biệt thự Bình Chánh · 2.5 tỷ', icon: '👤', href: '/leads', stage: 'interested', budget: '2.5ty' },
-  { id: 'l3', type: 'lead', title: 'Chị Hương', subtitle: '0912345678 · Căn hộ Sunrise · 180 triệu', icon: '👤', href: '/leads', stage: 'survey_scheduled', budget: '180tr' },
-  { id: 'l4', type: 'lead', title: 'Anh Minh', subtitle: '0987654321 · Shophouse Q2 · 800 triệu', icon: '👤', href: '/leads', stage: 'potential', budget: '800tr' },
-  { id: 'l5', type: 'lead', title: 'Chị Lan', subtitle: '0976543210 · Nhà phố Gò Vấp · 680 triệu', icon: '👤', href: '/leads', stage: 'signed_design', budget: '680tr' },
-  { id: 'l6', type: 'lead', title: 'Anh Phong', subtitle: '0965432109 · Căn hộ Vinhomes · 350 triệu', icon: '👤', href: '/leads', stage: 'new', budget: '350tr' },
-  { id: 'l7', type: 'lead', title: 'Chị Thảo', subtitle: '0934567890 · Văn phòng Q1 · 420 triệu', icon: '👤', href: '/leads', stage: 'interested', budget: '420tr' },
-  // Projects
-  { id: 'p1', type: 'project', title: 'PRJ-2026-001', subtitle: 'Nhà phố Q7 - Chị Mai · 75% · 1.2 tỷ', icon: '🏗️', href: '/projects' },
-  { id: 'p2', type: 'project', title: 'PRJ-2026-002', subtitle: 'Biệt thự Bình Chánh - Anh Tuấn · 30% · 2.5 tỷ', icon: '🏗️', href: '/projects' },
-  { id: 'p3', type: 'project', title: 'PRJ-2026-003', subtitle: 'Căn hộ Sunrise - Chị Hương · 90% · 450 triệu', icon: '🏗️', href: '/projects' },
-  { id: 'p4', type: 'project', title: 'PRJ-2026-004', subtitle: 'Shophouse Q2 - Anh Minh · 15% · Tạm dừng', icon: '🏗️', href: '/projects' },
-  { id: 'p5', type: 'project', title: 'PRJ-2026-005', subtitle: 'Nhà phố Gò Vấp - Chị Lan · 55% · 680 triệu', icon: '🏗️', href: '/projects' },
-  // Quick actions
+// Quick actions (static)
+const QUICK_ACTIONS: SearchItem[] = [
   { id: 'a1', type: 'contact', title: 'Tạo Lead mới', subtitle: 'Thêm khách hàng tiềm năng mới', icon: '➕', href: '/leads' },
-  { id: 'a2', type: 'contact', title: 'Xem báo cáo', subtitle: 'Doanh thu, pipeline, conversion', icon: '📊', href: '/reports' },
-  { id: 'a3', type: 'contact', title: 'Kế toán & Lương', subtitle: 'Giao dịch, bảng lương, hoa hồng', icon: '💰', href: '/accounting' },
-  { id: 'a4', type: 'contact', title: 'Cài đặt hệ thống', subtitle: 'Thông tin cá nhân, Telegram Bot', icon: '⚙️', href: '/settings' },
+  { id: 'a2', type: 'contact', title: 'Báo giá tức thì', subtitle: 'Báo giá xây mới / cải tạo', icon: '⚡', href: '/quote-tool' },
+  { id: 'a3', type: 'contact', title: 'Xem báo cáo', subtitle: 'Doanh thu, pipeline, conversion', icon: '📊', href: '/reports' },
+  { id: 'a4', type: 'contact', title: 'Kế toán', subtitle: 'Giao dịch, bảng lương, hoa hồng', icon: '💰', href: '/accounting' },
+  { id: 'a5', type: 'contact', title: 'Cài đặt', subtitle: 'Thông tin cá nhân, Telegram Bot', icon: '⚙️', href: '/settings' },
 ];
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -70,15 +57,45 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [liveItems, setLiveItems] = useState<SearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Fetch live data when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    Promise.all([
+      api.getLeads({ page_size: '100' }).then(r => extractItems(r)).catch(() => []),
+      api.getProjects({ page_size: '100' }).then(r => extractItems(r)).catch(() => []),
+    ]).then(([leads, projects]) => {
+      const items: SearchItem[] = [
+        ...(leads as unknown as Array<Record<string, unknown>>).map(l => ({
+          id: String(l.id), type: 'lead' as const,
+          title: String(l.name || ''),
+          subtitle: `${l.phone || ''} · ${l.source || ''} · ${l.stage || ''}`,
+          icon: '👤', href: '/leads',
+        })),
+        ...(projects as unknown as Array<Record<string, unknown>>).map(p => ({
+          id: String(p.id), type: 'project' as const,
+          title: `${p.code || ''} — ${p.name || ''}`,
+          subtitle: `${p.client_name || ''} · ${p.progress ?? 0}%`,
+          icon: '🏗️', href: '/projects',
+        })),
+      ];
+      setLiveItems(items);
+      setLoading(false);
+    });
+  }, [isOpen]);
+
+  const allItems = [...liveItems, ...QUICK_ACTIONS];
   const results = query.length > 0
-    ? SEARCH_INDEX.filter(item =>
+    ? allItems.filter(item =>
         fuzzyMatch(item.title, query) ||
         fuzzyMatch(item.subtitle, query)
       )
-    : SEARCH_INDEX.filter(item => item.type === 'contact'); // Show quick actions when empty
+    : QUICK_ACTIONS;
 
   useEffect(() => {
     if (isOpen) {

@@ -401,6 +401,12 @@ class ApiClient {
   async createTransaction(data: { type: string; category: string; description: string; amount: number; date: string; project_id?: string }) {
     return this.request<Transaction>('/accounting/transactions', { method: 'POST', body: data });
   }
+  async updateTransaction(id: string, data: Record<string, unknown>) {
+    return this.request<Transaction>(`/accounting/transactions/${id}`, { method: 'PUT', body: data });
+  }
+  async deleteTransaction(id: string) {
+    return this.request<{ status: string }>(`/accounting/transactions/${id}`, { method: 'DELETE' });
+  }
 
   async getAccountingSummary() {
     return this.request<AccountingSummary>('/accounting/summary');

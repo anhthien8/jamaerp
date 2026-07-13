@@ -312,23 +312,36 @@ export default function DashboardPage() {
           <div className="glass-card p-5">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">📋 Việc cần làm hôm nay</h3>
             <div className="space-y-2">
-              {/* Overdue leads */}
-              {(data?.overdue_leads ?? 0) > 0 && (
-                <div className="flex items-center gap-3 p-2 rounded-lg bg-red-500/10">
-                  <span className="text-red-400">⚠️</span>
-                  <span className="text-sm text-red-400">{data?.overdue_leads ?? 0} leads quá hạn cần follow-up</span>
-                </div>
+              {/* Dynamic priorities from API */}
+              {(data as Record<string, unknown>)?.priorities && Array.isArray((data as Record<string, unknown>).priorities) && ((data as Record<string, unknown>).priorities as Array<Record<string, string>>).length > 0 ? (
+                ((data as Record<string, unknown>).priorities as Array<Record<string, string>>).map((item: Record<string, string>, i: number) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/8 cursor-pointer transition-colors"
+                    onClick={() => item.href && router.push(item.href)}>
+                    <span>{item.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-[var(--text-primary)] block truncate">{item.title}</span>
+                      <span className="text-[10px] text-[var(--text-muted)] block truncate">{item.subtitle}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  {(data?.overdue_leads ?? 0) > 0 && (
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-red-500/10">
+                      <span className="text-red-400">⚠️</span>
+                      <span className="text-sm text-red-400">{data?.overdue_leads ?? 0} leads quá hạn cần follow-up</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10">
+                    <span className="text-blue-400">🆕</span>
+                    <span className="text-sm text-blue-400">Pipeline: {data?.total_leads ?? 0} leads đang quản lý</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-500/10">
+                    <span className="text-emerald-400">💰</span>
+                    <span className="text-sm text-emerald-400">Giá trị pipeline: {formatCurrency(data?.pipeline_value)}</span>
+                  </div>
+                </>
               )}
-              {/* New leads today */}
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10">
-                <span className="text-blue-400">🆕</span>
-                <span className="text-sm text-blue-400">Pipeline: {data?.total_leads ?? 0} leads đang quản lý</span>
-              </div>
-              {/* Pipeline value */}
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-500/10">
-                <span className="text-emerald-400">💰</span>
-                <span className="text-sm text-emerald-400">Giá trị pipeline: {formatCurrency(data?.pipeline_value)}</span>
-              </div>
             </div>
           </div>
         )}

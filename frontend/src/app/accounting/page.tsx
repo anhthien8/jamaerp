@@ -32,6 +32,8 @@ export default function AccountingPage() {
   const [txSortAsc, setTxSortAsc] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [periodFilter, setPeriodFilter] = useState('all');
 
   // Create Transaction modal state
@@ -527,6 +529,7 @@ export default function AccountingPage() {
                               <th className="text-right p-3 text-xs text-[var(--text-muted)]">Số tiền</th>
                               <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ngày</th>
                               <th className="text-left p-3 text-xs text-[var(--text-muted)]">Trạng thái</th>
+                              <th className="text-right p-3 text-xs text-[var(--text-muted)]">Thao tác</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -555,6 +558,27 @@ export default function AccountingPage() {
                                   )}>
                                     {tx.status === 'completed' ? 'Đã xử lý' : tx.status === 'pending' ? 'Chờ duyệt' : tx.status}
                                   </span>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button onClick={() => { setEditingTx(tx); setFormOpen(true); }}
+                                      className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                      Sửa
+                                    </button>
+                                    {user?.role === 'admin' && (
+                                      <button onClick={async () => {
+                                        if (!confirm('Xóa giao dịch này?')) return;
+                                        try {
+                                          await api.deleteTransaction(tx.id);
+                                          setTransactions(prev => prev.filter(t => t.id !== tx.id));
+                                          toast('Đã xóa giao dịch', 'success');
+                                        } catch { toast('Lỗi xóa', 'error'); }
+                                      }}
+                                        className="text-[10px] px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all">
+                                        Xóa
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             ))}
