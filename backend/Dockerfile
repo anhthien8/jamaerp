@@ -13,4 +13,4 @@ RUN groupadd -r app && useradd -r -g app app
 USER app
 
 # Railway injects PORT env var
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "echo 'Starting JAMA CRM...' && python -c 'from app.main import app; print(\"Import OK\")' && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
