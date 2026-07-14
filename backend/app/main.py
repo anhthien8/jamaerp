@@ -105,6 +105,11 @@ async def health():
     return {"status": "ok", "app": settings.APP_NAME}
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "app": settings.APP_NAME}
+
+
 # Register routers
 from app.api.auth import router as auth_router
 from app.api.leads import router as leads_router
