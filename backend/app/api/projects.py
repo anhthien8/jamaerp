@@ -79,6 +79,9 @@ class TaskStatusUpdate(BaseModel):
 class TaskFileUpdate(BaseModel):
     final_file_url: str | None = None
 
+class BulkTaskAssign(BaseModel):
+    assignments: list[dict]  # each dict: {"task_id": str, "assigned_to": str}
+
 class ProjectKanbanStage(BaseModel):
     stage: str
     stage_label: str
@@ -396,3 +399,44 @@ async def update_task_status(
         await db.flush()
 
     return TaskResponse.model_validate(task)
+
+
+@router.post("/{project_id}/tasks/bulk-assign")
+async def bulk_assign_tasks(
+    project_id: str,
+    data: BulkTaskAssign,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk assign tasks to users — admin, pm, leader only."""
+    if current_user.role not in ("admin", "pm", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền phân công đầu việc")
+
+    # Verify project exists
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Dự án không tồn tại")
+
+    # Collect task IDs from assignments
+    task_ids = [a["task_id"] for a in data.assignments if "task_id" in a]
+    if not task_ids:
+        return {"updated": 0}
+
+    # Fetch all target tasks in one query
+    tasks_result = await db.execute(
+        select(Task).where(Task.id.in_(task_ids), Task.project_id == project_id)
+    )
+    tasks_by_id = {t.id: t for t in tasks_result.scalars().all()}
+
+    updated = 0
+    for assignment in data.assignments:
+        task_id = assignment.get("task_id")
+        assigned_to = assignment.get("assigned_to")
+        task = tasks_by_id.get(task_id)
+        if task:
+            task.assigned_to = assigned_to
+            updated += 1
+
+    await db.flush()
+    return {"updated": updated}

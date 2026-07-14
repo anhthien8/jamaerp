@@ -43,12 +43,13 @@ const ALL_ITEMS = [
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
+  { href: '/feedback', label: 'Feedback', icon: Icon.reports, perm: 'canViewReports' },
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
 
 // ── Role → essential items (KISS: only show what matters most) ───────
 const ROLE_ESSENTIALS: Record<string, string[]> = {
-  admin:      ['/', '/leads', '/projects', '/contracts', '/accounting'],
+  admin:      ['/', '/leads', '/projects', '/contracts', '/accounting', '/feedback'],
   executive:  ['/', '/projects', '/pl', '/reports'],
   leader:     ['/', '/leads', '/quote-tool', '/projects', '/reports'],
   data_entry: ['/', '/leads', '/quote-tool', '/projects', '/contracts'],

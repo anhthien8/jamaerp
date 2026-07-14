@@ -52,7 +52,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewLeads: true, leadsScope: 'own',
     canViewAccounting: true, canViewPayroll: false, canViewCommissionOthers: false,
     canViewHR: false, canManageUsers: false,
-    canViewProjects: true, canViewContracts: true, canViewQuotations: false, canCreateQuotations: true, canViewInventory: false,
+    canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: false,
     canViewReports: true, canViewPnL: false,
     canCreateProjects: false, canCreateContracts: true, canCreateTasks: false, canEditTasks: false,
   },
@@ -81,7 +81,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewHR: false, canManageUsers: false,
     canViewProjects: true, canViewContracts: true, canViewQuotations: false, canCreateQuotations: false, canViewInventory: true,
     canViewReports: false, canViewPnL: false,
-    canCreateProjects: false, canCreateContracts: false, canCreateTasks: false, canEditTasks: false,
+    canCreateProjects: false, canCreateContracts: false, canCreateTasks: false, canEditTasks: true, // task status on procurement tasks
   },
   designer: {
     canViewDashboard: true, dashboardType: 'personal',

@@ -15,6 +15,8 @@ from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task
+from app.models.contract import Contract
+from app.models.notification import Notification
 import random
 import uuid
 from app.schemas.lead import (
@@ -212,6 +214,70 @@ async def pipeline_kanban(
         ))
 
     return kanban
+
+
+@router.get("/workload")
+async def team_workload(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Team workload distribution — leads per user with pipeline value and overdue count.
+    Admin and leader only."""
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Chỉ admin/leader được xem phân công workload")
+
+    # Overdue = active leads not contacted in >7 days (or never contacted)
+    from datetime import timedelta
+    overdue_threshold = datetime.now(timezone.utc) - timedelta(days=7)
+    active_stages = ["new", "interested", "survey_scheduled", "potential"]
+
+    # Base query: group by assigned_to
+    q = (
+        select(
+            Lead.assigned_to.label("user_id"),
+            User.full_name.label("user_name"),
+            func.count(Lead.id).label("lead_count"),
+            func.coalesce(func.sum(Lead.estimated_budget), 0).label("pipeline_value"),
+            func.count(
+                case(
+                    (
+                        Lead.stage.in_(active_stages),
+                        case(
+                            (
+                                (Lead.last_contacted_at.is_(None)) | (Lead.last_contacted_at < overdue_threshold),
+                                1,
+                            ),
+                            else_=None,
+                        ),
+                    ),
+                    else_=None,
+                )
+            ).label("overdue_count"),
+        )
+        .outerjoin(User, Lead.assigned_to == User.id)
+        .where(Lead.assigned_to.isnot(None))
+        .where(Lead.stage.notin_(["signed_design", "lost"]))
+        .group_by(Lead.assigned_to, User.full_name)
+        .order_by(func.count(Lead.id).desc())
+    )
+
+    # RBAC: leader sees only their team
+    if current_user.role == "leader":
+        q = q.where(Lead.team_id == current_user.team_id)
+
+    result = await db.execute(q)
+    rows = result.all()
+
+    return [
+        {
+            "user_id": r.user_id,
+            "user_name": r.user_name or "Chua phan cong",
+            "lead_count": r.lead_count,
+            "pipeline_value": float(r.pipeline_value),
+            "overdue_count": r.overdue_count,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/{lead_id}", response_model=LeadResponse)
@@ -428,6 +494,56 @@ async def change_stage(
 
             if tasks_created == 0:
                 print(f"[ERROR] No tasks created for project {code} — lead {lead.id}")
+
+            # 4. Auto-create Contract to connect lead to revenue pipeline
+            contract_q = select(Contract).where(Contract.project_id == project.id)
+            contract_res = await db.execute(contract_q)
+            existing_contract = contract_res.scalar_one_or_none()
+            if not existing_contract:
+                contract_code = f"HD-{project.code}"
+                contract = Contract(
+                    code=contract_code,
+                    project_id=project.id,
+                    title=f"Hợp đồng thiết kế - {lead.name}",
+                    status="draft",
+                    total_value=lead.estimated_budget or lead.design_contract_value or 0,
+                    payment_terms={
+                        "installments": [
+                            {"name": "Đợt 1 (Đặt cọc)", "percentage": 25, "milestone": "signing", "status": "pending"},
+                            {"name": "Đợt 2 (Nghiệm thu phần thô)", "percentage": 25, "milestone": "rough_complete", "status": "pending"},
+                            {"name": "Đợt 3 (Nghiệm thu nội thất)", "percentage": 25, "milestone": "interior_complete", "status": "pending"},
+                            {"name": "Đợt 4 (Bàn giao)", "percentage": 25, "milestone": "handover", "status": "pending"},
+                        ]
+                    },
+                )
+                db.add(contract)
+                await db.flush()
+
+        # 5. Notify PM (if assigned) and team Leader about new project
+        notif_body = (
+            f"Khách hàng {lead.name} đã ký HĐ. "
+            f"Dự án {project.code} được tạo. PM vui lòng quản lý dự án."
+        )
+        notif_users: list[str] = []
+        if project.pm_id:
+            notif_users.append(project.pm_id)
+        # Find team leader
+        if lead.team_id:
+            team_res = await db.execute(select(Team).where(Team.id == lead.team_id))
+            team = team_res.scalar_one_or_none()
+            if team and team.leader_id and team.leader_id not in notif_users:
+                notif_users.append(team.leader_id)
+        for uid in notif_users:
+            db.add(Notification(
+                user_id=uid,
+                type="contract_signed",
+                title="Khách hàng đã ký HĐ",
+                body=notif_body,
+                link=f"/projects/{project.id}",
+                ref_id=project.id,
+            ))
+        if notif_users:
+            await db.flush()
 
     # Log activity
     content = f"Chuyển stage: {STAGE_LABELS.get(old_stage)} → {STAGE_LABELS.get(data.new_stage)}"

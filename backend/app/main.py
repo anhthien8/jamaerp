@@ -153,3 +153,6 @@ app.include_router(ai_settings_router, prefix="/api/v1")
 app.include_router(backup_router, prefix="/api/v1")
 app.include_router(instant_quote_router, prefix="/api/v1")
 app.include_router(hr_router, prefix="/api/v1")
+
+from app.api.feedback import router as feedback_router
+app.include_router(feedback_router, prefix="/api/v1")

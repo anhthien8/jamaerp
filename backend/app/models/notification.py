@@ -14,6 +14,7 @@ NOTIFICATION_TYPES = [
     "lead_recalled",       # lead bị thu hồi
     "lead_assigned",       # lead được giao
     "payment_reminder",    # nhắc hẹn thanh toán
+    "contract_signed",     # khách ký HĐ → tạo dự án
     "bod_report",          # báo cáo BOD
     "system",
 ]

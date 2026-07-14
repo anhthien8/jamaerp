@@ -298,6 +298,37 @@ class APIClient:
         except Exception:
             return None
 
+    async def submit_feedback(self, tg_user_id: int, category: str, content: str) -> dict | None:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/feedback/telegram",
+                    json={"telegram_user_id": tg_user_id, "category": category, "content": content},
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi gui feedback")
+                except Exception:
+                    detail = "Loi gui feedback"
+                return {"error": detail}
+        except Exception:
+            return None
+
+    async def get_my_feedback(self, tg_user_id: int) -> dict | None:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/feedback/my",
+                    headers=self._headers(tg_user_id),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
+
 
 # Singleton
 api = APIClient()
