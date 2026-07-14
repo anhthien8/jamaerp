@@ -107,6 +107,7 @@
       <button class="role-tab" data-panel="env">🔐 Biến môi trường</button>
       <button class="role-tab" data-panel="bot">🤖 Bot Telegram</button>
       <button class="role-tab" data-panel="postinstall">⚙️ Sau cài đặt</button>
+      <button class="role-tab" data-panel="features">🆕 Features mới</button>
       <button class="role-tab" data-panel="ops">🚑 Vận hành &amp; Sự cố</button>
     </div>
   </div>
@@ -351,6 +352,81 @@ TIMEZONE=Asia/Ho_Chi_Minh</code></pre>
           <li><strong>Kiểm tra worker đang chạy</strong> — xem log worker có dòng <em>Health check | status=healthy</em> mỗi 30 giây. Không có worker = không có nhắc CSKH / báo cáo / backup tự động.</li>
           <li><strong>Gửi link hướng dẫn cho nhân viên</strong> — <code>https://[domain]/huong-dan.html</code> (đăng vào topic 📢 của nhóm).</li>
         </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ FEATURES MỚI ═══════ -->
+  <section class="panel" id="features">
+    <div class="sec-header"><div class="ic">🆕</div>
+      <div><h2>Features mới (Phiên bản 07/2026)</h2><div class="sub">Các tính năng được bổ sung gần đây</div></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>📝 Feedback từ nhân sự (Telegram Bot)</h3>
+        <p>Nhân viên gửi feedback trực tiếp từ Telegram:<br>
+        <code>/feedback</code> → Chọn loại (Bug/Tính năng/Cải thiện) → Nhập nội dung → Gửi<br>
+        <code>/myfeedback</code> → Xem lịch sử feedback + trạng thái</p>
+        <p><b>Admin:</b> Vào <code>/feedback</code> trên web → Xem danh sách → Phản hồi → Tự push về Telegram nhân viên</p>
+      </div>
+      <div class="card">
+        <h3>👋 Flow Nghỉ việc + Chuyển giao</h3>
+        <p>Admin/Leader vào <code>/hr</code> → Click "Nghỉ việc" → Modal preview leads/tasks bị ảnh hưởng → Chọn người nhận → Xác nhận</p>
+        <p><b>Undo:</b> 7 ngày đầu có nút "Hoàn tác" → khôi phục toàn bộ</p>
+        <p><b>Tự động:</b> Leads → least-loaded teammate. Tasks → PM của dự án. Notification gửi cho Leader + PM.</p>
+      </div>
+      <div class="card">
+        <h3>⚡ Báo giá Cải tạo (Dual Mode)</h3>
+        <p><code>/quote-tool</code> giờ có 2 chế độ:<br>
+        🏗️ <b>Xây mới:</b> 3 phương án (Cơ bản/Tiêu chuẩn/Cao cấp)<br>
+        🔨 <b>Cải tạo:</b> 100+ hạng mục theo tầng, gợi ý vật liệu theo ngân sách</p>
+        <p>Giá tham khảo: Nhà phố 80m² × 3 tầng ≈ 723 triệu</p>
+      </div>
+      <div class="card">
+        <h3>🔍 Search Ctrl+K sống</h3>
+        <p>SearchModal giờ gọi API thật — tìm lead, dự án, khách hàng theo tên, SĐT, địa chỉ, kênh.<br>
+        <b>Trước:</b> Demo data cứng → vô dụng production<br>
+        <b>Sau:</b> Live search từ database</p>
+      </div>
+      <div class="card">
+        <h3>📋 My Priorities (Dashboard)</h3>
+        <p>Dashboard cá nhân giờ hiển thị:<br>
+        🔴 Leads quá hạn cần follow-up<br>
+        📋 Tasks đang dở trong dự án<br>
+        📦 Vật tư chờ duyệt<br>
+        Click vào → chuyển đến trang tương ứng</p>
+      </div>
+      <div class="card">
+        <h3>🔒 Production Security (12 fixes)</h3>
+        <p>SQLite WAL mode + busy_timeout, seed gating (bỏ qua production), rate limiter cleanup, CSP header, CORS tighten, Docker non-root user + HEALTHCHECK, input validation Pydantic.</p>
+      </div>
+      <div class="card">
+        <h3>📊 Bulk Operations + CSV Export</h3>
+        <p><b>Bulk:</b> Chọn nhiều leads → giao lại / chuyển giai đoạn hàng loạt<br>
+        <b>Export:</b> <code>/leads/export</code> + <code>/accounting/transactions/export</code> → CSV</p>
+      </div>
+      <div class="card">
+        <h3>⚡ Inline UX</h3>
+        <p>Lead kanban: dropdown chuyển giai đoạn ngay trên card (không cần mở modal)<br>
+        Task list: dropdown đổi trạng thái inline (không cần nested modal)<br>
+        Search: mở rộng tìm email, địa chỉ, kênh, khu vực</p>
+      </div>
+      <div class="card">
+        <h3>🏗️ Auto-Contract + Workload</h3>
+        <p><b>Lead→Contract:</b> Ký HĐ → tự tạo Contract draft (4 đợt thanh toán)<br>
+        <b>Workload:</b> <code>/leads/workload</code> — Leader xem số lead + giá trị pipeline từng nhân viên<br>
+        <b>Task bulk-assign:</b> <code>/projects/{id}/tasks/bulk-assign</code></p>
+      </div>
+      <div class="card full">
+        <h3>📈 Tổng kết performance</h3>
+        <table>
+          <tr><th>Chỉ số</th><th>Trước</th><th>Sau</th></tr>
+          <tr><td>Tests</td><td>0</td><td>160</td></tr>
+          <tr><td>Security fixes</td><td>0</td><td>12 (5 Critical, 7 High)</td></tr>
+          <tr><td>Performance fixes</td><td>0</td><td>6 (cache, SQL, pagination)</td></tr>
+          <tr><td>New features</td><td>—</td><td>12 (feedback, resign, quote dual, bulk ops, export...)</td></tr>
+          <tr><td>Files changed</td><td>—</td><td>50+ files, +5000 lines</td></tr>
+        </table>
       </div>
     </div>
   </section>
