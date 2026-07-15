@@ -442,7 +442,7 @@ async def gps_checkin(
     if not tasks:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dua an chua co dau viec nao de ghi nhan check-in",
+            detail="Dự án chưa có đầu việc nào để ghi nhận vào ca",
         )
 
     target_task = next((t for t in tasks if t.status == "in_progress"), tasks[0])
@@ -460,6 +460,13 @@ async def gps_checkin(
         media_url=None,
     )
     db.add(activity)
+
+    # Ghi song song vào bảng công (chấm công toàn công ty)
+    from app.services.attendance_service import record_checkin
+    attendance, attendance_created = await record_checkin(
+        db, user, source="telegram", project_id=project.id,
+        lat=data.latitude, lng=data.longitude,
+    )
     await db.flush()
 
     return {
@@ -470,7 +477,9 @@ async def gps_checkin(
         "latitude": data.latitude,
         "longitude": data.longitude,
         "checkin_time": activity.created_at.isoformat(),
-        "message": f"Check-in thanh cong tai du an {project.code}.",
+        "attendance_id": attendance.id,
+        "attendance_created": attendance_created,
+        "message": f"Vào ca thành công tại dự án {project.code}.",
     }
 
 
@@ -498,7 +507,7 @@ async def gps_checkout(
     if not tasks:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dua an chua co dau viec nao de ghi nhan check-out",
+            detail="Dự án chưa có đầu việc nào để ghi nhận tan ca",
         )
 
     target_task = next((t for t in tasks if t.status == "in_progress"), tasks[0])
@@ -515,6 +524,10 @@ async def gps_checkout(
         media_url=None,
     )
     db.add(activity)
+
+    # Cập nhật bảng công (giờ công + OT chờ duyệt nếu vượt 8h)
+    from app.services.attendance_service import record_checkout
+    await record_checkout(db, user)
     await db.flush()
 
     return {
@@ -641,3 +654,87 @@ async def reject_material_request(
             + (f" Ly do: {data.reason}" if data.reason else "")
         ),
     }
+
+
+# ── 9. Chấm công văn phòng qua Telegram (không cần mã dự án) ─────────────
+
+class OfficeCheckinRequest(BaseModel):
+    user_tg_id: int = Field(..., description="Telegram user ID")
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
+class OfficeCheckoutRequest(BaseModel):
+    user_tg_id: int = Field(..., description="Telegram user ID")
+
+
+@router.post("/attendance/checkin", status_code=status.HTTP_201_CREATED)
+async def office_checkin(
+    data: OfficeCheckinRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Check-in văn phòng qua lệnh /checkin (không kèm mã dự án).
+
+    Nhân viên hiện trường vẫn dùng /checkin [Mã dự án] như cũ (endpoint /checkin).
+    """
+    from app.services.attendance_service import record_checkin
+
+    user = await _resolve_user_by_tg(data.user_tg_id, db)
+    record, created = await record_checkin(
+        db, user, source="telegram", lat=data.latitude, lng=data.longitude,
+    )
+    return {
+        "attendance_id": record.id,
+        "created": created,
+        "user": user.full_name,
+        "work_date": str(record.work_date),
+        "checkin_time": str(record.check_in),
+        "message": (
+            f"Vào ca thành công ({record.work_date})."
+            if created else "Hôm nay bạn đã vào ca rồi."
+        ),
+    }
+
+
+@router.post("/attendance/checkout", status_code=status.HTTP_201_CREATED)
+async def office_checkout(
+    data: OfficeCheckoutRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Check-out qua lệnh /checkout (văn phòng — không cần mã dự án)."""
+    from app.services.attendance_service import record_checkout
+
+    user = await _resolve_user_by_tg(data.user_tg_id, db)
+    record = await record_checkout(db, user)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hôm nay bạn chưa vào ca",
+        )
+    return {
+        "attendance_id": record.id,
+        "user": user.full_name,
+        "work_hours": record.work_hours,
+        "ot_hours": record.ot_hours,
+        "ot_status": record.ot_status,
+        "message": (
+            f"Tan ca thành công — giờ công: {record.work_hours}h"
+            + (f", tăng ca chờ duyệt: {record.ot_hours}h" if record.ot_hours else "")
+        ),
+    }
+
+
+@router.get("/attendance/me/{user_tg_id}")
+async def my_attendance_via_telegram(
+    user_tg_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Bảng công tháng hiện tại của nhân viên — cho lệnh /congcuatoi."""
+    from app.services.attendance_service import month_summary, period_of, vn_today
+
+    user = await _resolve_user_by_tg(user_tg_id, db)
+    summary = await month_summary(db, user.id, period_of(vn_today()))
+    return {"user": user.full_name, **summary}
