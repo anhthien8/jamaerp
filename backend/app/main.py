@@ -100,9 +100,15 @@ async def security_headers(request, call_next):
     return response
 
 
-# Health check
+# Health check — lightweight liveness (no DB) so Railway healthcheck passes during cold start
 @app.get("/health")
 async def health():
+    return {"status": "ok", "app": settings.APP_NAME}
+
+
+# Readiness check — verifies DB connectivity
+@app.get("/health/ready")
+async def health_ready():
     from sqlalchemy import text
     from app.database import async_session
     try:
