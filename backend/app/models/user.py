@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, BigInteger, ForeignKey, DateTime, Index
+from sqlalchemy import String, Boolean, BigInteger, Integer, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -16,7 +16,10 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     department: Mapped[str] = mapped_column(String(20), nullable=False)  # EXEC, SALES, DESIGN, PM, ACCT
-    leader_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    # use_alter: teams ↔ users tham chiếu vòng — FK này được ADD CONSTRAINT sau khi cả 2 bảng tồn tại
+    leader_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", use_alter=True, name="fk_teams_leader_id_users"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
@@ -49,6 +52,17 @@ class User(Base):
     telegram_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # HR — lương & thuế
+    salary_grade_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("salary_grades.id"), nullable=True
+    )
+    dependents_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Số người phụ thuộc — giảm trừ gia cảnh khi tính thuế TNCN
+
+    # Ủy quyền phê duyệt khi vắng mặt (leader/kế toán/admin)
+    delegate_to: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    delegate_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Resignation tracking
     resign_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

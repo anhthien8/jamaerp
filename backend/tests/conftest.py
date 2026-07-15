@@ -33,6 +33,11 @@ from app.models.variable_cost import VariableCost  # noqa
 from app.models.commission_structure import CommissionStructure  # noqa
 from app.models.notification import Notification, SystemSetting  # noqa
 from app.models.pricing import PriceItem  # noqa
+from app.models.audit import AuditLog  # noqa
+from app.models.attendance import AttendanceRecord  # noqa
+from app.models.approval import ApprovalRequest  # noqa
+from app.models.leave import LeaveBalance, LeaveRequest  # noqa
+from app.models.payroll import SalaryAdvance  # noqa
 from app.api.telegram_workflow import MaterialRequest  # noqa
 
 

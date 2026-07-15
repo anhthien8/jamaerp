@@ -17,8 +17,11 @@ build/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+*.bak-*
 
 # IDE
 .vscode/
@@ -44,3 +47,7 @@ npm-debug.log*
 
 # Backups (chứa snapshot database — không commit)
 backend/backups/
+
+# AI tools
+.claude/
+.codex/

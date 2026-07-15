@@ -16,7 +16,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """App startup/shutdown hooks."""
     # Import all models so Base.metadata knows them
-    from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll  # noqa
+    from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll, SalaryAdvance  # noqa
     from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
     from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
     from app.api.telegram_workflow import MaterialRequest  # noqa — ensure table created
@@ -24,8 +24,17 @@ async def lifespan(app: FastAPI):
     from app.models.quotation import Quotation  # noqa
     from app.models.notification import Notification, SystemSetting  # noqa
     from app.models.pricing import PriceItem  # noqa
+    from app.models.audit import AuditLog  # noqa
+    from app.models.attendance import AttendanceRecord  # noqa
+    from app.models.approval import ApprovalRequest  # noqa
+    from app.models.leave import LeaveBalance, LeaveRequest  # noqa
+    from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
 
-    # Create tables
+    # Migrate TRƯỚC create_all — thêm cột mới vào bảng cũ (create_all không làm được)
+    from app.migrate import run_migrations
+    await run_migrations()
+
+    # Create tables (no-op với bảng đã có; vẫn cần cho test/in-memory DB)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -107,7 +116,11 @@ async def health():
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "app": settings.APP_NAME}
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "developer": "Dương Anh Thiện",
+    }
 
 
 # Register routers
@@ -134,6 +147,7 @@ from app.api.ai_settings import router as ai_settings_router
 from app.api.backup import router as backup_router
 from app.api.instant_quote import router as instant_quote_router
 from app.api.hr import router as hr_router
+from app.api.kpi import router as kpi_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -158,6 +172,22 @@ app.include_router(ai_settings_router, prefix="/api/v1")
 app.include_router(backup_router, prefix="/api/v1")
 app.include_router(instant_quote_router, prefix="/api/v1")
 app.include_router(hr_router, prefix="/api/v1")
+app.include_router(kpi_router, prefix="/api/v1")
 
 from app.api.feedback import router as feedback_router
 app.include_router(feedback_router, prefix="/api/v1")
+
+from app.api.audit import router as audit_router
+app.include_router(audit_router, prefix="/api/v1")
+
+from app.api.attendance import router as attendance_router
+app.include_router(attendance_router, prefix="/api/v1")
+
+from app.api.approvals import router as approvals_router
+app.include_router(approvals_router, prefix="/api/v1")
+
+from app.api.leaves import router as leaves_router
+app.include_router(leaves_router, prefix="/api/v1")
+
+from app.api.payroll import router as payroll_router
+app.include_router(payroll_router, prefix="/api/v1")

@@ -1,5 +1,6 @@
 """JAMA HOME CRM Backend Configuration."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 import os
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     TIMEZONE: str = "Asia/Ho_Chi_Minh"
 
     # Database — SQLite by default for easy local dev
+    # Production: set DATABASE_URL to Postgres (Railway cấp dạng postgres://,
+    # được chuẩn hóa sang postgresql+asyncpg:// bên dưới)
     DATABASE_URL: str = "sqlite+aiosqlite:///./jama.db"
 
     # Redis (optional)
@@ -44,6 +47,18 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "groq/llama-3.3-70b-versatile"
     LLM_API_KEY: str = ""
     LLM_FALLBACK_MODEL: str = "ollama/llama3.2"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        """Railway/Heroku cấp postgres:// — SQLAlchemy async cần postgresql+asyncpg://."""
+        if not isinstance(v, str) or not v:
+            return v
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     @property
     def is_sqlite(self) -> bool:

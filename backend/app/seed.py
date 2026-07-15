@@ -54,6 +54,8 @@ async def seed_database(db: AsyncSession):
     accountant_id = _id()
     executive_id = _id()
     purchasing_id = _id()
+    designer_id = _id()
+    pm_id = _id()
 
     users = [
         User(
@@ -85,6 +87,16 @@ async def seed_database(db: AsyncSession):
             id=purchasing_id, full_name="Trần Văn Thu Mua", email="purchasing@jamahome.vn",
             phone="0902222333", password_hash=hash_password("purchase123"),
             role="purchasing", department="PURCHASING", team_id=team_purchasing_id,
+        ),
+        User(
+            id=designer_id, full_name="Nguyễn Thị Thiết Kế", email="designer@jamahome.vn",
+            phone="0903333444", password_hash=hash_password("design123"),
+            role="designer", department="DESIGN", team_id=team_design_id,
+        ),
+        User(
+            id=pm_id, full_name="Lê Văn Dự Án", email="pm@jamahome.vn",
+            phone="0904444555", password_hash=hash_password("pm123"),
+            role="pm", department="PM", team_id=team_sales1_id,
         ),
     ]
     for u in users:
@@ -256,7 +268,7 @@ async def seed_database(db: AsyncSession):
             address="123 Nguyễn Văn Linh, Q7", project_type="design_build",
             design_value=45000000, construction_value=455000000, total_value=500000000,
             spent=375000000, progress=75, status="active", stage="construction",
-            pm_id=leader_id, designer_id=admin_id, sales_id=sales_id,
+            pm_id=leader_id, designer_id=designer_id, sales_id=sales_id,
             start_date=_dt(60), target_end_date=_dt(-30),
         ),
         Project(
@@ -625,4 +637,4 @@ async def seed_database(db: AsyncSession):
         db.add(fc)
     await db.flush()
 
-    print("[OK] Seed complete: 5 users, 4 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials, 6 salary grades, 5 commission structures, 4 fixed costs")
+    print("[OK] Seed complete: 8 users, 5 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials, 6 salary grades, 5 commission structures, 4 fixed costs")

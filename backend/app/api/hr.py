@@ -12,6 +12,7 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.lead import Lead, Activity
 from app.models.project import Task, Project
+from app.services.audit import log_action
 
 router = APIRouter(prefix="/hr", tags=["hr"])
 
@@ -211,6 +212,63 @@ async def resign(
         task.assigned_to = target
         transferred_tasks += 1
 
+    # --- Hoa hồng còn treo (pending/approved chưa paid) — báo kế toán chốt kỳ cuối ---
+    from app.models.payroll import Commission, Payroll
+    comm_result = await db.execute(
+        select(Commission).where(
+            Commission.user_id == user.id,
+            Commission.status.in_(("pending", "approved")),
+        )
+    )
+    pending_commissions = list(comm_result.scalars().all())
+    pending_commission_total = round(sum(c.commission_amount for c in pending_commissions))
+
+    # --- Thu hồi liên kết Telegram (chặn nhận thông báo/lệnh bot sau nghỉ việc) ---
+    old_telegram_id = user.telegram_user_id
+    user.telegram_user_id = None
+    user.telegram_username = None
+
+    # --- Kỳ lương cuối pro-rata (draft cho kế toán rà) — nếu kỳ hiện tại chưa có dòng ---
+    from app.services.attendance_service import period_of, vn_today
+    from app.services import payroll_engine
+    final_period = period_of(vn_today())
+    existing_payroll = await db.execute(
+        select(Payroll).where(Payroll.user_id == user.id, Payroll.period == final_period).limit(1)
+    )
+    final_payroll_created = False
+    if not existing_payroll.first():
+        try:
+            settings_map = await payroll_engine.get_payroll_settings(db)
+            final_row = await payroll_engine.build_payroll_row(db, user, final_period, settings_map)
+            final_row.notes = (
+                (final_row.notes + " | " if final_row.notes else "")
+                + f"Kỳ cuối — nghỉ việc {now.date()}; cộng hoa hồng treo {pending_commission_total:,.0f}đ và phép chưa dùng (kế toán rà)"
+            )
+            db.add(final_row)
+            final_payroll_created = True
+        except Exception:
+            # Không chặn offboarding nếu tính lương lỗi — kế toán xử lý tay
+            final_payroll_created = False
+
+    # --- Thông báo kế toán chốt hoa hồng + lương kỳ cuối ---
+    if pending_commissions or final_payroll_created:
+        from app.services.automation import _notify
+        acct_result = await db.execute(
+            select(User).where(User.role.in_(("accountant", "admin")), User.is_active == True)  # noqa: E712
+        )
+        for acct in acct_result.scalars().all():
+            await _notify(
+                db, acct,
+                type_="offboarding",
+                title=f"Chốt lương nghỉ việc: {user.full_name}",
+                body=(
+                    f"Hoa hồng treo: {len(pending_commissions)} khoản ({pending_commission_total:,.0f}đ). "
+                    f"{'Đã tạo dòng lương pro-rata kỳ ' + final_period + ' (draft).' if final_payroll_created else 'Kiểm tra bảng lương kỳ cuối.'}"
+                ),
+                link="/hr",
+                ref_id=f"offboard-{user.id}",
+            )
+
     # --- Deactivate user ---
     user.is_active = False
     user.resign_date = now
@@ -219,9 +277,29 @@ async def resign(
 
     await db.flush()
 
+    await log_action(
+        db, actor=current_user, action="user.resign", entity_type="user", entity_id=user.id,
+        after={
+            "transferred_leads": transferred_leads,
+            "transferred_tasks": transferred_tasks,
+            "lead_target_id": lead_target_id,
+            "task_target_id": task_target_id,
+            "pending_commissions": len(pending_commissions),
+            "pending_commission_total": pending_commission_total,
+            "telegram_unlinked": old_telegram_id is not None,
+            "final_payroll_created": final_payroll_created,
+        },
+        note=f"Nghỉ việc: {user.full_name}",
+    )
+
     return {
         "transferred_leads": transferred_leads,
         "transferred_tasks": transferred_tasks,
+        "pending_commissions": len(pending_commissions),
+        "pending_commission_total": pending_commission_total,
+        "telegram_unlinked": old_telegram_id is not None,
+        "final_payroll_created": final_payroll_created,
+        "final_period": final_period,
         "message": f"Đã chuyển giao {transferred_leads} leads và {transferred_tasks} tasks. Nhân viên {user.full_name} đã được nghỉ việc.",
     }
 
@@ -265,6 +343,11 @@ async def undo_resign(
     user.updated_at = datetime.now(timezone.utc)
 
     await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="user.undo_resign", entity_type="user", entity_id=user.id,
+        note=f"Khôi phục nhân viên: {user.full_name}",
+    )
 
     return {
         "status": "restored",

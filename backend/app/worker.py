@@ -85,6 +85,8 @@ class BackgroundWorker:
         self._last_automation_date: str = ""      # "YYYY-MM-DD" (VN time)
         self._last_bod_report_date: str = ""      # "YYYY-MM-DD" (VN time)
         self._last_backup_date: str = ""          # "YYYY-MM-DD" (VN time)
+        self._last_attendance_close_date: str = ""  # "YYYY-MM-DD" (VN time)
+        self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -256,6 +258,26 @@ class BackgroundWorker:
                         vn_now,
                         priority=TaskPriority.NORMAL,
                     )
+
+            # Auto-close ca quên checkout — 23:00 VN hàng ngày
+            if vn_now.hour >= 23 and self._last_attendance_close_date != today_str:
+                self._last_attendance_close_date = today_str
+                self.enqueue_task(
+                    "attendance_auto_close",
+                    process_attendance_auto_close,
+                    priority=TaskPriority.HIGH,
+                )
+
+            # Mùng 1 hàng tháng: báo kế toán chốt bảng công tháng trước
+            this_period = vn_now.strftime("%Y-%m")
+            if vn_now.day == 1 and vn_now.hour >= 8 and self._last_timesheet_notify_period != this_period:
+                self._last_timesheet_notify_period = this_period
+                self.enqueue_task(
+                    "timesheet_lock_notify",
+                    process_timesheet_lock_notify,
+                    vn_now,
+                    priority=TaskPriority.NORMAL,
+                )
 
     # ------------------------------------------------------------------
     # Health check loop (for Docker HEALTHCHECK / monitoring)
@@ -437,9 +459,14 @@ async def process_automation() -> dict[str, Any]:
     try:
         from app.database import async_session
         from app.services.automation import run_all_automation
+        from app.services.approval_engine import escalate_overdue, reassign_orphaned
 
         async with async_session() as session:
             result = await run_all_automation(session)
+            # Phê duyệt: nhắc đơn quá hạn + escalate + chuyển đơn mồ côi
+            result["approval_escalated"] = await escalate_overdue(session)
+            result["approval_reassigned"] = await reassign_orphaned(session)
+            await session.commit()
         logger.info("CSKH automation finished: %s", result)
         return {"status": "completed", "result": result}
     except Exception as exc:
@@ -470,6 +497,66 @@ async def process_bod_reports(vn_now: datetime) -> dict[str, Any]:
         return {"status": "completed", "result": results}
     except Exception as exc:
         logger.exception("BOD report delivery failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_attendance_auto_close() -> dict[str, Any]:
+    """23:00 VN — tự đóng các ca quên checkout của ngày hôm nay."""
+    logger.info("Starting attendance auto-close...")
+    try:
+        from app.database import async_session
+        from app.services.attendance_service import auto_close_open_shifts
+
+        async with async_session() as session:
+            closed = await auto_close_open_shifts(session)
+            await session.commit()
+        logger.info("Attendance auto-close finished: %d shifts closed.", closed)
+        return {"status": "completed", "closed": closed}
+    except Exception as exc:
+        logger.exception("Attendance auto-close failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_timesheet_lock_notify(vn_now: datetime) -> dict[str, Any]:
+    """Mùng 1 hàng tháng — nhắc kế toán chốt bảng công tháng trước & sinh bảng lương."""
+    logger.info("Starting timesheet lock notification...")
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models.user import User
+        from app.services.automation import _notify
+
+        # Tháng trước theo giờ VN
+        year, month = vn_now.year, vn_now.month
+        prev_period = f"{year - 1}-12" if month == 1 else f"{year}-{month - 1:02d}"
+
+        notified = 0
+        async with async_session() as session:
+            result = await session.execute(
+                select(User).where(
+                    User.role.in_(("accountant", "admin")),
+                    User.is_active == True,  # noqa: E712
+                )
+            )
+            for user in result.scalars().all():
+                ok = await _notify(
+                    session,
+                    user,
+                    type_="timesheet_lock",
+                    title=f"Chốt bảng công kỳ {prev_period}",
+                    body=(
+                        f"Bảng công tháng {prev_period} đã sẵn sàng. "
+                        f"Vui lòng rà các ca cần xác nhận (quên checkout) rồi sinh bảng lương."
+                    ),
+                    link="/attendance",
+                    ref_id=f"timesheet-{prev_period}",
+                )
+                notified += 1 if ok else 0
+            await session.commit()
+        logger.info("Timesheet lock notification sent to %d users.", notified)
+        return {"status": "completed", "notified": notified, "period": prev_period}
+    except Exception as exc:
+        logger.exception("Timesheet lock notification failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 
