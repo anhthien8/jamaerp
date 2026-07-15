@@ -94,10 +94,25 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path.match(/^\/projects\/pipeline\/kanban$/)) {
     const stages = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'completed'];
+    // Nhãn tiếng Việt — đồng bộ với backend api/projects.py stage_labels (spec 07C)
+    const stageLabels: Record<string, string> = {
+      design: 'Thiết kế', quotation: 'Báo giá', procurement: 'Thu mua',
+      construction: 'Thi công', acceptance: 'Nghiệm thu', completed: 'Hoàn thành',
+    };
+    // stage_progress cho thanh 5 khối (tính từ DEMO_TASKS như backend aggregate)
+    const progressOf = (projectId: string) => {
+      const byStage: Record<string, { done: number; total: number }> = {};
+      for (const t of d.DEMO_TASKS.filter(t => t.project_id === projectId)) {
+        const cell = (byStage[t.stage] ||= { done: 0, total: 0 });
+        cell.total += 1;
+        if (t.status === 'done' || t.status === 'completed') cell.done += 1;
+      }
+      return Object.keys(byStage).length ? byStage : null;
+    };
     const kanban = stages.map(stage => ({
       stage,
-      stage_label: stage.charAt(0).toUpperCase() + stage.slice(1),
-      projects: d.DEMO_PROJECTS.filter(p => p.stage === stage),
+      stage_label: stageLabels[stage] || stage,
+      projects: d.DEMO_PROJECTS.filter(p => p.stage === stage).map(p => ({ ...p, stage_progress: progressOf(p.id) })),
       count: d.DEMO_PROJECTS.filter(p => p.stage === stage).length,
     }));
     return kanban as T;

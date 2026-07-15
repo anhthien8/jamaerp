@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
+import GuidedTour from '@/components/ui/GuidedTour';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
@@ -354,6 +355,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
       {/* Onboarding Checklist (first login) */}
       <OnboardingChecklist />
+      <GuidedTour />
     </div>
   );
 }

@@ -5,8 +5,91 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
+import { startGuidedTour } from '@/components/ui/GuidedTour';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
+
+/** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
+function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
+  const [tgId, setTgId] = useState<string>(initialTgId ? String(initialTgId) : '');
+  const [linked, setLinked] = useState<number | null>(initialTgId);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const save = async () => {
+    const raw = tgId.trim();
+    const parsed = raw === '' ? null : Number(raw);
+    if (raw !== '' && (!Number.isInteger(parsed) || (parsed as number) <= 0)) {
+      setMessage({ text: 'Telegram ID phải là dãy số (gõ /id với bot để lấy)', ok: false });
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.updateUser(userId, { telegram_user_id: parsed } as Record<string, unknown>);
+      setLinked(parsed);
+      // Đồng bộ user trong localStorage để sidebar/trang khác thấy ngay
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('jama_user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          u.telegram_user_id = parsed;
+          localStorage.setItem('jama_user', JSON.stringify(u));
+        }
+      }
+      setMessage({
+        text: parsed ? '✅ Đã liên kết! Gõ /start với bot để kiểm tra.' : 'Đã gỡ liên kết Telegram.',
+        ok: true,
+      });
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : 'Lưu thất bại', ok: false });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-4">🤖 Telegram Bot</h2>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-[var(--text-secondary)]">Trạng thái</span>
+          <span className="font-mono">
+            {linked ? <span className="text-emerald-400">✅ Đã liên kết ({linked})</span> : <span className="text-[var(--text-muted)]">— Chưa liên kết</span>}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Dán Telegram ID của bạn (vd: 123456789)"
+            value={tgId}
+            onChange={e => setTgId(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg border text-sm font-mono"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+            style={{ background: 'var(--gold-500)' }}
+          >
+            {saving ? 'Đang lưu...' : 'Lưu'}
+          </button>
+        </div>
+        {message && (
+          <p className="text-xs" style={{ color: message.ok ? '#34d399' : '#f87171' }}>{message.text}</p>
+        )}
+        <div className="text-xs text-[var(--text-muted)] space-y-1">
+          <p className="font-medium text-[var(--text-secondary)]">Cách lấy Telegram ID (1 phút):</p>
+          <p>1. Mở Telegram, tìm bot công ty (hỏi Admin tên bot nếu chưa biết)</p>
+          <p>2. Nhắn <code className="px-1 rounded bg-white/10">/id</code> — bot trả về dãy số User ID của bạn</p>
+          <p>3. Dán số đó vào ô trên → Lưu → nhắn <code className="px-1 rounded bg-white/10">/start</code> với bot để nhận briefing hàng ngày</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BackupSection() {
   const [data, setData] = useState<BackupSettingsResponse | null>(null);
@@ -659,20 +742,7 @@ export default function SettingsPage() {
           {AUTOMATION_ROLES.includes(user.role) && <AutomationSection />}
 
           {/* Telegram */}
-          <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-4">🤖 Telegram Bot</h2>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[var(--text-secondary)]">Telegram ID</span>
-                <span className="text-sm font-mono">
-                  {user.telegram_user_id || '— Chưa liên kết'}
-                </span>
-              </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Liên kết Telegram để nhận briefing hàng ngày và nhập lead qua bot.
-              </p>
-            </div>
-          </div>
+          <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
 
           {/* System */}
           <div className="glass-card p-6">
@@ -695,6 +765,13 @@ export default function SettingsPage() {
                 <span className="gold-gradient font-medium">Dương Anh Thiện</span>
               </div>
             </div>
+            <button
+              onClick={startGuidedTour}
+              className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 min-h-[44px]"
+              style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
+            >
+              🧭 Xem lại hướng dẫn từng bước theo vai trò
+            </button>
           </div>
         </div>
       </div>

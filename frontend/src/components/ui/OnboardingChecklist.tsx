@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { UserRole } from '@/lib/roles';
+import { startGuidedTour } from '@/components/ui/GuidedTour';
 
 const ROLE_PRIMARY_PAGE: Record<string, { path: string; label: string }> = {
   data_entry: { path: '/leads', label: 'Quy trình CRM' },
@@ -207,37 +208,46 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                 ))}
               </div>
               <div className="mt-4 p-3 rounded-xl text-xs text-[var(--text-muted)]" style={{ background: 'rgba(201,169,110,0.06)', border: '1px solid rgba(201,169,110,0.15)' }}>
-                <span className="text-[#C9A96E] font-semibold">Meo:</span> Nhan{' '}
+                <span className="text-[#C9A96E] font-semibold">Mẹo:</span> Nhấn{' '}
                 <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-subtle)' }}>Ctrl+K</kbd>
-                {' '}bat cu luc nao de tim kiem lead, du an, hay khach hang.
+                {' '}bất cứ lúc nào để tìm kiếm lead, dự án, hay khách hàng.
               </div>
             </div>
           )}
 
-          {/* Step 3: Get started */}
+          {/* Step 3: Bắt đầu tour theo vai trò */}
           {step === 2 && (
             <div className="animate-in">
-              <h2 className="text-lg font-bold text-white mb-1">Bat dau nao</h2>
-              <p className="text-sm text-[var(--text-muted)] mb-4">Ban da san sang! Truy cap trang chinh de bat dau:</p>
-              <Link
-                href={primaryPage.path}
-                onClick={() => close(true)}
-                className="flex items-center gap-3 p-4 rounded-xl transition-all hover:opacity-80 group"
+              <h2 className="text-lg font-bold text-white mb-1">Sẵn sàng bắt đầu!</h2>
+              <p className="text-sm text-[var(--text-muted)] mb-4">
+                Khuyên dùng: đi theo <b className="text-[#C9A96E]">hướng dẫn từng bước</b> — hệ thống sẽ dẫn bạn qua đúng trình tự công việc của vai trò <b>{primaryPage.label === 'Tổng quan' ? 'quản lý' : 'của bạn'}</b>, từ đầu ca đến cuối ca.
+              </p>
+              <button
+                onClick={() => { close(true); startGuidedTour(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl transition-all hover:opacity-90 group text-left"
                 style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
-                  <span className="text-lg">🚀</span>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+                  <span className="text-lg">🧭</span>
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-bold text-[#C9A96E] group-hover:text-white transition-colors">
-                    Den {primaryPage.label}
+                    Bắt đầu hướng dẫn từng bước
                   </p>
-                  <p className="text-xs text-[var(--text-muted)]">Trang chinh cho vai tro cua ban</p>
+                  <p className="text-xs text-[var(--text-muted)]">Đi qua từng trang theo đúng workflow công việc của bạn</p>
                 </div>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" />
                   <polyline points="12 5 19 12 12 19" />
                 </svg>
+              </button>
+              <Link
+                href={primaryPage.path}
+                onClick={() => close(true)}
+                className="mt-2 flex items-center justify-center p-2.5 rounded-xl text-xs transition-all hover:opacity-80"
+                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+              >
+                Bỏ qua — vào thẳng {primaryPage.label}
               </Link>
               <div className="mt-4 flex items-center gap-2 cursor-pointer select-none" onClick={() => setDontShowAgain(!dontShowAgain)}>
                 <div

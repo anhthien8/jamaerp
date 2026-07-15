@@ -33,6 +33,7 @@ class UserUpdate(BaseModel):
     department: str | None = None
     team_id: str | None = None
     is_active: bool | None = None
+    telegram_user_id: int | None = None
     telegram_username: str | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
 

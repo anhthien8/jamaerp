@@ -523,7 +523,7 @@ export default function ProjectsPage() {
 
   return (
     <Sidebar>
-      <div className="p-6 animate-in">
+      <div className="p-4 sm:p-6 animate-in">
         {/* Header */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex items-center justify-between">
@@ -531,7 +531,7 @@ export default function ProjectsPage() {
             {permissions?.canCreateProjects && (
               <button
                 onClick={() => openProjectForm()}
-                className="px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)]"
+                className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] shadow-lg shadow-[rgba(201,169,110,0.25)] min-h-[44px]"
               >
                 + Dự án mới
               </button>
@@ -756,7 +756,7 @@ export default function ProjectsPage() {
             </div>
           <div className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
             {kanbanData.map(col => (
-              <div key={col.stage} className="flex-shrink-0 w-80 rounded-2xl p-3 flex flex-col" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-subtle)' }}>
+              <div key={col.stage} className="flex-shrink-0 w-[82vw] max-w-[20rem] sm:w-80 snap-start rounded-2xl p-3 flex flex-col" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-subtle)' }}>
                 {/* Column Title */}
                 <div className="flex items-center justify-between mb-4 px-1">
                   <div className="flex items-center gap-2">
@@ -831,6 +831,19 @@ export default function ProjectsPage() {
           </>
         )}
       </div>
+
+      {/* FAB "+ Dự án mới" — luôn nhìn thấy kể cả khi cuộn / trên mobile (feedback 15/07) */}
+      {permissions?.canCreateProjects && !selectedProject && (
+        <button
+          onClick={() => openProjectForm()}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3.5 rounded-full font-bold text-white shadow-2xl transition-transform active:scale-95 hover:scale-105"
+          style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', boxShadow: '0 8px 24px rgba(201,169,110,0.4)' }}
+          aria-label="Tạo dự án mới"
+        >
+          <span className="text-xl leading-none">＋</span>
+          <span className="hidden sm:inline text-sm">Dự án mới</span>
+        </button>
+      )}
 
       {/* ── Project Detail Modal ── */}
       {selectedProject && (

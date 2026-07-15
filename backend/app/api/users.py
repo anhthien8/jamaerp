@@ -164,8 +164,25 @@ async def update_user(
     if "role" in provided and data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
-    allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_username"]
-    before_sensitive = {"role": user.role, "is_active": user.is_active, "team_id": user.team_id}
+    # Liên kết Telegram (tự phục vụ tại Cài đặt): chặn 1 Telegram ID gắn 2 tài khoản
+    if "telegram_user_id" in provided and provided["telegram_user_id"] is not None:
+        dup = await db.execute(
+            select(User).where(
+                User.telegram_user_id == provided["telegram_user_id"],
+                User.id != user.id,
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="Telegram ID này đã được liên kết với tài khoản khác — liên hệ Admin nếu cần chuyển",
+            )
+
+    allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username"]
+    before_sensitive = {
+        "role": user.role, "is_active": user.is_active, "team_id": user.team_id,
+        "telegram_user_id": user.telegram_user_id,
+    }
     for k in allowed:
         if k in provided:
             setattr(user, k, provided[k])
