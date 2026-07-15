@@ -933,6 +933,34 @@ admin        admin       sales       kế toán        admin       admin
 
 ---
 
+## 20. Bảng thuật ngữ (các từ tiếng Anh còn dùng trong hệ thống)
+
+> Hệ thống ưu tiên tiếng Việt. Một số thuật ngữ tiếng Anh đã quen dùng được giữ lại — tra nghĩa tại đây. Gặp từ tiếng Anh KHÔNG có trong bảng này → báo IT để Việt hóa hoặc bổ sung bảng.
+
+| Thuật ngữ | Nghĩa trong hệ thống |
+|---|---|
+| **Lead** | Khách hàng tiềm năng — người quan tâm nhưng chưa ký hợp đồng |
+| **Pipeline** | Luồng khách — bảng theo dõi khách qua từng bước từ tiếp nhận đến ký HĐ |
+| **Kanban** | Kiểu bảng chia cột theo giai đoạn, kéo thả thẻ giữa các cột |
+| **KPI** | Chỉ số đo hiệu quả công việc (số khách chăm, tỷ lệ chốt, doanh thu...) |
+| **SLA** | Cam kết thời hạn — vd: phải liên hệ lại khách trong tối đa 3 ngày |
+| **OT** (overtime) | Tăng ca — giờ làm vượt 8 tiếng/ngày, cần leader duyệt mới tính lương |
+| **Check-in / Check-out** | Vào ca / Tan ca — chấm công đầu và cuối ngày (lệnh bot: `/checkin`, `/checkout`) |
+| **Gross / Net** | Tổng thu nhập / Thực lĩnh (tiền thật nhận về sau bảo hiểm, thuế) |
+| **P&L** (Profit & Loss) | Báo cáo Lãi/Lỗ — chỉ Ban Giám đốc và Kế toán xem |
+| **BOD** (Board of Directors) | Ban Giám đốc — "báo cáo BOD" = báo cáo tự động gửi sếp mỗi sáng |
+| **Admin** | Quản trị viên — tài khoản toàn quyền hệ thống |
+| **Leader** | Trưởng nhóm/Trưởng phòng |
+| **PM** (Project Manager) | Trưởng Dự án — người điều phối thi công |
+| **Dashboard** | Trang Tổng quan — màn hình đầu tiên sau khi đăng nhập |
+| **AI Score** | Điểm AI chấm khả năng chốt của khách (0-100, càng cao càng tiềm năng) |
+| **Demo Mode / Work Mode** | Chế độ Tập luyện (dữ liệu giả, thoải mái bấm thử) / Chế độ Làm việc (dữ liệu thật) |
+| **Audit log** | Nhật ký hệ thống — ghi lại ai làm gì với dữ liệu nhạy cảm (lương, quyền) |
+| **Backup** | Sao lưu dữ liệu — hệ thống tự làm 5h sáng hàng ngày |
+| **Bot** | Trợ lý tự động trên Telegram của công ty |
+
+---
+
 ## 📞 Hỗ trợ kỹ thuật
 
 Nếu gặp lỗi hoặc cần hỗ trợ, vui lòng liên hệ:
@@ -943,4 +971,5 @@ Nếu gặp lỗi hoặc cần hỗ trợ, vui lòng liên hệ:
 ---
 
 > 📝 *Tài liệu này được tạo và cập nhật theo phiên bản hệ thống.*
-> *Phiên bản: 1.0 — Ngày: 05/07/2026*
+> *Phiên bản: 1.0 — Ngày: 05/07/2026 (bổ sung Bảng thuật ngữ 15/07/2026)*
+> *Hệ thống JAMA HOME ERP/CRM — Phát triển bởi **Dương Anh Thiện***
