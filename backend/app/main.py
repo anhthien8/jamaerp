@@ -15,29 +15,6 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App startup/shutdown hooks."""
-    # Import all models so Base.metadata knows them
-    from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll, SalaryAdvance  # noqa
-    from app.models import Customer, Material, MaterialUsage  # noqa — ERP models
-    from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
-    from app.api.telegram_workflow import MaterialRequest  # noqa — ensure table created
-    from app.models.contract import Contract  # noqa
-    from app.models.quotation import Quotation  # noqa
-    from app.models.notification import Notification, SystemSetting  # noqa
-    from app.models.pricing import PriceItem  # noqa
-    from app.models.audit import AuditLog  # noqa
-    from app.models.attendance import AttendanceRecord  # noqa
-    from app.models.approval import ApprovalRequest  # noqa
-    from app.models.leave import LeaveBalance, LeaveRequest  # noqa
-    from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
-
-    # Migrate TRƯỚC create_all — thêm cột mới vào bảng cũ (create_all không làm được)
-    from app.migrate import run_migrations
-    await run_migrations()
-
-    # Create tables (no-op với bảng đã có; vẫn cần cho test/in-memory DB)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
     # Security: ensure JWT secret is configured & strong
     _weak_secrets = {"change-me-to-a-random-64-char-string", "secret", "changeme"}
     if not settings.JWT_SECRET_KEY:
@@ -46,16 +23,37 @@ async def lifespan(app: FastAPI):
     if settings.JWT_SECRET_KEY in _weak_secrets or len(settings.JWT_SECRET_KEY) < 32:
         print("[FATAL] JWT_SECRET_KEY is weak/placeholder. Generate a random 64-char string — refusing to start.")
         raise RuntimeError("JWT_SECRET_KEY must be a strong random value (>= 32 chars)")
-    # Warn (không chặn) nếu bot auth chưa có bí mật chia sẻ
     if settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_AUTH_SECRET:
         print("[WARN] TELEGRAM_AUTH_SECRET chưa đặt — /auth/telegram chỉ dựa rate-limit. Nên đặt bí mật chia sẻ với bot.")
 
-    # Auto-seed (skip in production)
-    from app.database import async_session
-    from app.seed import seed_database
     if settings.APP_ENV == "production":
-        print("[INFO] Skipping database seed in production environment")
+        # Production: start.sh/db_upgrade.py handles migrations before uvicorn starts.
+        # No seed, no create_all — keeps startup fast for Railway healthcheck.
+        print(f"[OK] {settings.APP_NAME} started (production)")
     else:
+        # Dev/test: run migrations + create_all + seed
+        from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll, SalaryAdvance  # noqa
+        from app.models import Customer, Material, MaterialUsage  # noqa
+        from app.models import SalaryGrade, FixedCost, VariableCost, CommissionStructure  # noqa
+        from app.api.telegram_workflow import MaterialRequest  # noqa
+        from app.models.contract import Contract  # noqa
+        from app.models.quotation import Quotation  # noqa
+        from app.models.notification import Notification, SystemSetting  # noqa
+        from app.models.pricing import PriceItem  # noqa
+        from app.models.audit import AuditLog  # noqa
+        from app.models.attendance import AttendanceRecord  # noqa
+        from app.models.approval import ApprovalRequest  # noqa
+        from app.models.leave import LeaveBalance, LeaveRequest  # noqa
+        from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
+
+        from app.migrate import run_migrations
+        await run_migrations()
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        from app.database import async_session
+        from app.seed import seed_database
         async with async_session() as db:
             try:
                 await seed_database(db)
@@ -64,7 +62,8 @@ async def lifespan(app: FastAPI):
                 print(f"[WARN] Seed error: {e}")
                 await db.rollback()
 
-    print(f"[OK] {settings.APP_NAME} started")
+        print(f"[OK] {settings.APP_NAME} started (dev)")
+
     yield
     print(f"[STOP] {settings.APP_NAME} stopped")
 
