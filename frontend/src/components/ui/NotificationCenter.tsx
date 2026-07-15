@@ -102,7 +102,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         id,
         group: 'recent',
         title: `Cập nhật: ${lead.name}`,
-        description: `Pipeline ${lead.stage.replace(/_/g, ' ')} — ${lead.assigned_user_name || 'Chưa giao'}`,
+        description: `Quy trình ${lead.stage.replace(/_/g, ' ')} — ${lead.assigned_user_name || 'Chưa giao'}`,
         icon: '🔵',
         href: '/leads',
         timestamp: lead.updated_at,

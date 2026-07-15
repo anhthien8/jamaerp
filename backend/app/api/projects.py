@@ -1,9 +1,9 @@
 """Projects API — CRUD, tasks."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -91,16 +91,78 @@ class ProjectKanbanStage(BaseModel):
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+# ── Ưu tiên nguồn lực (docs/specs/07 Phần B) ─────────────────────────────────
+# Sort mặc định: quá hạn → còn ≤14 ngày → còn ≤30 ngày → còn lại;
+# trong cùng nhóm: hợp đồng giá trị lớn trước. Completed/cancelled chìm cuối.
+# Ngưỡng 14/30 ngày chỉnh được qua SystemSetting (project_urgent_days/project_warning_days).
+
+_RUNNING_STATUSES = ("active", "paused")
+
+
+async def _priority_thresholds(db: AsyncSession) -> tuple[int, int]:
+    from app.services.automation import get_automation_settings
+    settings = await get_automation_settings(db)
+    try:
+        urgent = max(1, int(settings.get("project_urgent_days", "14")))
+        warning = max(urgent, int(settings.get("project_warning_days", "30")))
+    except (TypeError, ValueError):
+        urgent, warning = 14, 30
+    return urgent, warning
+
+
+def _priority_order(urgent_days: int, warning_days: int) -> list:
+    now = datetime.now(timezone.utc)
+    running = Project.status.in_(_RUNNING_STATUSES)
+    has_deadline = Project.target_end_date.is_not(None)
+    bucket = case(
+        (and_(running, has_deadline, Project.target_end_date < now), 0),                                   # quá hạn
+        (and_(running, has_deadline, Project.target_end_date <= now + timedelta(days=urgent_days)), 1),    # cận hạn
+        (and_(running, has_deadline, Project.target_end_date <= now + timedelta(days=warning_days)), 2),   # sắp tới hạn
+        (running, 3),                                                                                       # đang chạy, còn xa/chưa đặt hạn
+        else_=4,                                                                                            # completed/cancelled
+    )
+    return [
+        bucket.asc(),
+        Project.total_value.desc().nulls_last(),
+        Project.target_end_date.asc().nulls_last(),
+    ]
+
+
+async def _stage_progress_map(db: AsyncSession, project_ids: list[str]) -> dict[str, dict[str, dict]]:
+    """1 aggregate query: {project_id: {stage: {done, total}}} — cho thanh 5 khối trên thẻ."""
+    if not project_ids:
+        return {}
+    result = await db.execute(
+        select(
+            Task.project_id,
+            Task.stage,
+            func.count(Task.id).label("total"),
+            func.sum(case((Task.status == "done", 1), else_=0)).label("done"),
+        )
+        .where(Task.project_id.in_(project_ids))
+        .group_by(Task.project_id, Task.stage)
+    )
+    progress: dict[str, dict[str, dict]] = {}
+    for project_id, stage, total, done in result.all():
+        progress.setdefault(project_id, {})[stage] = {"done": int(done or 0), "total": int(total or 0)}
+    return progress
+
+
 @router.get("")
 async def list_projects(
     status: str | None = None,
+    sort: str = Query("priority", pattern=r"^(priority|newest)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_project_access),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """List projects."""
-    q = select(Project).order_by(Project.created_at.desc())
+    """List projects — mặc định sắp theo ưu tiên nguồn lực (spec 07B)."""
+    if sort == "priority":
+        urgent, warning = await _priority_thresholds(db)
+        q = select(Project).order_by(*_priority_order(urgent, warning))
+    else:
+        q = select(Project).order_by(Project.created_at.desc())
     if status:
         q = q.where(Project.status == status)
 
@@ -137,21 +199,93 @@ async def project_kanban(
         "completed": "Hoàn thành",
     }
     kanban = []
+    urgent, warning = await _priority_thresholds(db)
+    priority = _priority_order(urgent, warning)
+
+    # Lấy toàn bộ 1 lượt rồi group theo stage (tránh 6 query) + đổ tiến độ đầu việc (1 aggregate)
+    result = await db.execute(select(Project).order_by(*priority))
+    all_projects = result.scalars().all()
+    progress_map = await _stage_progress_map(db, [p.id for p in all_projects])
+
+    by_stage: dict[str, list] = {s: [] for s in stages}
+    for p in all_projects:
+        if p.stage in by_stage:
+            response = ProjectResponse.model_validate(p)
+            response.stage_progress = progress_map.get(p.id)
+            by_stage[p.stage].append(response)
 
     for stage in stages:
-        q = select(Project).where(Project.stage == stage).order_by(Project.updated_at.desc())
-        result = await db.execute(q)
-        projects = result.scalars().all()
-        responses = [ProjectResponse.model_validate(p) for p in projects]
-
         kanban.append(ProjectKanbanStage(
             stage=stage,
             stage_label=stage_labels.get(stage, stage),
-            projects=responses,
-            count=len(responses),
+            projects=by_stage[stage],
+            count=len(by_stage[stage]),
         ))
 
     return kanban
+
+
+# ── Dự án đang đến phòng bạn (spec 07 A3) ────────────────────────────────────
+
+STAGE_DEPARTMENTS = {
+    "design": "DESIGN",
+    "quotation": "DESIGN",
+    "procurement": "PURCHASING",
+    "construction": "PM",
+    "acceptance": "PM",
+}
+
+
+@router.get("/by-department")
+async def projects_by_department(
+    dept: str = Query(..., pattern=r"^(DESIGN|PURCHASING|PM)$"),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dự án đang ở giai đoạn thuộc phòng `dept`, sắp theo ưu tiên nguồn lực.
+
+    Dùng cho khối "Dự án đang đến phòng bạn" trên trang Tổng quan của
+    designer / pm / purchasing.
+    """
+    dept_stages = [s for s, d in STAGE_DEPARTMENTS.items() if d == dept]
+    urgent, warning = await _priority_thresholds(db)
+
+    q = (
+        select(Project)
+        .where(Project.status.in_(_RUNNING_STATUSES), Project.stage.in_(dept_stages))
+        .order_by(*_priority_order(urgent, warning))
+        .limit(limit)
+    )
+    projects = (await db.execute(q)).scalars().all()
+
+    # Số đầu việc chưa xong của phòng trong các dự án này — 1 aggregate
+    pending_map: dict[str, int] = {}
+    if projects:
+        pending_result = await db.execute(
+            select(Task.project_id, func.count(Task.id))
+            .where(
+                Task.project_id.in_([p.id for p in projects]),
+                Task.status != "done",
+                (Task.department == dept) | (Task.department.is_(None) & Task.stage.in_(dept_stages)),
+            )
+            .group_by(Task.project_id)
+        )
+        pending_map = {pid: int(n) for pid, n in pending_result.all()}
+
+    now = datetime.now(timezone.utc)
+    items = []
+    for p in projects:
+        end = p.target_end_date
+        if end is not None and end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        days_left = (end - now).days if end else None
+        items.append({
+            **ProjectResponse.model_validate(p).model_dump(),
+            "pending_tasks": pending_map.get(p.id, 0),
+            "days_left": days_left,
+        })
+    return {"department": dept, "items": items}
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)

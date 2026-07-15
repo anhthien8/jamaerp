@@ -51,7 +51,7 @@ function AccessDenied() {
             className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
             style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}
           >
-            Quay về Dashboard
+            Quay về Tổng quan
           </button>
         </div>
       </div>

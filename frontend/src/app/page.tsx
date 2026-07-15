@@ -4,14 +4,24 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, DashboardData } from '@/lib/api';
+import { api, DashboardData, Project } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
+
+// Spec 07 A3 — role → phòng ban nhận việc theo giai đoạn dự án
+const ROLE_DEPT: Record<string, 'DESIGN' | 'PM' | 'PURCHASING'> = {
+  designer: 'DESIGN',
+  pm: 'PM',
+  purchasing: 'PURCHASING',
+};
+
+type DeptProject = Project & { pending_tasks: number; days_left: number | null };
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -28,6 +38,13 @@ export default function DashboardPage() {
       fetchFn
         .then(setData)
         .catch((e) => setError(e.message));
+
+      const dept = ROLE_DEPT[user.role];
+      if (dept) {
+        api.getProjectsByDepartment(dept, 5)
+          .then(res => setDeptProjects(res.items))
+          .catch(() => setDeptProjects([]));
+      }
     }
   }, [user]);
 
@@ -94,7 +111,7 @@ export default function DashboardPage() {
           /* Executive: Financial KPI Cards — wired to API data */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
-              title="Pipeline Value"
+              title="Giá trị pipeline"
               value={formatCurrency(data?.pipeline_value)}
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="📈"
@@ -173,7 +190,7 @@ export default function DashboardPage() {
               onClick={() => router.push('/leads')}
             />
             <KPICard
-              title="Pipeline Value"
+              title="Giá trị pipeline"
               value={data?.pipeline_value ? formatCurrency(data.pipeline_value) : '—'}
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="💰"
@@ -209,7 +226,7 @@ export default function DashboardPage() {
               onClick={() => router.push('/leads')}
             />
             <KPICard
-              title="Pipeline Value"
+              title="Giá trị pipeline"
               value={formatCurrency(data?.pipeline_value ?? 12500000000)}
               subtitle={`${data?.conversion_rate ?? 18.5}% chuyển đổi`}
               icon="💰"
@@ -240,7 +257,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pipeline Funnel */}
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">📊 Pipeline Funnel</h2>
+              <h2 className="text-lg font-semibold mb-4">📊 Phễu quy trình</h2>
               <div className="space-y-3">
                 {['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'].map((stage) => {
                   const config = STAGE_CONFIG[stage];
@@ -308,6 +325,36 @@ export default function DashboardPage() {
         )}
 
         {/* Personal: Today's Tasks */}
+        {/* Spec 07 A3 — Dự án đang đến phòng bạn (designer/pm/purchasing) */}
+        {ROLE_DEPT[user.role] && deptProjects.length > 0 && (
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">
+              🏗️ Dự án đang đến phòng bạn
+              <span className="ml-2 text-[10px] font-normal text-[var(--text-muted)]">ưu tiên: quá hạn → cận hạn → hợp đồng lớn</span>
+            </h3>
+            <div className="space-y-2">
+              {deptProjects.map(p => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                  onClick={() => router.push('/projects')}
+                >
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] flex-shrink-0">{p.code}</span>
+                  <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{p.name}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0">{p.pending_tasks} việc chờ</span>
+                  {p.days_left !== null && p.days_left < 0 && (
+                    <span className="text-[10px] font-bold text-red-400 flex-shrink-0">🔴 Quá hạn {-p.days_left}d</span>
+                  )}
+                  {p.days_left !== null && p.days_left >= 0 && p.days_left <= 14 && (
+                    <span className="text-[10px] font-bold text-orange-400 flex-shrink-0">🟠 Còn {p.days_left}d</span>
+                  )}
+                  <span className="text-[10px] font-semibold text-white flex-shrink-0">{formatCurrency(p.total_value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {isPersonal && (
           <div className="glass-card p-5">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">📋 Việc cần làm hôm nay</h3>
@@ -334,7 +381,7 @@ export default function DashboardPage() {
                   )}
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10">
                     <span className="text-blue-400">🆕</span>
-                    <span className="text-sm text-blue-400">Pipeline: {data?.total_leads ?? 0} leads đang quản lý</span>
+                    <span className="text-sm text-blue-400">Quy trình: {data?.total_leads ?? 0} leads đang quản lý</span>
                   </div>
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-500/10">
                     <span className="text-emerald-400">💰</span>
@@ -357,7 +404,7 @@ export default function DashboardPage() {
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
                 <span className="text-2xl">🔄</span>
-                <p className="text-sm font-medium mt-2">Xem Pipeline</p>
+                <p className="text-sm font-medium mt-2">Xem quy trình</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý leads của bạn</p>
               </button>
               <button
@@ -505,7 +552,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {[
                   { label: 'Rủi ro tập trung KH', value: 'Trung bình', detail: 'Top KH 28.5%', color: '#F59E0B', icon: '⚠️' },
-                  { label: 'Pipeline coverage', value: '2.8x', detail: 'Mục tiêu: 3.0x', color: '#3B82F6', icon: '📊' },
+                  { label: 'Mức phủ quy trình', value: '2.8x', detail: 'Mục tiêu: 3.0x', color: '#3B82F6', icon: '📊' },
                   { label: 'Dự trữ tiền mặt', value: '4.2 tháng', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: '🏦' },
                   { label: 'Phải thu quá hạn', value: '12.1%', detail: 'Cần theo dõi', color: '#EF4444', icon: '⏰' },
                 ].map((item, i) => (

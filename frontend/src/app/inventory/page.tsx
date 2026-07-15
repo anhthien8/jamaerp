@@ -97,7 +97,7 @@ export default function InventoryPage() {
             <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
             <p className="text-sm text-[var(--text-muted)] mb-6">Chỉ Admin và bộ phận Thu mua được phép xem kho vật tư.</p>
             <button onClick={() => router.push('/')} className="px-6 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}>
-              Quay về Dashboard
+              Quay về Tổng quan
             </button>
           </div>
         </div>

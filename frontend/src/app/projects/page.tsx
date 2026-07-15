@@ -35,6 +35,60 @@ const DEPT_LABELS: Record<string, { label: string; color: string }> = {
   sales: { label: 'Kinh doanh', color: '#F97316' },
 };
 
+// ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
+const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance'] as const;
+const STAGE_SHORT: Record<string, string> = {
+  design: 'Thiết kế', quotation: 'Báo giá', procurement: 'Thu mua',
+  construction: 'Thi công', acceptance: 'Nghiệm thu',
+};
+
+function daysLeft(target?: string | null): number | null {
+  if (!target) return null;
+  const end = new Date(target).getTime();
+  if (Number.isNaN(end)) return null;
+  return Math.ceil((end - Date.now()) / 86_400_000);
+}
+
+function DeadlineBadge({ project }: { project: Project }) {
+  if (project.status === 'completed' || project.status === 'cancelled') return null;
+  const d = daysLeft(project.target_end_date);
+  if (d === null) {
+    return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>Chưa đặt hạn</span>;
+  }
+  if (d < 0) {
+    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(248,113,113,0.18)', color: '#F87171' }}>🔴 Quá hạn {-d} ngày</span>;
+  }
+  if (d <= 14) {
+    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(251,146,60,0.18)', color: '#FB923C' }}>🟠 Còn {d} ngày</span>;
+  }
+  return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF' }}>Còn {d} ngày</span>;
+}
+
+function StageBlocks({ project }: { project: Project }) {
+  const progress = project.stage_progress;
+  if (!progress) return null;
+  return (
+    <div className="flex gap-1 mb-2" aria-label="Tiến độ theo giai đoạn">
+      {STAGE_ORDER.map(stage => {
+        const cell = progress[stage];
+        const total = cell?.total ?? 0;
+        const done = cell?.done ?? 0;
+        let bg = 'rgba(255,255,255,0.08)'; // chưa bắt đầu
+        if (total > 0 && done >= total) bg = '#10B981';       // xong
+        else if (done > 0 || project.stage === stage) bg = '#F59E0B'; // đang làm
+        return (
+          <div
+            key={stage}
+            className="h-1.5 flex-1 rounded-full"
+            style={{ background: bg }}
+            title={`${STAGE_SHORT[stage]}: ${done}/${total} việc`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 const taskStatusConfig: Record<string, { label: string; color: string; icon: string }> = {
   done: { label: 'Xong', color: '#10B981', icon: '✅' },
   in_progress: { label: 'Đang làm', color: '#F59E0B', icon: '🔄' },
@@ -53,6 +107,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'pipeline' | 'tasks'>('pipeline');
+  const [taskGroupMode, setTaskGroupMode] = useState<'stage' | 'department'>('stage');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterQuarter, setFilterQuarter] = useState<string>('all');
   const [showMyTasks, setShowMyTasks] = useState(false);
@@ -434,48 +489,75 @@ export default function ProjectsPage() {
     acceptance: tasks.filter(t => t.stage === 'acceptance'),
   };
 
+  // Spec 07 A2 — nhóm theo PHÒNG BAN (mỗi phòng thấy ngay phần việc của mình)
+  const groupedByDepartment = (() => {
+    const groups: Record<string, typeof tasks> = {};
+    for (const t of tasks) {
+      const key = t.department || t.stage || 'khac';
+      (groups[key] ||= []).push(t);
+    }
+    const stageIdx = (s: string) => {
+      const i = (STAGE_ORDER as readonly string[]).indexOf(s);
+      return i === -1 ? 99 : i;
+    };
+    const projStageIdx = selectedProject ? stageIdx(selectedProject.stage) : 0;
+    return Object.entries(groups)
+      .map(([dept, deptTasks]) => {
+        const done = deptTasks.filter(t => t.status === 'done' || t.status === 'completed').length;
+        const minStage = Math.min(...deptTasks.map(t => stageIdx(t.stage)));
+        const started = deptTasks.some(t => t.status !== 'not_started' && t.status !== 'todo');
+        return {
+          dept,
+          label: DEPT_LABELS[dept]?.label || STAGE_LABELS[dept] || 'Khác',
+          color: DEPT_LABELS[dept]?.color || '#6B7280',
+          tasks: deptTasks,
+          done,
+          pct: deptTasks.length ? Math.round((done / deptTasks.length) * 100) : 0,
+          // Chưa tới lượt: chưa có việc nào bắt đầu VÀ giai đoạn dự án chưa chạm tới
+          waiting: !started && minStage > projStageIdx,
+          minStage,
+        };
+      })
+      .sort((a, b) => a.minStage - b.minStage);
+  })();
+
   return (
     <Sidebar>
       <div className="p-6 animate-in">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Pipeline Dự án</h1>
-            <p className="text-sm text-[var(--text-tertiary)] mt-1">
-              Theo dõi và cập nhật tiến độ thi công công trình
-            </p>
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Dự án</h1>
             {permissions?.canCreateProjects && (
               <button
                 onClick={() => openProjectForm()}
-                className="px-4 py-1.5 text-xs font-semibold rounded-xl transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)]"
+                className="px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)]"
               >
-                + Tạo dự án mới
+                + Dự án mới
               </button>
             )}
-            <div className="flex rounded-xl overflow-hidden border border-[var(--border-subtle)] p-0.5 bg-[var(--surface-2)]">
-              <button
-                onClick={() => setViewMode('pipeline')}
-                className={cn(
-                  "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
-                  viewMode === 'pipeline' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
-                )}
-              >
-                📊 Pipeline Kanban
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn(
-                  "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
-                  viewMode === 'list' ? "bg-[var(--gold-500)] text-white shadow-sm" : "text-[var(--text-muted)] hover:text-white"
-                )}
-              >
-                📋 Danh sách
-              </button>
-            </div>
+          </div>
+
+          {/* View Toggle — prominent, full-width tabs */}
+          <div className="flex rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-2)]">
+            <button
+              onClick={() => setViewMode('pipeline')}
+              className={cn(
+                "flex-1 px-4 py-3 text-sm font-semibold transition-all text-center",
+                viewMode === 'pipeline' ? "bg-[var(--gold-500)] text-white" : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
+              )}
+            >
+              📊 Kanban
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                "flex-1 px-4 py-3 text-sm font-semibold transition-all text-center",
+                viewMode === 'list' ? "bg-[var(--gold-500)] text-white" : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
+              )}
+            >
+              📋 Danh sách
+            </button>
           </div>
         </div>
 
@@ -712,14 +794,12 @@ export default function ProjectsPage() {
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-[10px] font-mono text-[var(--text-muted)]">{proj.code}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-medium" style={{
-                          backgroundColor: proj.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-                          color: proj.status === 'active' ? '#10B981' : '#F59E0B'
-                        }}>
-                          {proj.status === 'active' ? 'Chạy' : 'Tạm dừng'}
-                        </span>
+                        <DeadlineBadge project={proj} />
                       </div>
-                      <h4 className="text-sm font-semibold text-white mb-3 truncate">{proj.name}</h4>
+                      <h4 className="text-sm font-semibold text-white mb-2 truncate">{proj.name}</h4>
+
+                      {/* Khung 5 giai đoạn — mọi phòng nhìn phát biết dự án đang ở đâu */}
+                      <StageBlocks project={proj} />
 
                       {/* Progress bar */}
                       <div className="mb-3">
@@ -845,10 +925,24 @@ export default function ProjectsPage() {
 
               {/* Tasks - Grouped by Operational Stage */}
               <div className="glass-card p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-                    Đầu việc theo giai đoạn vận hành
-                  </h3>
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                      Đầu việc
+                    </h3>
+                    <div className="flex rounded-lg overflow-hidden border border-[var(--border-subtle)]">
+                      <button
+                        onClick={() => setTaskGroupMode('stage')}
+                        className={cn('px-2 py-0.5 text-[10px] font-semibold transition-all',
+                          taskGroupMode === 'stage' ? 'bg-[var(--gold-500)] text-white' : 'text-[var(--text-muted)] hover:text-white')}
+                      >Theo giai đoạn</button>
+                      <button
+                        onClick={() => setTaskGroupMode('department')}
+                        className={cn('px-2 py-0.5 text-[10px] font-semibold transition-all',
+                          taskGroupMode === 'department' ? 'bg-[var(--gold-500)] text-white' : 'text-[var(--text-muted)] hover:text-white')}
+                      >Theo phòng ban</button>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     {permissions?.canCreateProjects && (
                       <button
@@ -872,6 +966,46 @@ export default function ProjectsPage() {
                   <p className="text-sm text-center text-[var(--text-muted)] py-4">Đang tải...</p>
                 ) : tasks.length === 0 ? (
                   <p className="text-sm text-center text-[var(--text-muted)] py-4">Chưa có công việc</p>
+                ) : taskGroupMode === 'department' ? (
+                  <div className="space-y-4">
+                    {groupedByDepartment.map(group => (
+                      <div
+                        key={group.dept}
+                        className={cn('border-b border-white/5 pb-3 last:border-0 last:pb-0 rounded-lg transition-opacity', group.waiting && 'opacity-45')}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-xs font-bold uppercase flex items-center gap-1.5" style={{ color: group.color }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: group.color }} />
+                            {group.label} ({group.done}/{group.tasks.length})
+                            {group.waiting && (
+                              <span className="text-[9px] font-medium normal-case px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
+                                Chờ giai đoạn trước
+                              </span>
+                            )}
+                          </h4>
+                          <div className="w-24 h-1 rounded-full bg-white/5">
+                            <div className="h-full rounded-full" style={{ width: `${group.pct}%`, background: group.color }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 pl-3">
+                          {group.tasks.map(task => {
+                            const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: '📌' };
+                            return (
+                              <div
+                                key={task.id}
+                                className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
+                                onClick={() => openTaskDetail(task)}
+                              >
+                                <span className="text-sm">{ts.icon}</span>
+                                <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{task.title}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${ts.color}20`, color: ts.color }}>{ts.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {Object.entries(groupedTasks).map(([stageKey, stageTasks]) => {

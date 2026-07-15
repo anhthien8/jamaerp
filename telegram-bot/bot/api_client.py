@@ -298,6 +298,90 @@ class APIClient:
         except Exception:
             return None
 
+    # ── HR Phase 1: chấm công / nghỉ phép / lương / phê duyệt ─────────────
+
+    async def _post(self, tg_user_id: int, path: str, payload: dict | None = None, error_default: str = "Loi he thong") -> dict | None:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}{path}",
+                    json=payload or {},
+                    headers=self._headers(tg_user_id),
+                    timeout=15.0,
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    return {"error": resp.json().get("detail", error_default)}
+                except Exception:
+                    return {"error": error_default}
+        except Exception:
+            return None
+
+    async def _get(self, tg_user_id: int, path: str, params: dict | None = None) -> dict | None:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}{path}",
+                    params=params,
+                    headers=self._headers(tg_user_id),
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                try:
+                    return {"error": resp.json().get("detail", "Loi he thong")}
+                except Exception:
+                    return None
+        except Exception:
+            return None
+
+    async def office_checkin(self, tg_user_id: int) -> dict | None:
+        """Check-in văn phòng (không cần mã dự án/GPS)."""
+        return await self._post(
+            tg_user_id, "/telegram/attendance/checkin",
+            {"user_tg_id": tg_user_id}, "Loi khi check-in",
+        )
+
+    async def office_checkout(self, tg_user_id: int) -> dict | None:
+        return await self._post(
+            tg_user_id, "/telegram/attendance/checkout",
+            {"user_tg_id": tg_user_id}, "Loi khi check-out",
+        )
+
+    async def my_attendance_summary(self, tg_user_id: int) -> dict | None:
+        return await self._get(tg_user_id, f"/telegram/attendance/me/{tg_user_id}")
+
+    async def create_leave(self, tg_user_id: int, data: dict) -> dict | None:
+        return await self._post(tg_user_id, "/leaves", data, "Loi khi tao don nghi phep")
+
+    async def my_leave_balance(self, tg_user_id: int) -> dict | None:
+        return await self._get(tg_user_id, "/leaves/balance/me")
+
+    async def my_payslips(self, tg_user_id: int) -> dict | None:
+        return await self._get(tg_user_id, "/payroll/me")
+
+    async def create_advance(self, tg_user_id: int, amount: float, reason: str) -> dict | None:
+        return await self._post(tg_user_id, "/payroll/advance", {"amount": amount, "reason": reason}, "Loi khi tao tam ung")
+
+    async def pending_approvals(self, tg_user_id: int) -> dict | None:
+        return await self._get(tg_user_id, "/approvals/pending-for-me")
+
+    async def approve_generic(self, tg_user_id: int, request_id: str) -> dict | None:
+        return await self._post(
+            tg_user_id, f"/approvals/{request_id}/tg-approve",
+            {"approver_tg_id": tg_user_id}, "Loi khi duyet",
+        )
+
+    async def reject_generic(self, tg_user_id: int, request_id: str, reason: str | None = None) -> dict | None:
+        payload: dict = {"approver_tg_id": tg_user_id}
+        if reason:
+            payload["reason"] = reason
+        return await self._post(
+            tg_user_id, f"/approvals/{request_id}/tg-reject",
+            payload, "Loi khi tu choi",
+        )
+
     async def submit_feedback(self, tg_user_id: int, category: str, content: str) -> dict | None:
         try:
             async with httpx.AsyncClient() as client:

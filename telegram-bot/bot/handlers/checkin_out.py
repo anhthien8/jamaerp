@@ -32,16 +32,23 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 
 @router.message(Command("checkin"))
 async def cmd_checkin(message: types.Message, state: FSMContext):
-    """Start GPS check-in — request location from user."""
+    """Điểm danh: không tham số = văn phòng; kèm mã dự án = công trình (GPS)."""
     args = message.text.split(maxsplit=1)
 
     if len(args) < 2:
+        # Chấm công văn phòng — không cần GPS
+        await api.authenticate(message.from_user.id, message.from_user.username)
+        result = await api.office_checkin(message.from_user.id)
+        if not result:
+            await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+            return
+        if result.get("error"):
+            await message.answer(f"❌ {result['error']}")
+            return
         await message.answer(
-            "📍 <b>Check-in công trình</b>\n\n"
-            "Cách dùng:\n"
-            "<code>/checkin [Mã dự án]</code>\n\n"
-            "Ví dụ: <code>/checkin JMH-0601</code>\n\n"
-            "💡 Bot sẽ yêu cầu vị trí GPS để check-in."
+            f"✅ <b>{result.get('message', 'Điểm danh thành công!')}</b>\n\n"
+            f"👤 {result.get('user', '—')} · 🕐 {str(result.get('checkin_time', ''))[:16]}\n\n"
+            f"💡 Tại công trình? Dùng <code>/checkin [Mã dự án]</code> để điểm danh kèm GPS."
         )
         return
 
@@ -65,7 +72,7 @@ async def cmd_checkin(message: types.Message, state: FSMContext):
     )
 
     await message.answer(
-        f"📍 <b>Check-in — {project_code}</b>\n\n"
+        f"📍 <b>Điểm danh — {project_code}</b>\n\n"
         "Vui lòng chia sẻ vị trí GPS của bạn.\n"
         "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
         "💡 <i>Gửi /cancel để hủy</i>",
@@ -83,7 +90,7 @@ async def process_checkin_location(message: types.Message, state: FSMContext):
     longitude = message.location.longitude
 
     await message.answer(
-        "🔄 Đang check-in...",
+        "🔄 Đang điểm danh...",
         reply_markup=types.ReplyKeyboardRemove(),
     )
 
@@ -102,12 +109,12 @@ async def process_checkin_location(message: types.Message, state: FSMContext):
         return
 
     if result.get("error"):
-        await message.answer(f"❌ <b>Lỗi check-in:</b> {result['error']}")
+        await message.answer(f"❌ <b>Lỗi điểm danh:</b> {result['error']}")
         await state.clear()
         return
 
     await message.answer(
-        f"✅ <b>Check-in thành công!</b>\n\n"
+        f"✅ <b>Điểm danh thành công!</b>\n\n"
         f"🏗 Dự án: <code>{result.get('project_code', project_code)}</code>\n"
         f"👤 Nhân viên: {result.get('user', '—')}\n"
         f"📍 Vị trí: ({result.get('latitude', latitude)}, {result.get('longitude', longitude)})\n"
@@ -132,16 +139,24 @@ async def wrong_input_checkin(message: types.Message):
 
 @router.message(Command("checkout"))
 async def cmd_checkout(message: types.Message, state: FSMContext):
-    """Start GPS check-out — request location from user."""
+    """Tan ca: không tham số = văn phòng; kèm mã dự án = công trình."""
     args = message.text.split(maxsplit=1)
 
     if len(args) < 2:
+        await api.authenticate(message.from_user.id, message.from_user.username)
+        result = await api.office_checkout(message.from_user.id)
+        if not result:
+            await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+            return
+        if result.get("error"):
+            await message.answer(f"❌ {result['error']}")
+            return
+        ot_line = ""
+        if result.get("ot_hours"):
+            ot_line = f"\n⏰ OT chờ duyệt: {result['ot_hours']}h"
         await message.answer(
-            "📍 <b>Check-out công trình</b>\n\n"
-            "Cách dùng:\n"
-            "<code>/checkout [Mã dự án]</code>\n\n"
-            "Ví dụ: <code>/checkout JMH-0601</code>\n\n"
-            "💡 Bot sẽ ghi nhận thời gian check-out."
+            f"✅ <b>Tan ca thành công!</b>\n\n"
+            f"👤 {result.get('user', '—')} · Giờ công hôm nay: <b>{result.get('work_hours', 0)}h</b>{ot_line}"
         )
         return
 
@@ -164,7 +179,7 @@ async def cmd_checkout(message: types.Message, state: FSMContext):
     )
 
     await message.answer(
-        f"📍 <b>Check-out — {project_code}</b>\n\n"
+        f"📍 <b>Tan ca — {project_code}</b>\n\n"
         "Vui lòng chia sẻ vị trí GPS khi rời công trình.\n"
         "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
         "💡 <i>Gửi /cancel để hủy</i>",
@@ -179,7 +194,7 @@ async def process_checkout_location(message: types.Message, state: FSMContext):
     project_code = data.get("project_code", "")
 
     await message.answer(
-        "🔄 Đang check-out...",
+        "🔄 Đang tan ca...",
         reply_markup=types.ReplyKeyboardRemove(),
     )
 
@@ -196,12 +211,12 @@ async def process_checkout_location(message: types.Message, state: FSMContext):
         return
 
     if result.get("error"):
-        await message.answer(f"❌ <b>Lỗi check-out:</b> {result['error']}")
+        await message.answer(f"❌ <b>Lỗi tan ca:</b> {result['error']}")
         await state.clear()
         return
 
     await message.answer(
-        f"✅ <b>Check-out thành công!</b>\n\n"
+        f"✅ <b>Tan ca thành công!</b>\n\n"
         f"🏗 Dự án: <code>{result.get('project_code', project_code)}</code>\n"
         f"👤 Nhân viên: {result.get('user', '—')}\n"
         f"🕐 Thời gian: {result.get('checkout_time', '—')}\n\n"

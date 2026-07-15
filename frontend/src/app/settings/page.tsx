@@ -690,6 +690,10 @@ export default function SettingsPage() {
                 <span className="text-[var(--text-secondary)]">AI Model</span>
                 <span className="font-mono text-xs">Cấu hình tại mục &quot;Cấu hình AI Model&quot;</span>
               </div>
+              <div className="flex justify-between pt-2 mt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <span className="text-[var(--text-secondary)]">Phát triển bởi</span>
+                <span className="gold-gradient font-medium">Dương Anh Thiện</span>
+              </div>
             </div>
           </div>
         </div>

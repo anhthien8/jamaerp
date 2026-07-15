@@ -6,13 +6,13 @@ import { useAuth } from '@/lib/auth';
 import { UserRole } from '@/lib/roles';
 
 const ROLE_PRIMARY_PAGE: Record<string, { path: string; label: string }> = {
-  data_entry: { path: '/leads', label: 'Pipeline CRM' },
+  data_entry: { path: '/leads', label: 'Quy trình CRM' },
   designer: { path: '/projects', label: 'Dự án' },
   pm: { path: '/projects', label: 'Dự án' },
   accountant: { path: '/accounting', label: 'Kế toán' },
-  admin: { path: '/', label: 'Dashboard' },
-  leader: { path: '/leads', label: 'Pipeline CRM' },
-  executive: { path: '/', label: 'Dashboard' },
+  admin: { path: '/', label: 'Tổng quan' },
+  leader: { path: '/leads', label: 'Quy trình CRM' },
+  executive: { path: '/', label: 'Tổng quan' },
   purchasing: { path: '/inventory', label: 'Kho vật tư' },
 };
 
@@ -25,19 +25,19 @@ interface RoleCard {
 
 const ROLE_CARDS: Record<string, RoleCard[]> = {
   data_entry: [
-    { icon: '🔄', title: 'Pipeline CRM', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
+    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
     { icon: '📋', title: 'Báo cáo', description: 'Xem hiệu suất cá nhân và thống kê', href: '/reports' },
     { icon: '🤝', title: 'Dự án', description: 'Theo dõi tiến độ dự án đã ký', href: '/projects' },
   ],
   designer: [
     { icon: '📋', title: 'Dự án', description: 'Xem danh sách dự án được giao', href: '/projects' },
     { icon: '💬', title: 'Báo giá', description: 'Tạo và quản lý báo giá thiết kế', href: '/quotations' },
-    { icon: '📊', title: 'Dashboard', description: 'Tổng quan công việc', href: '/' },
+    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan công việc', href: '/' },
   ],
   pm: [
     { icon: '📋', title: 'Dự án', description: 'Quản lý và điều phối dự án', href: '/projects' },
     { icon: '📦', title: 'Kho vật tư', description: 'Theo dõi vật tư và nguyên liệu', href: '/inventory' },
-    { icon: '📊', title: 'Dashboard', description: 'Tổng quan team', href: '/' },
+    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan team', href: '/' },
   ],
   accountant: [
     { icon: '💰', title: 'Kế toán', description: 'Quản lý thu chi và báo cáo tài chính', href: '/accounting' },
@@ -45,24 +45,24 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
     { icon: '👥', title: 'Nhân sự', description: 'Quản lý lương và nhân viên', href: '/hr' },
   ],
   admin: [
-    { icon: '📊', title: 'Dashboard', description: 'Tổng quan toàn hệ thống', href: '/' },
-    { icon: '🔄', title: 'Pipeline CRM', description: 'Quản lý tất cả leads', href: '/leads' },
+    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan toàn hệ thống', href: '/' },
+    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý tất cả leads', href: '/leads' },
     { icon: '⚙️', title: 'Cài đặt', description: 'Quản trị hệ thống', href: '/settings' },
   ],
   leader: [
-    { icon: '🔄', title: 'Pipeline CRM', description: 'Quản lý leads của team', href: '/leads' },
+    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý leads của team', href: '/leads' },
     { icon: '📋', title: 'Dự án', description: 'Theo dõi dự án team', href: '/projects' },
     { icon: '📊', title: 'Báo cáo', description: 'Báo cáo hiệu suất team', href: '/reports' },
   ],
   executive: [
-    { icon: '📊', title: 'Dashboard', description: 'Tổng quan điều hành', href: '/' },
+    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan điều hành', href: '/' },
     { icon: '📈', title: 'P&L', description: 'Báo cáo lợi nhuận', href: '/pl' },
     { icon: '📋', title: 'Báo cáo', description: 'Phân tích kinh doanh', href: '/reports' },
   ],
   purchasing: [
     { icon: '📦', title: 'Kho vật tư', description: 'Quản lý tồn kho và đặt hàng', href: '/inventory' },
     { icon: '📋', title: 'Dự án', description: 'Xem vật tư theo dự án', href: '/projects' },
-    { icon: '📊', title: 'Dashboard', description: 'Tổng quan công việc', href: '/' },
+    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan công việc', href: '/' },
   ],
 };
 

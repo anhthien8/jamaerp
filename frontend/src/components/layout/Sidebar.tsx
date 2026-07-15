@@ -26,12 +26,17 @@ const Icon = {
   reports: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>,
   settings: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
   more: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>,
+  attendance: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  approvals: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
+  kpi: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /><line x1="4" y1="20" x2="20" y2="20" /></svg>,
 };
 
 // ── All nav items (flat list) ────────────────────────────────────────
 const ALL_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: Icon.dashboard },
-  { href: '/leads', label: 'Pipeline', icon: Icon.pipeline, perm: 'canViewLeads' },
+  { href: '/', label: 'Tổng quan', icon: Icon.dashboard },
+  { href: '/attendance', label: 'Chấm công', icon: Icon.attendance },
+  { href: '/approvals', label: 'Phê duyệt', icon: Icon.approvals },
+  { href: '/leads', label: 'Quy trình', icon: Icon.pipeline, perm: 'canViewLeads' },
   { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations, perm: 'canViewLeads' },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
@@ -40,6 +45,7 @@ const ALL_ITEMS = [
   { href: '/inventory', label: 'Kho vật tư', icon: Icon.inventory, perm: 'canViewInventory' },
   { href: '/accounting', label: 'Kế toán', icon: Icon.accounting, perm: 'canViewAccounting' },
   { href: '/hr', label: 'Nhân sự', icon: Icon.hr, perm: 'canViewHR' },
+  { href: '/kpi', label: 'KPI', icon: Icon.kpi },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
@@ -49,14 +55,14 @@ const ALL_ITEMS = [
 
 // ── Role → essential items (KISS: only show what matters most) ───────
 const ROLE_ESSENTIALS: Record<string, string[]> = {
-  admin:      ['/', '/leads', '/projects', '/contracts', '/accounting', '/feedback'],
+  admin:      ['/', '/approvals', '/leads', '/projects', '/contracts', '/accounting', '/feedback'],
   executive:  ['/', '/projects', '/pl', '/reports'],
-  leader:     ['/', '/leads', '/quote-tool', '/projects', '/reports'],
-  data_entry: ['/', '/leads', '/quote-tool', '/projects', '/contracts'],
-  designer:   ['/', '/projects', '/quotations'],
-  pm:         ['/', '/projects', '/inventory', '/contracts'],
-  accountant: ['/', '/accounting', '/pl', '/finance'],
-  purchasing: ['/', '/projects', '/inventory'],
+  leader:     ['/', '/approvals', '/leads', '/quote-tool', '/projects', '/reports'],
+  data_entry: ['/', '/attendance', '/leads', '/quote-tool', '/projects', '/contracts'],
+  designer:   ['/', '/attendance', '/projects', '/quotations'],
+  pm:         ['/', '/attendance', '/approvals', '/projects', '/inventory', '/contracts'],
+  accountant: ['/', '/approvals', '/attendance', '/accounting', '/pl', '/finance'],
+  purchasing: ['/', '/attendance', '/projects', '/inventory'],
 };
 
 export default function Sidebar({ children }: { children: ReactNode }) {
@@ -213,10 +219,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.25)' : 'rgba(74,222,128,0.2)'}`,
             color: mode === 'demo' ? '#FBBF24' : '#4ADE80',
           }}
-          title={mode === 'demo' ? 'Chuyen sang Work Mode' : 'Chuyen sang Demo Mode'}
+          title={mode === 'demo' ? 'Chuyển sang Chế độ Làm việc' : 'Chuyển sang Chế độ Tập luyện'}
         >
           <span className="text-sm">{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
-          <span>{mode === 'demo' ? 'DEMO MODE' : 'WORK MODE'}</span>
+          <span>{mode === 'demo' ? 'TẬP LUYỆN' : 'LÀM VIỆC'}</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
             <polyline points="6 9 12 15 18 9" />
           </svg>
@@ -251,6 +257,9 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             </svg>
           </button>
         </div>
+        <p className="text-center text-[10px] mt-2 select-none" style={{ color: 'var(--text-disabled)', opacity: 0.8 }} title="Người phát triển hệ thống">
+          Dev bởi Dương Anh Thiện
+        </p>
       </div>
     </>
   );
@@ -315,7 +324,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
             <div className="flex items-center gap-2">
               <span>🎯</span>
-              <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>DEMO MODE</span>
+              <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>CHẾ ĐỘ TẬP LUYỆN</span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu mẫu, dùng để demo cho nhân sự</span>
             </div>
             <button onClick={() => setMode('work')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium">
@@ -326,7 +335,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-semibold text-emerald-400">WORK MODE</span>
+              <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
             </div>
             <button onClick={() => setMode('demo')} className="text-[10px] px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors font-medium">

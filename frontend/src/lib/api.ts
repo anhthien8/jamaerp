@@ -196,6 +196,39 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return { status: 'ok' } as T;
   }
 
+  // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương ──
+  if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
+  if (path === '/attendance/today') return { record: null } as T;
+  if (path === '/attendance/me') {
+    return {
+      summary: { period: '2026-07', records: 20, work_days: 20, work_days_fraction: 20, total_hours: 160, ot_approved_hours: 4, needs_review: 0 },
+      records: [
+        { id: 'demo-att-1', user_id: 'demo-user', work_date: '2026-07-14', check_in: '2026-07-14 08:01', check_out: '2026-07-14 17:32', project_id: null, source: 'web', work_hours: 8, ot_hours: 1.5, ot_status: 'approved', needs_review: false, note: null },
+        { id: 'demo-att-2', user_id: 'demo-user', work_date: '2026-07-13', check_in: '2026-07-13 07:58', check_out: '2026-07-13 17:05', project_id: null, source: 'telegram', work_hours: 8, ot_hours: 0, ot_status: 'none', needs_review: false, note: null },
+      ],
+    } as T;
+  }
+  if (path === '/attendance/team') return { period: '2026-07', items: [] } as T;
+  if (path === '/attendance/ot/pending') return { items: [] } as T;
+  if (path === '/approvals/pending-for-me') {
+    return { items: [
+      { id: 'demo-apr-1', type: 'leave', type_label: 'Nghỉ phép', ref_id: 'demo-leave-1', title: 'Phép năm 2 ngày (2026-07-20 → 2026-07-21) — Nguyễn Văn Sale', amount: null, requester_id: 'u-sales', requester_name: 'Nguyễn Văn Sale', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-14 09:00', resolved_at: null, delegated: false },
+    ], count: 1 } as T;
+  }
+  if (path === '/approvals/my-requests') return { items: [] } as T;
+  if (path === '/approvals/handled') return { items: [] } as T;
+  if (path === '/leaves/me') return { items: [] } as T;
+  if (path === '/leaves/balance/me') return { year: 2026, annual_total: 12, annual_used: 3, annual_remaining: 9, sick_used: 0, unpaid_used: 0 } as T;
+  if (path === '/leaves/calendar') return { month: params?.month || '2026-07', items: [] } as T;
+  if (path === '/payroll/me') {
+    return { items: [
+      { id: 'demo-pay-1', period: '2026-06', base_salary: 12000000, work_days: 22, standard_days: 22, ot_hours: 4, ot_pay: 409000, commission_total: 6500000, bonus: 0, allowance: 0, gross_salary: 18909000, bhxh_employee: 1260000, taxable_income: 6649000, pit: 414900, advance_deduction: 0, deductions: 0, net_salary: 17234100, status: 'paid', notes: null, paid_at: '2026-07-05', payslip_sent_at: '2026-07-05' },
+    ] } as T;
+  }
+  if (path === '/payroll/advances/me') return { items: [] } as T;
+  if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
+  if (path === '/payroll') return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
+
   // Fallback: throw so caller shows error
   throw new Error(`Demo mode: no data for ${path}`);
 }
@@ -354,6 +387,13 @@ class ApiClient {
 
   async getProjectTasks(projectId: string) {
     return this.request<ProjectTask[]>(`/projects/${projectId}/tasks`);
+  }
+
+  /** Dự án đang đến phòng bạn (Tổng quan designer/pm/purchasing) — spec 07 A3 */
+  async getProjectsByDepartment(dept: 'DESIGN' | 'PURCHASING' | 'PM', limit = 5) {
+    return this.request<{ department: string; items: (Project & { pending_tasks: number; days_left: number | null })[] }>(
+      '/projects/by-department', { params: { dept, limit: String(limit) } }
+    );
   }
 
   async createTask(projectId: string, data: { title: string; stage: string; department?: string; assigned_to?: string }) {
@@ -561,6 +601,116 @@ class ApiClient {
     );
   }
 
+  // === HR Phase 1: Chấm công ===
+  async attendanceCheckin(data?: { project_id?: string; latitude?: number; longitude?: number }) {
+    return this.request<{ record: AttendanceRecord; created: boolean; message: string }>(
+      '/attendance/checkin', { method: 'POST', body: data || {} }
+    );
+  }
+  async attendanceCheckout() {
+    return this.request<{ record: AttendanceRecord; message: string }>('/attendance/checkout', { method: 'POST' });
+  }
+  async attendanceToday() {
+    return this.request<{ record: AttendanceRecord | null }>('/attendance/today');
+  }
+  async myAttendance(period?: string) {
+    return this.request<{ summary: AttendanceSummary; records: AttendanceRecord[] }>(
+      '/attendance/me', { params: period ? { period } : undefined }
+    );
+  }
+  async teamAttendance(period?: string, teamId?: string) {
+    const params: Record<string, string> = {};
+    if (period) params.period = period;
+    if (teamId) params.team_id = teamId;
+    return this.request<{ period: string; items: TeamAttendanceRow[] }>(
+      '/attendance/team', { params: Object.keys(params).length ? params : undefined }
+    );
+  }
+  async pendingOT() {
+    return this.request<{ items: (AttendanceRecord & { full_name: string })[] }>('/attendance/ot/pending');
+  }
+  async approveOT(recordId: string) {
+    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-approve`, { method: 'POST' });
+  }
+  async rejectOT(recordId: string) {
+    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-reject`, { method: 'POST' });
+  }
+
+  // === HR Phase 1: Phê duyệt ===
+  async approvalsPendingForMe() {
+    return this.request<{ items: ApprovalItem[]; count: number }>('/approvals/pending-for-me');
+  }
+  async approvalsMyRequests() {
+    return this.request<{ items: ApprovalItem[] }>('/approvals/my-requests');
+  }
+  async approvalsHandled() {
+    return this.request<{ items: ApprovalItem[] }>('/approvals/handled');
+  }
+  async approveRequest(id: string) {
+    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/approve`, { method: 'POST' });
+  }
+  async rejectRequest(id: string, reason: string) {
+    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/reject`, { method: 'POST', body: { reason } });
+  }
+  async requestChanges(id: string, reason: string) {
+    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/request-changes`, { method: 'POST', body: { reason } });
+  }
+  async cancelRequest(id: string) {
+    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/cancel`, { method: 'POST' });
+  }
+
+  // === HR Phase 1: Nghỉ phép ===
+  async createLeave(data: { leave_type: string; start_date: string; end_date: string; half_day?: boolean; reason: string }) {
+    return this.request<{ leave: LeaveItem; approval_id: string }>('/leaves', { method: 'POST', body: data });
+  }
+  async myLeaves() {
+    return this.request<{ items: LeaveItem[] }>('/leaves/me');
+  }
+  async myLeaveBalance(year?: number) {
+    return this.request<LeaveBalanceInfo>('/leaves/balance/me', { params: year ? { year: String(year) } : undefined });
+  }
+  async leaveCalendar(month: string, teamId?: string) {
+    const params: Record<string, string> = { month };
+    if (teamId) params.team_id = teamId;
+    return this.request<{ month: string; items: (LeaveItem & { full_name: string })[] }>('/leaves/calendar', { params });
+  }
+
+  // === HR Phase 1: Lương ===
+  async myPayslips() {
+    return this.request<{ items: PayrollRow[] }>('/payroll/me');
+  }
+  async payrollGenerate(period: string) {
+    return this.request<{ period: string; created: number; total_net: number; missing_grade: number }>(
+      `/payroll/generate?period=${period}`, { method: 'POST' }
+    );
+  }
+  async payrollList(period: string) {
+    return this.request<{ period: string; items: (PayrollRow & { full_name: string; role: string })[]; total_net: number; total_company_cost: number; status: string | null }>(
+      '/payroll', { params: { period } }
+    );
+  }
+  async payrollSubmit(period: string) {
+    return this.request<{ period: string; rows: number; total_net: number; approval_id: string }>(
+      `/payroll/${period}/submit`, { method: 'POST' }
+    );
+  }
+  async payrollPay(period: string) {
+    return this.request<{ period: string; paid_rows: number; sent: number; manual_delivery: string[] }>(
+      `/payroll/${period}/pay`, { method: 'POST' }
+    );
+  }
+  async payrollUpdateRow(rowId: string, data: { bonus?: number; allowance?: number; deductions?: number; notes?: string }) {
+    return this.request<{ row: PayrollRow }>(`/payroll/rows/${rowId}`, { method: 'PATCH', body: data });
+  }
+  async createAdvance(data: { amount: number; reason: string }) {
+    return this.request<{ advance: { id: string; amount: number; status: string }; approval_id: string }>(
+      '/payroll/advance', { method: 'POST', body: data }
+    );
+  }
+  async myAdvances() {
+    return this.request<{ items: { id: string; amount: number; reason: string; status: string; period_deducted: string | null; created_at: string }[] }>('/payroll/advances/me');
+  }
+
   // === ERP: P&L (C-level only) ===
   async getPnLSummary() {
     return this.request<PnLSummary>('/pl/summary');
@@ -695,6 +845,20 @@ class ApiClient {
     return this.request<{ status: string }>(`/instant-quote/price-items/${id}`, { method: 'PUT', body: data });
   }
 
+  // ── KPI ──
+  async getKpiMe(period?: string) {
+    return this.request<{ period: string; score: number; metrics: { activity_rate: number; sla_compliance: number; first_touch_hours: number; signed_count: number; signed_value: number; stage_conversion: number; pipeline_value_weighted: number; recall_rate: number; lost_no_response_rate: number }; rank_in_team: number | null; rank_overall: number | null }>(
+      '/kpi/me', { params: period ? { period } : undefined });
+  }
+  async getKpiTeam(period?: string) {
+    return this.request<{ period: string; members: Array<{ user_id: string; name: string; score: number; metrics: { activity_rate: number; sla_compliance: number; first_touch_hours: number; signed_count: number; signed_value: number; stage_conversion: number; pipeline_value_weighted: number; recall_rate: number; lost_no_response_rate: number } }> }>(
+      '/kpi/team', { params: period ? { period } : undefined });
+  }
+  async getKpiLeaderboard(period?: string) {
+    return this.request<{ leaderboard: Array<{ rank: number; score: number; name: string | null; is_me: boolean }> }>(
+      '/kpi/leaderboard', { params: period ? { period } : undefined });
+  }
+
   logout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('jama_token');
@@ -795,6 +959,8 @@ export interface Project {
   target_end_date?: string;
   created_at: string;
   updated_at: string;
+  /** Tiến độ đầu việc theo giai đoạn (chỉ có ở API kanban) */
+  stage_progress?: Record<string, { done: number; total: number }> | null;
 }
 
 export interface ProjectTask {
@@ -1261,6 +1427,108 @@ export interface AISettingsResponse {
 }
 
 // === Pagination ===
+// === HR Phase 1 types ===
+export interface AttendanceRecord {
+  id: string;
+  user_id: string;
+  work_date: string;
+  check_in: string | null;
+  check_out: string | null;
+  project_id: string | null;
+  source: string;
+  work_hours: number;
+  ot_hours: number;
+  ot_status: 'none' | 'pending' | 'approved' | 'rejected';
+  needs_review: boolean;
+  note: string | null;
+}
+
+export interface AttendanceSummary {
+  period: string;
+  records: number;
+  work_days: number;
+  work_days_fraction: number;
+  total_hours: number;
+  ot_approved_hours: number;
+  needs_review: number;
+}
+
+export interface TeamAttendanceRow extends AttendanceSummary {
+  user_id: string;
+  full_name: string;
+  role: string;
+  team_id: string | null;
+}
+
+export interface ApprovalItem {
+  id: string;
+  type: string;
+  type_label: string;
+  ref_id: string;
+  title: string;
+  amount: number | null;
+  requester_id: string;
+  requester_name?: string;
+  current_approver_id?: string | null;
+  step: number;
+  total_steps: number;
+  status: 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'cancelled';
+  reason: string | null;
+  due_at: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  delegated?: boolean;
+}
+
+export interface LeaveItem {
+  id: string;
+  user_id: string;
+  leave_type: 'annual' | 'sick' | 'unpaid';
+  leave_type_label: string;
+  start_date: string;
+  end_date: string;
+  days: number;
+  reason: string;
+  status: string;
+  approval_id: string | null;
+  created_at: string;
+}
+
+export interface LeaveBalanceInfo {
+  year: number;
+  annual_total: number;
+  annual_used: number;
+  annual_remaining: number;
+  sick_used: number;
+  unpaid_used: number;
+}
+
+export interface PayrollRow {
+  id: string;
+  user_id?: string;
+  period: string;
+  base_salary: number;
+  work_days: number;
+  standard_days: number;
+  ot_hours: number;
+  ot_pay: number;
+  commission_total: number;
+  bonus: number;
+  allowance: number;
+  gross_salary: number;
+  bhxh_employee: number;
+  bhxh_company?: number;
+  taxable_income: number;
+  pit: number;
+  advance_deduction: number;
+  deductions: number;
+  net_salary: number;
+  status: string;
+  notes: string | null;
+  paid_at: string | null;
+  payslip_sent_at: string | null;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

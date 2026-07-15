@@ -31,8 +31,8 @@ async def cmd_start(message: types.Message):
             f"/baocao [Mã DA] [Nội dung] — Báo cáo công trình\n"
             f"/vatlieu [Mã DA] [Vật tư] - [SL] [Đơn vị] — Yêu cầu vật tư\n"
             f"/suco [Mã DA] [Mô tả] — Báo cáo sự cố\n"
-            f"/checkin [Mã DA] — Check-in GPS\n"
-            f"/checkout [Mã DA] — Check-out GPS\n\n"
+            f"/checkin [Mã DA] — Điểm danh GPS\n"
+            f"/checkout [Mã DA] — Tan ca GPS\n\n"
             f"💡 <i>Hoặc forward/paste tin nhắn Zalo trực tiếp để bot tự parse!</i>"
         )
     else:

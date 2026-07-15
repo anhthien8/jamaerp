@@ -68,6 +68,8 @@ class Project(Base):
         Index("ix_projects_stage_status", "stage", "status"),
         Index("ix_projects_pm", "pm_id", "status"),
         Index("ix_projects_created", "created_at"),
+        # Sort ưu tiên nguồn lực (spec 07B): quá hạn → cận hạn → giá trị HĐ
+        Index("ix_projects_end_value", "status", "target_end_date", "total_value"),
     )
 
     def __repr__(self) -> str:

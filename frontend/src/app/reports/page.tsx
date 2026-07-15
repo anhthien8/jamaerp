@@ -83,7 +83,7 @@ export default function ReportsPage() {
 
             {/* Conversion Funnel */}
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">Pipeline Funnel</h2>
+              <h2 className="text-lg font-semibold mb-4">Phễu quy trình</h2>
               {dashboard ? (
                 <>
                   <div className="flex items-center gap-4 mb-4">
@@ -192,7 +192,7 @@ export default function ReportsPage() {
                     { label: 'Tổng leads', value: dashboard.total_leads, color: '#3B82F6' },
                     { label: 'Leads tháng này', value: dashboard.total_leads_month, color: '#8B5CF6' },
                     { label: 'Dự án active', value: dashboard.active_projects, color: '#10B981' },
-                    { label: 'Pipeline value', value: formatCurrency(dashboard.pipeline_value), color: '#C9A96E' },
+                    { label: 'Giá trị pipeline', value: formatCurrency(dashboard.pipeline_value), color: '#C9A96E' },
                     { label: 'SLA Compliance', value: `${dashboard.sla_compliance?.toFixed(0) || 0}%`, color: '#10B981' },
                     { label: 'Leads quá hạn', value: dashboard.overdue_leads, color: '#EF4444' },
                     { label: 'HĐ ký', value: dashboard.total_contracts, color: '#C9A96E' },

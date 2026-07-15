@@ -56,6 +56,9 @@ class ProjectResponse(BaseModel):
     target_end_date: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    # Tiến độ đầu việc theo giai đoạn: {"design": {"done": 3, "total": 5}, ...}
+    # Chỉ được đổ ở endpoint kanban (aggregate 1 query) — nơi khác để None
+    stage_progress: dict[str, dict] | None = None
 
     model_config = {"from_attributes": True}
 

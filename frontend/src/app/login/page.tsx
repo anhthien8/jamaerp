@@ -97,7 +97,7 @@ export default function LoginPage() {
                 }}
               >
                 <span className="text-base">&#x1F3AF;</span>
-                <span>Demo Mode</span>
+                <span>Chế độ Tập luyện</span>
               </button>
               <button
                 type="button"
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 }}
               >
                 <span className="text-base">&#x1F4BC;</span>
-                <span>Work Mode</span>
+                <span>Chế độ Làm việc</span>
               </button>
             </div>
             <p className="text-center text-[0.6875rem] mt-2" style={{ color: 'var(--text-disabled)' }}>
@@ -210,7 +210,10 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="text-center text-xs text-[var(--text-muted)] mt-6">
-            JAMA HOME ERP v1.0 -- Noi that cao cap
+            JAMA HOME ERP v1.0 — Nội thất cao cấp
+          </p>
+          <p className="text-center text-[11px] mt-1" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+            Phát triển bởi <span className="gold-gradient font-medium">Dương Anh Thiện</span>
           </p>
         </div>
       </div>
