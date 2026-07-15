@@ -28,7 +28,16 @@ async def lifespan(app: FastAPI):
 
     if settings.APP_ENV == "production":
         # Production: start.sh/db_upgrade.py handles migrations before uvicorn starts.
-        # No seed, no create_all — keeps startup fast for Railway healthcheck.
+        # Seed only if DB is empty (first boot) — seed_database is a no-op if users exist.
+        from app.database import async_session
+        from app.seed import seed_database
+        async with async_session() as db:
+            try:
+                await seed_database(db)
+                await db.commit()
+            except Exception as e:
+                print(f"[WARN] Seed error: {e}")
+                await db.rollback()
         print(f"[OK] {settings.APP_NAME} started (production)")
     else:
         # Dev/test: run migrations + create_all + seed
