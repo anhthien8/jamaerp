@@ -10,6 +10,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user, hash_password
 from app.models.user import User, Team
 from app.schemas.user import UserCreate, UserUpdate, VALID_ROLES
+from app.services.audit import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -126,6 +127,10 @@ async def create_user(
     )
     db.add(user)
     await db.flush()
+    await log_action(
+        db, actor=current_user, action="user.create", entity_type="user", entity_id=user.id,
+        after={"email": user.email, "role": user.role, "department": user.department},
+    )
     return {
         "id": user.id, "full_name": user.full_name, "email": user.email,
         "role": user.role, "department": user.department,
@@ -160,6 +165,7 @@ async def update_user(
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_username"]
+    before_sensitive = {"role": user.role, "is_active": user.is_active, "team_id": user.team_id}
     for k in allowed:
         if k in provided:
             setattr(user, k, provided[k])
@@ -167,6 +173,20 @@ async def update_user(
         user.password_hash = hash_password(data.password)
     user.updated_at = datetime.now(timezone.utc)
     await db.flush()
+
+    # Audit các thay đổi nhạy cảm (quyền, trạng thái, đội)
+    changed_sensitive = {
+        k: v for k, v in before_sensitive.items()
+        if k in provided and provided[k] != v
+    }
+    if changed_sensitive or ("password" in provided and data.password):
+        after = {k: getattr(user, k) for k in changed_sensitive}
+        if "password" in provided and data.password:
+            after["password"] = "***changed***"
+        await log_action(
+            db, actor=current_user, action="user.update", entity_type="user", entity_id=user.id,
+            before=changed_sensitive or None, after=after,
+        )
 
     return {
         "id": user.id, "full_name": user.full_name, "email": user.email,

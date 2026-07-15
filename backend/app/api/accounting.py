@@ -28,6 +28,8 @@ async def list_transactions(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """List transactions."""
+    if current_user.role not in ("admin", "accountant", "leader", "data_entry"):
+        raise HTTPException(status_code=403, detail="Không có quyền xem giao dịch tài chính")
     q = select(Transaction).order_by(Transaction.date.desc())
     if type:
         q = q.where(Transaction.type == type)
@@ -269,6 +271,11 @@ async def create_commission(
     """Create commission record."""
     if current_user.role not in ("admin", "accountant"):
         raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+    # Kỳ lương đã khóa → cấm thêm hoa hồng lùi kỳ
+    if data.period:
+        from app.services.attendance_service import is_period_locked
+        if await is_period_locked(db, data.period):
+            raise HTTPException(status_code=409, detail=f"Kỳ lương {data.period} đã khóa — không thể thêm hoa hồng")
     import uuid
     comm = Commission(
         id=str(uuid.uuid4()),
@@ -306,6 +313,11 @@ async def update_commission_status(
     comm = result.scalar_one_or_none()
     if not comm:
         raise HTTPException(status_code=404, detail="Hoa hồng không tồn tại")
+    # Kỳ lương đã khóa → cấm đổi trạng thái hoa hồng của kỳ đó
+    if comm.period:
+        from app.services.attendance_service import is_period_locked
+        if await is_period_locked(db, comm.period):
+            raise HTTPException(status_code=409, detail=f"Kỳ lương {comm.period} đã khóa — không thể sửa hoa hồng")
     if data.status is not None:
         comm.status = data.status
     await db.flush()

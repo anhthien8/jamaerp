@@ -11,6 +11,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.salary_grade import SalaryGrade
+from app.services.audit import log_action
 
 
 class SalaryGradeCreate(BaseModel):
@@ -42,7 +43,7 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 @router.get("")
-async def list_grades(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def list_grades(db: AsyncSession = Depends(get_db), current_user: User = Depends(_require_admin)):
     result = await db.execute(select(SalaryGrade).order_by(SalaryGrade.base_salary))
     grades = result.scalars().all()
     return [
@@ -80,10 +81,16 @@ async def update_grade(grade_id: str, data: SalaryGradeUpdate, db: AsyncSession 
     grade = result.scalar_one_or_none()
     if not grade:
         raise HTTPException(status_code=404, detail="Bậc lương không tồn tại")
-    for k, v in data.model_dump(exclude_unset=True).items():
+    provided = data.model_dump(exclude_unset=True)
+    before = {k: getattr(grade, k) for k in provided if hasattr(grade, k)}
+    for k, v in provided.items():
         if hasattr(grade, k):
             setattr(grade, k, v)
     await db.flush()
+    await log_action(
+        db, actor=current_user, action="salary_grade.update", entity_type="salary_grade",
+        entity_id=grade.id, before=before, after=provided,
+    )
     return {"id": grade.id, "grade_name": grade.grade_name, "base_salary": grade.base_salary}
 
 
@@ -93,6 +100,10 @@ async def delete_grade(grade_id: str, db: AsyncSession = Depends(get_db), curren
     grade = result.scalar_one_or_none()
     if not grade:
         raise HTTPException(status_code=404, detail="Bậc lương không tồn tại")
+    await log_action(
+        db, actor=current_user, action="salary_grade.delete", entity_type="salary_grade",
+        entity_id=grade.id, before={"grade_name": grade.grade_name, "base_salary": grade.base_salary},
+    )
     await db.delete(grade)
     await db.flush()
     return {"message": "Đã xóa bậc lương"}

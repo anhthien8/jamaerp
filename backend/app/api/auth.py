@@ -128,6 +128,8 @@ async def list_users(
     current_user: User = Depends(get_current_user),
 ):
     """List all users (for assignment dropdowns etc)."""
+    if current_user.role not in ("admin", "accountant", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền xem danh sách nhân viên")
     result = await db.execute(select(User).where(User.is_active == True).order_by(User.full_name))
     users = result.scalars().all()
     return [UserResponse.model_validate(u) for u in users]
