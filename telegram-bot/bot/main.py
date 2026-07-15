@@ -4,6 +4,8 @@ import asyncio
 import logging
 import os
 import sys
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
@@ -33,11 +35,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","service":"telegram-bot"}')
+    def log_message(self, *args):
+        pass
+
+
+def _start_health_server():
+    port = int(os.getenv("PORT", "8080"))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    logger.info(f"Health server on port {port}")
+    server.serve_forever()
+
+
 async def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN not set!")
         sys.exit(1)
+
+    # Start health server for Railway healthcheck
+    threading.Thread(target=_start_health_server, daemon=True).start()
 
     bot = Bot(
         token=token,
@@ -58,7 +80,7 @@ async def main():
     dp.include_router(feedback.router)
     dp.include_router(hr.router)
 
-    logger.info("🚀 JAMA HOME CRM Bot starting...")
+    logger.info("JAMA HOME CRM Bot starting...")
     await dp.start_polling(bot)
 
 
