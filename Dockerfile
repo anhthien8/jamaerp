@@ -1,19 +1,30 @@
-FROM node:20-alpine AS builder
+FROM python:3.12-slim
+
+ARG SERVICE=backend
 
 WORKDIR /app
 
-COPY backend/requirements.txt /app/requirements.txt
-RUN apk add --no-cache python3 py3-pip && \
-    pip3 install --no-cache-dir -r /app/requirements.txt
+# Backend service
+RUN if [ "$SERVICE" = "backend" ]; then \
+      cp backend/requirements.txt ./requirements.txt && \
+      pip install --no-cache-dir -r requirements.txt && \
+      cp -r backend/. . ; \
+    fi
 
-COPY backend/ /app/backend/
+# Telegram-bot service
+RUN if [ "$SERVICE" = "telegram-bot" ]; then \
+      cp telegram-bot/requirements.txt ./requirements.txt && \
+      pip install --no-cache-dir -r requirements.txt && \
+      cp -r telegram-bot/. . ; \
+    fi
 
-WORKDIR /app/backend
+RUN groupadd -r app && useradd -r -g app app
+RUN if [ "$SERVICE" = "backend" ]; then chmod +x start.sh; fi
+USER app
 
-ENV PYTHONPATH=/app/backend
-ENV APP_ENV=production
-ENV DEBUG=false
-
-EXPOSE 8000
-
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start command varies by service
+CMD if [ "$SERVICE" = "backend" ]; then \
+      exec ./start.sh; \
+    else \
+      exec python -m bot.main; \
+    fi
