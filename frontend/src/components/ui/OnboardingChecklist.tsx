@@ -8,13 +8,11 @@ import { startGuidedTour } from '@/components/ui/GuidedTour';
 
 const ROLE_PRIMARY_PAGE: Record<string, { path: string; label: string }> = {
   data_entry: { path: '/leads', label: 'Quy trình CRM' },
-  designer: { path: '/projects', label: 'Dự án' },
-  pm: { path: '/projects', label: 'Dự án' },
+  supervisor: { path: '/projects', label: 'Dự án' },
   accountant: { path: '/accounting', label: 'Kế toán' },
   admin: { path: '/', label: 'Tổng quan' },
   leader: { path: '/leads', label: 'Quy trình CRM' },
   executive: { path: '/', label: 'Tổng quan' },
-  purchasing: { path: '/inventory', label: 'Kho vật tư' },
 };
 
 interface RoleCard {
@@ -30,15 +28,10 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
     { icon: '📋', title: 'Báo cáo', description: 'Xem hiệu suất cá nhân và thống kê', href: '/reports' },
     { icon: '🤝', title: 'Dự án', description: 'Theo dõi tiến độ dự án đã ký', href: '/projects' },
   ],
-  designer: [
-    { icon: '📋', title: 'Dự án', description: 'Xem danh sách dự án được giao', href: '/projects' },
-    { icon: '💬', title: 'Báo giá', description: 'Tạo và quản lý báo giá thiết kế', href: '/quotations' },
-    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan công việc', href: '/' },
-  ],
-  pm: [
-    { icon: '📋', title: 'Dự án', description: 'Quản lý và điều phối dự án', href: '/projects' },
-    { icon: '📦', title: 'Kho vật tư', description: 'Theo dõi vật tư và nguyên liệu', href: '/inventory' },
-    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan team', href: '/' },
+  supervisor: [
+    { icon: '📋', title: 'Dự án', description: 'Điều phối & thi công dự án (Thiết kế/Thu mua/Dự án)', href: '/projects' },
+    { icon: '📦', title: 'Kho vật tư', description: 'Theo dõi vật tư và duyệt yêu cầu', href: '/inventory' },
+    { icon: '💬', title: 'Báo giá', description: 'Tạo và quản lý báo giá', href: '/quotations' },
   ],
   accountant: [
     { icon: '💰', title: 'Kế toán', description: 'Quản lý thu chi và báo cáo tài chính', href: '/accounting' },
@@ -59,11 +52,6 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
     { icon: '📊', title: 'Tổng quan', description: 'Tổng quan điều hành', href: '/' },
     { icon: '📈', title: 'P&L', description: 'Báo cáo lợi nhuận', href: '/pl' },
     { icon: '📋', title: 'Báo cáo', description: 'Phân tích kinh doanh', href: '/reports' },
-  ],
-  purchasing: [
-    { icon: '📦', title: 'Kho vật tư', description: 'Quản lý tồn kho và đặt hàng', href: '/inventory' },
-    { icon: '📋', title: 'Dự án', description: 'Xem vật tư theo dự án', href: '/projects' },
-    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan công việc', href: '/' },
   ],
 };
 

@@ -99,16 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Email hoặc mật khẩu không đúng (Demo Mode)');
     }
 
-    // Work mode: try real API first
+    // Work mode: try real API first.
+    // QUAN TRỌNG: phải xóa cờ jama_demo TRƯỚC khi gọi api.login — vì api.request()
+    // kiểm isDemoMode() (đọc localStorage 'jama_demo') ngay đầu. Nếu phiên trước ở
+    // Demo mà chưa xóa cờ, "login Work" sẽ chạy demo resolver → vào nhầm Demo (bug cũ).
+    localStorage.setItem('jama_demo', 'false');
+    localStorage.setItem('jama_mode', 'work');
+    setModeState('work');
     try {
       const data = await api.login(email, password);
       setUser(data.user);
-      setModeState('work');
-      localStorage.setItem('jama_mode', 'work');
-      localStorage.setItem('jama_demo', 'false');
       return;
     } catch {
-      // API unavailable — fallback to demo
+      // API unavailable — fallback to demo (chỉ khi đúng mật khẩu demo)
     }
 
     // Demo fallback if API unavailable

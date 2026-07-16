@@ -9,22 +9,22 @@ import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  admin: { label: 'Admin', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
+  admin: { label: 'Giám đốc', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
   leader: { label: 'Trưởng phòng', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
   executive: { label: 'Ban Quản Trị', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
-  purchasing: { label: 'Thu mua', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
-  data_entry: { label: 'Sales Rep', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  designer: { label: 'Thiết kế', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-  pm: { label: 'Project Manager', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
-  accountant: { label: 'Kế toán', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
+  data_entry: { label: 'Nhân viên Sale', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+  supervisor: { label: 'Giám sát', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
+  accountant: { label: 'Kế toán / Nhân sự', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
 };
 
 const DEPT_LABELS: Record<string, string> = {
-  sales: 'Kinh doanh',
-  design: 'Thiết kế',
-  construction: 'Thi công',
-  accounting: 'Kế toán',
-  management: 'Ban lãnh đạo',
+  SALES: 'Kinh doanh',
+  OPS: 'Giám sát / Vận hành',
+  ACCT: 'Kế toán',
+  EXEC: 'Ban Giám đốc',
+  // giữ chữ thường phòng khi dữ liệu cũ còn lưu lowercase
+  sales: 'Kinh doanh', design: 'Thiết kế', construction: 'Thi công',
+  accounting: 'Kế toán', management: 'Ban lãnh đạo',
 };
 
 interface ResignPreviewData {
@@ -413,20 +413,16 @@ export default function HRPage() {
             <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
               <option value="data_entry">Nhân viên Sale</option>
               <option value="leader">Trưởng phòng</option>
-              <option value="designer">Nhân viên Thiết kế</option>
-              <option value="pm">Trưởng Dự án</option>
-              <option value="purchasing">Thu mua</option>
-              <option value="accountant">Kế toán</option>
+              <option value="supervisor">Giám sát (Thiết kế / Thu mua / Dự án)</option>
+              <option value="accountant">Kế toán / Nhân sự</option>
               <option value="admin">Giám đốc</option>
               <option value="executive">Ban Quản Trị</option>
             </select>
             <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
               <option value="SALES">Kinh doanh</option>
-              <option value="DESIGN">Thiết kế</option>
-              <option value="PURCHASING">Thu mua</option>
+              <option value="OPS">Giám sát / Vận hành</option>
               <option value="ACCT">Kế toán</option>
               <option value="EXEC">Ban Giám đốc</option>
-              <option value="PROJECT">Dự án</option>
             </select>
           </div>
           <div className="flex gap-2 mt-4">

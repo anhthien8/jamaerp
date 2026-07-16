@@ -77,12 +77,12 @@ export default function LoginPage() {
             <img
               src="https://jamahome.vn/wp-content/uploads/2026/07/NEW-LOGO-JAMA-HOME-TACH-NEN-scaled.png"
               alt="JAMA HOME"
-              className="h-16 w-auto mx-auto mb-3 object-contain"
+              className="h-24 sm:h-28 w-auto max-w-[280px] mx-auto mb-3 object-contain"
               onError={(e) => {
                 // Fallback nếu ảnh remote lỗi (offline/hotlink): hiện chữ
                 const el = e.currentTarget;
                 el.style.display = 'none';
-                el.insertAdjacentHTML('afterend', '<h1 class="text-2xl font-bold gold-gradient">JAMA HOME</h1>');
+                el.insertAdjacentHTML('afterend', '<h1 class="text-3xl font-bold gold-gradient">JAMA HOME</h1>');
               }}
             />
             <p className="text-[var(--text-secondary)] mt-1">Hệ thống Quản lý ERP</p>

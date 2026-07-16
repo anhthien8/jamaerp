@@ -513,7 +513,18 @@ function AISettingsSection() {
         llm_model: s.llm_model,
         llm_fallback_model: s.llm_fallback_model,
       }));
-    }).catch(() => {});
+    }).catch(() => {
+      // Fallback: vẫn hiện form để admin cấu hình (trước đây return null làm section biến mất)
+      setData({
+        llm_model: '', llm_api_key_masked: '', llm_api_key_set: false,
+        llm_fallback_model: '', llm_fallback_api_key_masked: '', llm_fallback_api_key_set: false,
+        presets: [
+          { label: 'Groq — Llama 3.3 70B (free)', model: 'groq/llama-3.3-70b-versatile' },
+          { label: 'Google Gemini 2.0 Flash (free)', model: 'google/gemini-2.0-flash-exp' },
+          { label: 'Ollama local', model: 'ollama/llama3.2' },
+        ],
+      });
+    });
   }, []);
 
   const save = useCallback(async () => {

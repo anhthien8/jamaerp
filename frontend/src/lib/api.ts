@@ -244,6 +244,23 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
   if (path === '/payroll') return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
 
+  // ── AI Settings (demo) ──
+  if (path === '/ai-settings') {
+    return {
+      llm_model: 'groq/llama-3.3-70b-versatile',
+      llm_api_key_masked: '', llm_api_key_set: false,
+      llm_fallback_model: 'google/gemini-2.0-flash-exp',
+      llm_fallback_api_key_masked: '', llm_fallback_api_key_set: false,
+      presets: [
+        { label: 'Groq — Llama 3.3 70B (free, khuyến nghị)', model: 'groq/llama-3.3-70b-versatile' },
+        { label: 'Google Gemini 2.0 Flash (free)', model: 'google/gemini-2.0-flash-exp' },
+        { label: 'OpenRouter — free models', model: 'openrouter/auto' },
+        { label: 'Ollama local (không cần key)', model: 'ollama/llama3.2' },
+      ],
+    } as T;
+  }
+  if (path === '/ai-settings/test') return { status: 'ok', model: 'demo-model', reply: 'Xin chào từ Chế độ Tập luyện' } as T;
+
   // ── Zalo Listener (demo) ──
   if (path === '/zalo/session') return { status: 'logged_out', qr_image: null, account_name: null, error_msg: null, ingest_online: false, last_seen: null } as T;
   if (path === '/zalo/groups') return { items: [] } as T;

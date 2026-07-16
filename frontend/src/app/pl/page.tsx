@@ -319,6 +319,7 @@ export default function PLPage() {
   const [customFrom, setCustomFrom] = useState('2026-01-01');
   const [customTo, setCustomTo] = useState('2026-12-31');
   const [customDays, setCustomDays] = useState('');
+  const [detailProject, setDetailProject] = useState<ProjectPL | null>(null);  // modal chi tiết P&L dự án
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -754,13 +755,15 @@ export default function PLPage() {
                     ) : sortedProjects.map((p, idx) => (
                       <tr
                         key={p.project_id}
-                        className="border-b hover:bg-white/[0.03] transition-colors"
+                        onClick={() => setDetailProject(p)}
+                        className="border-b hover:bg-white/[0.05] transition-colors cursor-pointer"
                         style={{ borderColor: 'var(--border-subtle)' }}
+                        title="Bấm để xem chi tiết P&L dự án"
                       >
                         <td className="p-3 text-xs text-[var(--text-muted)]">{idx + 1}</td>
                         <td className="p-3">
                           <div>
-                            <span className="font-mono text-xs text-[var(--gold-400)]">{p.project_code}</span>
+                            <span className="font-mono text-xs text-[var(--gold-400)]">{p.project_code} ›</span>
                             <p className="text-sm font-medium mt-0.5">{p.project_name}</p>
                           </div>
                         </td>
@@ -916,6 +919,76 @@ export default function PLPage() {
           </>
         )}
       </div>
+
+      {/* Modal chi tiết P&L dự án — bấm dòng để mở (bug feedback #8) */}
+      {detailProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDetailProject(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-lg rounded-2xl p-6 animate-in" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <span className="font-mono text-xs text-[var(--gold-400)]">{detailProject.project_code}</span>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">{detailProject.project_name}</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Bắt đầu: {new Date(detailProject.start_date).toLocaleDateString('vi-VN')}</p>
+              </div>
+              <button onClick={() => setDetailProject(null)} className="text-[var(--text-muted)] hover:text-white text-xl leading-none">×</button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-[10px] text-[var(--text-muted)]">Doanh thu</div>
+                <div className="text-sm font-bold text-emerald-400">{formatCurrency(detailProject.revenue)}</div>
+              </div>
+              <div className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-[10px] text-[var(--text-muted)]">Chi phí</div>
+                <div className="text-sm font-bold text-red-400">{formatCurrency(detailProject.costs)}</div>
+              </div>
+              <div className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-[10px] text-[var(--text-muted)]">Lợi nhuận</div>
+                <div className={cn('text-sm font-bold', detailProject.profit >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                  {detailProject.profit >= 0 ? '+' : ''}{formatCurrency(detailProject.profit)}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-4 mb-3" style={{ background: 'var(--surface-2)' }}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-[var(--text-secondary)]">Biên lợi nhuận</span>
+                <span className={cn('text-lg font-bold', detailProject.margin >= 20 ? 'text-emerald-400' : detailProject.margin >= 0 ? 'text-amber-400' : 'text-red-400')}>
+                  {detailProject.margin >= 0 ? '+' : ''}{detailProject.margin.toFixed(1)}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, detailProject.margin))}%`, background: detailProject.margin >= 20 ? '#34d399' : detailProject.margin >= 0 ? '#fbbf24' : '#f87171' }} />
+              </div>
+            </div>
+
+            {detailProject.cost_breakdown && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Phân tích chi phí</div>
+                {[
+                  { label: '📦 Vật tư', value: detailProject.cost_breakdown.materials },
+                  { label: '🔨 Nhân công / giao dịch', value: detailProject.cost_breakdown.transactions },
+                  { label: '💰 Hoa hồng', value: detailProject.cost_breakdown.commissions },
+                ].map(row => (
+                  <div key={row.label} className="flex justify-between text-sm">
+                    <span className="text-[var(--text-secondary)]">{row.label}</span>
+                    <span className="font-medium text-[var(--text-primary)]">{formatCurrency(row.value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => { setDetailProject(null); router.push('/projects'); }}
+              className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-white"
+              style={{ background: 'var(--gold-500)' }}
+            >
+              Mở dự án đầy đủ →
+            </button>
+          </div>
+        </div>
+      )}
     </Sidebar>
   );
 }

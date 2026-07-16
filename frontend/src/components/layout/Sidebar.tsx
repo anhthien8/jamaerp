@@ -136,11 +136,26 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       if (!item.perm) return true;
       return (perms as unknown as Record<string, unknown>)[item.perm] === true;
     });
+    // Sắp mục ưu tiên theo role lên đầu, phần còn lại giữ thứ tự gốc
     const essentialHrefs = ROLE_ESSENTIALS[user?.role || 'admin'] || ROLE_ESSENTIALS.admin;
-    const essential = allowed.filter(item => essentialHrefs.includes(item.href));
-    const extra = allowed.filter(item => !essentialHrefs.includes(item.href));
-    return { essentialItems: essential, extraItems: extra };
-  }, [perms, user?.role]);
+    const ordered = [
+      ...essentialHrefs
+        .map(h => allowed.find(i => i.href === h))
+        .filter((i): i is typeof ALL_ITEMS[number] => Boolean(i)),
+      ...allowed.filter(i => !essentialHrefs.includes(i.href)),
+    ];
+    // Desktop: hiển thị tối thiểu 10 mục rồi mới "Xem thêm"; mobile: gọn hơn (theo role)
+    const maxVisible = isDesktop ? 10 : Math.max(6, essentialHrefs.length);
+    let visible = ordered.slice(0, maxVisible);
+    let extra = ordered.slice(maxVisible);
+    // Bug: trang ĐANG MỞ phải luôn hiển thị, không bị co vào "Xem thêm"
+    const activeInExtra = extra.find(i => i.href === pathname);
+    if (activeInExtra) {
+      extra = extra.filter(i => i.href !== pathname);
+      visible = [...visible, activeInExtra];
+    }
+    return { essentialItems: visible, extraItems: extra };
+  }, [perms, user?.role, isDesktop, pathname]);
 
   if (!user) return <>{children}</>;
   const sidebarContent = (

@@ -396,8 +396,8 @@ async def update_project_stage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_project_access),
 ):
-    """Update project current stage — admin, pm, leader only."""
-    if current_user.role not in ("admin", "pm", "leader"):
+    """Update project current stage — admin, supervisor, leader only."""
+    if current_user.role not in ("admin", "supervisor", "leader"):
         raise HTTPException(status_code=403, detail="Không có quyền cập nhật giai đoạn dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
@@ -542,8 +542,8 @@ async def bulk_assign_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Bulk assign tasks to users — admin, pm, leader only."""
-    if current_user.role not in ("admin", "pm", "leader"):
+    """Bulk assign tasks to users — admin, supervisor, leader only."""
+    if current_user.role not in ("admin", "supervisor", "leader"):
         raise HTTPException(status_code=403, detail="Không có quyền phân công đầu việc")
 
     # Verify project exists

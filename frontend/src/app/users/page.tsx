@@ -112,10 +112,17 @@ export default function UsersPage() {
   };
 
   const handleToggleActive = async (u: User) => {
+    if (!isAdmin) return;
+    const next = !u.is_active;
+    // Optimistic: lật ngay trên UI để phản hồi tức thì (kể cả Chế độ Tập luyện dùng dữ liệu tĩnh)
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: next } : x));
     try {
-      await api.updateUser(u.id, { is_active: !u.is_active });
-      loadUsers();
-    } catch { /* empty */ }
+      await api.updateUser(u.id, { is_active: next });
+    } catch (e) {
+      // Lỗi → hoàn tác + hiện thông báo (trước đây nuốt lỗi im lặng → trông như "không bấm được")
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: u.is_active } : x));
+      setError((e as Error).message || 'Không đổi được trạng thái tài khoản');
+    }
   };
 
   if (!user) return null;

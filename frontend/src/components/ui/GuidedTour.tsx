@@ -87,36 +87,26 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Cuối tuần xem Báo cáo để chuẩn bị họp team',
     ]},
   ],
-  designer: [
-    { href: '/', icon: '🌅', title: 'Tổng quan của bạn', points: [
-      'Khối "🏗️ Dự án đang đến phòng bạn" — việc thiết kế xếp sẵn theo độ gấp',
+  supervisor: [
+    { href: '/', icon: '🌅', title: 'Tổng quan Giám sát', points: [
+      'Khối "🏗️ Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
+      'Vai trò Giám sát bao gồm cả Thiết kế, Thu mua và Dự án',
     ]},
-    { href: '/attendance', icon: '⏱️', title: 'Vào ca mỗi sáng', points: [
-      'Bấm "✅ Vào ca" — công tính tự động; nghỉ phép/phiếu lương cũng ở trang này',
-    ]},
-    { href: '/projects', icon: '📐', title: 'Nhận việc thiết kế', points: [
-      'Mở dự án → chuyển "Theo phòng ban" → khối Thiết kế là việc của bạn',
+    { href: '/projects', icon: '🏗️', title: 'Điều phối & thi công dự án — trang chính', points: [
+      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; badge 🔴/🟠 = độ gấp',
+      'Mở dự án → chuyển "Theo phòng ban" để thấy việc từng khối (Thiết kế/Thu mua/Thi công)',
       'Làm xong việc nào đổi trạng thái việc đó — thanh tiến độ tự chạy',
-      'Upload file thiết kế/3D vào từng đầu việc (ghi chú + đính kèm)',
+      'Upload bản vẽ/3D/ảnh vào từng đầu việc (ghi chú + đính kèm)',
     ]},
-    { href: '/quotations', icon: '📋', title: 'Báo giá thiết kế', points: [
+    { href: '/inventory', icon: '📦', title: 'Kho vật tư', points: [
+      'Cảnh báo 🔴 = tồn thấp; duyệt yêu cầu vật tư (hoặc ngay trên Telegram)',
+    ]},
+    { href: '/quotations', icon: '📋', title: 'Báo giá', points: [
       'Bóc tách vật tư xong → tạo báo giá tại đây, đính kèm file',
     ]},
-  ],
-  pm: [
-    { href: '/', icon: '🌅', title: 'Tổng quan điều phối', points: [
-      'Khối "🏗️ Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
-    ]},
-    { href: '/projects', icon: '🏗️', title: 'Điều phối dự án — trang chính của bạn', points: [
-      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; badge 🔴/🟠 = độ gấp',
-      'Mở dự án → phân công đầu việc cho designer/thu mua',
-      'Thiếu vật tư → nút "📦 Yêu cầu vật tư" → Thu mua nhận thông báo duyệt',
-    ]},
-    { href: '/approvals', icon: '✅', title: 'Duyệt & được duyệt', points: [
-      'OT đội thi công chờ bạn duyệt tại đây',
-    ]},
-    { href: '/attendance', icon: '⏱️', title: 'Công của bạn + hiện trường', points: [
+    { href: '/attendance', icon: '⏱️', title: 'Công & hiện trường', points: [
       'Tại công trường: Telegram /checkin [Mã] kèm GPS; /baocao gửi ảnh tiến độ',
+      'Vào ca/Tan ca, nghỉ phép, phiếu lương đều ở trang này',
     ]},
   ],
   accountant: [
@@ -139,22 +129,6 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
     ]},
     { href: '/pl', icon: '📈', title: 'Lãi/Lỗ', points: [
       'P&L theo dự án/tháng — chỉ bạn và Ban Giám đốc thấy trang này',
-    ]},
-  ],
-  purchasing: [
-    { href: '/', icon: '🌅', title: 'Tổng quan thu mua', points: [
-      'Khối "🏗️ Dự án đang đến phòng bạn": dự án sắp/đang ở giai đoạn Thu mua',
-    ]},
-    { href: '/inventory', icon: '📦', title: 'Kho vật tư — trang chính của bạn', points: [
-      'Cảnh báo 🔴 = tồn thấp, nhập thêm ngay',
-      'Yêu cầu vật tư từ PM chờ duyệt tại đây (hoặc bấm nút ngay trên Telegram)',
-      'Nhập/xuất kho xong cập nhật liền để số liệu đúng',
-    ]},
-    { href: '/projects', icon: '🏗️', title: 'Theo vật tư từng dự án', points: [
-      'Mở dự án → "Theo phòng ban" → khối Thu mua là phần việc của bạn',
-    ]},
-    { href: '/attendance', icon: '⏱️', title: 'Công & quyền lợi', points: [
-      'Vào ca/Tan ca tại đây; nghỉ phép, phiếu lương cùng trang',
     ]},
   ],
   admin: [
@@ -194,8 +168,11 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
   ],
 };
 
-function tourStorageKey(role: string) {
+function tourStepKey(role: string) {
   return `jama_tour_step_${role}`;
+}
+function tourActiveKey(role: string) {
+  return `jama_tour_active_${role}`;
 }
 
 export default function GuidedTour() {
@@ -207,29 +184,40 @@ export default function GuidedTour() {
   const role = user?.role || 'data_entry';
   const steps = ROLE_TOURS[role] || ROLE_TOURS.data_entry;
 
+  // goTo: lưu bước + cờ active vào localStorage TRƯỚC khi điều hướng, vì Sidebar
+  // (chứa GuidedTour) được render trong TỪNG page → router.push sẽ unmount trang cũ
+  // và mount GuidedTour mới. Nhờ localStorage, instance mới tự khôi phục card (fix bug
+  // "bấm xem lại chỉ nhảy về Tổng quan, không thấy hướng dẫn").
   const goTo = useCallback((index: number) => {
     const target = steps[index];
     if (!target) return;
     setStep(index);
-    localStorage.setItem(tourStorageKey(role), String(index));
+    setActive(true);
+    localStorage.setItem(tourStepKey(role), String(index));
+    localStorage.setItem(tourActiveKey(role), '1');
     router.push(target.href);
   }, [steps, role, router]);
 
-  // Lắng nghe sự kiện bắt đầu tour (từ OnboardingChecklist / Cài đặt)
+  // Khôi phục tour khi component mount (sau khi điều hướng sang trang mới)
   useEffect(() => {
-    const handler = () => {
-      const saved = parseInt(localStorage.getItem(tourStorageKey(role)) || '0', 10);
-      const startAt = Number.isFinite(saved) && saved > 0 && saved < steps.length ? saved : 0;
+    if (localStorage.getItem(tourActiveKey(role)) === '1') {
+      const saved = parseInt(localStorage.getItem(tourStepKey(role)) || '0', 10);
+      setStep(Number.isFinite(saved) && saved >= 0 && saved < steps.length ? saved : 0);
       setActive(true);
-      goTo(startAt);
-    };
+    }
+  }, [role, steps.length]);
+
+  // Lắng nghe sự kiện bắt đầu tour (từ OnboardingChecklist / nút Cài đặt) — cùng trang
+  useEffect(() => {
+    const handler = () => goTo(0);
     window.addEventListener(START_TOUR_EVENT, handler);
     return () => window.removeEventListener(START_TOUR_EVENT, handler);
-  }, [role, steps.length, goTo]);
+  }, [goTo]);
 
   const finish = () => {
     setActive(false);
-    localStorage.removeItem(tourStorageKey(role));
+    localStorage.removeItem(tourStepKey(role));
+    localStorage.removeItem(tourActiveKey(role));
     localStorage.setItem(`jama_onboarded_${role}`, 'true');
   };
 

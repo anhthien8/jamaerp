@@ -1,0 +1,21 @@
+{
+  "name": "jama-zalo-listener",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JAMA HOME -- Zalo Listener Ingest Service (spec 09). LISTEN-ONLY: nhom Zalo -> push tin hieu ve backend JAMA. KHONG gui tin vao Zalo.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "zca-js": "^2.1.2",
+    "dotenv": "^16.4.7",
+    "winston": "^3.17.0",
+    "undici": "^7.0.0"
+  }
+}
