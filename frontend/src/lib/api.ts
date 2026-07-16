@@ -252,6 +252,13 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     { id: 'demo-zsig-2', type: 'quote_request', summary: 'Khách hỏi giá/báo giá — gợi ý dùng /quote-tool', status: 'new', group_name: 'Nhóm KH Chị Lan', assigned_user_id: null, payload: {}, created_at: '2026-07-16 08:40' },
   ] } as T;
 
+  // ── Feedback (demo) ──
+  if (path === '/feedback') return toPaginated([
+    { id: 'demo-fb-1', user_name: 'Trần Thị Sales', category: 'bug', content: 'Không thể upload ảnh khi tạo lead mới trên mobile', status: 'new', admin_reply: null, created_at: '2026-07-15 10:30' },
+    { id: 'demo-fb-2', user_name: 'Lê Văn Leader', category: 'feature_request', content: 'Cần chức năng xuất báo cáo KPI theo tuần thay vì chỉ theo tháng', status: 'in_review', admin_reply: null, created_at: '2026-07-14 14:20' },
+    { id: 'demo-fb-3', user_name: 'Nguyễn Thị Thiết Kế', category: 'workflow_improvement', content: 'Nên thêm nút "hoàn thành" nhanh cho task thiết kế thay vì mở từng cái', status: 'done', admin_reply: 'Đã thêm vào roadmap sprint sau.', created_at: '2026-07-10 09:15' },
+  ], params) as T;
+
   // Fallback: throw so caller shows error
   throw new Error(`Demo mode: no data for ${path}`);
 }
@@ -889,6 +896,14 @@ class ApiClient {
   }
   async updatePriceItem(id: string, data: Partial<Omit<PriceItemDTO, 'id' | 'code' | 'updated_at'>>) {
     return this.request<{ status: string }>(`/instant-quote/price-items/${id}`, { method: 'PUT', body: data });
+  }
+
+  // ── Feedback ──
+  async getFeedback(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<FeedbackItem>>('/feedback', { params });
+  }
+  async updateFeedback(id: string, data: { status?: string; admin_reply?: string }) {
+    return this.request<FeedbackItem>(`/feedback/${id}`, { method: 'PUT', body: data });
   }
 
   // ── KPI ──
@@ -1604,6 +1619,17 @@ export interface ZaloSignalInfo {
   group_name: string;
   assigned_user_id: string | null;
   payload: Record<string, unknown>;
+  created_at: string;
+}
+
+// === Feedback types ===
+export interface FeedbackItem {
+  id: string;
+  user_name: string | null;
+  category: string;
+  content: string;
+  status: string;
+  admin_reply: string | null;
   created_at: string;
 }
 

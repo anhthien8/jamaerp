@@ -7,7 +7,7 @@ Mỗi case khớp 1 guard THẬT trong code (đã đối chiếu 15/07/2026):
 - users.py list: admin/accountant/leader; create: admin only
 - attendance.py team: admin/accountant/leader(có team); ot/pending: admin/leader/accountant
 - payroll.py: admin/accountant
-- inventory.py: admin/purchasing/accountant (hoặc department=PURCHASING)
+- inventory.py: admin/supervisor/accountant (hoặc department=PURCHASING)
 - hr.py resign*: admin/leader
 - leads.py list: data_entry(own)/leader(team)/admin; role khác trả DANH SÁCH RỖNG (không 403)
 """
@@ -62,10 +62,8 @@ ALL_ROLES = [
     ("executive", "EXEC"),
     ("leader", "SALES"),
     ("data_entry", "SALES"),
-    ("designer", "DESIGN"),
-    ("pm", "PM"),
+    ("supervisor", "OPS"),
     ("accountant", "ACCT"),
-    ("purchasing", "PURCHASING"),
 ]
 
 
@@ -81,7 +79,7 @@ GET_MATRIX = [
     ("/api/v1/payroll?period=2026-01", {"admin", "accountant"}),
     ("/api/v1/attendance/team", {"admin", "accountant", "leader"}),
     ("/api/v1/attendance/ot/pending", {"admin", "accountant", "leader"}),
-    ("/api/v1/inventory", {"admin", "accountant", "purchasing"}),
+    ("/api/v1/inventory", {"admin", "accountant", "supervisor"}),
 ]
 
 
@@ -112,10 +110,8 @@ async def test_get_endpoint_rbac(client, db_session, path, role, dept, expected)
 
 NON_SALES_ROLES = [
     ("executive", "EXEC"),
-    ("designer", "DESIGN"),
-    ("pm", "PM"),
+    ("supervisor", "OPS"),
     ("accountant", "ACCT"),
-    ("purchasing", "PURCHASING"),
 ]
 
 
@@ -146,22 +142,22 @@ WRITE_DENY_CASES = [
      {"full_name": "X", "email": "x@x.com", "password": "12345678",
       "role": "data_entry", "department": "SALES"},
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
-      ("designer", "DESIGN"), ("pm", "PM"), ("accountant", "ACCT"), ("purchasing", "PURCHASING")]),
+      ("supervisor", "OPS"), ("accountant", "ACCT")]),
     ("POST", "/api/v1/hr/resign-preview", {"user_id": "fake-id"},
-     [("executive", "EXEC"), ("data_entry", "SALES"), ("designer", "DESIGN"),
-      ("pm", "PM"), ("accountant", "ACCT"), ("purchasing", "PURCHASING")]),
+     [("executive", "EXEC"), ("data_entry", "SALES"),
+      ("supervisor", "OPS"), ("accountant", "ACCT")]),
     ("POST", "/api/v1/payroll/generate?period=2099-01", None,
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
-      ("designer", "DESIGN"), ("pm", "PM"), ("purchasing", "PURCHASING")]),
+      ("supervisor", "OPS")]),
     ("POST", "/api/v1/accounting/commissions",
      {"user_id": "00000000-0000-0000-0000-000000000001", "type": "design_commission",
       "rate": 0.03, "base_amount": 1000, "milestone": "signing",
       "milestone_pct": 0.5, "status": "pending"},
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
-      ("designer", "DESIGN"), ("pm", "PM"), ("purchasing", "PURCHASING")]),
+      ("supervisor", "OPS")]),
     ("PUT", "/api/v1/salary-grades/fake-id", {"base_salary": 1},
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
-      ("designer", "DESIGN"), ("pm", "PM"), ("purchasing", "PURCHASING")]),
+      ("supervisor", "OPS")]),
 ]
 
 

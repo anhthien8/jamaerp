@@ -64,7 +64,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_DESIGN,
         department=_DEPT_DESIGN,
         order=1,
-        preferred_role="designer",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="3D Demo",
@@ -72,7 +72,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_DESIGN,
         department=_DEPT_DESIGN,
         order=2,
-        preferred_role="designer",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="3D Render",
@@ -80,7 +80,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_DESIGN,
         department=_DEPT_DESIGN,
         order=3,
-        preferred_role="designer",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Technical Drawing",
@@ -88,7 +88,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_DESIGN,
         department=_DEPT_DESIGN,
         order=4,
-        preferred_role="designer",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Final Design",
@@ -96,7 +96,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_DESIGN,
         department=_DEPT_DESIGN,
         order=5,
-        preferred_role="designer",
+        preferred_role="supervisor",
     ),
 
     # ── Stage II: Quotation (4) ──────────────────────────────────────────
@@ -106,7 +106,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_QUOTATION,
         department=_DEPT_QUOTATION,
         order=6,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="3D Quotation",
@@ -114,7 +114,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_QUOTATION,
         department=_DEPT_QUOTATION,
         order=7,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Interior Quotation",
@@ -122,7 +122,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_QUOTATION,
         department=_DEPT_QUOTATION,
         order=8,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Final Quotation",
@@ -130,7 +130,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_QUOTATION,
         department=_DEPT_QUOTATION,
         order=9,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
 
     # ── Stage III: Procurement (3) ───────────────────────────────────────
@@ -140,7 +140,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_PROCUREMENT,
         department=_DEPT_PROCUREMENT,
         order=10,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="SPECS",
@@ -148,7 +148,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_PROCUREMENT,
         department=_DEPT_PROCUREMENT,
         order=11,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Place Order",
@@ -156,7 +156,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_PROCUREMENT,
         department=_DEPT_PROCUREMENT,
         order=12,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
 
     # ── Stage IV: Construction (4) ───────────────────────────────────────
@@ -166,7 +166,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_CONSTRUCTION,
         department=_DEPT_CONSTRUCTION,
         order=13,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Schedule",
@@ -174,7 +174,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_CONSTRUCTION,
         department=_DEPT_CONSTRUCTION,
         order=14,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Rough",
@@ -182,7 +182,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_CONSTRUCTION,
         department=_DEPT_CONSTRUCTION,
         order=15,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
     TaskBlueprint(
         title="Interior",
@@ -190,7 +190,7 @@ TASK_BLUEPRINT: list[TaskBlueprint] = [
         stage=STAGE_CONSTRUCTION,
         department=_DEPT_CONSTRUCTION,
         order=16,
-        preferred_role="pm",
+        preferred_role="supervisor",
     ),
 
     # ── Stage V: Acceptance (3) ──────────────────────────────────────────

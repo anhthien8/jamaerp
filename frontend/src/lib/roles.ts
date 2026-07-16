@@ -3,7 +3,7 @@
  * Defines permissions for each user role.
  */
 
-export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'purchasing' | 'designer' | 'pm';
+export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'supervisor';
 
 export interface RolePermissions {
   canViewDashboard: boolean;
@@ -26,6 +26,11 @@ export interface RolePermissions {
   canCreateContracts: boolean;
   canCreateTasks: boolean;
   canEditTasks: boolean;            // designer: own tasks only
+  canViewAttendance: boolean;       // attendance & leave management
+  canViewKPI: boolean;              // KPI performance metrics
+  canViewApprovals: boolean;        // approval management (pending queue)
+  canViewFeedback: boolean;         // feedback admin (view all + reply)
+  canViewSettings: boolean;         // system settings (admin sections)
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -37,6 +42,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: true,
     canViewReports: true, canViewPnL: true,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
+    canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: true, canViewSettings: true,
   },
   leader: {
     canViewDashboard: true, dashboardType: 'team',
@@ -46,6 +52,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: false, // Restricted
     canViewReports: true, canViewPnL: false,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
+    canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
   },
   data_entry: {
     canViewDashboard: true, dashboardType: 'personal',
@@ -55,6 +62,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: false,
     canViewReports: true, canViewPnL: false,
     canCreateProjects: false, canCreateContracts: true, canCreateTasks: false, canEditTasks: false,
+    canViewAttendance: true, canViewKPI: false, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
   },
   accountant: {
     canViewDashboard: true, dashboardType: 'financial',
@@ -64,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: false, canViewInventory: true, // Accountant needs inventory for cost tracking
     canViewReports: true, canViewPnL: true,
     canCreateProjects: false, canCreateContracts: true, canCreateTasks: false, canEditTasks: false,
+    canViewAttendance: true, canViewKPI: false, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
   },
   executive: {
     canViewDashboard: true, dashboardType: 'executive',
@@ -73,26 +82,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: false, canCreateQuotations: false, canViewInventory: false,
     canViewReports: true, canViewPnL: true,
     canCreateProjects: true, canCreateContracts: false, canCreateTasks: false, canEditTasks: false,
+    canViewAttendance: false, canViewKPI: true, canViewApprovals: false, canViewFeedback: true, canViewSettings: true,
   },
-  purchasing: {
-    canViewDashboard: true, dashboardType: 'personal',
-    canViewLeads: false, leadsScope: 'none',
-    canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
-    canViewHR: false, canManageUsers: false,
-    canViewProjects: true, canViewContracts: true, canViewQuotations: false, canCreateQuotations: false, canViewInventory: true,
-    canViewReports: false, canViewPnL: false,
-    canCreateProjects: false, canCreateContracts: false, canCreateTasks: false, canEditTasks: true, // task status on procurement tasks
-  },
-  designer: {
-    canViewDashboard: true, dashboardType: 'personal',
-    canViewLeads: false, leadsScope: 'none',
-    canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
-    canViewHR: false, canManageUsers: false,
-    canViewProjects: true, canViewContracts: false, canViewQuotations: true, canCreateQuotations: true, canViewInventory: false,
-    canViewReports: false, canViewPnL: false,
-    canCreateProjects: false, canCreateContracts: false, canCreateTasks: true, canEditTasks: true,
-  },
-  pm: {
+  supervisor: {
     canViewDashboard: true, dashboardType: 'team',
     canViewLeads: false, leadsScope: 'none',
     canViewAccounting: false, canViewPayroll: false, canViewCommissionOthers: false,
@@ -100,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: true,
     canViewReports: true, canViewPnL: false,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
+    canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
   },
 };
 
@@ -110,9 +103,7 @@ export function getRoleLabel(role: UserRole): string {
     data_entry: 'Nhân viên Sale',
     accountant: 'Kế toán / Nhân sự',
     executive: 'Ban Quản Trị',
-    purchasing: 'Nhân viên Thu mua',
-    designer: 'Nhân viên Thiết kế',
-    pm: 'Trưởng Dự án',
+    supervisor: 'Giám sát',
   };
   return labels[role] || role;
 }

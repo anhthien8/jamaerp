@@ -18,9 +18,7 @@ export const DEMO_USERS: User[] = [
   { id: 'demo-sales-001', full_name: 'Trần Thị Sales', email: 'sales@jamahome.vn', phone: '0907654321', role: 'data_entry', department: 'SALES', team_id: 'demo-team-01', is_active: true, created_at: '2026-01-15T00:00:00Z' },
   { id: 'demo-acct-001', full_name: 'Phạm Thị Kế Toán', email: 'accountant@jamahome.vn', phone: '0905555666', role: 'accountant', department: 'ACCT', is_active: true, created_at: '2026-01-20T00:00:00Z' },
   { id: 'demo-exec-001', full_name: 'Đỗ Minh Tuấn', email: 'ceo@jamahome.vn', phone: '0901111222', role: 'executive', department: 'EXEC', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-  { id: 'demo-designer-001', full_name: 'Nguyễn Thị Thiết Kế', email: 'designer@jamahome.vn', role: 'designer', department: 'DESIGN', is_active: true, created_at: '2026-02-01T00:00:00Z' },
-  { id: 'demo-pm-001', full_name: 'Trần Văn PM', email: 'pm@jamahome.vn', role: 'pm', department: 'PROJECT', is_active: true, created_at: '2026-02-01T00:00:00Z' },
-  { id: 'demo-purchasing-001', full_name: 'Trần Văn Thu Mua', email: 'purchasing@jamahome.vn', role: 'purchasing', department: 'PURCHASING', is_active: true, created_at: '2026-02-01T00:00:00Z' },
+  { id: 'demo-supervisor-001', full_name: 'Nguyễn Văn Giám Sát', email: 'supervisor@jamahome.vn', role: 'supervisor', department: 'OPS', is_active: true, created_at: '2026-02-01T00:00:00Z' },
 ];
 
 // ─── Teams ──────────────────────────────────────────────
@@ -597,6 +595,6 @@ export const DEMO_COMMISSION_STRUCTURES: CommissionStructure[] = [
   { id: 'cs-2', department: 'sales', commission_type: 'construction_contract', rate: 0.02, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
   { id: 'cs-3', department: 'leader', commission_type: 'leader_override', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
   { id: 'cs-4', department: 'design', commission_type: 'design_fee', rate: 0.01, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
-  { id: 'cs-5', department: 'pm', commission_type: 'project_value', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
+  { id: 'cs-5', department: 'supervisor', commission_type: 'project_value', rate: 0.005, effective_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z' },
 ];
 

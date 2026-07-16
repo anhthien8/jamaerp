@@ -48,8 +48,8 @@ async def require_project_access(
         raise HTTPException(status_code=404, detail="Project not found")
     if current_user.role == "accountant":
         return current_user  # read-only for accounting
-    if current_user.role == "purchasing":
-        return current_user  # read-only for purchasing
+    if current_user.role == "supervisor":
+        return current_user  # read-only for supervisor
     if project.pm_id == current_user.id:
         return current_user
     if project.designer_id == current_user.id:
@@ -309,7 +309,7 @@ async def create_project(
     current_user: User = Depends(get_current_user),
 ):
     """Create new project — admin, leader, pm only."""
-    if current_user.role not in ("admin", "leader", "pm"):
+    if current_user.role not in ("admin", "leader", "supervisor"):
         raise HTTPException(status_code=403, detail="Không có quyền tạo dự án")
     project = Project(**data.model_dump())
     db.add(project)
@@ -325,7 +325,7 @@ async def update_project(
     current_user: User = Depends(require_project_access),
 ):
     """Update project."""
-    if current_user.role in ("accountant", "purchasing", "data_entry"):
+    if current_user.role in ("accountant", "data_entry"):
         raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
@@ -366,8 +366,8 @@ async def create_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new task under a project — admin, leader, pm only."""
-    if current_user.role not in ("admin", "leader", "pm"):
+    """Create a new task under a project — admin, leader, supervisor only."""
+    if current_user.role not in ("admin", "leader", "supervisor"):
         raise HTTPException(status_code=403, detail="Không có quyền tạo đầu việc")
     # Verify project exists
     result = await db.execute(select(Project).where(Project.id == project_id))

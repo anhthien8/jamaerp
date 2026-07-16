@@ -10,9 +10,7 @@ import { getPermissions, UserRole } from '@/lib/roles';
 
 // Spec 07 A3 — role → phòng ban nhận việc theo giai đoạn dự án
 const ROLE_DEPT: Record<string, 'DESIGN' | 'PM' | 'PURCHASING'> = {
-  designer: 'DESIGN',
-  pm: 'PM',
-  purchasing: 'PURCHASING',
+  supervisor: 'DESIGN',
 };
 
 type DeptProject = Project & { pending_tasks: number; days_left: number | null };

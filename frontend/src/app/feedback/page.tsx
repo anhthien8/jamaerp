@@ -4,16 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-
-interface FeedbackItem {
-  id: string;
-  user_name: string | null;
-  category: string;
-  content: string;
-  status: string;
-  admin_reply: string | null;
-  created_at: string;
-}
+import { api, FeedbackItem } from '@/lib/api';
+import { getPermissions, UserRole } from '@/lib/roles';
 
 const CATEGORY_LABELS: Record<string, string> = {
   bug: 'Bug / Lỗi', feature_request: 'Tính năng mới',
@@ -37,46 +29,35 @@ export default function FeedbackPage() {
   const [selected, setSelected] = useState<FeedbackItem | null>(null);
   const [replyText, setReplyText] = useState('');
 
-  useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && !getPermissions(user.role as UserRole).canViewFeedback) router.push('/');
+  }, [user, loading, router]);
 
   const loadFeedback = useCallback(async () => {
-    const params = new URLSearchParams({ page: String(page), page_size: '20' });
-    if (statusFilter) params.set('status', statusFilter);
-    if (categoryFilter) params.set('category', categoryFilter);
+    const params: Record<string, string> = { page: String(page), page_size: '20' };
+    if (statusFilter) params.status = statusFilter;
+    if (categoryFilter) params.category = categoryFilter;
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/feedback?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setItems(data.items || []);
-        setTotal(data.total || 0);
-      }
+      const data = await api.getFeedback(params);
+      setItems(data.items || []);
+      setTotal(data.total || 0);
     } catch {}
   }, [page, statusFilter, categoryFilter]);
 
   useEffect(() => { loadFeedback(); }, [loadFeedback]);
 
   const updateFeedback = async (id: string, status?: string, adminReply?: string) => {
-    const body: Record<string, string> = {};
+    const body: { status?: string; admin_reply?: string } = {};
     if (status) body.status = status;
     if (adminReply !== undefined) body.admin_reply = adminReply;
-    const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/feedback/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-    });
+    await api.updateFeedback(id, body);
     setReplyText('');
     setSelected(null);
     loadFeedback();
   };
 
   if (loading || !user) return null;
-  if (!['admin', 'executive'].includes(user.role)) {
-    return <Sidebar><div className="p-8 text-center text-[var(--text-muted)]">Không có quyền truy cập</div></Sidebar>;
-  }
 
   return (
     <Sidebar>

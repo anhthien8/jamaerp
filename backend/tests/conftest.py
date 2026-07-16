@@ -153,11 +153,11 @@ async def sales_user(db_session: AsyncSession) -> User:
 async def designer_user(db_session: AsyncSession) -> User:
     user = User(
         id=_uid(),
-        full_name="Designer Test",
-        email="designer@test.com",
-        password_hash=hash_password("design123"),
-        role="designer",
-        department="DESIGN",
+        full_name="Supervisor Test",
+        email="supervisor@test.com",
+        password_hash=hash_password("super123"),
+        role="supervisor",
+        department="OPS",
         is_active=True,
         telegram_user_id=900004,
     )
@@ -170,11 +170,11 @@ async def designer_user(db_session: AsyncSession) -> User:
 async def purchasing_user(db_session: AsyncSession) -> User:
     user = User(
         id=_uid(),
-        full_name="Purchasing Test",
-        email="purchasing@test.com",
-        password_hash=hash_password("purchase123"),
-        role="purchasing",
-        department="PURCHASING",
+        full_name="Supervisor Test 2",
+        email="supervisor2@test.com",
+        password_hash=hash_password("super123"),
+        role="supervisor",
+        department="OPS",
         is_active=True,
         telegram_user_id=900005,
     )

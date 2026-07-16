@@ -4,113 +4,33 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
 
-// Demo users — used when backend is unavailable
-const DEMO_USERS: Record<string, { password: string; user: User }> = {
+// Demo mode — single shared password for all accounts (training/offline only)
+const DEMO_PASSWORD = 'demo123';
+
+const DEMO_USERS: Record<string, User> = {
   'admin@jamahome.vn': {
-    password: 'admin123',
-    user: {
-      id: 'demo-admin-001',
-      full_name: 'Hồ Minh Tuấn',
-      email: 'admin@jamahome.vn',
-      phone: '0901234567',
-      role: 'admin',
-      department: 'Ban Giám Đốc',
-      is_active: true,
-      created_at: '2026-01-01T00:00:00Z',
-    },
+    id: 'demo-admin-001', full_name: 'Hồ Minh Tuấn', email: 'admin@jamahome.vn',
+    phone: '0901234567', role: 'admin', department: 'Ban Giám Đốc', is_active: true, created_at: '2026-01-01T00:00:00Z',
   },
   'sales@jamahome.vn': {
-    password: 'sales123',
-    user: {
-      id: 'demo-sales-001',
-      full_name: 'Trần Thị Sales',
-      email: 'sales@jamahome.vn',
-      phone: '0907654321',
-      role: 'data_entry',
-      department: 'Sales',
-      team_id: 'team-01',
-      is_active: true,
-      created_at: '2026-01-15T00:00:00Z',
-    },
+    id: 'demo-sales-001', full_name: 'Trần Thị Sales', email: 'sales@jamahome.vn',
+    phone: '0907654321', role: 'data_entry', department: 'Sales', team_id: 'team-01', is_active: true, created_at: '2026-01-15T00:00:00Z',
   },
   'leader@jamahome.vn': {
-    password: 'leader123',
-    user: {
-      id: 'demo-leader-001',
-      full_name: 'Lê Văn Leader',
-      email: 'leader@jamahome.vn',
-      phone: '0909876543',
-      role: 'leader',
-      department: 'Sales',
-      team_id: 'team-01',
-      is_active: true,
-      created_at: '2026-01-10T00:00:00Z',
-    },
+    id: 'demo-leader-001', full_name: 'Lê Văn Leader', email: 'leader@jamahome.vn',
+    phone: '0909876543', role: 'leader', department: 'Sales', team_id: 'team-01', is_active: true, created_at: '2026-01-10T00:00:00Z',
   },
   'accountant@jamahome.vn': {
-    password: 'account123',
-    user: {
-      id: 'demo-acct-001',
-      full_name: 'Phạm Thị Kế Toán',
-      email: 'accountant@jamahome.vn',
-      phone: '0905555666',
-      role: 'accountant',
-      department: 'ACCT',
-      is_active: true,
-      created_at: '2026-01-20T00:00:00Z',
-    },
+    id: 'demo-acct-001', full_name: 'Phạm Thị Kế Toán', email: 'accountant@jamahome.vn',
+    phone: '0905555666', role: 'accountant', department: 'ACCT', is_active: true, created_at: '2026-01-20T00:00:00Z',
   },
   'ceo@jamahome.vn': {
-    password: 'ceo123',
-    user: {
-      id: 'demo-exec-001',
-      full_name: 'Đỗ Minh Tuấn',
-      email: 'ceo@jamahome.vn',
-      phone: '0901111222',
-      role: 'executive',
-      department: 'EXEC',
-      is_active: true,
-      created_at: '2026-01-01T00:00:00Z',
-    },
+    id: 'demo-exec-001', full_name: 'Đỗ Minh Tuấn', email: 'ceo@jamahome.vn',
+    phone: '0901111222', role: 'executive', department: 'EXEC', is_active: true, created_at: '2026-01-01T00:00:00Z',
   },
-  'purchasing@jamahome.vn': {
-    password: 'purchase123',
-    user: {
-      id: 'demo-purchasing-001',
-      full_name: 'Trần Văn Thu Mua',
-      email: 'purchasing@jamahome.vn',
-      phone: '0902222333',
-      role: 'purchasing',
-      department: 'PURCHASING',
-      is_active: true,
-      created_at: '2026-02-01T00:00:00Z',
-    },
-  },
-  'designer@jamahome.vn': {
-    password: 'designer123',
-    user: {
-      id: 'demo-designer-001',
-      full_name: 'Nguyễn Thị Thiết Kế',
-      email: 'designer@jamahome.vn',
-      phone: '0903333444',
-      role: 'designer',
-      department: 'DESIGN',
-      is_active: true,
-      created_at: '2026-02-01T00:00:00Z',
-    },
-  },
-  'pm@jamahome.vn': {
-    password: 'pm123',
-    user: {
-      id: 'demo-pm-001',
-      full_name: 'Trần Văn PM',
-      email: 'pm@jamahome.vn',
-      phone: '0904444555',
-      role: 'pm',
-      department: 'PROJECT',
-      is_active: true,
-      created_at: '2026-02-01T00:00:00Z',
-    },
+  'supervisor@jamahome.vn': {
+    id: 'demo-supervisor-001', full_name: 'Nguyễn Văn Giám Sát', email: 'supervisor@jamahome.vn',
+    phone: '0902222333', role: 'supervisor', department: 'OPS', is_active: true, created_at: '2026-02-01T00:00:00Z',
   },
 };
 
@@ -119,7 +39,7 @@ export type AppMode = 'demo' | 'work';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, modeOverride?: AppMode) => Promise<void>;
   logout: () => void;
   isDemo: boolean;
   mode: AppMode;
@@ -162,16 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, modeOverride?: AppMode) => {
+    const effectiveMode = modeOverride || mode;
     // If currently in demo mode, use demo login directly (skip real API)
-    if (mode === 'demo') {
-      const demoEntry = DEMO_USERS[email.toLowerCase()];
-      if (demoEntry && demoEntry.password === password) {
-        setUser(demoEntry.user);
+    if (effectiveMode === 'demo') {
+      const demoUser = DEMO_USERS[email.toLowerCase()];
+      if (demoUser && password === DEMO_PASSWORD) {
+        setUser(demoUser);
         setModeState('demo');
         localStorage.setItem('jama_mode', 'demo');
         localStorage.setItem('jama_token', 'demo-token');
-        localStorage.setItem('jama_user', JSON.stringify(demoEntry.user));
+        localStorage.setItem('jama_user', JSON.stringify(demoUser));
         localStorage.setItem('jama_demo', 'true');
         return;
       }
@@ -191,13 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Demo fallback if API unavailable
-    const demoEntry = DEMO_USERS[email.toLowerCase()];
-    if (demoEntry && demoEntry.password === password) {
-      setUser(demoEntry.user);
+    const demoUser = DEMO_USERS[email.toLowerCase()];
+    if (demoUser && password === DEMO_PASSWORD) {
+      setUser(demoUser);
       setModeState('demo');
       localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');
-      localStorage.setItem('jama_user', JSON.stringify(demoEntry.user));
+      localStorage.setItem('jama_user', JSON.stringify(demoUser));
       localStorage.setItem('jama_demo', 'true');
       return;
     }
@@ -215,12 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setMode = useCallback((newMode: AppMode) => {
     if (newMode === 'demo') {
       // Switch to demo mode: auto-login with admin demo account
-      const adminEntry = DEMO_USERS['admin@jamahome.vn'];
-      setUser(adminEntry.user);
+      const adminUser = DEMO_USERS['admin@jamahome.vn'];
+      setUser(adminUser);
       setModeState('demo');
       localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');
-      localStorage.setItem('jama_user', JSON.stringify(adminEntry.user));
+      localStorage.setItem('jama_user', JSON.stringify(adminUser));
       localStorage.setItem('jama_demo', 'true');
     } else {
       // Switch to work mode: logout and redirect to login

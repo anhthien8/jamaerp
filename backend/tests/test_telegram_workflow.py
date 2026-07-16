@@ -332,14 +332,14 @@ class TestMaterialApproval:
         body = resp.json()
         assert body["status"] == "approved"
 
-    async def test_approve_by_unauthorized_role(self, client: AsyncClient, admin_user, designer_user, db_session):
+    async def test_approve_by_unauthorized_role(self, client: AsyncClient, admin_user, sales_user, db_session):
         proj = await _seed_telegram_project(db_session, admin_user)
         mr = await self._create_pending_request(db_session, proj, admin_user)
 
         resp = await client.post(
             f"/api/v1/telegram/approve/{mr.id}",
             headers=auth_header(admin_user),
-            json={"approver_tg_id": 900004},  # designer - no approve permission
+            json={"approver_tg_id": 900003},  # data_entry - no approve permission
         )
         assert resp.status_code == 403
 

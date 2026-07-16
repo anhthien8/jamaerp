@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
@@ -170,12 +171,17 @@ function ZaloSection() {
             {session?.status === 'logged_in' ? (
               <button onClick={doLogout} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-40" style={{ borderColor: 'var(--border-subtle)', color: '#F87171' }}>Đăng xuất</button>
             ) : (
-              <button onClick={doLogin} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
+              <button onClick={doLogin} disabled={busy || !session?.ingest_online} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
                 {busy ? '...' : 'Đăng nhập Zalo (QR)'}
               </button>
             )}
           </div>
         </div>
+        {!session?.ingest_online && (
+          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs mb-3">
+            Ingest Service chưa được deploy. Cần chạy Node.js service (<code>zalo-listener</code>) trên Railway để đăng nhập Zalo. Xem <code>zalo-listener/README.md</code>.
+          </div>
+        )}
         {session?.qr_image && (session.status === 'awaiting_qr' || session.status === 'qr_ready') && (
           <div className="flex flex-col items-center gap-2 py-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -857,6 +863,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
+    if (!loading && user && !getPermissions(user.role as UserRole).canViewSettings) router.push('/');
   }, [user, loading, router]);
 
   if (loading || !user) return null;

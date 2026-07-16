@@ -253,7 +253,7 @@ async def set_delegate(
     current_user: User = Depends(get_current_user),
 ):
     """Đặt/tắt ủy quyền duyệt (leader, accountant, pm, admin)."""
-    if current_user.role not in ("admin", "leader", "accountant", "pm", "purchasing"):
+    if current_user.role not in ("admin", "leader", "accountant", "supervisor"):
         raise HTTPException(status_code=403, detail="Vai trò của bạn không có quyền duyệt để ủy quyền")
 
     if body.delegate_to:

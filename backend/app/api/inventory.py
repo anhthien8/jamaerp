@@ -23,7 +23,7 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
 def verify_inventory_access(user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "purchasing", "accountant") and user.department != "PURCHASING":
+    if user.role not in ("admin", "supervisor", "accountant") and user.department != "PURCHASING":
         raise HTTPException(
             status_code=403,
             detail="Không có quyền truy cập kho vật tư"

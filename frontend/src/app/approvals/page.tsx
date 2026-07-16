@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ApprovalItem } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
@@ -40,6 +41,7 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
+    if (!loading && user && !getPermissions(user.role as UserRole).canViewApprovals) router.push('/');
   }, [user, loading, router]);
 
   const load = useCallback(async () => {

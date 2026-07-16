@@ -72,8 +72,8 @@ async def pm_user(db_session: AsyncSession) -> User:
         full_name="PM User",
         email="pm@test.com",
         password_hash="hashed",
-        role="pm",
-        department="PM",
+        role="supervisor",
+        department="OPS",
         is_active=True,
     )
     db_session.add(user)

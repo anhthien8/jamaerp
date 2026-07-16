@@ -47,15 +47,13 @@ async def seed_database(db: AsyncSession):
         db.add(t)
     await db.flush()
 
-    # ── Users (5 roles) ──
+    # ── Users (6 roles) ──
     admin_id = _id()
     leader_id = _id()
     sales_id = _id()
     accountant_id = _id()
     executive_id = _id()
-    purchasing_id = _id()
-    designer_id = _id()
-    pm_id = _id()
+    supervisor_id = _id()
 
     users = [
         User(
@@ -84,19 +82,9 @@ async def seed_database(db: AsyncSession):
             role="executive", department="EXEC",
         ),
         User(
-            id=purchasing_id, full_name="Trần Văn Thu Mua", email="purchasing@jamahome.vn",
-            phone="0902222333", password_hash=hash_password("purchase123"),
-            role="purchasing", department="PURCHASING", team_id=team_purchasing_id,
-        ),
-        User(
-            id=designer_id, full_name="Nguyễn Thị Thiết Kế", email="designer@jamahome.vn",
-            phone="0903333444", password_hash=hash_password("design123"),
-            role="designer", department="DESIGN", team_id=team_design_id,
-        ),
-        User(
-            id=pm_id, full_name="Lê Văn Dự Án", email="pm@jamahome.vn",
-            phone="0904444555", password_hash=hash_password("pm123"),
-            role="pm", department="PM", team_id=team_sales1_id,
+            id=supervisor_id, full_name="Nguyễn Văn Giám Sát", email="supervisor@jamahome.vn",
+            phone="0902222333", password_hash=hash_password("super123"),
+            role="supervisor", department="OPS", team_id=team_design_id,
         ),
     ]
     for u in users:
@@ -619,7 +607,7 @@ async def seed_database(db: AsyncSession):
         CommissionStructure(id=_id(), department="sales", commission_type="construction_contract", rate=0.02, effective_date=_dt(365).date()),
         CommissionStructure(id=_id(), department="leader", commission_type="leader_override", rate=0.005, effective_date=_dt(365).date()),
         CommissionStructure(id=_id(), department="design", commission_type="design_fee", rate=0.01, effective_date=_dt(365).date()),
-        CommissionStructure(id=_id(), department="pm", commission_type="project_value", rate=0.005, effective_date=_dt(365).date()),
+        CommissionStructure(id=_id(), department="supervisor", commission_type="project_value", rate=0.005, effective_date=_dt(365).date()),
     ]
     for c in comms:
         db.add(c)

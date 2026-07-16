@@ -552,7 +552,7 @@ async def approve_material_request(
     """Approve a material request.
 
     Used by the approve inline button callback on Telegram.
-    Only accountant / purchasing / admin roles may approve.
+    Only accountant / supervisor / admin roles may approve.
     """
     result = await db.execute(
         select(MaterialRequest).where(MaterialRequest.id == request_id)
@@ -572,11 +572,11 @@ async def approve_material_request(
 
     approver = await _resolve_user_by_tg(data.approver_tg_id, db)
 
-    # RBAC: only accountant, purchasing, or admin may approve
-    if approver.role not in ("admin", "accountant", "purchasing"):
+    # RBAC: only accountant, supervisor, or admin may approve
+    if approver.role not in ("admin", "accountant", "supervisor"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chi ke toan / thu mua / admin moi co quyen duyet vat tu",
+            detail="Chi ke toan / giam sat / admin moi co quyen duyet vat tu",
         )
 
     mat_request.status = "approved"
@@ -630,10 +630,10 @@ async def reject_material_request(
 
     approver = await _resolve_user_by_tg(data.approver_tg_id, db)
 
-    if approver.role not in ("admin", "accountant", "purchasing"):
+    if approver.role not in ("admin", "accountant", "supervisor"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chi ke toan / thu mua / admin moi co quyen tu choi vat tu",
+            detail="Chi ke toan / giam sat / admin moi co quyen tu choi vat tu",
         )
 
     mat_request.status = "rejected"

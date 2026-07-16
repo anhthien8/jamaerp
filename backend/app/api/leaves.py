@@ -303,7 +303,7 @@ async def team_calendar(
     """Lịch nghỉ đã duyệt trong tháng (leader: team mình; admin/accountant: chọn team hoặc toàn bộ)."""
     if current_user.role == "leader":
         team_id = current_user.team_id
-    elif current_user.role not in ("admin", "accountant", "executive", "pm"):
+    elif current_user.role not in ("admin", "accountant", "executive", "supervisor"):
         # nhân viên thường: chỉ xem team mình để sắp việc
         team_id = current_user.team_id
         if not team_id:

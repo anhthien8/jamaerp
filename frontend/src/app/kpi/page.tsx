@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api } from '@/lib/api';
 
@@ -82,6 +83,7 @@ export default function KpiPage() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
+    if (!loading && user && !getPermissions(user.role as UserRole).canViewKPI) router.push('/');
   }, [user, loading, router]);
 
   useEffect(() => {

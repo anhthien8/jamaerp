@@ -5,14 +5,12 @@ import { useAuth, type AppMode } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
 const DEMO_CREDENTIALS = [
-  { email: 'admin@jamahome.vn', pass: 'admin123', role: 'Admin' },
-  { email: 'ceo@jamahome.vn', pass: 'ceo123', role: 'CEO' },
-  { email: 'accountant@jamahome.vn', pass: 'account123', role: 'KT' },
-  { email: 'leader@jamahome.vn', pass: 'leader123', role: 'Leader' },
-  { email: 'sales@jamahome.vn', pass: 'sales123', role: 'Sales' },
-  { email: 'designer@jamahome.vn', pass: 'designer123', role: 'Thiết kế' },
-  { email: 'pm@jamahome.vn', pass: 'pm123', role: 'PM' },
-  { email: 'purchasing@jamahome.vn', pass: 'purchase123', role: 'Thu mua' },
+  { email: 'admin@jamahome.vn', role: 'Admin' },
+  { email: 'ceo@jamahome.vn', role: 'CEO' },
+  { email: 'accountant@jamahome.vn', role: 'KT' },
+  { email: 'leader@jamahome.vn', role: 'Leader' },
+  { email: 'sales@jamahome.vn', role: 'Sales' },
+  { email: 'supervisor@jamahome.vn', role: 'Giám sát' },
 ];
 
 export default function LoginPage() {
@@ -37,12 +35,14 @@ export default function LoginPage() {
     localStorage.setItem('jama_mode', newMode);
     setError('');
     if (newMode === 'demo') {
-      // Pre-fill with admin demo credentials
+      // Pre-fill admin email; password is shared demo123
       setEmail(DEMO_CREDENTIALS[0].email);
-      setPassword(DEMO_CREDENTIALS[0].pass);
+      setPassword('demo123');
     } else {
+      // Work mode: clear fields and show clear instructions
       setEmail('');
       setPassword('');
+      setError('');
     }
   };
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, selectedMode);
       router.push('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
@@ -127,6 +127,13 @@ export default function LoginPage() {
                 : 'Kết nối đến hệ thống thực — dữ liệu thật'}
             </p>
           </div>
+
+          {/* Work mode info */}
+          {selectedMode === 'work' && (
+            <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs text-center">
+              Chế độ Làm việc — cần tài khoản thật từ admin. Nếu chưa có, quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button> để demo.
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -204,7 +211,7 @@ export default function LoginPage() {
                     key={acc.email}
                     type="button"
                     className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group"
-                    onClick={() => { setEmail(acc.email); setPassword(acc.pass); }}
+                    onClick={() => { setEmail(acc.email); setPassword('demo123'); }}
                   >
                     <span className="font-mono">{acc.email}</span>
                     <span className="opacity-0 group-hover:opacity-100 text-[#C9A96E] transition-opacity text-[10px] font-medium">

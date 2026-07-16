@@ -7,7 +7,7 @@ from datetime import datetime
 # Vai trò hợp lệ — chặn gán role tùy ý (privilege escalation qua giá trị lạ)
 VALID_ROLES = {
     "admin", "executive", "leader", "data_entry",
-    "accountant", "purchasing", "designer", "pm",
+    "accountant", "supervisor",
 }
 
 

@@ -73,7 +73,7 @@ async def get_customer(
     current_user: User = Depends(get_current_user),
 ):
     """Get customer detail with linked projects."""
-    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "pm"):
+    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "supervisor"):
         raise HTTPException(status_code=403, detail="Không có quyền xem thông tin khách hàng")
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalar_one_or_none()

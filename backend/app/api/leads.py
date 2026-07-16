@@ -92,7 +92,7 @@ async def list_leads(
         q = q.where(Lead.assigned_to == current_user.id)
     elif current_user.role == "leader":
         q = q.where(Lead.team_id == current_user.team_id)
-    elif current_user.role in ("accountant", "executive", "designer", "pm", "purchasing"):
+    elif current_user.role in ("accountant", "executive", "supervisor"):
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
 
     if stage:
