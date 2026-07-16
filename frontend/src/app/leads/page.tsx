@@ -640,18 +640,21 @@ function LeadsContent() {
                                 <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
                               ))}
                             </select>
-                            <button
-                              className="p-1 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E]"
-                              title="Ghi chú nhanh"
+                            <a
+                              href={lead.phone ? `tel:${lead.phone}` : undefined}
+                              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E] min-w-[36px] min-h-[36px] flex items-center justify-center"
+                              title={lead.phone ? `Gọi ${lead.phone}` : 'Chưa có SĐT'}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                api.createActivity(lead.id, { type: 'call', content: `Liên hệ lúc ${new Date().toLocaleTimeString('vi-VN')}` })
-                                  .then(() => toast('Đã ghi nhận cuộc gọi', 'success'))
-                                  .catch(() => toast('Lỗi ghi nhận', 'error'));
+                                if (!lead.phone) { e.preventDefault(); return; }
+                                // Bấm là GỌI THẬT (tel:) + tự ghi nhận cuộc gọi (spec 08 §2.1)
+                                api.createActivity(lead.id, { type: 'call', content: `📞 Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+                                  .then(() => toast('Đang gọi + đã ghi nhận', 'success'))
+                                  .catch(() => {});
                               }}
                             >
                               📞
-                            </button>
+                            </a>
                           </div>
                         </div>
                       </div>
@@ -887,6 +890,26 @@ function LeadsContent() {
 
                 {/* Add Note */}
                 <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {/* Chip ghi chú 1 chạm — sales trên xe ngại gõ dấu (spec 08 §2.1, H8) */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {['📵 Không nghe máy', '🔁 Hẹn gọi lại', '📤 Đã gửi báo giá', '📅 Hẹn khảo sát'].map(chip => (
+                      <button
+                        key={chip}
+                        onClick={async () => {
+                          if (!selectedLead) return;
+                          try {
+                            await api.createActivity(selectedLead.id, { type: 'call', content: chip });
+                            const acts = await api.getActivities(selectedLead.id);
+                            setActivities(acts);
+                            toast('Đã ghi nhận', 'success');
+                          } catch { toast('Lỗi khi ghi nhận', 'error'); }
+                        }}
+                        className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all min-h-[36px] bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[#C9A96E] hover:text-[#C9A96E]"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex gap-2">
                     <input
                       value={newNote}

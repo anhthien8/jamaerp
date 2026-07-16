@@ -19,6 +19,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "JAMA HOME ERP — Hệ thống Quản lý",
   description: "ERP + CRM cho JAMA HOME — Nội thất cao cấp",
+  // PWA tối thiểu (spec 08 §1.4): nhân viên "Thêm vào màn hình chính" mở như app.
+  // Lưu ý: cần bổ sung file icon-192.png + icon-512.png vào /public (logo JAMA).
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "JAMA" },
 };
 
 export default function RootLayout({

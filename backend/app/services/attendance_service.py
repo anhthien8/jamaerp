@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, date, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord
@@ -168,6 +168,59 @@ async def month_records(db: AsyncSession, user_id: str, period: str) -> list[Att
         ).order_by(AttendanceRecord.work_date)
     )
     return list(result.scalars().all())
+
+
+def _empty_summary(period: str) -> dict:
+    return {
+        "period": period, "records": 0, "work_days": 0, "work_days_fraction": 0.0,
+        "total_hours": 0.0, "ot_approved_hours": 0.0, "needs_review": 0,
+    }
+
+
+async def team_month_summary(db: AsyncSession, user_ids: list[str], period: str) -> dict[str, dict]:
+    """Tổng hợp công tháng cho NHIỀU người bằng 1 aggregate query (spec 05 Track B —
+    thay vòng lặp month_summary per-user vốn tốn N query với 200 nhân sự).
+
+    Trả về {user_id: summary} — cùng schema với month_summary(); user không có
+    bản ghi trong kỳ sẽ KHÔNG có key (caller tự điền _empty_summary).
+    """
+    if not user_ids:
+        return {}
+    start, end = period_bounds(period)
+
+    day_fraction = case(
+        (AttendanceRecord.work_hours >= STANDARD_HOURS_PER_DAY, 1.0),
+        else_=AttendanceRecord.work_hours / STANDARD_HOURS_PER_DAY,
+    )
+    result = await db.execute(
+        select(
+            AttendanceRecord.user_id,
+            func.count(AttendanceRecord.id),
+            func.sum(case((AttendanceRecord.work_hours > 0, 1), else_=0)),
+            func.sum(day_fraction),
+            func.sum(AttendanceRecord.work_hours),
+            func.sum(case((AttendanceRecord.ot_status == "approved", AttendanceRecord.ot_hours), else_=0.0)),
+            func.sum(case((AttendanceRecord.needs_review == True, 1), else_=0)),  # noqa: E712
+        )
+        .where(
+            AttendanceRecord.user_id.in_(user_ids),
+            AttendanceRecord.work_date >= start,
+            AttendanceRecord.work_date < end,
+        )
+        .group_by(AttendanceRecord.user_id)
+    )
+    summaries: dict[str, dict] = {}
+    for user_id, records, work_days, fraction, hours, ot_hours, review in result.all():
+        summaries[user_id] = {
+            "period": period,
+            "records": int(records or 0),
+            "work_days": int(work_days or 0),
+            "work_days_fraction": round(float(fraction or 0), 2),
+            "total_hours": round(float(hours or 0), 2),
+            "ot_approved_hours": round(float(ot_hours or 0), 2),
+            "needs_review": int(review or 0),
+        }
+    return summaries
 
 
 async def month_summary(db: AsyncSession, user_id: str, period: str) -> dict:

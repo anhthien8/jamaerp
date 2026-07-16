@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
@@ -55,22 +55,42 @@ const ALL_ITEMS = [
 ];
 
 // ── Role → essential items (KISS: only show what matters most) ───────
+// Spec 08 §2.7 + Telegram-first (quyết định 16/07): tối đa 5 mục chính/role
+// theo tần suất dùng THẬT — còn lại vào "Xem thêm". Khối hiện trường (sales/GS)
+// thao tác chính trên Telegram, web chỉ giữ trang xem; khối văn phòng giữ trang làm việc sâu.
 const ROLE_ESSENTIALS: Record<string, string[]> = {
-  admin:      ['/', '/approvals', '/leads', '/projects', '/contracts', '/accounting', '/feedback'],
-  executive:  ['/', '/projects', '/pl', '/reports'],
-  leader:     ['/', '/approvals', '/leads', '/quote-tool', '/projects', '/reports'],
-  data_entry: ['/', '/attendance', '/leads', '/quote-tool', '/projects', '/contracts'],
-  designer:   ['/', '/attendance', '/projects', '/quotations'],
-  pm:         ['/', '/attendance', '/approvals', '/projects', '/inventory', '/contracts'],
-  accountant: ['/', '/approvals', '/attendance', '/accounting', '/pl', '/finance'],
-  purchasing: ['/', '/attendance', '/projects', '/inventory'],
+  admin:      ['/', '/approvals', '/leads', '/projects', '/pl'],
+  executive:  ['/', '/pl', '/projects', '/reports'],
+  leader:     ['/', '/approvals', '/leads', '/kpi', '/attendance'],
+  data_entry: ['/', '/leads', '/quote-tool', '/attendance', '/kpi'],
+  designer:   ['/', '/projects', '/quotations', '/attendance'],
+  pm:         ['/', '/projects', '/approvals', '/inventory', '/attendance'],
+  accountant: ['/', '/accounting', '/attendance', '/approvals', '/pl'],
+  purchasing: ['/', '/inventory', '/projects', '/attendance'],
+};
+
+// Trang chính của role — prefetch sau login để cú bấm đầu trên 4G không chờ (spec 08 §1.3)
+const ROLE_MAIN_ROUTE: Record<string, string> = {
+  admin: '/leads', executive: '/pl', leader: '/leads', data_entry: '/leads',
+  designer: '/projects', pm: '/projects', accountant: '/accounting', purchasing: '/inventory',
 };
 
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, isDemo, mode, setMode } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [outdoorTheme, setOutdoorTheme] = useState(false);
+
+  // Khôi phục chế độ Ngoài trời đã chọn (localStorage)
+  useEffect(() => {
+    const saved = localStorage.getItem('jama_theme');
+    if (saved === 'outdoor') {
+      setOutdoorTheme(true);
+      document.documentElement.setAttribute('data-theme', 'outdoor');
+    }
+  }, []);
   // Track desktop breakpoint (1024px = lg) — SSR-safe
   const isDesktop = useSyncExternalStore(
     (cb) => {
@@ -98,6 +118,13 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   useEffect(() => {
     void Promise.resolve().then(() => setMobileOpen(false));
   }, [pathname]);
+
+  // Prefetch trang chính của role — 4G yếu vẫn mở tức thì (spec 08 §1.3)
+  useEffect(() => {
+    if (!user) return;
+    const main = ROLE_MAIN_ROUTE[user.role];
+    if (main && main !== pathname) router.prefetch(main);
+  }, [user, pathname, router]);
 
   // KISS: Split nav into essential items (always visible) + extra items (expandable)
   const perms = user ? getPermissions(user.role as UserRole) : null;
@@ -210,6 +237,29 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         )}
       </nav>
 
+      {/* ☀️ Chế độ Ngoài trời — giám sát/PM đọc được dưới nắng (spec 08 §2.2) */}
+      <div className="px-3 mb-2">
+        <button
+          onClick={() => {
+            const next = outdoorTheme ? '' : 'outdoor';
+            setOutdoorTheme(!outdoorTheme);
+            if (next) document.documentElement.setAttribute('data-theme', next);
+            else document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('jama_theme', next);
+          }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[0.6875rem] font-semibold transition-all cursor-pointer select-none"
+          style={{
+            background: outdoorTheme ? 'rgba(251,191,36,0.15)' : 'var(--surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            color: outdoorTheme ? '#B45309' : 'var(--text-muted)',
+          }}
+          title={outdoorTheme ? 'Tắt chế độ Ngoài trời' : 'Bật chế độ Ngoài trời — dễ đọc dưới nắng'}
+        >
+          <span className="text-sm">{outdoorTheme ? '☀️' : '\u{1F319}'}</span>
+          <span>{outdoorTheme ? 'NGOÀI TRỜI' : 'TRONG NHÀ'}</span>
+        </button>
+      </div>
+
       {/* Mode Toggle Badge */}
       <div className="px-3 mb-3">
         <button
@@ -258,7 +308,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             </svg>
           </button>
         </div>
-        <p className="text-center text-[10px] mt-2 select-none" style={{ color: 'var(--text-disabled)', opacity: 0.8 }} title="Người phát triển hệ thống">
+        <p className="text-center text-[9px] mt-2 leading-tight px-1" style={{ color: 'var(--text-muted)' }}>
+          JAMA HOME · Giải Pháp Thiết Kế Thi Công Nhà Ở Công Nghệ Toàn Diện
+        </p>
+        <p className="text-center text-[10px] mt-1 select-none" style={{ color: 'var(--text-disabled)', opacity: 0.8 }} title="Người phát triển hệ thống">
           Dev bởi Dương Anh Thiện
         </p>
       </div>

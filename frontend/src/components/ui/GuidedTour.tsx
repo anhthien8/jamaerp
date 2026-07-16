@@ -41,9 +41,10 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Khối "Việc cần làm hôm nay" liệt kê khách quá hạn cần gọi lại ngay',
       'Mục tiêu mỗi sáng: không còn khách nào quá hạn 3 ngày chưa liên hệ',
     ]},
-    { href: '/attendance', icon: '⏱️', title: 'Vào ca', points: [
-      'Bấm "✅ Vào ca" — công của bạn được tính tự động vào bảng lương',
-      'Đi công trường? Dùng Telegram: /checkin [Mã dự án] kèm GPS',
+    { href: '/attendance', icon: '⏱️', title: 'Vào ca — nhanh nhất là Telegram', points: [
+      'Cách chính: nhắn /checkin cho bot Telegram (công trường: /checkin [Mã dự án] kèm GPS)',
+      'Nút "✅ Vào ca" trên web dùng khi đang ngồi máy tính',
+      'Công của bạn tự tính vào bảng lương — quên tan ca hệ thống tự đóng 8h',
     ]},
     { href: '/leads', icon: '🔄', title: 'Quy trình CRM — nơi bạn sống cả ngày', points: [
       'Khách mới → bấm "+ Thêm Lead" (hoặc paste tin Zalo vào bot Telegram: /lead)',

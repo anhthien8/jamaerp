@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
         from app.models.approval import ApprovalRequest  # noqa
         from app.models.leave import LeaveBalance, LeaveRequest  # noqa
         from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
+        from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa
 
         from app.migrate import run_migrations
         await run_migrations()
@@ -162,6 +163,7 @@ from app.api.backup import router as backup_router
 from app.api.instant_quote import router as instant_quote_router
 from app.api.hr import router as hr_router
 from app.api.kpi import router as kpi_router
+from app.api.zalo import router as zalo_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
@@ -187,6 +189,7 @@ app.include_router(backup_router, prefix="/api/v1")
 app.include_router(instant_quote_router, prefix="/api/v1")
 app.include_router(hr_router, prefix="/api/v1")
 app.include_router(kpi_router, prefix="/api/v1")
+app.include_router(zalo_router, prefix="/api/v1")
 
 from app.api.feedback import router as feedback_router
 app.include_router(feedback_router, prefix="/api/v1")

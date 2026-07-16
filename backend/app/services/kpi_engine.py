@@ -332,15 +332,16 @@ async def detect_burnout(db: AsyncSession, user_id: str) -> dict:
             signals.append("ot_extended")
             break
 
-    # 2. Work on Sunday ≥3/month
-    sunday_q = await db.execute(
-        select(func.count(AttendanceRecord.id)).where(
+    # 2. Work on Sunday ≥3/month (cross-DB: filter in Python to avoid SQLite strftime)
+    thirty_days_ago = (now - timedelta(days=30)).date()
+    recent_records = (await db.execute(
+        select(AttendanceRecord.work_date).where(
             AttendanceRecord.user_id == user_id,
-            AttendanceRecord.work_date >= (now - timedelta(days=30)).date(),
-            func.strftime("%w", AttendanceRecord.work_date) == "0",  # Sunday
+            AttendanceRecord.work_date >= thirty_days_ago,
         )
-    )
-    if (sunday_q.scalar() or 0) >= 3:
+    )).scalars().all()
+    sunday_count = sum(1 for d in recent_records if d.weekday() == 6)  # Sunday = 6
+    if sunday_count >= 3:
         signals.append("sunday_work")
 
     # 3. No leave in 90 days + balance ≥6

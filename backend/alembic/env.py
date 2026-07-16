@@ -30,6 +30,7 @@ from app.models.audit import AuditLog  # noqa: F401, E402
 from app.models.attendance import AttendanceRecord  # noqa: F401, E402
 from app.models.approval import ApprovalRequest  # noqa: F401, E402
 from app.models.leave import LeaveBalance, LeaveRequest  # noqa: F401, E402
+from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa: F401, E402
 from app.api.telegram_workflow import MaterialRequest  # noqa: F401, E402
 
 config = context.config

@@ -73,10 +73,18 @@ export default function LoginPage() {
         <div className="glass-card p-8">
           {/* Logo */}
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C9A96E] to-[#B8935A] mb-4">
-              <span className="text-2xl font-bold text-white">J</span>
-            </div>
-            <h1 className="text-2xl font-bold gold-gradient">JAMA HOME</h1>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://jamahome.vn/wp-content/uploads/2026/07/NEW-LOGO-JAMA-HOME-TACH-NEN-scaled.png"
+              alt="JAMA HOME"
+              className="h-16 w-auto mx-auto mb-3 object-contain"
+              onError={(e) => {
+                // Fallback nếu ảnh remote lỗi (offline/hotlink): hiện chữ
+                const el = e.currentTarget;
+                el.style.display = 'none';
+                el.insertAdjacentHTML('afterend', '<h1 class="text-2xl font-bold gold-gradient">JAMA HOME</h1>');
+              }}
+            />
             <p className="text-[var(--text-secondary)] mt-1">Hệ thống Quản lý ERP</p>
           </div>
 
@@ -209,10 +217,10 @@ export default function LoginPage() {
           )}
 
           {/* Footer */}
-          <p className="text-center text-xs text-[var(--text-muted)] mt-6">
-            JAMA HOME ERP v1.0 — Nội thất cao cấp
+          <p className="text-center text-xs font-medium mt-6" style={{ color: 'var(--text-secondary)' }}>
+            JAMA HOME <span style={{ opacity: 0.5 }}>|</span> Giải Pháp Thiết Kế Thi Công Nhà Ở Công Nghệ Toàn Diện
           </p>
-          <p className="text-center text-[11px] mt-1" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+          <p className="text-center text-[11px] mt-1.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
             Phát triển bởi <span className="gold-gradient font-medium">Dương Anh Thiện</span>
           </p>
         </div>

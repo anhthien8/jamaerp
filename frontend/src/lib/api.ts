@@ -244,6 +244,14 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
   if (path === '/payroll') return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
 
+  // ── Zalo Listener (demo) ──
+  if (path === '/zalo/session') return { status: 'logged_out', qr_image: null, account_name: null, error_msg: null, ingest_online: false, last_seen: null } as T;
+  if (path === '/zalo/groups') return { items: [] } as T;
+  if (path === '/zalo/signals') return { items: [
+    { id: 'demo-zsig-1', type: 'lead_candidate', summary: 'Phát hiện SĐT 0912345678 trong hội thoại', status: 'new', group_name: 'Nhóm KH Anh Minh', assigned_user_id: null, payload: { phone: '0912345678' }, created_at: '2026-07-16 09:12' },
+    { id: 'demo-zsig-2', type: 'quote_request', summary: 'Khách hỏi giá/báo giá — gợi ý dùng /quote-tool', status: 'new', group_name: 'Nhóm KH Chị Lan', assigned_user_id: null, payload: {}, created_at: '2026-07-16 08:40' },
+  ] } as T;
+
   // Fallback: throw so caller shows error
   throw new Error(`Demo mode: no data for ${path}`);
 }
@@ -724,6 +732,29 @@ class ApiClient {
   }
   async myAdvances() {
     return this.request<{ items: { id: string; amount: number; reason: string; status: string; period_deducted: string | null; created_at: string }[] }>('/payroll/advances/me');
+  }
+
+  // === Zalo Listener (admin) — spec 09 ===
+  async zaloSession() {
+    return this.request<ZaloSessionInfo>('/zalo/session');
+  }
+  async zaloLogin() {
+    return this.request<{ status: string; message: string }>('/zalo/session/login', { method: 'POST' });
+  }
+  async zaloLogout() {
+    return this.request<{ status: string }>('/zalo/session/logout', { method: 'POST' });
+  }
+  async zaloGroups() {
+    return this.request<{ items: ZaloGroupInfo[] }>('/zalo/groups');
+  }
+  async zaloUpdateGroup(id: string, patch: { kind?: string; assigned_user_id?: string | null; monitoring?: boolean; consent_ref?: string }) {
+    return this.request<{ id: string; monitoring: boolean; kind: string }>(`/zalo/groups/${id}`, { method: 'PATCH', body: patch });
+  }
+  async zaloSignals(status = 'new') {
+    return this.request<{ items: ZaloSignalInfo[] }>('/zalo/signals', { params: { status } });
+  }
+  async zaloActSignal(id: string, action: 'actioned' | 'dismissed') {
+    return this.request<{ id: string; status: string }>(`/zalo/signals/${id}/action`, { method: 'POST', body: { action } });
   }
 
   // === ERP: P&L (C-level only) ===
@@ -1542,6 +1573,38 @@ export interface PayrollRow {
   notes: string | null;
   paid_at: string | null;
   payslip_sent_at: string | null;
+}
+
+// === Zalo Listener types (spec 09) ===
+export interface ZaloSessionInfo {
+  status: 'logged_out' | 'awaiting_qr' | 'qr_ready' | 'logged_in' | 'error';
+  qr_image: string | null;
+  account_name: string | null;
+  error_msg: string | null;
+  ingest_online: boolean;
+  last_seen: string | null;
+}
+
+export interface ZaloGroupInfo {
+  id: string;
+  zalo_group_id: string;
+  name: string;
+  kind: 'internal' | 'customer';
+  assigned_user_id: string | null;
+  monitoring: boolean;
+  consent_ref: string | null;
+  new_signals: number;
+}
+
+export interface ZaloSignalInfo {
+  id: string;
+  type: 'lead_candidate' | 'commitment' | 'quote_request' | 'unanswered' | 'deal_risk' | 'faq';
+  summary: string;
+  status: 'new' | 'actioned' | 'dismissed';
+  group_name: string;
+  assigned_user_id: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface PaginatedResponse<T> {

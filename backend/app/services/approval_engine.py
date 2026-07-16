@@ -118,7 +118,12 @@ async def create_request(
 
 
 async def _get_pending(db: AsyncSession, request_id: str) -> ApprovalRequest:
-    request = await db.get(ApprovalRequest, request_id)
+    result = await db.execute(
+        select(ApprovalRequest)
+        .where(ApprovalRequest.id == request_id)
+        .with_for_update()  # Row-level lock: prevents concurrent approve/reject
+    )
+    request = result.scalar_one_or_none()
     if not request:
         raise ApprovalError(404, "Đơn phê duyệt không tồn tại")
     if request.status not in ("pending", "changes_requested"):
@@ -266,7 +271,10 @@ async def request_changes(
 
 async def resubmit(db: AsyncSession, request_id: str, actor: User) -> ApprovalRequest:
     """Người tạo nộp lại đơn sau khi sửa — quay về pending ở cấp hiện tại."""
-    request = await db.get(ApprovalRequest, request_id)
+    result = await db.execute(
+        select(ApprovalRequest).where(ApprovalRequest.id == request_id).with_for_update()
+    )
+    request = result.scalar_one_or_none()
     if not request:
         raise ApprovalError(404, "Đơn phê duyệt không tồn tại")
     if request.status != "changes_requested":
@@ -292,7 +300,10 @@ async def resubmit(db: AsyncSession, request_id: str, actor: User) -> ApprovalRe
 
 
 async def cancel(db: AsyncSession, request_id: str, actor: User) -> ApprovalRequest:
-    request = await db.get(ApprovalRequest, request_id)
+    result = await db.execute(
+        select(ApprovalRequest).where(ApprovalRequest.id == request_id).with_for_update()
+    )
+    request = result.scalar_one_or_none()
     if not request:
         raise ApprovalError(404, "Đơn phê duyệt không tồn tại")
     if request.status not in ("pending", "changes_requested"):
@@ -318,10 +329,12 @@ async def escalate_overdue(db: AsyncSession) -> int:
     Chạy trong automation hằng ngày (07:00 VN).
     """
     now = datetime.now(timezone.utc)
+    # Lọc quá hạn ngay trong SQL — không quét toàn bộ pending rồi lọc Python (spec 05 Track B)
     result = await db.execute(
         select(ApprovalRequest).where(
             ApprovalRequest.status == "pending",
             ApprovalRequest.due_at.is_not(None),
+            ApprovalRequest.due_at < now,
         )
     )
     escalated = 0
@@ -329,8 +342,6 @@ async def escalate_overdue(db: AsyncSession) -> int:
         due = request.due_at
         if due and due.tzinfo is None:
             due = due.replace(tzinfo=timezone.utc)
-        if not due or due > now:
-            continue
 
         label = TYPE_LABELS.get(request.type, request.type)
         overdue_hours = (now - due).total_seconds() / 3600

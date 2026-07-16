@@ -12,6 +12,7 @@ from app.middleware.auth import get_current_user
 from app.models.attendance import AttendanceRecord
 from app.models.user import User
 from app.services.attendance_service import (
+    _empty_summary,
     is_period_locked,
     month_records,
     month_summary,
@@ -19,6 +20,7 @@ from app.services.attendance_service import (
     period_of,
     record_checkin,
     record_checkout,
+    team_month_summary,
     vn_today,
 )
 from app.services.audit import log_action
@@ -173,16 +175,18 @@ async def team_attendance(
         q = q.where(User.team_id == team_id)
     users = (await db.execute(q.order_by(User.full_name))).scalars().all()
 
-    rows = []
-    for u in users:
-        summary = await month_summary(db, u.id, period)
-        rows.append({
+    # 1 aggregate cho cả team thay vì N query per-user (spec 05 Track B)
+    summaries = await team_month_summary(db, [u.id for u in users], period)
+    rows = [
+        {
             "user_id": u.id,
             "full_name": u.full_name,
             "role": u.role,
             "team_id": u.team_id,
-            **summary,
-        })
+            **(summaries.get(u.id) or _empty_summary(period)),
+        }
+        for u in users
+    ]
     return {"period": period, "items": rows}
 
 
@@ -236,16 +240,20 @@ async def pending_ot(
     if current_user.role not in ("admin", "leader", "accountant"):
         raise HTTPException(status_code=403, detail="Không có quyền duyệt OT")
 
-    q = select(AttendanceRecord).where(AttendanceRecord.ot_status == "pending")
-    records = (await db.execute(q.order_by(AttendanceRecord.work_date.desc()))).scalars().all()
+    # Join + lọc team trong SQL — không N+1, không lọc Python (spec 05 Track B)
+    q = (
+        select(AttendanceRecord, User.full_name)
+        .join(User, User.id == AttendanceRecord.user_id)
+        .where(AttendanceRecord.ot_status == "pending")
+    )
+    if current_user.role == "leader":
+        q = q.where(User.team_id == current_user.team_id)
+    result = await db.execute(q.order_by(AttendanceRecord.work_date.desc()))
 
-    items = []
-    for r in records:
-        target = await db.get(User, r.user_id)
-        # Leader chỉ thấy OT của team mình
-        if current_user.role == "leader" and (not target or target.team_id != current_user.team_id):
-            continue
-        items.append({**_serialize(r), "full_name": target.full_name if target else ""})
+    items = [
+        {**_serialize(record), "full_name": full_name}
+        for record, full_name in result.all()
+    ]
     return {"items": items}
 
 

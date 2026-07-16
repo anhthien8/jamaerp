@@ -132,6 +132,54 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* === ☀️ Chế độ Ngoài trời (spec 08 §2.2) ===
+   Giám sát/PM ngoài nắng HCM: nền sáng + chữ đen đậm + tương phản cao.
+   Ghi chú: một số khối dùng inline rgba trắng sẽ nhạt hơn — chấp nhận v1,
+   mục tiêu chính là /attendance + /projects đọc được ngoài trời. */
+[data-theme='outdoor'] {
+  --surface-0: #F7F6F2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1EFE9;
+  --surface-3: #E8E4DA;
+  --surface-4: #DDD7C9;
+  --surface-elevated: rgba(0, 0, 0, 0.04);
+
+  --text-primary: #131313;
+  --text-secondary: #2E3A46;
+  --text-tertiary: #4A5A68;
+  --text-disabled: #7A8794;
+  --text-muted: #55636F;
+
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-default: rgba(0, 0, 0, 0.2);
+  --border-strong: rgba(0, 0, 0, 0.32);
+
+  --gold-300: #8A6A2F;
+  --gold-400: #7A5C26;
+  --gold-500: #8A6A2F;
+  --gold-600: #6E521F;
+  --gold-700: #5A4218;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.12);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
+  --shadow-xl: 0 12px 32px rgba(0,0,0,0.2);
+  --shadow-glow-gold: 0 0 0 rgba(0,0,0,0);
+  --shadow-glow-blue: 0 0 0 rgba(0,0,0,0);
+}
+
+[data-theme='outdoor'] body {
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
+/* Chữ trắng cứng trong component → lật sang đen khi ngoài trời */
+[data-theme='outdoor'] .text-white { color: #131313 !important; }
+[data-theme='outdoor'] .bg-white\/5 { background: rgba(0, 0, 0, 0.05) !important; }
+[data-theme='outdoor'] .bg-white\/2 { background: rgba(0, 0, 0, 0.03) !important; }
+[data-theme='outdoor'] .border-white\/10 { border-color: rgba(0, 0, 0, 0.15) !important; }
+[data-theme='outdoor'] .border-white\/5 { border-color: rgba(0, 0, 0, 0.1) !important; }
+
 /* === Base Layer === */
 @layer base {
   * {

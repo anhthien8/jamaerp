@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # ngăn kẻ tấn công mạo danh nhân viên chỉ bằng telegram_user_id.
     TELEGRAM_AUTH_SECRET: str = ""
 
+    # Zalo Listener (spec 09): bí mật chia sẻ giữa Ingest Service (zca-js) ↔ backend.
+    # Ingest service BẮT BUỘC gửi header X-Zalo-Secret khớp khi đẩy QR/heartbeat/tin nhắn.
+    ZALO_INGEST_SECRET: str = ""
+
     # API
     API_BASE_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:3000"

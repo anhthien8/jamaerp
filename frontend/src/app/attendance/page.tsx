@@ -13,6 +13,16 @@ import { useToast } from '@/components/ui/Toast';
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 const currentPeriod = () => new Date().toISOString().slice(0, 7);
 
+/** Backend trả datetime UTC dạng "2026-07-15 01:00:00[.ffffff]" (naive) —
+ *  PHẢI đổi sang giờ VN trước khi hiển thị (bug cũ: slice chuỗi UTC → sai 7 tiếng). */
+const fmtTimeVN = (utcStr: string | null | undefined): string => {
+  if (!utcStr) return '—';
+  const iso = utcStr.includes('T') ? utcStr : utcStr.replace(' ', 'T');
+  const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+  if (Number.isNaN(d.getTime())) return utcStr.slice(11, 16) || '—';
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+};
+
 const OT_BADGE: Record<string, { label: string; color: string }> = {
   none: { label: '—', color: 'var(--text-muted)' },
   pending: { label: 'OT chờ duyệt', color: '#fbbf24' },
@@ -28,6 +38,103 @@ const LEAVE_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 type Tab = 'attendance' | 'leave' | 'payslip';
+
+/** Chế độ chốt sổ mùng 1 cho Kế toán (spec 08 §2.3) — stepper đi đúng trình tự,
+ *  đồng thời là UI vận hành bảng lương (generate → submit → pay, API có sẵn). */
+function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
+  period: string; needsReview: number; otPending: number; onRefresh: () => void;
+}) {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [payroll, setPayroll] = useState<{ status: string | null; total_net: number; items: unknown[] } | null>(null);
+
+  const loadPayroll = useCallback(async () => {
+    try {
+      const res = await api.payrollList(period);
+      setPayroll({ status: res.status, total_net: res.total_net, items: res.items });
+    } catch { setPayroll(null); }
+  }, [period]);
+
+  useEffect(() => { void loadPayroll(); }, [loadPayroll]);
+
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      toast(ok, 'success');
+      await loadPayroll();
+      onRefresh();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Lỗi', 'error');
+    } finally { setBusy(false); }
+  };
+
+  const status = payroll?.status;
+  const steps = [
+    {
+      key: 'review', label: `1. Rà ca cần xác nhận`, done: needsReview === 0,
+      detail: needsReview > 0 ? `⚠️ Còn ${needsReview} ca quên tan ca — sửa ở bảng công bên dưới` : 'Sạch',
+    },
+    {
+      key: 'ot', label: '2. Duyệt tăng ca tồn', done: otPending === 0,
+      detail: otPending > 0 ? `⏳ Còn ${otPending} OT chờ duyệt` : 'Sạch',
+    },
+    {
+      key: 'generate', label: '3. Sinh bảng lương', done: !!status,
+      detail: status ? `Đã sinh (${payroll?.items.length ?? 0} người · thực lĩnh ${fmtMoney(payroll?.total_net ?? 0)})` : 'Chưa sinh',
+      action: !status && (
+        <button disabled={busy} onClick={() => run(() => api.payrollGenerate(period), `Đã sinh bảng lương kỳ ${period}`)}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
+          Sinh bảng lương
+        </button>
+      ),
+    },
+    {
+      key: 'submit', label: '4. Trình Giám đốc duyệt', done: !!status && status !== 'draft',
+      detail: status === 'draft' ? 'Bảng lương đang ở bản nháp' :
+              status === 'pending_approval' ? '⏳ Đang chờ Giám đốc duyệt (nhắc qua Telegram sau 72h)' :
+              status === 'approved' ? '✅ Đã duyệt — kỳ đã KHÓA' :
+              status === 'paid' ? '💵 Đã chi + phiếu lương đã gửi' : '—',
+      action: status === 'draft' && (
+        <button disabled={busy} onClick={() => run(() => api.payrollSubmit(period), 'Đã trình duyệt — Giám đốc sẽ nhận thông báo')}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
+          Trình duyệt
+        </button>
+      ),
+    },
+    {
+      key: 'pay', label: '5. Chi lương + gửi phiếu', done: status === 'paid',
+      detail: status === 'approved' ? 'Sẵn sàng chi — phiếu lương sẽ gửi Telegram RIÊNG từng người' :
+              status === 'paid' ? '✅ Hoàn tất kỳ' : 'Chờ bước 4',
+      action: status === 'approved' && (
+        <button disabled={busy}
+          onClick={() => run(() => api.payrollPay(period), 'Đã chi — phiếu lương đang gửi từng người')}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: '#34d399' }}>
+          Xác nhận đã chi
+        </button>
+      ),
+    },
+  ];
+
+  return (
+    <div className="rounded-2xl p-4 border" style={{ background: 'rgba(201,169,110,0.05)', borderColor: 'rgba(201,169,110,0.3)' }}>
+      <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>🧾 Chốt sổ kỳ {period} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
+      <div className="space-y-2">
+        {steps.map(s => (
+          <div key={s.key} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--bg-elevated, rgba(255,255,255,0.03))' }}>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold" style={{ color: s.done ? '#34d399' : 'var(--text-primary)' }}>
+                {s.done ? '✅' : '○'} {s.label}
+              </div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.detail}</div>
+            </div>
+            {s.action || null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AttendancePage() {
   const { user, loading } = useAuth();
@@ -103,6 +210,35 @@ export default function AttendancePage() {
     if (tab === 'payslip') void loadPayslips();
   }, [user, tab, loadAttendance, loadLeave, loadPayslips]);
 
+  // Offline-queue (spec 08 §1.1): 4G rớt giữa chừng — lưu lại, tự gửi khi có mạng.
+  // Backend idempotent (1 bản ghi/ngày) nên retry an toàn tuyệt đối.
+  const QUEUE_KEY = 'jama_attendance_queue';
+
+  const flushQueue = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const pending = localStorage.getItem(QUEUE_KEY);
+    if (!pending) return;
+    try {
+      const action = JSON.parse(pending) as { type: 'checkin' | 'checkout' };
+      if (action.type === 'checkin') await api.attendanceCheckin();
+      else await api.attendanceCheckout();
+      localStorage.removeItem(QUEUE_KEY);
+      toast('✅ Đã gửi lại chấm công thành công (lúc trước mất mạng)', 'success');
+      await loadAttendance();
+    } catch {
+      /* vẫn chưa có mạng — giữ queue, chờ lần sau */
+    }
+  }, [toast, loadAttendance]);
+
+  useEffect(() => {
+    void flushQueue(); // thử gửi lại khi mở trang
+    window.addEventListener('online', flushQueue);
+    return () => window.removeEventListener('online', flushQueue);
+  }, [flushQueue]);
+
+  const isNetworkError = (e: unknown) =>
+    e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
+
   const doCheckin = async () => {
     setBusy(true);
     try {
@@ -110,7 +246,12 @@ export default function AttendancePage() {
       toast(res.message, res.created ? 'success' : 'info');
       await loadAttendance();
     } catch (e) {
-      toast(`Vào ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+      if (isNetworkError(e)) {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify({ type: 'checkin', at: Date.now() }));
+        toast('📶 Mất mạng — sẽ tự vào ca lại khi có sóng. Hoặc dùng Telegram: /checkin', 'info');
+      } else {
+        toast(`Vào ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+      }
     } finally { setBusy(false); }
   };
 
@@ -121,7 +262,12 @@ export default function AttendancePage() {
       toast(res.message, 'success');
       await loadAttendance();
     } catch (e) {
-      toast(`Tan ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+      if (isNetworkError(e)) {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify({ type: 'checkout', at: Date.now() }));
+        toast('📶 Mất mạng — sẽ tự tan ca lại khi có sóng. Hoặc dùng Telegram: /checkout', 'info');
+      } else {
+        toast(`Tan ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+      }
     } finally { setBusy(false); }
   };
 
@@ -187,8 +333,8 @@ export default function AttendancePage() {
                 <div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Hôm nay</div>
                   <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {checkedIn ? `Vào: ${today?.check_in?.slice(11, 16) || today?.check_in}` : 'Chưa vào ca'}
-                    {checkedOut && ` · Ra: ${today?.check_out?.slice(11, 16) || today?.check_out} · ${today?.work_hours}h`}
+                    {checkedIn ? `Vào: ${fmtTimeVN(today?.check_in)}` : 'Chưa vào ca'}
+                    {checkedOut && ` · Ra: ${fmtTimeVN(today?.check_out)} · ${today?.work_hours}h`}
                     {today && today.ot_hours > 0 && ` · OT ${today.ot_hours}h (${OT_BADGE[today.ot_status]?.label})`}
                   </div>
                 </div>
@@ -207,10 +353,20 @@ export default function AttendancePage() {
                   >🏁 Tan ca</button>
                 </div>
               </div>
-              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                💡 Ngoài công trường? Dùng Telegram: <code>/checkin [Mã dự án]</code> (kèm GPS) hoặc <code>/checkin</code> cho văn phòng.
+              <div className="text-xs mt-2 p-2 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)' }}>
+                ⭐ <b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Nút trên web dùng khi đang ngồi máy tính.
               </div>
             </div>
+
+            {/* Chốt sổ — Kế toán/Admin (spec 08 §2.3, cũng là UI vận hành bảng lương) */}
+            {(user.role === 'accountant' || user.role === 'admin') && (
+              <ClosingStepper
+                period={period}
+                needsReview={teamRows.reduce((sum, row) => sum + (row.needs_review || 0), 0)}
+                otPending={pendingOT.length}
+                onRefresh={loadAttendance}
+              />
+            )}
 
             {/* Month summary */}
             <div className="flex flex-wrap items-center gap-3">
@@ -253,8 +409,8 @@ export default function AttendancePage() {
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
                         {r.work_date}{r.needs_review && ' ⚠️'}
                       </td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{r.check_in ? r.check_in.slice(11, 16) : '—'}</td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{r.check_out ? r.check_out.slice(11, 16) : '—'}</td>
+                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_in)}</td>
+                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_out)}</td>
                       <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-primary)' }}>{r.work_hours}h</td>
                       <td className="px-4 py-2.5" style={{ color: OT_BADGE[r.ot_status]?.color }}>
                         {r.ot_hours > 0 ? `${r.ot_hours}h · ${OT_BADGE[r.ot_status]?.label}` : '—'}

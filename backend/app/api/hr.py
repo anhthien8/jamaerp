@@ -101,25 +101,23 @@ async def resign_preview(
     )
     leads = leads_result.scalars().all()
 
-    # Tasks
+    # Tasks + tên dự án — join 1 query, không N+1 (spec 05 Track B)
     tasks_result = await db.execute(
-        select(Task).where(Task.assigned_to == user.id)
+        select(Task, Project.name)
+        .join(Project, Project.id == Task.project_id)
+        .where(Task.assigned_to == user.id)
     )
-    tasks = tasks_result.scalars().all()
-
-    # Fetch project names for tasks
-    project_cache: dict[str, str] = {}
-    task_items = []
-    for t in tasks:
-        if t.project_id not in project_cache:
-            proj = await db.get(Project, t.project_id)
-            project_cache[t.project_id] = proj.name if proj else ""
-        task_items.append({
+    task_rows = tasks_result.all()
+    tasks = [t for t, _ in task_rows]
+    task_items = [
+        {
             "id": t.id,
             "title": t.title,
-            "project_name": project_cache[t.project_id],
+            "project_name": project_name or "",
             "status": t.status,
-        })
+        }
+        for t, project_name in task_rows
+    ]
 
     return {
         "user_name": user.full_name,

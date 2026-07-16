@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
+  const [leaderCounts, setLeaderCounts] = useState<{ approvals: number; ot: number } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -44,6 +45,13 @@ export default function DashboardPage() {
         api.getProjectsByDepartment(dept, 5)
           .then(res => setDeptProjects(res.items))
           .catch(() => setDeptProjects([]));
+      }
+
+      // Khối điều hành nhanh cho leader (spec 08 §2.4)
+      if (user.role === 'leader' || user.role === 'admin') {
+        Promise.all([api.approvalsPendingForMe(), api.pendingOT()])
+          .then(([approvals, ot]) => setLeaderCounts({ approvals: approvals.count, ot: ot.items.length }))
+          .catch(() => setLeaderCounts(null));
       }
     }
   }, [user]);
@@ -325,6 +333,33 @@ export default function DashboardPage() {
         )}
 
         {/* Personal: Today's Tasks */}
+        {/* Spec 08 §2.4 — Điều hành nhanh cho leader/admin: 3 số + đi thẳng */}
+        {leaderCounts && (leaderCounts.approvals > 0 || leaderCounts.ot > 0 || (data?.overdue_leads ?? 0) > 0) && (
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">⚡ Cần xử lý ngay</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button onClick={() => router.push('/leads')}
+                className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
+                style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)' }}>
+                <span className="text-sm text-[var(--text-secondary)]">Khách quá hạn</span>
+                <span className="text-xl font-bold" style={{ color: '#F87171' }}>{data?.overdue_leads ?? 0}</span>
+              </button>
+              <button onClick={() => router.push('/approvals')}
+                className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
+                style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                <span className="text-sm text-[var(--text-secondary)]">Đơn chờ duyệt</span>
+                <span className="text-xl font-bold" style={{ color: '#FBBF24' }}>{leaderCounts.approvals}</span>
+              </button>
+              <button onClick={() => router.push('/attendance')}
+                className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
+                style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)' }}>
+                <span className="text-sm text-[var(--text-secondary)]">Tăng ca chờ</span>
+                <span className="text-xl font-bold" style={{ color: '#60A5FA' }}>{leaderCounts.ot}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Spec 07 A3 — Dự án đang đến phòng bạn (designer/pm/purchasing) */}
         {ROLE_DEPT[user.role] && deptProjects.length > 0 && (
           <div className="glass-card p-5">

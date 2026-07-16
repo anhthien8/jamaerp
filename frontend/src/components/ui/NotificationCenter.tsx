@@ -201,8 +201,20 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     };
 
     fetchServer();
-    const timer = setInterval(fetchServer, 60_000);
-    return () => { cancelled = true; clearInterval(timer); };
+    // Spec 08 §1.2: tab nằm nền thì DỪNG poll (200 người × cả ngày = hàng trăm
+    // nghìn request vô ích + tốn pin 4G); mở lại tab thì fetch ngay.
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchServer();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchServer();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Load read IDs on mount

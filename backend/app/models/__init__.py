@@ -16,6 +16,7 @@ from app.models.audit import AuditLog
 from app.models.attendance import AttendanceRecord
 from app.models.approval import ApprovalRequest
 from app.models.leave import LeaveBalance, LeaveRequest
+from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "ApprovalRequest",
     "LeaveBalance", "LeaveRequest",
     "KpiSnapshot", "CoachingNote", "ReviewCycle",
+    "ZaloSession", "ZaloGroup", "ZaloMessage", "ZaloSignal",
 ]

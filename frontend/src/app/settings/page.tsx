@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
+import { useToast } from '@/components/ui/Toast';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
 
@@ -87,6 +88,159 @@ function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialT
           <p>3. Dán số đó vào ô trên → Lưu → nhắn <code className="px-1 rounded bg-white/10">/start</code> với bot để nhận briefing hàng ngày</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Zalo Listener config (admin) — spec 09. QR đăng nhập tài khoản Zalo cá nhân
+ *  chuyên dụng + quản lý nhóm theo dõi + xem tín hiệu. LISTEN-ONLY. */
+function ZaloSection() {
+  const { toast } = useToast();
+  const [session, setSession] = useState<import('@/lib/api').ZaloSessionInfo | null>(null);
+  const [groups, setGroups] = useState<import('@/lib/api').ZaloGroupInfo[]>([]);
+  const [signals, setSignals] = useState<import('@/lib/api').ZaloSignalInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [s, g, sig] = await Promise.all([api.zaloSession(), api.zaloGroups(), api.zaloSignals('new')]);
+      setSession(s); setGroups(g.items); setSignals(sig.items);
+    } catch { /* demo/chưa cấu hình */ }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  // Poll khi đang chờ quét QR (5s) để bắt QR ingest service đẩy về
+  useEffect(() => {
+    if (session?.status === 'awaiting_qr' || session?.status === 'qr_ready') {
+      const t = setInterval(() => { void api.zaloSession().then(setSession).catch(() => {}); }, 5000);
+      return () => clearInterval(t);
+    }
+  }, [session?.status]);
+
+  const doLogin = async () => {
+    setBusy(true);
+    try { const r = await api.zaloLogin(); toast(r.message, 'info'); await load(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
+    finally { setBusy(false); }
+  };
+  const doLogout = async () => {
+    setBusy(true);
+    try { await api.zaloLogout(); toast('Đã đăng xuất Zalo', 'success'); await load(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
+    finally { setBusy(false); }
+  };
+  const toggleGroup = async (g: import('@/lib/api').ZaloGroupInfo) => {
+    try { await api.zaloUpdateGroup(g.id, { monitoring: !g.monitoring }); await load(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
+  };
+  const setKind = async (g: import('@/lib/api').ZaloGroupInfo, kind: string) => {
+    try { await api.zaloUpdateGroup(g.id, { kind }); await load(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
+  };
+
+  const STATUS_LABEL: Record<string, { text: string; color: string }> = {
+    logged_out: { text: 'Chưa đăng nhập', color: 'var(--text-muted)' },
+    awaiting_qr: { text: 'Đang chờ mã QR...', color: '#FBBF24' },
+    qr_ready: { text: 'Quét mã QR bằng Zalo', color: '#FBBF24' },
+    logged_in: { text: 'Đã đăng nhập ✅', color: '#34D399' },
+    error: { text: 'Lỗi', color: '#F87171' },
+  };
+  const st = session ? STATUS_LABEL[session.status] : STATUS_LABEL.logged_out;
+
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-1">💬 Zalo — Trợ lý lắng nghe</h2>
+      <p className="text-xs text-[var(--text-muted)] mb-4">
+        Tài khoản Zalo chuyên dụng nghe nhóm nội bộ/khách → phân tích AI → đẩy tín hiệu về Telegram.
+        <b className="text-[var(--text-secondary)]"> Chỉ nghe, không gửi tin.</b>
+      </p>
+
+      {/* Trạng thái phiên + QR */}
+      <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: st.color }}>{st.text}</div>
+            {session?.account_name && <div className="text-xs text-[var(--text-muted)]">Tài khoản: {session.account_name}</div>}
+            <div className="text-xs mt-0.5" style={{ color: session?.ingest_online ? '#34D399' : '#F87171' }}>
+              {session?.ingest_online ? '● Ingest Service đang chạy' : '○ Ingest Service ngoại tuyến (chưa dựng/chưa chạy)'}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {session?.status === 'logged_in' ? (
+              <button onClick={doLogout} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-40" style={{ borderColor: 'var(--border-subtle)', color: '#F87171' }}>Đăng xuất</button>
+            ) : (
+              <button onClick={doLogin} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
+                {busy ? '...' : 'Đăng nhập Zalo (QR)'}
+              </button>
+            )}
+          </div>
+        </div>
+        {session?.qr_image && (session.status === 'awaiting_qr' || session.status === 'qr_ready') && (
+          <div className="flex flex-col items-center gap-2 py-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={session.qr_image} alt="QR đăng nhập Zalo" className="w-48 h-48 rounded-lg bg-white p-2" />
+            <p className="text-xs text-[var(--text-muted)]">Mở Zalo trên điện thoại → Cá nhân → Quét mã QR</p>
+          </div>
+        )}
+        {session?.status === 'awaiting_qr' && !session?.qr_image && (
+          <p className="text-xs text-center text-[var(--text-muted)] py-2">Đang chờ Ingest Service tạo mã QR... (làm mới sau vài giây)</p>
+        )}
+        {session?.error_msg && <p className="text-xs text-[#F87171] mt-1">{session.error_msg}</p>}
+      </div>
+
+      {/* Nhóm theo dõi */}
+      {groups.length > 0 && (
+        <div className="mb-4">
+          <div className="text-sm font-semibold mb-2">Nhóm theo dõi ({groups.length})</div>
+          <div className="space-y-2 max-h-56 overflow-y-auto">
+            {groups.map(g => (
+              <div key={g.id} className="flex items-center justify-between gap-2 p-2 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                <div className="min-w-0">
+                  <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{g.name}</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">{g.new_signals} tín hiệu mới</div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <select value={g.kind} onChange={e => setKind(g, e.target.value)}
+                    className="text-[10px] px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                    <option value="internal">Nội bộ</option>
+                    <option value="customer">Khách</option>
+                  </select>
+                  <button onClick={() => toggleGroup(g)}
+                    className="text-[10px] px-2 py-1 rounded font-semibold"
+                    style={{ background: g.monitoring ? 'rgba(52,211,153,0.15)' : 'rgba(107,114,128,0.15)', color: g.monitoring ? '#34D399' : '#9CA3AF' }}>
+                    {g.monitoring ? 'Đang nghe' : 'Tắt'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tín hiệu gần đây */}
+      {signals.length > 0 && (
+        <div>
+          <div className="text-sm font-semibold mb-2">Tín hiệu mới ({signals.length})</div>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto">
+            {signals.map(s => (
+              <div key={s.id} className="flex items-start justify-between gap-2 p-2 rounded-lg text-xs" style={{ background: 'var(--surface-2)' }}>
+                <div className="min-w-0">
+                  <span className="font-semibold" style={{ color: '#C9A96E' }}>[{s.group_name}]</span> {s.summary}
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => api.zaloActSignal(s.id, 'actioned').then(load)} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}>✓</button>
+                  <button onClick={() => api.zaloActSignal(s.id, 'dismissed').then(load)} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-[10px] text-[var(--text-muted)] mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        ⚠️ Automation Zalo vi phạm ToS — tài khoản có thể bị khóa. Dùng account phụ chuyên dụng, không dùng account thật. Xem <code>docs/specs/09</code>.
+      </p>
     </div>
   );
 }
@@ -734,6 +888,9 @@ export default function SettingsPage() {
 
           {/* AI Model config — admin only */}
           {user.role === 'admin' && <AISettingsSection />}
+
+          {/* Zalo Listener — admin only (spec 09) */}
+          {user.role === 'admin' && <ZaloSection />}
 
           {/* Backup — admin only */}
           {user.role === 'admin' && <BackupSection />}

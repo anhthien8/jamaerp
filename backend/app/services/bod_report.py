@@ -132,6 +132,12 @@ async def build_bod_report(db: AsyncSession, period: str = "daily") -> dict:
         except Exception:
             logger.warning("Insight enrichment failed for BOD report", exc_info=True)
 
+    # Deep-link cuối báo cáo (spec 08 §2.5) — CHỈ báo cáo riêng cho BOD, không vào nhóm
+    from app.config import get_settings
+    frontend = get_settings().FRONTEND_URL.rstrip("/")
+    if frontend:
+        lines += ["", f'📈 <a href="{frontend}/pl">Mở P&L đầy đủ</a> · <a href="{frontend}/reports">Báo cáo chi tiết</a>']
+
     text = "\n".join(lines)
     return {
         "period": period,

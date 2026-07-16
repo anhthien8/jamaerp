@@ -28,7 +28,7 @@ class DelegateBody(BaseModel):
 
 
 class TelegramActBody(BaseModel):
-    approver_tg_id: int
+    approver_tg_id: int | None = None  # Deprecated: backend uses JWT-authenticated user as actor
     reason: str | None = Field(default=None, max_length=500)
 
 
@@ -68,35 +68,35 @@ async def pending_for_me(
     # Đơn tôi là approver hiện tại
     conditions = [ApprovalRequest.current_approver_id == current_user.id]
 
-    # Đơn của các approver đã ủy quyền cho tôi (còn hạn)
+    # Đơn của các approver đã ủy quyền cho tôi (còn hạn) — 1 query, lọc hạn trong SQL
     now = datetime.now(timezone.utc)
-    delegators = (await db.execute(
-        select(User.id).where(User.delegate_to == current_user.id)
+    valid_delegators = (await db.execute(
+        select(User.id).where(
+            User.delegate_to == current_user.id,
+            User.delegate_until.is_not(None),
+            User.delegate_until >= now,
+        )
     )).scalars().all()
-    valid_delegators = []
-    for uid in delegators:
-        u = await db.get(User, uid)
-        until = u.delegate_until if u else None
-        if until and until.tzinfo is None:
-            until = until.replace(tzinfo=timezone.utc)
-        if until and until >= now:
-            valid_delegators.append(uid)
     if valid_delegators:
         conditions.append(ApprovalRequest.current_approver_id.in_(valid_delegators))
 
+    # Join requester name — không N+1 (spec 05 Track B)
     result = await db.execute(
-        select(ApprovalRequest).where(
+        select(ApprovalRequest, User.full_name)
+        .join(User, User.id == ApprovalRequest.requester_id)
+        .where(
             ApprovalRequest.status == "pending",
             or_(*conditions),
-        ).order_by(ApprovalRequest.created_at)
+        )
+        .order_by(ApprovalRequest.created_at)
     )
-    items = []
-    for r in result.scalars().all():
-        requester = await db.get(User, r.requester_id)
-        items.append(_serialize(r, {
-            "requester_name": requester.full_name if requester else "",
-            "delegated": r.current_approver_id != current_user.id,
-        }))
+    items = [
+        _serialize(request, {
+            "requester_name": requester_name,
+            "delegated": request.current_approver_id != current_user.id,
+        })
+        for request, requester_name in result.all()
+    ]
     return {"items": items, "count": len(items)}
 
 
@@ -201,25 +201,20 @@ async def cancel(
 
 
 # ---------------------------------------------------------------------------
-# Telegram inline button callbacks (bot gọi với approver_tg_id)
+# Telegram inline button callbacks (bot gọi với JWT-authenticated user)
 # ---------------------------------------------------------------------------
-
-async def _resolve_tg_user(db: AsyncSession, tg_id: int) -> User:
-    result = await db.execute(select(User).where(User.telegram_user_id == tg_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy nhân viên với Telegram ID {tg_id}")
-    return user
-
 
 @router.post("/{request_id}/tg-approve")
 async def tg_approve(
     request_id: str,
     body: TelegramActBody,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    actor = await _resolve_tg_user(db, body.approver_tg_id)
+    # SECURITY: Use JWT-authenticated user as actor — prevents impersonation
+    actor = current_user
+    if body.approver_tg_id and current_user.telegram_user_id and body.approver_tg_id != current_user.telegram_user_id:
+        raise HTTPException(status_code=403, detail="Telegram ID không khớp với tài khoản đang đăng nhập")
     try:
         request = await approval_engine.approve(db, request_id, actor, via="telegram")
     except ApprovalError as err:
@@ -232,9 +227,12 @@ async def tg_reject(
     request_id: str,
     body: TelegramActBody,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    actor = await _resolve_tg_user(db, body.approver_tg_id)
+    # SECURITY: Use JWT-authenticated user as actor — prevents impersonation
+    actor = current_user
+    if body.approver_tg_id and current_user.telegram_user_id and body.approver_tg_id != current_user.telegram_user_id:
+        raise HTTPException(status_code=403, detail="Telegram ID không khớp với tài khoản đang đăng nhập")
     try:
         request = await approval_engine.reject(
             db, request_id, actor, reason=body.reason or "Từ chối qua Telegram", via="telegram"
