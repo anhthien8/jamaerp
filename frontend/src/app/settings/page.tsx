@@ -356,11 +356,11 @@ function BackupSection() {
   const toggle = (checked: boolean, onChange: (v: boolean) => void) => (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#C9A96E]' : 'bg-white/10'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
       aria-checked={checked}
       role="switch"
     >
-      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      <span className={`absolute left-0.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
   );
 
@@ -758,11 +758,11 @@ function AutomationSection() {
   const toggle = (checked: boolean, onChange: (v: boolean) => void) => (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#C9A96E]' : 'bg-white/10'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
       aria-checked={checked}
       role="switch"
     >
-      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      <span className={`absolute left-0.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
   );
 
