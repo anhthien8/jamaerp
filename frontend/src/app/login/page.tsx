@@ -131,7 +131,7 @@ export default function LoginPage() {
           {/* Work mode info */}
           {selectedMode === 'work' && (
             <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs text-center">
-              Chế độ Làm việc — cần tài khoản thật từ admin. Nếu chưa có, quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button> để demo.
+              Chế độ Làm việc — đăng nhập bằng tên ngắn (vd <span className="font-mono font-semibold">admin</span>) hoặc email đầy đủ. Chưa có tài khoản? Quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button>.
             </div>
           )}
 
@@ -139,18 +139,19 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="login-email" className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                Email
+                Email hoặc tên đăng nhập
               </label>
               <input
                 suppressHydrationWarning
                 id="login-email"
-                type="email"
+                type="text"
+                inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[#C9A96E] focus:ring-1 focus:ring-[#C9A96E]/50 outline-none transition-all"
-                placeholder={selectedMode === 'demo' ? 'admin@jamahome.vn' : 'email@jamahome.vn'}
+                placeholder={selectedMode === 'demo' ? 'admin@jamahome.vn' : 'admin (hoặc admin@jamahome.vn)'}
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 

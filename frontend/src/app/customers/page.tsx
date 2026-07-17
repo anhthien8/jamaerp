@@ -252,7 +252,7 @@ export default function CustomersPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
-                          {c.name.charAt(0)}
+                          {c.name?.charAt(0) || '?'}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-[var(--text-primary)]">{c.name}</p>
@@ -299,7 +299,7 @@ export default function CustomersPage() {
                       <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
-                            {c.name.charAt(0)}
+                            {c.name?.charAt(0) || '?'}
                           </div>
                           <div>
                             <p>{c.name}</p>
@@ -338,7 +338,7 @@ export default function CustomersPage() {
               </button>
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
-                  {selected.name.charAt(0)}
+                  {selected.name?.charAt(0) || '?'}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-[var(--text-primary)]">{selected.name}</h2>

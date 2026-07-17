@@ -56,8 +56,20 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     client_ip = request.client.host if request.client else "unknown"
     _check_login_rate_limit(client_ip)
 
-    result = await db.execute(select(User).where(User.email == data.email))
+    identifier = data.email.strip()
+    result = await db.execute(select(User).where(User.email == identifier))
     user = result.scalar_one_or_none()
+
+    # Nội bộ: cho phép đăng nhập bằng phần trước @ (vd "admin" ↔ "admin@jamahome.vn").
+    # Chỉ chạy khi người dùng gõ tên ngắn không có "@" và chưa khớp email đầy đủ.
+    if user is None and "@" not in identifier and identifier:
+        # Escape ký tự đại diện của LIKE để "adm%" không dò được nhiều tài khoản.
+        safe = identifier.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        result = await db.execute(
+            select(User).where(User.email.ilike(f"{safe}@%", escape="\\"))
+        )
+        matches = result.scalars().all()
+        user = matches[0] if len(matches) == 1 else None
 
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không đúng")

@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
@@ -872,9 +871,10 @@ export default function SettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // Ai đăng nhập cũng vào được Cài đặt (liên kết Telegram, xem lại hướng dẫn, thông tin cá nhân).
+  // Các mục quản trị (AI Model, Zalo, Backup, Automation) đã tự gate theo role bên trong.
   useEffect(() => {
     if (!loading && !user) router.push('/login');
-    if (!loading && user && !getPermissions(user.role as UserRole).canViewSettings) router.push('/');
   }, [user, loading, router]);
 
   if (loading || !user) return null;
@@ -884,7 +884,7 @@ export default function SettingsPage() {
       <div className="p-6 animate-in">
         <h1 className="text-2xl font-bold mb-6">⚙️ Cài đặt</h1>
 
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-5xl columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
           {/* Profile */}
           <div className="glass-card p-6">
             <h2 className="text-lg font-semibold mb-4">Thông tin cá nhân</h2>
@@ -931,10 +931,12 @@ export default function SettingsPage() {
                 <span className="text-[var(--text-secondary)]">Backend</span>
                 <span className="font-mono">FastAPI</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--text-secondary)]">AI Model</span>
-                <span className="font-mono text-xs">Cấu hình tại mục &quot;Cấu hình AI Model&quot;</span>
-              </div>
+              {user.role === 'admin' && (
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-secondary)]">AI Model</span>
+                  <span className="font-mono text-xs">Cấu hình tại mục &quot;Cấu hình AI Model&quot;</span>
+                </div>
+              )}
               <div className="flex justify-between pt-2 mt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                 <span className="text-[var(--text-secondary)]">Phát triển bởi</span>
                 <span className="gold-gradient font-medium">Dương Anh Thiện</span>

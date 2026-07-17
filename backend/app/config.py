@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     # API
     API_BASE_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:3000"
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:8000"
+    # Dev: liệt kê vài cổng localhost thường gặp (Next tự nhảy cổng khi 3000 bận).
+    # Production đặt qua biến môi trường CORS_ORIGINS (ghi đè mặc định này).
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:8000"
 
     # LLM (optional — rule-based fallback if empty)
     LLM_PROVIDER: str = "groq"

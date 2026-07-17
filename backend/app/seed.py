@@ -256,7 +256,7 @@ async def seed_database(db: AsyncSession):
             address="123 Nguyễn Văn Linh, Q7", project_type="design_build",
             design_value=45000000, construction_value=455000000, total_value=500000000,
             spent=375000000, progress=75, status="active", stage="construction",
-            pm_id=leader_id, designer_id=designer_id, sales_id=sales_id,
+            pm_id=leader_id, designer_id=supervisor_id, sales_id=sales_id,
             start_date=_dt(60), target_end_date=_dt(-30),
         ),
         Project(

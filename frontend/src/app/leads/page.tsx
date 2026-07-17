@@ -500,7 +500,7 @@ function LeadsContent() {
                           {dayLeads.slice(0, 3).map(lead => (
                             <div key={lead.id} onClick={() => openLeadDetail(lead)} className="text-[9px] sm:text-[10px] px-1 py-0.5 rounded cursor-pointer hover:opacity-80 transition-all truncate" style={{ background: `${PRIORITY_LABELS[lead.priority]?.color || '#6B7280'}20`, color: PRIORITY_LABELS[lead.priority]?.color || '#fff' }} title={`${lead.name} — ${formatDealValue(lead.deal_value)}`}>
                               <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 flex-shrink-0" style={{ background: PRIORITY_LABELS[lead.priority]?.color || '#6B7280', verticalAlign: 'middle' }} />
-                              {lead.name.split(' ')[0]}
+                              {lead.name?.split(' ')[0] || '—'}
                               {lead.deal_value ? <span className="hidden sm:inline"> · {formatDealValue(lead.deal_value)}</span> : null}
                             </div>
                           ))}
@@ -684,7 +684,7 @@ function LeadsContent() {
             <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
-                  <span className="text-lg font-bold text-white">{selectedLead.name.charAt(0)}</span>
+                  <span className="text-lg font-bold text-white">{selectedLead.name?.charAt(0) || '?'}</span>
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">{selectedLead.name}</h2>
@@ -865,7 +865,7 @@ function LeadsContent() {
                         </div>
                         <div className="flex-1 pb-3">
                           <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
-                            {act.content.split('\n').map((line, li) => {
+                            {(act.content || '').split('\n').map((line, li) => {
                               if (line.startsWith('📎')) {
                                 const url = line.replace('📎', '').trim();
                                 return (
@@ -876,7 +876,7 @@ function LeadsContent() {
                                   </a>
                                 );
                               }
-                              return <span key={li}>{line}{li < act.content.split('\n').length - 1 && <br />}</span>;
+                              return <span key={li}>{line}{li < (act.content || '').split('\n').length - 1 && <br />}</span>;
                             })}
                           </div>
                           <p className="text-[10px] text-[var(--text-muted)] mt-1">

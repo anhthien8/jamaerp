@@ -68,6 +68,23 @@ class TestLogin:
         assert body["user"]["role"] == "admin"
         assert body["user"]["email"] == "admin@test.com"
 
+    async def test_login_by_local_part(self, client: AsyncClient, admin_user: User):
+        # Nội bộ: gõ "admin" (không có @) vẫn khớp "admin@test.com".
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin", "password": "admin123"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["user"]["email"] == "admin@test.com"
+
+    async def test_login_local_part_wildcard_not_matched(self, client: AsyncClient, admin_user: User):
+        # "adm%" không được dùng ký tự đại diện để dò tài khoản.
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "adm%", "password": "admin123"},
+        )
+        assert resp.status_code == 401
+
     async def test_login_wrong_password(self, client: AsyncClient, admin_user: User):
         resp = await client.post(
             "/api/v1/auth/login",

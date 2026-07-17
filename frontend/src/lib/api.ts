@@ -395,8 +395,10 @@ class ApiClient {
     });
   }
 
-  async getActivities(leadId: string) {
-    return this.request<Activity[]>(`/leads/${leadId}/activities`);
+  async getActivities(leadId: string): Promise<Activity[]> {
+    // Backend trả object phân trang {items,...}; demo trả mảng thuần → chuẩn hoá về mảng.
+    const res = await this.request<Activity[] | { items: Activity[] }>(`/leads/${leadId}/activities`);
+    return Array.isArray(res) ? res : (res?.items ?? []);
   }
 
   async createActivity(leadId: string, data: { type: string; content: string }) {

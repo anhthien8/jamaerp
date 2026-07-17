@@ -84,10 +84,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS — list localhost (dev) + regex cho frontend Vercel (prod).
+# allow_origin_regex khớp cả alias ổn định (frontend-jet-two-86) lẫn URL theo deployment
+# (frontend-<hash>-jamacrm), nên không phải cập nhật CORS mỗi lần deploy frontend.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https://frontend-[a-z0-9-]+\.vercel\.app",
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
