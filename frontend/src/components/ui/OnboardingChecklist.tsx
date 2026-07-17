@@ -55,6 +55,52 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
   ],
 };
 
+// Training checklist items per role — actionable tasks
+const TRAINING_CHECKLIST: Record<string, { id: string; icon: string; title: string; href: string }[]> = {
+  data_entry: [
+    { id: 'view_pipeline', icon: '🔄', title: 'Xem Pipeline leads', href: '/leads' },
+    { id: 'create_lead', icon: '➕', title: 'Tạo lead mới', href: '/leads' },
+    { id: 'use_quote', icon: '⚡', title: 'Dùng báo giá tức thì', href: '/quote-tool' },
+    { id: 'view_project', icon: '📋', title: 'Xem tiến độ dự án', href: '/projects' },
+    { id: 'check_reports', icon: '📊', title: 'Xem báo cáo cá nhân', href: '/reports' },
+  ],
+  supervisor: [
+    { id: 'view_projects', icon: '📋', title: 'Xem danh sách dự án', href: '/projects' },
+    { id: 'update_task', icon: '✅', title: 'Cập nhật trạng thái task', href: '/projects' },
+    { id: 'check_inventory', icon: '📦', title: 'Kiểm tra kho vật tư', href: '/inventory' },
+    { id: 'create_quotation', icon: '💬', title: 'Tạo báo giá', href: '/quotations' },
+    { id: 'check_in', icon: '⏰', title: 'Chấm công ngày', href: '/attendance' },
+  ],
+  accountant: [
+    { id: 'view_accounting', icon: '💰', title: 'Xem sổ kế toán', href: '/accounting' },
+    { id: 'create_transaction', icon: '➕', title: 'Tạo giao dịch mới', href: '/accounting' },
+    { id: 'view_pl', icon: '📊', title: 'Xem báo cáo P&L', href: '/pl' },
+    { id: 'check_payroll', icon: '💵', title: 'Kiểm tra lương', href: '/hr' },
+    { id: 'approve_transactions', icon: '✅', title: 'Duyệt giao dịch chờ', href: '/approvals' },
+  ],
+  admin: [
+    { id: 'view_dashboard', icon: '📊', title: 'Xem dashboard tổng quan', href: '/' },
+    { id: 'configure_ai', icon: '🧠', title: 'Cấu hình AI Model', href: '/settings' },
+    { id: 'manage_users', icon: '👥', title: 'Quản lý người dùng', href: '/users' },
+    { id: 'setup_automation', icon: '🤖', title: 'Cấu hình tự động hóa', href: '/settings' },
+    { id: 'create_lead', icon: '🔄', title: 'Tạo lead đầu tiên', href: '/leads' },
+  ],
+  leader: [
+    { id: 'view_pipeline', icon: '🔄', title: 'Xem pipeline team', href: '/leads' },
+    { id: 'assign_lead', icon: '👤', title: 'Phân công lead cho team', href: '/leads' },
+    { id: 'view_projects', icon: '📋', title: 'Theo dõi dự án team', href: '/projects' },
+    { id: 'check_approvals', icon: '✅', title: 'Duyệt yêu cầu chờ', href: '/approvals' },
+    { id: 'view_reports', icon: '📊', title: 'Xem báo cáo hiệu suất', href: '/reports' },
+  ],
+  executive: [
+    { id: 'view_dashboard', icon: '📊', title: 'Xem tổng quan điều hành', href: '/' },
+    { id: 'view_pl', icon: '📈', title: 'Xem báo cáo P&L', href: '/pl' },
+    { id: 'check_projects', icon: '📋', title: 'Theo dõi dự án', href: '/projects' },
+    { id: 'view_reports', icon: '📊', title: 'Xem phân tích kinh doanh', href: '/reports' },
+    { id: 'review_feedback', icon: '💬', title: 'Xem feedback nhân sự', href: '/feedback' },
+  ],
+};
+
 const SHORTCUTS = [
   { keys: 'Ctrl + K', description: 'Tìm kiếm nhanh' },
   { keys: 'Ctrl + Enter', description: 'Gửi ghi chú' },
@@ -65,6 +111,10 @@ function getOnboardKey(role: string) {
   return `jama_onboarded_${role}`;
 }
 
+function getProgressKey(role: string) {
+  return `jama_training_progress_${role}`;
+}
+
 export function isOnboarded(role: string): boolean {
   if (typeof window === 'undefined') return true;
   return localStorage.getItem(getOnboardKey(role)) === 'true';
@@ -72,6 +122,22 @@ export function isOnboarded(role: string): boolean {
 
 export function clearOnboarding(role: string) {
   localStorage.removeItem(getOnboardKey(role));
+  localStorage.removeItem(getProgressKey(role));
+}
+
+export function getTrainingProgress(role: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem(getProgressKey(role)) || '[]');
+  } catch { return []; }
+}
+
+export function markTrainingItem(role: string, itemId: string) {
+  const progress = getTrainingProgress(role);
+  if (!progress.includes(itemId)) {
+    progress.push(itemId);
+    localStorage.setItem(getProgressKey(role), JSON.stringify(progress));
+  }
 }
 
 interface OnboardingChecklistProps {
@@ -88,6 +154,8 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
   const role = (user?.role || 'data_entry') as string;
   const primaryPage = ROLE_PRIMARY_PAGE[role] || ROLE_PRIMARY_PAGE.data_entry;
   const cards = ROLE_CARDS[role] || ROLE_CARDS.data_entry;
+  const checklist = TRAINING_CHECKLIST[role] || TRAINING_CHECKLIST.data_entry;
+  const completedItems = getTrainingProgress(role);
 
   useEffect(() => {
     if (forceOpen) {
@@ -120,14 +188,8 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-in"
-        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-      >
+      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-in" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
         {/* Header */}
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-center justify-between mb-1">
@@ -143,7 +205,6 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
           </div>
         </div>
 
-        {/* Step Content */}
         <div className="px-6 pb-4 min-h-[280px]">
           {/* Step 1: Welcome + role cards */}
           {step === 0 && (
@@ -152,126 +213,104 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
               <p className="text-sm text-[var(--text-muted)] mb-4">Dưới đây là các trang quan trọng cho vai trò của bạn:</p>
               <div className="space-y-2.5">
                 {cards.map(card => (
-                  <Link
-                    key={card.href}
-                    href={card.href}
-                    onClick={() => close(true)}
+                  <Link key={card.href} href={card.href} onClick={() => close(true)}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all hover:opacity-80 group"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-                  >
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                     <span className="text-xl flex-shrink-0">{card.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white group-hover:text-[#C9A96E] transition-colors">{card.title}</p>
                       <p className="text-xs text-[var(--text-muted)] truncate">{card.description}</p>
                     </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                   </Link>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 2: Keyboard shortcuts */}
+          {/* Step 2: Training checklist */}
           {step === 1 && (
             <div className="animate-in">
-              <h2 className="text-lg font-bold text-white mb-1">Các phím tắt hữu ích</h2>
-              <p className="text-sm text-[var(--text-muted)] mb-4">Sử dụng phím tắt để thao tác nhanh hơn:</p>
-              <div className="space-y-3">
+              <h2 className="text-lg font-bold text-white mb-1">Checklist huấn luyện</h2>
+              <p className="text-sm text-[var(--text-muted)] mb-1">Hoàn thành từng mục để nắm vững hệ thống:</p>
+              {/* Progress bar */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--surface-3)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${(completedItems.length / checklist.length) * 100}%`, background: 'linear-gradient(90deg, #C9A96E, #B8935A)' }} />
+                </div>
+                <span className="text-[10px] font-mono" style={{ color: '#C9A96E' }}>{completedItems.length}/{checklist.length}</span>
+              </div>
+              <div className="space-y-2 max-h-[240px] overflow-y-auto">
+                {checklist.map(item => {
+                  const done = completedItems.includes(item.id);
+                  return (
+                    <Link key={item.id} href={item.href} onClick={() => { markTrainingItem(role, item.id); }}
+                      className="flex items-center gap-3 p-3 rounded-xl transition-all hover:opacity-80 group"
+                      style={{ background: done ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)', border: `1px solid ${done ? 'rgba(16,185,129,0.2)' : 'var(--border-subtle)'}` }}>
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: done ? '#10B981' : 'var(--surface-3)', border: `1px solid ${done ? '#10B981' : 'var(--border-subtle)'}` }}>
+                        {done && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
+                      </div>
+                      <span className="text-xl flex-shrink-0">{item.icon}</span>
+                      <span className={`text-sm ${done ? 'line-through text-[var(--text-muted)]' : 'text-white'}`}>{item.title}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Keyboard shortcuts + start tour */}
+          {step === 2 && (
+            <div className="animate-in">
+              <h2 className="text-lg font-bold text-white mb-1">Sẵn sàng bắt đầu!</h2>
+              <p className="text-sm text-[var(--text-muted)] mb-3">Phím tắt hữu ích:</p>
+              <div className="space-y-2 mb-4">
                 {SHORTCUTS.map(sc => (
-                  <div key={sc.keys} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                    <span className="text-sm text-[var(--text-secondary)]">{sc.description}</span>
+                  <div key={sc.keys} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                    <span className="text-xs text-[var(--text-secondary)]">{sc.description}</span>
                     <div className="flex items-center gap-1">
                       {sc.keys.split(' + ').map((k, i) => (
                         <span key={i}>
-                          {i > 0 && <span className="text-[var(--text-disabled)] text-xs mx-0.5">+</span>}
-                          <kbd className="px-2 py-1 rounded-lg text-xs font-mono font-semibold" style={{ background: 'var(--surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
-                            {k}
-                          </kbd>
+                          {i > 0 && <span className="text-[var(--text-disabled)] text-[10px] mx-0.5">+</span>}
+                          <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold" style={{ background: 'var(--surface-3)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>{k}</kbd>
                         </span>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 p-3 rounded-xl text-xs text-[var(--text-muted)]" style={{ background: 'rgba(201,169,110,0.06)', border: '1px solid rgba(201,169,110,0.15)' }}>
-                <span className="text-[#C9A96E] font-semibold">Mẹo:</span> Nhấn{' '}
-                <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5" style={{ background: 'var(--surface-3)', border: '1px solid var(--border-subtle)' }}>Ctrl+K</kbd>
-                {' '}bất cứ lúc nào để tìm kiếm lead, dự án, hay khách hàng.
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Bắt đầu tour theo vai trò */}
-          {step === 2 && (
-            <div className="animate-in">
-              <h2 className="text-lg font-bold text-white mb-1">Sẵn sàng bắt đầu!</h2>
-              <p className="text-sm text-[var(--text-muted)] mb-4">
-                Khuyên dùng: đi theo <b className="text-[#C9A96E]">hướng dẫn từng bước</b> — hệ thống sẽ dẫn bạn qua đúng trình tự công việc của vai trò <b>{primaryPage.label === 'Tổng quan' ? 'quản lý' : 'của bạn'}</b>, từ đầu ca đến cuối ca.
-              </p>
-              <button
-                onClick={() => { close(true); startGuidedTour(); }}
-                className="w-full flex items-center gap-3 p-4 rounded-xl transition-all hover:opacity-90 group text-left"
-                style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}
-              >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
-                  <span className="text-lg">🧭</span>
-                </div>
+              <button onClick={() => { close(true); startGuidedTour(); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:opacity-90 group text-left"
+                style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}>
+                <span className="text-lg">🧭</span>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[#C9A96E] group-hover:text-white transition-colors">
-                    Bắt đầu hướng dẫn từng bước
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">Đi qua từng trang theo đúng workflow công việc của bạn</p>
+                  <p className="text-sm font-bold text-[#C9A96E]">Bắt đầu hướng dẫn từng bước</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Đi qua từng trang theo workflow của bạn</p>
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
               </button>
-              <Link
-                href={primaryPage.path}
-                onClick={() => close(true)}
-                className="mt-2 flex items-center justify-center p-2.5 rounded-xl text-xs transition-all hover:opacity-80"
-                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-              >
-                Bỏ qua — vào thẳng {primaryPage.label}
-              </Link>
-              <div className="mt-4 flex items-center gap-2 cursor-pointer select-none" onClick={() => setDontShowAgain(!dontShowAgain)}>
-                <div
-                  className="w-4 h-4 rounded flex items-center justify-center transition-all"
-                  style={{
-                    background: dontShowAgain ? '#C9A96E' : 'var(--surface-3)',
-                    border: `1px solid ${dontShowAgain ? '#C9A96E' : 'var(--border-subtle)'}`,
-                  }}
-                >
-                  {dontShowAgain && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
+              <div className="mt-3 flex items-center gap-2 cursor-pointer select-none" onClick={() => setDontShowAgain(!dontShowAgain)}>
+                <div className="w-4 h-4 rounded flex items-center justify-center transition-all"
+                  style={{ background: dontShowAgain ? '#C9A96E' : 'var(--surface-3)', border: `1px solid ${dontShowAgain ? '#C9A96E' : 'var(--border-subtle)'}` }}>
+                  {dontShowAgain && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
                 </div>
-                <span className="text-xs text-[var(--text-muted)]">Khong hien thi lai</span>
+                <span className="text-xs text-[var(--text-muted)]">Không hiển thị lại</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer buttons */}
+        {/* Footer */}
         <div className="px-6 pb-6 flex items-center justify-between">
-          <button
-            onClick={() => close(true)}
+          <button onClick={() => close(true)}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-          >
-            Bo qua
+            style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+            Bỏ qua
           </button>
-          <button
-            onClick={next}
+          <button onClick={next}
             className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-            style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)' }}
-          >
-            {step === 2 ? 'Hoan thanh' : 'Tiep theo'}
+            style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)' }}>
+            {step === 2 ? 'Hoàn thành' : 'Tiếp theo'}
           </button>
         </div>
       </div>
