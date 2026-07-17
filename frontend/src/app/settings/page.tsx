@@ -745,7 +745,7 @@ function AutomationSection() {
       max={max}
       value={value}
       onChange={e => onChange(Math.max(min, Math.min(max, parseInt(e.target.value, 10) || min)))}
-      className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+      className="w-16 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
     />
   );
 
@@ -775,7 +775,10 @@ function AutomationSection() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {numInput(form.followup_reminder_days, v => setForm(f => ({ ...f, followup_reminder_days: v })), 1, 90)}
-            <span className="text-sm text-[var(--text-secondary)]">ngày</span>
+            <div className="w-32 flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">ngày</span>
+              <span className="w-11 flex-shrink-0" />
+            </div>
           </div>
         </div>
 
@@ -784,10 +787,12 @@ function AutomationSection() {
             <p className="text-sm">Thu hồi lead quá hạn</p>
             <p className="text-xs text-[var(--text-muted)]">Tự động chuyển lead cho sale khác khi quá hạn chăm sóc</p>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {numInput(form.lead_recall_days, v => setForm(f => ({ ...f, lead_recall_days: v })), 1, 90)}
-            <span className="text-sm text-[var(--text-secondary)]">ngày</span>
-            {toggle(form.lead_recall_enabled, v => setForm(f => ({ ...f, lead_recall_enabled: v })))}
+            <div className="w-32 flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">ngày</span>
+              {toggle(form.lead_recall_enabled, v => setForm(f => ({ ...f, lead_recall_enabled: v })))}
+            </div>
           </div>
         </div>
 
@@ -798,7 +803,10 @@ function AutomationSection() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {numInput(form.payment_reminder_days, v => setForm(f => ({ ...f, payment_reminder_days: v })), 1, 90)}
-            <span className="text-sm text-[var(--text-secondary)]">ngày sau ký</span>
+            <div className="w-32 flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">ngày sau ký</span>
+              <span className="w-11 flex-shrink-0" />
+            </div>
           </div>
         </div>
 
@@ -807,11 +815,12 @@ function AutomationSection() {
             <p className="text-sm">Báo cáo BOD tự động</p>
             <p className="text-xs text-[var(--text-muted)]">Gửi hàng ngày · thứ Hai (tuần) · mùng 1 (tháng) qua Telegram</p>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="text-sm text-[var(--text-secondary)]">lúc</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
             {numInput(form.bod_report_hour, v => setForm(f => ({ ...f, bod_report_hour: v })), 0, 23)}
-            <span className="text-sm text-[var(--text-secondary)]">giờ</span>
-            {toggle(form.bod_report_enabled, v => setForm(f => ({ ...f, bod_report_enabled: v })))}
+            <div className="w-32 flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">giờ</span>
+              {toggle(form.bod_report_enabled, v => setForm(f => ({ ...f, bod_report_enabled: v })))}
+            </div>
           </div>
         </div>
 
