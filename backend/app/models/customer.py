@@ -36,6 +36,9 @@ class Customer(Base):
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )
 
+    portal_token: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True)
+    portal_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+
     # Relationships
     lead = relationship("Lead", foreign_keys=[lead_id])
     projects = relationship("Project", back_populates="customer", foreign_keys="Project.customer_id")

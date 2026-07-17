@@ -547,6 +547,10 @@ class ApiClient {
     return this.request<Customer>(`/customers/${id}`, { method: 'PUT', body: data });
   }
 
+  async generatePortalLink(customerId: string) {
+    return this.request<{ token: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
+  }
+
   // === ERP: Contracts ===
   async getContracts(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Contract>>('/contracts', { params });

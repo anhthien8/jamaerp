@@ -114,6 +114,32 @@ async def create_customer(
     return CustomerResponse.model_validate(customer)
 
 
+@router.post("/{customer_id}/generate-portal-link")
+async def generate_portal_link(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate portal link for customer (admin/leader only)."""
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+
+    result = await db.execute(select(Customer).where(Customer.id == customer_id))
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+
+    portal_token = str(uuid.uuid4())
+    customer.portal_token = portal_token
+    customer.portal_enabled = True
+    await db.flush()
+
+    return {
+        "portal_token": portal_token,
+        "portal_url": f"/portal/{portal_token}",
+    }
+
+
 @router.put("/{customer_id}", response_model=CustomerResponse)
 async def update_customer(
     customer_id: str,
@@ -132,3 +158,29 @@ async def update_customer(
     customer.updated_at = datetime.now(timezone.utc)
     await db.flush()
     return CustomerResponse.model_validate(customer)
+
+
+@router.post("/{customer_id}/generate-portal-link")
+async def generate_portal_link(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate portal link for customer (admin/leader only)."""
+    if current_user.role not in ("admin", "leader"):
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+
+    result = await db.execute(select(Customer).where(Customer.id == customer_id))
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+
+    portal_token = str(uuid.uuid4())
+    customer.portal_token = portal_token
+    customer.portal_enabled = True
+    await db.flush()
+
+    return {
+        "portal_token": portal_token,
+        "portal_url": f"/portal/{portal_token}",
+    }

@@ -369,6 +369,32 @@ export default function CustomersPage() {
                     </span>
                   )}
                 </h3>
+                <div className="mb-4">
+                  {(customerDetail as any)?.portal_token ? (
+                    <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(201,169,110,0.05)', border: '1px solid rgba(201,169,110,0.2)' }}>
+                      <span className="text-xs text-[var(--text-muted)] truncate flex-1">
+                        Portal: {window.location.origin}/portal/{(customerDetail as any).portal_token}
+                      </span>
+                      <button onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/portal/${(customerDetail as any).portal_token}`);
+                        toast('Đã copy link portal', 'success');
+                      }} className="text-[10px] font-bold text-[#C9A96E] hover:underline">Copy</button>
+                    </div>
+                  ) : (
+                    <button onClick={async () => {
+                      if (!selected) return;
+                      try {
+                        const { token } = await api.generatePortalLink(selected.id);
+                        toast('Đã tạo link portal thành công', 'success');
+                        setCustomerDetail(prev => ({ ...prev, portal_token: token } as any));
+                      } catch (e: any) {
+                        toast(`Lỗi tạo link: ${e.message}`, 'error');
+                      }
+                    }} className="w-full text-center text-xs py-2 rounded-lg bg-[#C9A96E]/10 text-[#C9A96E] hover:bg-[#C9A96E]/20 transition-all">
+                      Tạo link portal
+                    </button>
+                  )}
+                </div>
                 {loadingDetail ? (
                   <p className="text-xs text-[var(--text-muted)]">Đang tải...</p>
                 ) : customerDetail?.projects && customerDetail.projects.length > 0 ? (
