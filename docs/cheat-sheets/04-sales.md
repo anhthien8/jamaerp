@@ -5,21 +5,23 @@
 ## Bạn thấy gì trên Sidebar
 
 ```
-✅ Dashboard    ✅ Pipeline    ✅ Dự án     ✅ Khách hàng
+✅ Dashboard    ✅ Chấm công    ✅ Pipeline    ✅ Dự án     ✅ Khách hàng
 ✅ Hợp đồng    ✅ Báo giá     ❌ Kho       ❌ Kế toán
 ❌ Nhân sự     ❌ Tài chính   ❌ P&L       ✅ Báo cáo    ✅ Cài đặt
 ```
 
 ## Việc cần làm hàng ngày
 
-| Thời gian | Việc | Trang |
-|-----------|------|-------|
-| Sáng | Xem Dashboard cá nhân | `/` |
-| Sáng | Gõ `/briefing` trên Telegram | Telegram |
-| Cả ngày | Nhập lead mới từ Zalo | `/leads` hoặc Telegram |
-| Chiều | Follow-up leads đang xử lý | `/leads` |
-| Chiều | Báo giá sơ bộ cho khách | `/quote-tool` |
-| Tối | Ghi chú hoạt động cuối ngày | Click lead → nhập ghi chú |
+| Thời gian | Việc | Trang | Mô tả |
+|-----------|------|-------|-------|
+| **8:00** | Chấm công | `/attendance` | Check-in đầu ca |
+| **8:15** | Xem briefing | Telegram `/briefing` | Bot gửi danh sách leads cần follow-up |
+| **8:30** | Nhập lead mới | `/leads` hoặc Telegram | Khách Zalo → paste → AI parse → tạo lead |
+| **9:00-11:00** | Follow-up leads | `/leads` | Click lead → ghi chú cuộc gọi → chuyển stage |
+| **11:00** | Báo giá nhanh | `/quote-tool` | Khách hỏi giá → chọn Xây mới/Cải tạo |
+| **14:00** | Chuyển stage | `/leads` | Khách đồng ý → "Đang tư vấn" → "Khảo sát" |
+| **16:00** | Cập nhật CRM | `/leads` | Ghi chú cuối ngày, cập nhật last_contacted |
+| **Khi cần** | Gửi feedback | Telegram `/feedback` | Báo bug hoặc đề xuất tính năng |
 
 ## Quyền chính
 
