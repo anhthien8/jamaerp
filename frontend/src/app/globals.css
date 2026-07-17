@@ -471,3 +471,15 @@ input[type="month"] {
   background-position: right 10px center;
   padding-right: 34px;
 }
+
+/* === Native <select>: danh sách option trên nền tối ===
+   Mặc định Chromium render option chữ tối-trên-tối → gần như không đọc được.
+   color-scheme:dark + fill nền/chữ tường minh cho option để luôn rõ. */
+select {
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background-color: #171b26;
+  color: #e8e8ea;
+}

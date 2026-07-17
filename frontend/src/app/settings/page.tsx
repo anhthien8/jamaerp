@@ -170,8 +170,14 @@ function ZaloSection() {
             {session?.status === 'logged_in' ? (
               <button onClick={doLogout} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-40" style={{ borderColor: 'var(--border-subtle)', color: '#F87171' }}>Đăng xuất</button>
             ) : (
-              <button onClick={doLogin} disabled={busy || !session?.ingest_online} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
-                {busy ? '...' : 'Đăng nhập Zalo (QR)'}
+              <button
+                onClick={doLogin}
+                disabled={busy || !session?.ingest_online}
+                title={!session?.ingest_online ? 'Cần deploy dịch vụ zalo-listener lên Railway trước khi đăng nhập' : ''}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'var(--gold-500)' }}
+              >
+                {busy ? '...' : !session?.ingest_online ? 'Chưa sẵn sàng' : 'Đăng nhập Zalo (QR)'}
               </button>
             )}
           </div>
