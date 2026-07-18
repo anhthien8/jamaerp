@@ -43,9 +43,22 @@ export default class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Có lỗi xảy ra</h2>
-            <p className="text-sm text-gray-400 mb-6">
+            <p className="text-sm text-gray-400 mb-3">
               Hệ thống gặp sự cố không mong muốn. Vui lòng tải lại trang.
             </p>
+            {/* Chi tiết kỹ thuật — để chụp màn hình gửi đội dev là biết ngay lỗi gì */}
+            {this.state.error && (
+              <div className="mb-5 p-3 rounded-lg text-left overflow-auto max-h-40" style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[11px] font-mono break-all" style={{ color: '#F87171' }}>
+                  {this.state.error.name}: {this.state.error.message}
+                </p>
+                {this.state.error.stack && (
+                  <p className="text-[10px] font-mono mt-1 whitespace-pre-wrap break-all" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    {this.state.error.stack.split('\n').slice(1, 4).join('\n')}
+                  </p>
+                )}
+              </div>
+            )}
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });

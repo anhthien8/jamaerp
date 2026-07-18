@@ -151,6 +151,9 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
       return task as T;
     }
   }
+  // PHẢI đứng TRƯỚC matcher /projects/{id} — 'by-department' khớp pattern {id},
+  // nếu để sau sẽ bị nuốt và trả về 1 project object (không .items) → crash .length
+  if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
   if (path.match(/^\/projects\/[^/]+$/)) {
     const projectId = path.split('/')[2];
     return (d.DEMO_PROJECTS.find(p => p.id === projectId) || d.DEMO_PROJECTS[0]) as T;
@@ -241,7 +244,6 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
 
   // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương ──
-  if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
   if (path === '/attendance/today') return { record: null } as T;
   if (path === '/attendance/me') {
     return {

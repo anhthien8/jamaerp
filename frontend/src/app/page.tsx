@@ -41,7 +41,7 @@ export default function DashboardPage() {
       const dept = ROLE_DEPT[user.role];
       if (dept) {
         api.getProjectsByDepartment(dept, 5)
-          .then(res => setDeptProjects(res.items))
+          .then(res => setDeptProjects(res?.items || []))
           .catch(() => setDeptProjects([]));
       }
 
