@@ -240,4 +240,65 @@ async def project_pl_detail(
         profit=profit,
         margin=round(margin, 2),
         cost_by_category=cost_by_category,
+        budget_total=project.budget_total,
     )
+
+
+@router.get("/receivables")
+async def receivables(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_require_clevel),
+):
+    """Phải thu theo hợp đồng: các đợt thanh toán còn pending của HĐ đã ký.
+
+    Tính từ payment_terms.installments (amount = total_value × percentage/100).
+    Dùng cho BOD/kế toán nhìn nhanh dòng tiền sắp về.
+    """
+    result = await db.execute(
+        select(Contract, Project.name.label("project_name"), Project.code.label("project_code"))
+        .join(Project, Contract.project_id == Project.id)
+        .where(Contract.status.in_(["signed", "completed"]))
+        .order_by(Contract.signed_date.desc().nullslast())
+    )
+    rows = result.all()
+
+    contracts_out = []
+    total_receivable = 0.0
+    for contract, project_name, project_code in rows:
+        terms = contract.payment_terms or {}
+        installments = terms.get("installments") or []
+        total_value = float(contract.total_value or 0)
+        pending = []
+        pending_amount = 0.0
+        for inst in installments:
+            if (inst or {}).get("status") == "pending":
+                pct = float(inst.get("percentage") or 0)
+                amount = round(total_value * pct / 100, 0)
+                pending.append({
+                    "name": inst.get("name") or "Đợt thanh toán",
+                    "percentage": pct,
+                    "amount": amount,
+                    "milestone": inst.get("milestone"),
+                })
+                pending_amount += amount
+        if not pending:
+            continue
+        total_receivable += pending_amount
+        contracts_out.append({
+            "contract_id": contract.id,
+            "contract_code": contract.code,
+            "project_code": project_code,
+            "project_name": project_name,
+            "signed_date": contract.signed_date.isoformat() if contract.signed_date else None,
+            "total_value": total_value,
+            "pending_amount": pending_amount,
+            "pending_installments": pending,
+        })
+
+    # HĐ nhiều tiền chờ thu nhất lên đầu
+    contracts_out.sort(key=lambda c: -c["pending_amount"])
+    return {
+        "total_receivable": total_receivable,
+        "contract_count": len(contracts_out),
+        "contracts": contracts_out,
+    }

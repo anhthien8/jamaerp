@@ -62,7 +62,7 @@ export default function FeedbackPage() {
   return (
     <Sidebar>
       <div className="p-6 animate-in">
-        <h1 className="text-2xl font-bold mb-1">📝 Feedback từ nhân sự</h1>
+        <h1 className="text-2xl font-bold mb-1">Feedback từ nhân sự</h1>
         <p className="text-sm text-[var(--text-muted)] mb-6">{total} phản hồi</p>
 
         {/* Filters */}

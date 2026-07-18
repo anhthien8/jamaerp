@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.user import User, Team
 from app.schemas.user import (
     UserLogin, TokenResponse, UserResponse, UserCreate, TelegramAuth,
+    ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest,
 )
 from app.middleware.auth import (
     verify_password, hash_password, create_access_token, get_current_user,
@@ -48,6 +49,104 @@ def _check_login_rate_limit(ip: str) -> None:
     _check_rate_limit(f"login:{ip}")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# ── Quên mật khẩu: mã 6 số gửi qua Telegram, lưu in-memory (single instance) ──
+# key = email thường hoá, value = (code, expires_epoch, attempts_left)
+_reset_codes: dict[str, tuple[str, float, int]] = {}
+_RESET_TTL_SECONDS = 15 * 60
+_RESET_MAX_ATTEMPTS = 5
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Người dùng tự đổi mật khẩu (cần mật khẩu cũ)."""
+    if not verify_password(data.old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+    current_user.password_hash = hash_password(data.new_password)
+    await db.flush()
+    return {"status": "ok", "message": "Đã đổi mật khẩu"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request, data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Gửi mã đặt lại mật khẩu qua Telegram đã liên kết.
+
+    Luôn trả thông điệp chung (không lộ email nào tồn tại). Chỉ gửi được khi
+    user đã liên kết telegram_user_id — không cần email server.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(f"forgot:{client_ip}", max_attempts=5)
+
+    email = data.email.strip().lower()
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user is None and "@" not in email and email:
+        safe = email.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        result = await db.execute(select(User).where(User.email.ilike(f"{safe}@%", escape="\\")))
+        matches = result.scalars().all()
+        user = matches[0] if len(matches) == 1 else None
+
+    generic = {
+        "status": "ok",
+        "message": "Nếu tài khoản tồn tại và đã liên kết Telegram, mã đặt lại đã được gửi qua bot (hiệu lực 15 phút).",
+    }
+    if not user or not user.is_active or not user.telegram_user_id:
+        return generic
+
+    import secrets as _secrets
+    code = f"{_secrets.randbelow(1_000_000):06d}"
+    _reset_codes[user.email.lower()] = (code, time.time() + _RESET_TTL_SECONDS, _RESET_MAX_ATTEMPTS)
+
+    from app.services.telegram_notify import send_telegram
+    await send_telegram(
+        user.telegram_user_id,
+        f"🔐 Mã đặt lại mật khẩu JAMA ERP của bạn: <b>{code}</b>\n"
+        f"Hiệu lực 15 phút. Nếu không phải bạn yêu cầu, hãy bỏ qua tin này.",
+    )
+    return generic
+
+
+@router.post("/reset-password")
+async def reset_password(request: Request, data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Đặt mật khẩu mới bằng mã đã gửi qua Telegram."""
+    client_ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(f"reset:{client_ip}", max_attempts=10)
+
+    email = data.email.strip().lower()
+    if "@" not in email:
+        # cho phép tên ngắn giống login: tra email đầy đủ
+        safe = email.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        result = await db.execute(select(User).where(User.email.ilike(f"{safe}@%", escape="\\")))
+        matches = result.scalars().all()
+        if len(matches) == 1:
+            email = matches[0].email.lower()
+
+    entry = _reset_codes.get(email)
+    now = time.time()
+    if not entry or entry[1] < now:
+        _reset_codes.pop(email, None)
+        raise HTTPException(status_code=400, detail="Mã không hợp lệ hoặc đã hết hạn")
+    code, expires, attempts = entry
+    if attempts <= 0:
+        _reset_codes.pop(email, None)
+        raise HTTPException(status_code=400, detail="Nhập sai quá số lần cho phép — yêu cầu mã mới")
+    if not hmac.compare_digest(code, data.code.strip()):
+        _reset_codes[email] = (code, expires, attempts - 1)
+        raise HTTPException(status_code=400, detail="Mã không đúng")
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="Tài khoản không hợp lệ")
+
+    user.password_hash = hash_password(data.new_password)
+    _reset_codes.pop(email, None)
+    await db.flush()
+    return {"status": "ok", "message": "Đã đặt lại mật khẩu — đăng nhập bằng mật khẩu mới"}
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -1,9 +1,13 @@
-"""Customer Portal — public read-only access for customers."""
+"""Customer Portal — public access for customers (read + xác nhận nghiệm thu)."""
 
 import uuid
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db
 from app.models.customer import Customer
@@ -11,6 +15,13 @@ from app.models.project import Project, Task, TaskActivity
 from app.models.user import User
 
 router = APIRouter(prefix="/portal", tags=["portal"])
+
+ACCEPTABLE_STAGES = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
+
+
+class StageAcceptRequest(BaseModel):
+    stage: str
+    note: str = Field(default="", max_length=500)
 
 
 async def _get_customer_by_token(token: str, db: AsyncSession) -> Customer:
@@ -99,6 +110,9 @@ async def portal_project_detail(token: str, project_id: str, db: AsyncSession = 
             "progress": project.progress,
             "start_date": project.start_date.isoformat() if project.start_date else None,
             "target_end_date": project.target_end_date.isoformat() if project.target_end_date else None,
+            "stage_acceptances": project.stage_acceptances or {},
+            "handover_date": project.handover_date.isoformat() if project.handover_date else None,
+            "warranty_months": project.warranty_months,
         },
         "tasks": [
             {"id": t.id, "title": t.title, "status": t.status, "stage": t.stage}
@@ -107,6 +121,63 @@ async def portal_project_detail(token: str, project_id: str, db: AsyncSession = 
         "task_summary": task_status,
         "total_tasks": len(tasks),
     }
+
+
+@router.post("/{token}/projects/{project_id}/accept-stage")
+async def portal_accept_stage(
+    token: str,
+    project_id: str,
+    data: StageAcceptRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Khách xác nhận nghiệm thu 1 giai đoạn — lưu timestamp làm bằng chứng.
+
+    Idempotent: giai đoạn đã xác nhận rồi thì trả về bản ghi cũ (không ghi đè).
+    """
+    customer = await _get_customer_by_token(token, db)
+
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project or (project.customer_id != customer.id and project.lead_id != customer.lead_id):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    if data.stage not in ACCEPTABLE_STAGES:
+        raise HTTPException(status_code=400, detail="Giai đoạn không hợp lệ")
+
+    acceptances = dict(project.stage_acceptances or {})
+    if data.stage in acceptances:
+        return {"status": "already_accepted", "acceptance": acceptances[data.stage]}
+
+    record = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "note": data.note.strip(),
+        "by": customer.name,
+    }
+    acceptances[data.stage] = record
+    project.stage_acceptances = acceptances
+    flag_modified(project, "stage_acceptances")
+    await db.flush()
+
+    # Báo sales/PM qua Telegram (best-effort, không chặn response)
+    try:
+        from app.services.telegram_notify import send_telegram
+        STAGE_LABELS = {
+            "design": "Thiết kế", "quotation": "Báo giá", "procurement": "Thu mua",
+            "construction": "Thi công", "acceptance": "Nghiệm thu", "completed": "Hoàn thành",
+        }
+        msg = (
+            f"✅ Khách <b>{customer.name}</b> vừa xác nhận nghiệm thu giai đoạn "
+            f"<b>{STAGE_LABELS.get(data.stage, data.stage)}</b> — dự án {project.code} {project.name}."
+        )
+        for uid in {project.sales_id, project.pm_id}:
+            if not uid:
+                continue
+            u = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            if u and u.telegram_user_id:
+                await send_telegram(u.telegram_user_id, msg)
+    except Exception:
+        pass
+
+    return {"status": "accepted", "acceptance": record}
 
 
 @router.get("/{token}/projects/{project_id}/activities")

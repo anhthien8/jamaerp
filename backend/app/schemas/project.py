@@ -31,6 +31,9 @@ class ProjectUpdate(BaseModel):
     spent: float | None = None
     pm_id: str | None = None
     designer_id: str | None = None
+    budget_total: float | None = None
+    handover_date: datetime | None = None
+    warranty_months: int | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -54,6 +57,10 @@ class ProjectResponse(BaseModel):
     sales_id: str | None = None
     start_date: datetime | None = None
     target_end_date: datetime | None = None
+    budget_total: float | None = None
+    handover_date: datetime | None = None
+    warranty_months: int = 12
+    stage_acceptances: dict | None = None
     created_at: datetime
     updated_at: datetime
     # Tiến độ đầu việc theo giai đoạn: {"design": {"done": 3, "total": 5}, ...}

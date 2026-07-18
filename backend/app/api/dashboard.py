@@ -145,7 +145,9 @@ async def personal_dashboard(
     ]
 
     # Compute real weekly KPIs from Activity records
-    from datetime import timedelta
+    # LƯU Ý: KHÔNG import timedelta ở đây — import trong hàm biến nó thành local
+    # cho TOÀN HÀM → dòng `now - timedelta(days=3)` phía trên ném UnboundLocalError
+    # → 500 cho mọi role personal (bug phát hiện 18/07 khi QC supervisor).
     from sqlalchemy import func as sql_func
     from app.models.lead import Activity as ActivityModel
 

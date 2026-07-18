@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead, Activity
 from app.models.contract import Contract
+from app.models.project import Project
 from app.models.user import User
 from app.models.notification import Notification, SystemSetting, DEFAULT_AUTOMATION_SETTINGS
 from app.services.telegram_notify import send_telegram
@@ -315,9 +316,57 @@ async def run_payment_reminders(db: AsyncSession) -> dict:
 # Run-all entry point (used by worker + manual trigger API)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 4. Warranty reminders — nhắc trước khi hết bảo hành (30 & 7 ngày)
+# ---------------------------------------------------------------------------
+
+async def run_warranty_reminders(db: AsyncSession) -> dict:
+    """Nhắc sales/PM chăm sóc khách trước khi hết hạn bảo hành.
+
+    warranty_end = handover_date + warranty_months. Nhắc ở mốc còn 30 ngày và
+    7 ngày (dedupe qua _notify unread cùng type+ref). Cơ hội bán gói bảo trì.
+    """
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(Project).where(
+            Project.handover_date.isnot(None),
+            Project.status.in_(["active", "completed"]),
+        )
+    )
+    projects = result.scalars().all()
+
+    notified = 0
+    for p in projects:
+        handover = p.handover_date
+        if handover.tzinfo is None:
+            handover = handover.replace(tzinfo=timezone.utc)
+        warranty_end = handover + timedelta(days=30 * (p.warranty_months or 12))
+        days_left = (warranty_end - now).days
+        if days_left < 0 or days_left > 30:
+            continue
+        milestone = "7d" if days_left <= 7 else "30d"
+        title = f"🛡️ Dự án {p.code} còn {days_left} ngày bảo hành"
+        body = (
+            f"{p.name} — khách {p.client_name}. Hết bảo hành {warranty_end.strftime('%d/%m/%Y')}. "
+            f"Nên gọi hỏi thăm + đề xuất gói bảo trì định kỳ."
+        )
+        for uid in {p.sales_id, p.pm_id}:
+            if not uid:
+                continue
+            u = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            if await _notify(
+                db, u, "warranty_reminder", title, body,
+                link=f"/projects?id={p.id}", ref_id=f"{p.id}:{milestone}",
+            ):
+                notified += 1
+
+    return {"checked": len(projects), "notified": notified}
+
+
 async def run_all_automation(db: AsyncSession) -> dict:
     followups = await run_followup_reminders(db)
     recalls = await run_lead_recall(db)
     payments = await run_payment_reminders(db)
+    warranties = await run_warranty_reminders(db)
     await db.commit()
-    return {"followups": followups, "recalls": recalls, "payments": payments}
+    return {"followups": followups, "recalls": recalls, "payments": payments, "warranties": warranties}

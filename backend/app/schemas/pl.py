@@ -28,6 +28,8 @@ class PLProjectItem(BaseModel):
 class PLProjectDetail(PLProjectItem):
     """Detailed P&L for one project with cost breakdown by category."""
     cost_by_category: list[PLCostCategory] = []
+    # Ngân sách kế hoạch (nếu đã nhập) — so với total_cost để cảnh báo vượt
+    budget_total: float | None = None
 
 
 class PLSummary(BaseModel):

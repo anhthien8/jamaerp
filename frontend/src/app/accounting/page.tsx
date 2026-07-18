@@ -201,7 +201,7 @@ export default function AccountingPage() {
       <div className="p-6 animate-in">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold">💰 Kế toán & Tài chính</h1>
+            <h1 className="text-2xl font-bold">Kế toán &amp; Tài chính</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Quản lý thu chi, hoa hồng, lương</p>
           </div>
         </div>

@@ -320,10 +320,18 @@ export default function PLPage() {
   const [customTo, setCustomTo] = useState('2026-12-31');
   const [customDays, setCustomDays] = useState('');
   const [detailProject, setDetailProject] = useState<ProjectPL | null>(null);  // modal chi tiết P&L dự án
+  const [receivables, setReceivables] = useState<import('@/lib/api').ReceivablesResponse | null>(null);
+  const [showReceivables, setShowReceivables] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
+
+  // Phải thu theo hợp đồng — các đợt thanh toán pending của HĐ đã ký
+  useEffect(() => {
+    if (!user) return;
+    api.getReceivables().then(setReceivables).catch(() => setReceivables(null));
+  }, [user, isDemo]);
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
@@ -706,6 +714,45 @@ export default function PLPage() {
                 </div>
               </div>
             </div>
+
+            {/* ── Phải thu theo hợp đồng — dòng tiền sắp về ── */}
+            {receivables && receivables.contract_count > 0 && (
+              <div className="glass-card p-4 md:p-5 border-l-2 border-l-amber-500">
+                <button onClick={() => setShowReceivables(v => !v)} className="w-full flex items-center justify-between gap-3">
+                  <div className="text-left">
+                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Phải thu theo hợp đồng</p>
+                    <p className="text-lg md:text-2xl font-bold text-amber-400 mt-1">{formatCurrency(receivables.total_receivable)}</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{receivables.contract_count} hợp đồng còn đợt thanh toán chờ thu</p>
+                  </div>
+                  <span className="text-xs text-[var(--text-muted)]">{showReceivables ? 'Thu gọn ▲' : 'Chi tiết ▼'}</span>
+                </button>
+                {showReceivables && (
+                  <div className="mt-4 space-y-3">
+                    {receivables.contracts.map(c => (
+                      <div key={c.contract_id} className="p-3 rounded-xl" style={{ background: 'var(--surface-2)' }}>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-white">{c.contract_code} · {c.project_name}</p>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              {c.signed_date ? `Ký ${new Date(c.signed_date).toLocaleDateString('vi-VN')} · ` : ''}HĐ {formatCurrency(c.total_value)}
+                            </p>
+                          </div>
+                          <p className="text-sm font-bold text-amber-400">{formatCurrency(c.pending_amount)}</p>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {c.pending_installments.map((inst, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+                              <span>• {inst.name} ({inst.percentage}%)</span>
+                              <span className="font-mono">{formatCurrency(inst.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Per-Project P&L ── */}
             <div className="glass-card overflow-hidden">

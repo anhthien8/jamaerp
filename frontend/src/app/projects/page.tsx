@@ -130,6 +130,7 @@ export default function ProjectsPage() {
   const [projectForm, setProjectForm] = useState({
     name: '', client_name: '', client_phone: '', address: '',
     project_type: 'design_build', total_value: '', start_date: '', target_end_date: '',
+    budget_total: '', handover_date: '', warranty_months: '12',
   });
   const [savingProject, setSavingProject] = useState(false);
 
@@ -369,10 +370,13 @@ export default function ProjectsPage() {
         total_value: project.total_value ? String(project.total_value) : '',
         start_date: project.start_date || '',
         target_end_date: project.target_end_date || '',
+        budget_total: project.budget_total ? String(project.budget_total) : '',
+        handover_date: project.handover_date ? project.handover_date.slice(0, 10) : '',
+        warranty_months: String(project.warranty_months ?? 12),
       });
     } else {
       setEditingProject(null);
-      setProjectForm({ name: '', client_name: '', client_phone: '', address: '', project_type: 'design_build', total_value: '', start_date: '', target_end_date: '' });
+      setProjectForm({ name: '', client_name: '', client_phone: '', address: '', project_type: 'design_build', total_value: '', start_date: '', target_end_date: '', budget_total: '', handover_date: '', warranty_months: '12' });
     }
     setShowProjectForm(true);
   };
@@ -393,6 +397,9 @@ export default function ProjectsPage() {
         total_value: projectForm.total_value ? Number(projectForm.total_value) : undefined,
         start_date: projectForm.start_date || undefined,
         target_end_date: projectForm.target_end_date || undefined,
+        budget_total: projectForm.budget_total ? Number(projectForm.budget_total) : undefined,
+        handover_date: projectForm.handover_date || undefined,
+        warranty_months: projectForm.warranty_months ? Number(projectForm.warranty_months) : undefined,
       };
       if (editingProject) {
         const updated = await api.updateProject(editingProject.id, payload);
@@ -936,6 +943,53 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
+              {/* Ngân sách vs Thực chi — cảnh báo vượt ngân sách sớm */}
+              {selectedProject.budget_total ? (() => {
+                const budget = selectedProject.budget_total || 0;
+                const spent = selectedProject.spent || 0;
+                const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+                const over = pct > 100;
+                const warn = pct >= 80 && !over;
+                const barColor = over ? '#F87171' : warn ? '#FBBF24' : '#34D399';
+                return (
+                  <div className="glass-card p-4">
+                    <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Ngân sách vs thực chi</h3>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-[var(--text-secondary)]">Đã chi {formatCurrency(spent)} / {formatCurrency(budget)}</span>
+                      <span className="font-bold" style={{ color: barColor }}>{pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: barColor }} />
+                    </div>
+                    {over && <p className="text-xs mt-2" style={{ color: '#F87171' }}>⚠ Vượt ngân sách {formatCurrency(spent - budget)} — cần rà soát chi phí</p>}
+                    {warn && <p className="text-xs mt-2" style={{ color: '#FBBF24' }}>Sắp chạm ngân sách — theo dõi sát các khoản chi tiếp theo</p>}
+                  </div>
+                );
+              })() : null}
+
+              {/* Bàn giao & bảo hành */}
+              {selectedProject.handover_date && (
+                <div className="glass-card p-4">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Bàn giao &amp; bảo hành</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-[var(--text-muted)]">Ngày bàn giao</p>
+                      <p className="font-semibold text-white mt-0.5">{new Date(selectedProject.handover_date).toLocaleDateString('vi-VN')}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--text-muted)]">Hết bảo hành ({selectedProject.warranty_months ?? 12} tháng)</p>
+                      <p className="font-semibold text-white mt-0.5">
+                        {(() => {
+                          const d = new Date(selectedProject.handover_date);
+                          d.setMonth(d.getMonth() + (selectedProject.warranty_months ?? 12));
+                          return d.toLocaleDateString('vi-VN');
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Tasks - Grouped by Operational Stage */}
               <div className="glass-card p-4">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -1371,6 +1425,33 @@ export default function ProjectsPage() {
                     type="date" value={projectForm.target_end_date}
                     onChange={e => setProjectForm(f => ({ ...f, target_end_date: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngân sách kế hoạch (VND) — để cảnh báo khi chi vượt</label>
+                <input
+                  type="number" value={projectForm.budget_total}
+                  onChange={e => setProjectForm(f => ({ ...f, budget_total: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                  placeholder="Bỏ trống nếu chưa lập ngân sách"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày bàn giao</label>
+                  <input
+                    type="date" value={projectForm.handover_date}
+                    onChange={e => setProjectForm(f => ({ ...f, handover_date: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Bảo hành (tháng)</label>
+                  <input
+                    type="number" min={0} max={120} value={projectForm.warranty_months}
+                    onChange={e => setProjectForm(f => ({ ...f, warranty_months: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
                   />
                 </div>
               </div>

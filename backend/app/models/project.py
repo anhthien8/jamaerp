@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Integer, Index
+from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -34,6 +34,15 @@ class Project(Base):
     construction_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     total_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     spent: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    # Ngân sách kế hoạch — so với chi thực tế (spent) để cảnh báo vượt ngân sách sớm
+    budget_total: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Bàn giao & bảo hành: warranty_end = handover_date + warranty_months
+    handover_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    warranty_months: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
+
+    # Nghiệm thu giai đoạn qua Customer Portal: {stage: {"at": iso, "note": str}}
+    stage_acceptances: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Progress
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0-100

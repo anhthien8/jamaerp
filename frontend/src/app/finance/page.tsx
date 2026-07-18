@@ -95,7 +95,7 @@ export default function FinancePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">💰 Finance — Quan ly Tai chinh</h1>
+            <h1 className="text-2xl font-bold">Tài chính — Lương &amp; Hoa hồng</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Quan ly luong, chi phi, hoa hong</p>
           </div>
           {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>🎯 DEMO MODE</span>}

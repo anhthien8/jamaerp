@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth, type AppMode } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', role: 'Admin' },
@@ -21,6 +22,39 @@ export default function LoginPage() {
   const [selectedMode, setSelectedMode] = useState<AppMode>('work');
   const { login } = useAuth();
   const router = useRouter();
+
+  // Quên mật khẩu — mã gửi qua Telegram đã liên kết
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [fpStep, setFpStep] = useState<'request' | 'reset'>('request');
+  const [fpEmail, setFpEmail] = useState('');
+  const [fpCode, setFpCode] = useState('');
+  const [fpNewPass, setFpNewPass] = useState('');
+  const [fpMsg, setFpMsg] = useState('');
+  const [fpBusy, setFpBusy] = useState(false);
+
+  const fpRequest = async () => {
+    if (!fpEmail.trim()) { setFpMsg('Nhập email hoặc tên đăng nhập trước'); return; }
+    setFpBusy(true); setFpMsg('');
+    try {
+      const r = await api.forgotPassword(fpEmail.trim());
+      setFpMsg(r.message);
+      setFpStep('reset');
+    } catch (e) { setFpMsg(e instanceof Error ? e.message : 'Không gửi được mã'); }
+    finally { setFpBusy(false); }
+  };
+
+  const fpReset = async () => {
+    if (fpNewPass.length < 6) { setFpMsg('Mật khẩu mới cần ít nhất 6 ký tự'); return; }
+    setFpBusy(true); setFpMsg('');
+    try {
+      const r = await api.resetPassword(fpEmail.trim(), fpCode.trim(), fpNewPass);
+      setFpMsg(`✓ ${r.message}`);
+      setForgotOpen(false); setFpStep('request'); setFpCode(''); setFpNewPass('');
+      setEmail(fpEmail.trim()); setPassword('');
+      setError('Đã đặt lại mật khẩu — đăng nhập bằng mật khẩu mới.');
+    } catch (e) { setFpMsg(e instanceof Error ? e.message : 'Đặt lại thất bại'); }
+    finally { setFpBusy(false); }
+  };
 
   // Read persisted mode after mount (avoids SSR localStorage error)
   useEffect(() => {
@@ -200,6 +234,51 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Quên mật khẩu — chỉ Work mode (demo dùng demo123) */}
+          {selectedMode === 'work' && (
+            <div className="mt-4">
+              {!forgotOpen ? (
+                <button type="button" onClick={() => { setForgotOpen(true); setFpEmail(email); setFpMsg(''); }}
+                  className="text-xs text-[var(--text-muted)] hover:text-[#C9A96E] transition-colors underline">
+                  Quên mật khẩu?
+                </button>
+              ) : (
+                <div className="p-4 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-[var(--text-secondary)]">Đặt lại mật khẩu</p>
+                    <button type="button" onClick={() => { setForgotOpen(false); setFpStep('request'); setFpMsg(''); }} className="text-xs text-[var(--text-muted)] hover:text-white">✕</button>
+                  </div>
+                  {fpStep === 'request' ? (
+                    <>
+                      <p className="text-xs text-[var(--text-muted)]">Mã xác nhận sẽ gửi qua <b>Telegram</b> bạn đã liên kết trong Cài đặt. Chưa liên kết? Nhờ Admin đặt lại hộ.</p>
+                      <input type="text" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="Email hoặc tên đăng nhập"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                      <button type="button" onClick={fpRequest} disabled={fpBusy}
+                        className="w-full py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                        {fpBusy ? 'Đang gửi...' : 'Gửi mã qua Telegram'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input type="text" inputMode="numeric" value={fpCode} onChange={e => setFpCode(e.target.value)} placeholder="Mã 6 số từ Telegram"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white font-mono focus:outline-none focus:border-[#C9A96E]" />
+                      <input type="password" value={fpNewPass} onChange={e => setFpNewPass(e.target.value)} placeholder="Mật khẩu mới (≥ 6 ký tự)"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={fpReset} disabled={fpBusy}
+                          className="flex-1 py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                          {fpBusy ? 'Đang đặt lại...' : 'Đặt lại mật khẩu'}
+                        </button>
+                        <button type="button" onClick={() => setFpStep('request')} className="px-3 py-2 rounded-lg text-xs text-[var(--text-muted)] border border-white/10">Gửi lại mã</button>
+                      </div>
+                    </>
+                  )}
+                  {fpMsg && <p className="text-xs" style={{ color: fpMsg.startsWith('✓') ? '#34D399' : '#FBBF24' }}>{fpMsg}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Demo Credentials — only visible in demo mode */}
           {selectedMode === 'demo' && (
             <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
@@ -226,7 +305,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="text-center text-xs font-medium mt-6" style={{ color: 'var(--text-secondary)' }}>
-            JAMA HOME <span style={{ opacity: 0.5 }}>|</span> Thiết kế cho cuộc sống mới
+            JAMA HOME <span style={{ opacity: 0.5 }}>·</span> Thiết kế cho cuộc sống mới
           </p>
           <p className="text-center text-[11px] mt-1.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
             Phát triển bởi <span className="gold-gradient font-medium">Dương Anh Thiện</span>

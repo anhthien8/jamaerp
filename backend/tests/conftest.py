@@ -46,14 +46,16 @@ from app.api.telegram_workflow import MaterialRequest  # noqa
 # Reset in-memory login rate-limiter between tests so attempts don't leak
 # across tests sharing the same client IP (avoids spurious 429s).
 # ---------------------------------------------------------------------------
-from app.api.auth import _login_attempts  # noqa
+from app.api.auth import _login_attempts, _reset_codes  # noqa
 
 
 @pytest.fixture(autouse=True)
 def _reset_login_rate_limit():
     _login_attempts.clear()
+    _reset_codes.clear()
     yield
     _login_attempts.clear()
+    _reset_codes.clear()
 
 
 # ---------------------------------------------------------------------------

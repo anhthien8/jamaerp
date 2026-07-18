@@ -11,6 +11,15 @@ from app.database import engine, Base
 
 settings = get_settings()
 
+# Sentry (tùy chọn): chỉ bật khi đặt SENTRY_DSN — không có thì bỏ qua êm.
+if getattr(settings, "SENTRY_DSN", ""):
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=settings.SENTRY_DSN, traces_sample_rate=0.1, environment=settings.APP_ENV)
+        print("[OK] Sentry enabled")
+    except ImportError:
+        print("[WARN] SENTRY_DSN đặt rồi nhưng thiếu package sentry-sdk — pip install sentry-sdk")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

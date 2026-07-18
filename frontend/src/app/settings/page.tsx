@@ -7,8 +7,50 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
+import LineIcon from '@/components/ui/LineIcon';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
+
+/** Tự đổi mật khẩu — mọi vai trò (giảm tải admin reset hộ). */
+function ChangePasswordSection() {
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const save = async () => {
+    setMessage(null);
+    if (newPass.length < 6) { setMessage({ text: 'Mật khẩu mới cần ít nhất 6 ký tự', ok: false }); return; }
+    if (newPass !== confirm) { setMessage({ text: 'Xác nhận mật khẩu không khớp', ok: false }); return; }
+    setSaving(true);
+    try {
+      const r = await api.changePassword(oldPass, newPass);
+      setMessage({ text: `✓ ${r.message}`, ok: true });
+      setOldPass(''); setNewPass(''); setConfirm('');
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : 'Đổi mật khẩu thất bại', ok: false });
+    } finally { setSaving(false); }
+  };
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="lock" />Đổi mật khẩu</h2>
+      <div className="space-y-3">
+        <input type="password" placeholder="Mật khẩu hiện tại" value={oldPass} onChange={e => setOldPass(e.target.value)} className={inputCls} autoComplete="current-password" />
+        <input type="password" placeholder="Mật khẩu mới (≥ 6 ký tự)" value={newPass} onChange={e => setNewPass(e.target.value)} className={inputCls} autoComplete="new-password" />
+        <input type="password" placeholder="Nhập lại mật khẩu mới" value={confirm} onChange={e => setConfirm(e.target.value)} className={inputCls} autoComplete="new-password" />
+        <button onClick={save} disabled={saving || !oldPass || !newPass}
+          className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          {saving ? 'Đang lưu...' : 'Đổi mật khẩu'}
+        </button>
+        {message && <p className="text-xs" style={{ color: message.ok ? '#34D399' : '#F87171' }}>{message.text}</p>}
+        <p className="text-[11px] text-[var(--text-muted)]">Quên mật khẩu? Đăng xuất rồi bấm &quot;Quên mật khẩu?&quot; ở trang đăng nhập — mã xác nhận gửi qua Telegram đã liên kết.</p>
+      </div>
+    </div>
+  );
+}
 
 /** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
 function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
@@ -51,7 +93,7 @@ function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialT
 
   return (
     <div className="glass-card p-6">
-      <h2 className="text-lg font-semibold mb-4">🤖 Telegram Bot</h2>
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="send" />Telegram Bot</h2>
       <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--text-secondary)]">Trạng thái</span>
@@ -150,7 +192,7 @@ function ZaloSection() {
 
   return (
     <div className="glass-card p-6">
-      <h2 className="text-lg font-semibold mb-1">💬 Zalo — Trợ lý lắng nghe</h2>
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="message" />Zalo — Trợ lý lắng nghe</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
         Tài khoản Zalo chuyên dụng nghe nhóm nội bộ/khách → phân tích AI → đẩy tín hiệu về Telegram.
         <b className="text-[var(--text-secondary)]"> Chỉ nghe, không gửi tin.</b>
@@ -366,7 +408,7 @@ function BackupSection() {
 
   return (
     <div className="glass-card p-6">
-      <h2 className="text-lg font-semibold mb-1">💾 Sao lưu dữ liệu tự động</h2>
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="save" />Sao lưu dữ liệu tự động</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
         Sao lưu toàn bộ database mỗi sáng, lưu local + Google Drive. Tự xóa bản cũ quá thời gian lưu trữ (tối đa {data.max_retention_days} ngày).
       </p>
@@ -578,7 +620,7 @@ function AISettingsSection() {
 
   return (
     <div className="glass-card p-6">
-      <h2 className="text-lg font-semibold mb-1">🧠 Cấu hình AI Model (toàn hệ thống)</h2>
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="brain" />Cấu hình AI Model (toàn hệ thống)</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
         Áp dụng cho 5 AI agents và toàn bộ bot Telegram của mọi role. Model chính lỗi/hết quota → tự chuyển sang model dự phòng → hết thì dùng rule-based.
       </p>
@@ -768,7 +810,7 @@ function AutomationSection() {
 
   return (
     <div className="glass-card p-6">
-      <h2 className="text-lg font-semibold mb-1">🤖 Tự động hóa CSKH & Báo cáo</h2>
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="zap" />Tự động hóa CSKH &amp; Báo cáo</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
         Hệ thống tự động nhắc chăm sóc khách hàng, thu hồi lead quá hạn và gửi báo cáo BOD hàng ngày.
       </p>
@@ -894,49 +936,68 @@ export default function SettingsPage() {
 
   if (loading || !user) return null;
 
+  const groupLabel = (icon: string, label: string, desc: string) => (
+    <div className="flex items-center gap-2.5 mb-4 mt-2">
+      <LineIcon name={icon} size={16} />
+      <span className="text-sm font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— {desc}</span>
+      <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+    </div>
+  );
+
   return (
     <Sidebar>
       <div className="p-6 animate-in">
-        <h1 className="text-2xl font-bold mb-6">⚙️ Cài đặt</h1>
+        <h1 className="text-2xl font-bold mb-1 flex items-center gap-2.5"><LineIcon name="settings" size={22} />Cài đặt</h1>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Tài khoản cá nhân, tích hợp và cấu hình hệ thống</p>
 
-        <div className="max-w-5xl columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
-          {/* Profile */}
-          <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-4">Thông tin cá nhân</h2>
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C9A96E] to-[#1A535C] flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">{user.full_name?.charAt(0)}</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-lg">{user.full_name}</p>
-                  <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
-                  <p className="text-xs text-[var(--text-muted)] capitalize mt-0.5">
-                    {user.role} · {user.department}
-                  </p>
+        {/* ── Nhóm 1: Cá nhân — mọi vai trò ── */}
+        <div className="max-w-5xl">
+          {groupLabel('user', 'Cá nhân', 'hồ sơ, mật khẩu, liên kết Telegram')}
+          <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
+            <div className="glass-card p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="user" />Thông tin cá nhân</h2>
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C9A96E] to-[#1A535C] flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">{user.full_name?.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-lg">{user.full_name}</p>
+                    <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
+                    <p className="text-xs text-[var(--text-muted)] capitalize mt-0.5">
+                      {user.role} · {user.department}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+            <ChangePasswordSection />
+            <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
           </div>
+        </div>
 
-          {/* AI Model config — admin only */}
-          {user.role === 'admin' && <AISettingsSection />}
+        {/* ── Nhóm 2: Tích hợp — admin ── */}
+        {user.role === 'admin' && (
+          <div className="max-w-5xl">
+            {groupLabel('zap', 'Tích hợp', 'AI, Zalo — kết nối dịch vụ ngoài')}
+            <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
+              <AISettingsSection />
+              <ZaloSection />
+            </div>
+          </div>
+        )}
 
-          {/* Zalo Listener — admin only (spec 09) */}
-          {user.role === 'admin' && <ZaloSection />}
-
-          {/* Backup — admin only */}
-          {user.role === 'admin' && <BackupSection />}
-
-          {/* Automation — admin/executive only */}
+        {/* ── Nhóm 3: Hệ thống — tự động hóa, sao lưu, thông tin ── */}
+        <div className="max-w-5xl">
+          {groupLabel('shield', 'Hệ thống', 'tự động hóa, sao lưu, phiên bản')}
+          <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
           {AUTOMATION_ROLES.includes(user.role) && <AutomationSection />}
-
-          {/* Telegram */}
-          <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
+          {user.role === 'admin' && <BackupSection />}
 
           {/* System */}
           <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-4">Hệ thống</h2>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="info" />Thông tin hệ thống</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Phiên bản</span>
@@ -959,11 +1020,12 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={startGuidedTour}
-              className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 min-h-[44px]"
+              className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 min-h-[44px] flex items-center justify-center gap-2"
               style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
             >
-              🧭 Xem lại hướng dẫn từng bước theo vai trò
+              <LineIcon name="compass" size={16} color="#C9A96E" />Xem lại hướng dẫn từng bước theo vai trò
             </button>
+          </div>
           </div>
         </div>
       </div>

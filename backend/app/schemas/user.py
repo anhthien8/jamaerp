@@ -65,3 +65,18 @@ class TokenResponse(BaseModel):
 class TelegramAuth(BaseModel):
     telegram_user_id: int
     telegram_username: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=6, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str = Field(min_length=6, max_length=128)

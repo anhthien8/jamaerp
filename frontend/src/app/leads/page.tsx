@@ -332,7 +332,7 @@ function LeadsContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-2xl font-bold">🔄 Quy trình CRM</h1>
+            <h1 className="text-2xl font-bold">Quy trình CRM</h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
                 Click vào card để xem chi tiết · {filteredByUrl.length}/{leads.length} leads
               </p>

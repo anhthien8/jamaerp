@@ -122,7 +122,7 @@ export default function QuoteToolPage() {
     <Sidebar>
       <div className="p-6 animate-in">
         <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-          <h1 className="text-2xl font-bold">⚡ Báo giá tức thì</h1>
+          <h1 className="text-2xl font-bold">Báo giá tức thì</h1>
           <button
             onClick={() => { setShowPriceBook(s => !s); if (!showPriceBook) loadPriceBook(); }}
             className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10"

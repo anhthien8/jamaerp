@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # Production đặt qua biến môi trường CORS_ORIGINS (ghi đè mặc định này).
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:8000"
 
+    # Sentry (optional — bật khi đặt DSN; cần pip install sentry-sdk)
+    SENTRY_DSN: str = ""
+
     # LLM (optional — rule-based fallback if empty)
     LLM_PROVIDER: str = "groq"
     LLM_MODEL: str = "groq/llama-3.3-70b-versatile"

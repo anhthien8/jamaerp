@@ -195,6 +195,35 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   // ── P&L ──
   if (path === '/pl/summary') return d.DEMO_PNL_SUMMARY as T;
   if (path === '/pl/projects') return (d.DEMO_PNL_SUMMARY.revenue_by_project || []) as T;
+  if (path === '/pl/receivables') {
+    return {
+      total_receivable: 1_450_000_000,
+      contract_count: 2,
+      contracts: [
+        {
+          contract_id: 'demo-hd-1', contract_code: 'HD-2026-001', project_code: 'PRJ-2026-001',
+          project_name: 'Nhà phố Q7 - Chị Mai', signed_date: '2026-05-20', total_value: 2_000_000_000,
+          pending_amount: 1_000_000_000,
+          pending_installments: [
+            { name: 'Đợt 3 (Nghiệm thu nội thất)', percentage: 25, amount: 500_000_000, milestone: 'interior_complete' },
+            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 500_000_000, milestone: 'handover' },
+          ],
+        },
+        {
+          contract_id: 'demo-hd-2', contract_code: 'HD-2026-003', project_code: 'PRJ-2026-003',
+          project_name: 'Căn hộ Sunrise - Anh Tú', signed_date: '2026-06-10', total_value: 900_000_000,
+          pending_amount: 450_000_000,
+          pending_installments: [
+            { name: 'Đợt 4 (Bàn giao)', percentage: 50, amount: 450_000_000, milestone: 'handover' },
+          ],
+        },
+      ],
+    } as T;
+  }
+  // ── Auth self-service (demo: giả lập thành công) ──
+  if (path === '/auth/change-password') return { status: 'ok', message: 'Đã đổi mật khẩu (demo)' } as T;
+  if (path === '/auth/forgot-password') return { status: 'ok', message: 'Demo: mã đã được "gửi" (dùng 000000)' } as T;
+  if (path === '/auth/reset-password') return { status: 'ok', message: 'Đã đặt lại mật khẩu (demo)' } as T;
   if (path.match(/^\/pl\/projects\/[^/]+$/)) {
     const projectId = path.split('/')[3];
     const proj = (d.DEMO_PNL_SUMMARY.revenue_by_project || []).find((p: Record<string, unknown>) => p.project_id === projectId || p.project_code === projectId);
@@ -764,6 +793,28 @@ class ApiClient {
     return this.request<{ items: { id: string; amount: number; reason: string; status: string; period_deducted: string | null; created_at: string }[] }>('/payroll/advances/me');
   }
 
+  // === Tự đổi/đặt lại mật khẩu ===
+  async changePassword(oldPassword: string, newPassword: string) {
+    return this.request<{ status: string; message: string }>('/auth/change-password', {
+      method: 'POST', body: { old_password: oldPassword, new_password: newPassword },
+    });
+  }
+  async forgotPassword(email: string) {
+    return this.request<{ status: string; message: string }>('/auth/forgot-password', {
+      method: 'POST', body: { email },
+    });
+  }
+  async resetPassword(email: string, code: string, newPassword: string) {
+    return this.request<{ status: string; message: string }>('/auth/reset-password', {
+      method: 'POST', body: { email, code, new_password: newPassword },
+    });
+  }
+
+  // === Phải thu theo hợp đồng (BOD/kế toán) ===
+  async getReceivables() {
+    return this.request<ReceivablesResponse>('/pl/receivables');
+  }
+
   // === Zalo Listener (admin) — spec 09 ===
   async zaloSession() {
     return this.request<ZaloSessionInfo>('/zalo/session');
@@ -1041,6 +1092,10 @@ export interface Project {
   sales_id?: string;
   start_date?: string;
   target_end_date?: string;
+  budget_total?: number | null;
+  handover_date?: string | null;
+  warranty_months?: number;
+  stage_acceptances?: Record<string, { at: string; note?: string; by?: string }> | null;
   created_at: string;
   updated_at: string;
   /** Tiến độ đầu việc theo giai đoạn (chỉ có ở API kanban) */
@@ -1375,6 +1430,31 @@ export interface PnLProjectDetail {
     design: number;
     construction: number;
   };
+  budget_total?: number | null;
+}
+
+export interface ReceivableInstallment {
+  name: string;
+  percentage: number;
+  amount: number;
+  milestone?: string | null;
+}
+
+export interface ReceivableContract {
+  contract_id: string;
+  contract_code: string;
+  project_code: string;
+  project_name: string;
+  signed_date?: string | null;
+  total_value: number;
+  pending_amount: number;
+  pending_installments: ReceivableInstallment[];
+}
+
+export interface ReceivablesResponse {
+  total_receivable: number;
+  contract_count: number;
+  contracts: ReceivableContract[];
 }
 
 // === Finance Module Types ===

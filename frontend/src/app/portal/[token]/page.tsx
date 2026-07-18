@@ -56,6 +56,9 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [acceptances, setAcceptances] = useState<Record<string, { at: string; note?: string; by?: string }>>({});
+  const [accepting, setAccepting] = useState(false);
+  const [acceptNote, setAcceptNote] = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -79,12 +82,30 @@ export default function PortalPage() {
       if (projRes.ok) {
         const data = await projRes.json();
         setTasks(data.tasks || []);
+        setAcceptances(data.project?.stage_acceptances || {});
       }
       if (actRes.ok) {
         const data = await actRes.json();
         setActivities(data.activities || []);
       }
     } catch {} finally { setLoadingDetail(false); }
+  };
+
+  const acceptStage = async (stage: string) => {
+    if (!selectedProject) return;
+    setAccepting(true);
+    try {
+      const res = await fetch(`${API}/portal/${token}/projects/${selectedProject.id}/accept-stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage, note: acceptNote.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAcceptances(prev => ({ ...prev, [stage]: data.acceptance }));
+        setAcceptNote('');
+      }
+    } catch {} finally { setAccepting(false); }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[#C9A96E] border-t-transparent rounded-full"></div></div>;
@@ -160,12 +181,49 @@ export default function PortalPage() {
                     ))}
                   </div>
                 )}
+                {/* Nghiệm thu giai đoạn — khách xác nhận, lưu timestamp làm bằng chứng */}
+                <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>✍️ Nghiệm thu giai đoạn</h3>
+                  {Object.keys(acceptances).length > 0 && (
+                    <div className="space-y-1 mb-3">
+                      {Object.entries(acceptances).map(([stg, a]) => (
+                        <div key={stg} className="flex items-center gap-2 text-xs">
+                          <span style={{ color: '#10B981' }}>✓</span>
+                          <span className="text-white">{STAGE_LABELS[stg] || stg}</span>
+                          <span style={{ color: '#6B7683' }}>— {new Date(a.at).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!acceptances[selectedProject.stage] ? (
+                    <div className="space-y-2">
+                      <p className="text-[11px]" style={{ color: '#9BA7B4' }}>
+                        Bạn hài lòng với giai đoạn <span className="text-white">{STAGE_LABELS[selectedProject.stage]}</span>? Xác nhận để đội ngũ chuyển bước tiếp theo.
+                      </p>
+                      <input
+                        type="text" value={acceptNote} onChange={e => setAcceptNote(e.target.value)}
+                        placeholder="Ghi chú (không bắt buộc)"
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                      />
+                      <button
+                        onClick={() => acceptStage(selectedProject.stage)} disabled={accepting}
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }}
+                      >
+                        {accepting ? 'Đang gửi...' : `Xác nhận nghiệm thu — ${STAGE_LABELS[selectedProject.stage]}`}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px]" style={{ color: '#10B981' }}>Giai đoạn hiện tại đã được bạn xác nhận. Cảm ơn bạn!</p>
+                  )}
+                </div>
                 {activities.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>📸 Hoạt động gần đây</h3>
                     {activities.map(a => (
                       <div key={a.id} className="py-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <p className="text-xs text-white">{a.content.substring(0, 120)}{a.content.length > 120 ? '...' : ''}</p>
+                        <p className="text-xs text-white">{(a.content || '').substring(0, 120)}{(a.content || '').length > 120 ? '...' : ''}</p>
                         <p className="text-[10px] mt-0.5" style={{ color: '#6B7683' }}>{a.user_name} · {new Date(a.created_at).toLocaleDateString('vi-VN')}</p>
                       </div>
                     ))}

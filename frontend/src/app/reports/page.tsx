@@ -41,7 +41,7 @@ export default function ReportsPage() {
   return (
     <Sidebar>
       <div className="p-6 animate-in">
-        <h1 className="text-2xl font-bold mb-6">📈 Báo cáo</h1>
+        <h1 className="text-2xl font-bold mb-6">Báo cáo</h1>
 
         {loadingData ? (
           <div className="flex items-center justify-center py-20 text-[var(--text-muted)]">

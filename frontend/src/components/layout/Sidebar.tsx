@@ -9,6 +9,7 @@ import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
+import BottomNav from '@/components/layout/BottomNav';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
@@ -382,7 +383,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
       {/* Single main — children rendered ONCE */}
       <main
-        className="flex-1 min-h-screen pt-14 lg:pt-0"
+        className="flex-1 min-h-screen pt-14 lg:pt-0 pb-16 lg:pb-0"
         style={{
           marginLeft: isDesktop ? 256 : 0,
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -424,6 +425,9 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       {/* Onboarding Checklist (first login) */}
       <OnboardingChecklist />
       <GuidedTour />
+
+      {/* Bottom nav mobile — thao tác chính trong tầm ngón cái */}
+      <BottomNav role={user.role} />
     </div>
   );
 }
