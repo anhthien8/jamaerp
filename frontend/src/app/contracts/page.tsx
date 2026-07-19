@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, Contract, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
+import MoneyInput from '@/components/ui/MoneyInput';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -600,13 +601,12 @@ export default function ContractsPage() {
 
                 {/* Total value */}
                 <div>
-                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Giá trị hợp đồng (VND)</label>
-                  <input
-                    type="number"
-                    value={form.total_value}
-                    onChange={e => setForm(p => ({ ...p, total_value: e.target.value }))}
-                    placeholder="VD: 500000000"
-                    className="w-full px-3 py-2 rounded-xl text-sm"
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Giá trị hợp đồng (nghìn đồng)</label>
+                  <MoneyInput
+                    valueDong={form.total_value}
+                    onChangeDong={v => setForm(p => ({ ...p, total_value: v }))}
+                    placeholder="VD: 500000 = 500 triệu"
+                    className="w-full px-3 py-2 rounded-xl text-sm pr-24"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   />
                 </div>

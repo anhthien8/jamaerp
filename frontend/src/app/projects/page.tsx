@@ -9,6 +9,7 @@ import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material,
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
+import MoneyInput from '@/components/ui/MoneyInput';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Đang thực hiện', color: '#10B981' },
@@ -1402,12 +1403,10 @@ export default function ProjectsPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tổng giá trị (VND)</label>
-                <input
-                  type="number" value={projectForm.total_value}
-                  onChange={e => setProjectForm(f => ({ ...f, total_value: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="0"
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tổng giá trị (nghìn đồng)</label>
+                <MoneyInput
+                  valueDong={projectForm.total_value}
+                  onChangeDong={v => setProjectForm(f => ({ ...f, total_value: v }))}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1429,11 +1428,10 @@ export default function ProjectsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngân sách kế hoạch (VND) — để cảnh báo khi chi vượt</label>
-                <input
-                  type="number" value={projectForm.budget_total}
-                  onChange={e => setProjectForm(f => ({ ...f, budget_total: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngân sách kế hoạch (nghìn đồng) — để cảnh báo khi chi vượt</label>
+                <MoneyInput
+                  valueDong={projectForm.budget_total}
+                  onChangeDong={v => setProjectForm(f => ({ ...f, budget_total: v }))}
                   placeholder="Bỏ trống nếu chưa lập ngân sách"
                 />
               </div>

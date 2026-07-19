@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
+import MoneyInput from '@/components/ui/MoneyInput';
 
 interface CreateLeadForm {
   name: string;
@@ -231,8 +232,13 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
 
           {/* Budget + Source */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ngân sách (VNĐ)">
-              <input value={form.estimated_budget} onChange={set('estimated_budget')} placeholder="500000000" type="number" className="input" />
+            <Field label="Ngân sách (nghìn đồng)">
+              <MoneyInput
+                valueDong={form.estimated_budget}
+                onChangeDong={v => setForm(f => ({ ...f, estimated_budget: v }))}
+                placeholder="VD: 500000 = 500 triệu"
+                className="input pr-24"
+              />
             </Field>
             <Field label="Nguồn lead">
               <select value={form.source} onChange={set('source')} className="input">
@@ -250,8 +256,13 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
                 {PROPERTY_CLASS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </Field>
-            <Field label="Đơn giá/m² (VND)">
-              <input value={form.price_per_sqm} onChange={set('price_per_sqm')} placeholder="12000000" type="number" className="input" />
+            <Field label="Đơn giá/m² (nghìn đồng)">
+              <MoneyInput
+                valueDong={form.price_per_sqm}
+                onChangeDong={v => setForm(f => ({ ...f, price_per_sqm: v }))}
+                placeholder="VD: 12000 = 12 triệu/m²"
+                className="input pr-24"
+              />
             </Field>
           </div>
 
