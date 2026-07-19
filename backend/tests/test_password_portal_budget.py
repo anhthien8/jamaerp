@@ -199,6 +199,38 @@ class TestBudgetAndReceivables:
         assert resp.status_code == 403
 
 
+# ── Generate portal link — hồi quy NameError uuid + shape {portal_token} ──
+
+@pytest.mark.asyncio
+class TestGeneratePortalLink:
+    async def test_generate_returns_portal_token(
+        self, client: AsyncClient, db_session: AsyncSession, admin_user: User
+    ):
+        cust = Customer(id=_uid(), name="KH Gen Link", phone="0911", type="individual")
+        db_session.add(cust)
+        await db_session.commit()
+        resp = await client.post(
+            f"/api/v1/customers/{cust.id}/generate-portal-link", headers=auth_header(admin_user)
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body.get("portal_token"), "phải trả portal_token"
+        # token dùng được với portal công khai
+        portal = await client.get(f"/api/v1/portal/{body['portal_token']}")
+        assert portal.status_code == 200
+
+    async def test_generate_requires_admin_or_leader(
+        self, client: AsyncClient, db_session: AsyncSession, sales_user: User
+    ):
+        cust = Customer(id=_uid(), name="KH Quyền", phone="0912", type="individual")
+        db_session.add(cust)
+        await db_session.commit()
+        resp = await client.post(
+            f"/api/v1/customers/{cust.id}/generate-portal-link", headers=auth_header(sales_user)
+        )
+        assert resp.status_code == 403
+
+
 # ── Dashboard personal — hồi quy UnboundLocalError timedelta (500 mọi role) ──
 
 @pytest.mark.asyncio
