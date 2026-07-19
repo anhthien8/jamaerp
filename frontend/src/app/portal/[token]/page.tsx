@@ -62,18 +62,46 @@ export default function PortalPage() {
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
+  // Token 'demo' — dữ liệu mẫu để đào tạo nội bộ (Chế độ Tập luyện), không gọi API
+  const isDemoToken = token === 'demo';
+
   useEffect(() => {
     if (!token) return;
+    if (isDemoToken) {
+      setCustomer({ name: 'Chị Mai (khách mẫu)', phone: '0901234567', email: 'mai.nguyen@gmail.com' });
+      setProjects([{
+        id: 'demo', code: 'PRJ-2026-001', name: 'Nhà phố Q7 - Chị Mai',
+        status: 'active', stage: 'construction', progress: 75, total_value: 500_000_000,
+        created_at: '2026-05-11T00:00:00Z',
+      }]);
+      setLoading(false);
+      return;
+    }
     fetch(`${API}/portal/${token}`)
       .then(r => { if (!r.ok) throw new Error('Link không hợp lệ'); return r.json(); })
       .then(data => { setCustomer(data.customer); setProjects(data.projects || []); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [token, API]);
+  }, [token, API, isDemoToken]);
 
   const loadProjectDetail = async (project: ProjectData) => {
     setSelectedProject(project);
     setLoadingDetail(true);
+    if (isDemoToken) {
+      setTasks([
+        { id: 't1', title: 'Thiết kế 3D phòng khách', status: 'done', stage: 'design' },
+        { id: 't2', title: 'Thi công trần thạch cao', status: 'done', stage: 'construction' },
+        { id: 't3', title: 'Lắp đặt tủ bếp', status: 'in_progress', stage: 'construction' },
+        { id: 't4', title: 'Sơn hoàn thiện', status: 'not_started', stage: 'construction' },
+      ]);
+      setActivities([
+        { id: 'a1', content: 'Hoàn thành lắp khung tủ bếp, mai lắp cánh + phụ kiện.', user_name: 'Đội thi công', created_at: '2026-07-18T09:00:00Z' },
+        { id: 'a2', content: 'Trần thạch cao nghiệm thu nội bộ đạt — chuẩn bị sơn.', user_name: 'Giám sát công trình', created_at: '2026-07-16T15:30:00Z' },
+      ]);
+      setAcceptances({ design: { at: '2026-06-15T09:00:00Z', by: 'Chị Mai' } });
+      setLoadingDetail(false);
+      return;
+    }
     try {
       const [projRes, actRes] = await Promise.all([
         fetch(`${API}/portal/${token}/projects/${project.id}`),
@@ -93,6 +121,11 @@ export default function PortalPage() {
 
   const acceptStage = async (stage: string) => {
     if (!selectedProject) return;
+    if (isDemoToken) {
+      setAcceptances(prev => ({ ...prev, [stage]: { at: new Date().toISOString(), note: acceptNote.trim(), by: 'Chị Mai (khách mẫu)' } }));
+      setAcceptNote('');
+      return;
+    }
     setAccepting(true);
     try {
       const res = await fetch(`${API}/portal/${token}/projects/${selectedProject.id}/accept-stage`, {

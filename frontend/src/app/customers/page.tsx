@@ -384,7 +384,9 @@ export default function CustomersPage() {
                     <button onClick={async () => {
                       if (!selected) return;
                       try {
-                        const { token } = await api.generatePortalLink(selected.id);
+                        const res = await api.generatePortalLink(selected.id);
+                        const token = res.portal_token;
+                        if (!token) throw new Error('Không nhận được token từ máy chủ');
                         toast('Đã tạo link portal thành công', 'success');
                         setCustomerDetail(prev => ({ ...prev, portal_token: token } as any));
                       } catch (e: any) {

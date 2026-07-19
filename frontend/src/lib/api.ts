@@ -171,6 +171,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
 
   // ── Customers ──
   if (path === '/customers') return toPaginated(d.DEMO_CUSTOMERS, params) as T;
+  // Portal link demo: token 'demo' → trang /portal/demo tự render dữ liệu mẫu
+  if (path.match(/^\/customers\/[^/]+\/generate-portal-link$/) && method === 'POST') {
+    return { portal_token: 'demo', portal_url: '/portal/demo' } as T;
+  }
   if (path.match(/^\/customers\/[^/]+$/) && method === 'GET') {
     const custId = path.split('/')[2];
     const custList = d.DEMO_CUSTOMERS as unknown as Array<Record<string, unknown>>;
@@ -274,6 +278,33 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/payroll/advances/me') return { items: [] } as T;
   if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
   if (path === '/payroll') return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
+
+  // ── Báo giá tức thì (demo): tính 3 phương án theo diện tích ──
+  if (path === '/instant-quote/generate' && method === 'POST') {
+    const b = (options?.body || {}) as { area_sqm?: number };
+    const area = Number(b.area_sqm) || 100;
+    const mk = (label: string, perSqm: number) => {
+      const total = area * perSqm;
+      return {
+        label, per_sqm: perSqm, total,
+        range_low: Math.round(total * 0.9), range_high: Math.round(total * 1.1),
+        items: [
+          { code: 'THO', name: 'Phần thô & kết cấu', unit: 'm²', qty: area, unit_price: Math.round(perSqm * 0.4), total: Math.round(total * 0.4) },
+          { code: 'HT', name: 'Hoàn thiện (sơn, sàn, trần)', unit: 'm²', qty: area, unit_price: Math.round(perSqm * 0.35), total: Math.round(total * 0.35) },
+          { code: 'NT', name: 'Nội thất cơ bản', unit: 'gói', qty: 1, unit_price: Math.round(total * 0.25), total: Math.round(total * 0.25) },
+        ],
+      };
+    };
+    return {
+      area_sqm: area, suggested_tier: 'standard',
+      tiers: { basic: mk('Cơ bản', 5_500_000), standard: mk('Tiêu chuẩn', 7_500_000), premium: mk('Cao cấp', 10_500_000) },
+      total: area * 7_500_000, per_sqm: 7_500_000,
+      customer_budget: null, parsed: null,
+      zalo_text: `Báo giá sơ bộ ${area}m²: Cơ bản ${(area * 5.5).toLocaleString('vi-VN')}tr · Tiêu chuẩn ${(area * 7.5).toLocaleString('vi-VN')}tr · Cao cấp ${(area * 10.5).toLocaleString('vi-VN')}tr (demo)`,
+      disclaimer: 'Báo giá demo — số liệu mẫu cho Chế độ Tập luyện, không dùng gửi khách.',
+    } as T;
+  }
+  if (path === '/instant-quote/price-items') return [] as T;
 
   // ── AI Settings (demo) ──
   if (path === '/ai-settings') {
@@ -579,7 +610,7 @@ class ApiClient {
   }
 
   async generatePortalLink(customerId: string) {
-    return this.request<{ token: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
+    return this.request<{ portal_token: string; portal_url: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
   }
 
   // === ERP: Contracts ===

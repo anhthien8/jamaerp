@@ -283,7 +283,12 @@ export default function QuoteToolPage() {
         </div>
 
         {/* ── Result ── */}
-        {result && (
+        {result && !result.tiers && result.mode !== 'renovation' && (
+          <div className="glass-card p-6 text-center text-sm text-[var(--text-muted)]">
+            Chưa tạo được báo giá — vui lòng thử lại hoặc kiểm tra kết nối.
+          </div>
+        )}
+        {result && (result.tiers || result.mode === 'renovation') && (
           <div className="space-y-4">
             {/* Result header */}
             <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] flex-wrap">
