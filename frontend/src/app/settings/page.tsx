@@ -1001,7 +1001,7 @@ export default function SettingsPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Phiên bản</span>
-                <span className="font-mono">1.0.0</span>
+                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline">Beta 20/07 — Có gì mới?</a>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Backend</span>
