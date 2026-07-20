@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api } from '@/lib/api';
+import { DEMO_PNL_SUMMARY } from '@/lib/demo-data';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 
@@ -39,7 +40,7 @@ interface CompanyPLSummary {
 type FilterType = 'all' | 'month' | 'quarter' | 'year' | 'custom';
 
 // ── 25 Mock Projects ───────────────────────────────────────
-const MOCK_PROJECT_PL: ProjectPL[] = [
+const MOCK_PROJECT_PL_RAW: ProjectPL[] = [
   // ── Premium (5 dự án lớn) ──
   {
     project_id: 'proj-001', project_code: 'JMH-0601',
@@ -220,6 +221,23 @@ const MOCK_PROJECT_PL: ProjectPL[] = [
     cost_breakdown: { materials: 2_000_000_000, transactions: 800_000_000, commissions: 400_000_000 },
   },
 ];
+
+// Đồng bộ "câu chuyện số" demo toàn app (nguồn duy nhất: DEMO_PNL_SUMMARY trong lib/demo-data.ts —
+// YTD 687,4 tỷ ≈ 98 tỷ/tháng, khớp dashboard CEO). Danh sách RAW ở trên chỉ giữ cấu trúc + tỷ lệ
+// cost_breakdown; số tiền được thay bằng số chuẩn theo project_id để /pl không lệch trang chủ.
+const PL_TARGETS = new Map(DEMO_PNL_SUMMARY.revenue_by_project.map(p => [p.project_id, p]));
+const MOCK_PROJECT_PL: ProjectPL[] = MOCK_PROJECT_PL_RAW.map(p => {
+  const t = PL_TARGETS.get(p.project_id);
+  if (!t) return p;
+  const k = p.costs > 0 ? t.costs / p.costs : 1;
+  const materials = Math.round((p.cost_breakdown?.materials || 0) * k / 10_000_000) * 10_000_000;
+  const commissions = Math.round((p.cost_breakdown?.commissions || 0) * k / 10_000_000) * 10_000_000;
+  return {
+    ...p,
+    revenue: t.revenue, costs: t.costs, profit: t.profit, margin: t.margin_pct,
+    cost_breakdown: p.cost_breakdown ? { materials, commissions, transactions: t.costs - materials - commissions } : p.cost_breakdown,
+  };
+});
 
 // ── Helper: compute summary from a list of projects ────────
 function computeSummary(items: ProjectPL[]): CompanyPLSummary {
@@ -478,7 +496,7 @@ export default function PLPage() {
           </div>
           {isDemo && (
             <div className="px-3 py-1.5 rounded-lg text-center" style={{ background: 'var(--warning-bg)', border: '1px solid rgba(251,191,36,0.2)' }}>
-              <span className="text-[0.6875rem] font-semibold" style={{ color: 'var(--warning)' }}>DEMO MODE</span>
+              <span className="text-[0.6875rem] font-semibold" style={{ color: 'var(--warning)' }}>TẬP LUYỆN</span>
             </div>
           )}
         </div>
@@ -788,7 +806,7 @@ export default function PLPage() {
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('margin')}
                       >
-                        Margin <SortIcon field="margin" />
+                        Biên LN <SortIcon field="margin" />
                       </th>
                     </tr>
                   </thead>
@@ -914,7 +932,7 @@ export default function PLPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase">Margin</p>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase">Biên LN</p>
                       <span
                         className={cn(
                           'text-xs font-bold px-2 py-0.5 rounded',
@@ -950,7 +968,7 @@ export default function PLPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase">Margin</p>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase">Biên LN</p>
                       <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#C9A96E]/15 text-[#C9A96E]">
                         {(() => {
                           const r = sortedProjects.reduce((s, p) => s + p.revenue, 0);
@@ -1052,7 +1070,7 @@ function StatusBadge({ status, margin }: { status: string; margin: number }) {
   if (margin < 15) {
     return (
       <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">
-        Margin thấp
+        Biên LN thấp
       </span>
     );
   }

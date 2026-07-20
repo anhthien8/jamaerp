@@ -38,13 +38,21 @@ export default function Modal({ open, onClose, title, children, size = 'md', per
     }
   }, [open]);
 
-  // ESC to close
+  // ESC to close — listen at document level so it works regardless of focus
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
+  // Focus trap: keep Tab navigation inside the dialog
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onClose();
-    }
-    // Focus trap: Tab cycles within the modal
     if (e.key === 'Tab' && dialogRef.current) {
       const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'

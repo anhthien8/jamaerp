@@ -10,9 +10,17 @@ import {
   LeaveItem, LeaveBalanceInfo, PayrollRow,
 } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { monthLabelVN } from '@/lib/labels';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 const currentPeriod = () => new Date().toISOString().slice(0, 7);
+
+/** ISO "2026-07-14" → "14/07" — chỉ đổi hiển thị, giữ nguyên data gốc. */
+const fmtDateVN = (isoDate: string | null | undefined): string => {
+  if (!isoDate) return '—';
+  const m = String(isoDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}` : isoDate;
+};
 
 /** Backend trả datetime UTC dạng "2026-07-15 01:00:00[.ffffff]" (naive) —
  *  PHẢI đổi sang giờ VN trước khi hiển thị (bug cũ: slice chuỗi UTC → sai 7 tiếng). */
@@ -119,7 +127,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
 
   return (
     <div className="rounded-2xl p-4 border" style={{ background: 'rgba(201,169,110,0.05)', borderColor: 'rgba(201,169,110,0.3)' }}>
-      <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>🧾 Chốt sổ kỳ {period} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
+      <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>🧾 Chốt sổ kỳ {monthLabelVN(period)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
       <div className="space-y-2">
         {steps.map(s => (
           <div key={s.key} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--bg-elevated, rgba(255,255,255,0.03))' }}>
@@ -409,7 +417,7 @@ export default function AttendancePage() {
                   {records.map(r => (
                     <tr key={r.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
-                        {r.work_date}{r.needs_review && ' ⚠️'}
+                        {fmtDateVN(r.work_date)}{r.needs_review && ' ⚠️'}
                       </td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_in)}</td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_out)}</td>
@@ -432,7 +440,7 @@ export default function AttendancePage() {
                   {pendingOT.map(r => (
                     <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span style={{ color: 'var(--text-secondary)' }}>
-                        <b style={{ color: 'var(--text-primary)' }}>{r.full_name}</b> · {r.work_date} · {r.ot_hours}h
+                        <b style={{ color: 'var(--text-primary)' }}>{r.full_name}</b> · {fmtDateVN(r.work_date)} · {r.ot_hours}h
                       </span>
                       <span className="flex gap-2">
                         <button onClick={() => handleOT(r.id, true)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#34d399' }}>✅ Duyệt</button>
@@ -448,7 +456,7 @@ export default function AttendancePage() {
             {canSeeTeam && teamRows.length > 0 && (
               <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)', background: 'var(--bg-elevated)' }}>
-                  👥 Bảng công {user.role === 'leader' ? 'team' : 'toàn công ty'} — kỳ {period}
+                  👥 Bảng công {user.role === 'leader' ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
                 </div>
                 <table className="w-full text-sm">
                   <thead>
@@ -497,7 +505,11 @@ export default function AttendancePage() {
             )}
 
             <button
-              onClick={() => setShowLeaveForm(v => !v)}
+              onClick={() => {
+                // Đóng lại thì reset form về mặc định để lần mở sau sạch.
+                if (showLeaveForm) setLeaveForm({ leave_type: 'annual', start_date: '', end_date: '', half_day: false, reason: '' });
+                setShowLeaveForm(v => !v);
+              }}
               className="px-4 py-2 rounded-xl font-semibold text-white"
               style={{ background: 'var(--gold-500)' }}
             >+ Xin nghỉ phép</button>
@@ -505,24 +517,36 @@ export default function AttendancePage() {
             {showLeaveForm && (
               <div className="rounded-2xl p-5 border space-y-3" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                  <select
-                    value={leaveForm.leave_type}
-                    onChange={e => setLeaveForm(f => ({ ...f, leave_type: e.target.value }))}
-                    className="px-3 py-2 rounded-lg border text-sm"
-                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                  >
-                    <option value="annual">Phép năm (có lương)</option>
-                    <option value="sick">Nghỉ ốm</option>
-                    <option value="unpaid">Không lương</option>
-                  </select>
-                  <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm(f => ({ ...f, start_date: e.target.value }))}
-                    className="px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
-                  <input type="date" value={leaveForm.end_date} onChange={e => setLeaveForm(f => ({ ...f, end_date: e.target.value }))}
-                    className="px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
-                  <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" checked={leaveForm.half_day} onChange={e => setLeaveForm(f => ({ ...f, half_day: e.target.checked }))} />
-                    Nửa ngày
-                  </label>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Loại phép</label>
+                    <select
+                      value={leaveForm.leave_type}
+                      onChange={e => setLeaveForm(f => ({ ...f, leave_type: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border text-sm"
+                      style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="annual">Phép năm (có lương)</option>
+                      <option value="sick">Nghỉ ốm</option>
+                      <option value="unpaid">Không lương</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Từ ngày</label>
+                    <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm(f => ({ ...f, start_date: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Đến ngày</label>
+                    <input type="date" value={leaveForm.end_date} onChange={e => setLeaveForm(f => ({ ...f, end_date: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Tùy chọn</label>
+                    <label className="flex items-center gap-2 text-sm h-[38px]" style={{ color: 'var(--text-secondary)' }}>
+                      <input type="checkbox" checked={leaveForm.half_day} onChange={e => setLeaveForm(f => ({ ...f, half_day: e.target.checked }))} />
+                      Nửa ngày
+                    </label>
+                  </div>
                 </div>
                 <textarea
                   placeholder="Lý do nghỉ..."
@@ -558,8 +582,8 @@ export default function AttendancePage() {
                   {myLeaves.map(l => (
                     <tr key={l.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>{l.leave_type_label}</td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{l.start_date}</td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{l.end_date}</td>
+                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtDateVN(l.start_date)}</td>
+                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtDateVN(l.end_date)}</td>
                       <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-primary)' }}>{l.days}</td>
                       <td className="px-4 py-2.5" style={{ color: LEAVE_STATUS[l.status]?.color }}>{LEAVE_STATUS[l.status]?.label || l.status}</td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>{l.reason}</td>
@@ -584,7 +608,7 @@ export default function AttendancePage() {
             {payslips.map(p => (
               <div key={p.id} className="rounded-2xl p-5 border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
                 <div className="flex flex-wrap justify-between items-center mb-3">
-                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>Kỳ {p.period}</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>Kỳ {monthLabelVN(p.period)}</div>
                   <div className="text-lg font-bold" style={{ color: 'var(--gold-500)' }}>{fmtMoney(p.net_salary)}</div>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>

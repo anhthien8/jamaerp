@@ -171,7 +171,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
         Promise.all([
           api.getLeads().then(r => setInternalLeads(extractItems(r))),
           api.getProjects().then(r => setInternalProjects(extractItems(r))),
-        ]).catch(() => {});
+        ]).catch((e) => console.warn('NotificationCenter: không tải được leads/projects', e));
       });
     }
   }, [leadsProp]);
@@ -196,7 +196,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
             read: n.read,
             type: 'pending_approval' as const,
           })));
-        }).catch(() => {});
+        }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
       });
     };
 
@@ -253,7 +253,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     // Also mark server notifications read
     if (!isDemoMode() && serverNotifs.some(n => !n.read)) {
       setServerNotifs(prev => prev.map(n => ({ ...n, read: true })));
-      import('@/lib/api').then(({ api }) => api.markAllNotificationsRead().catch(() => {}));
+      import('@/lib/api').then(({ api }) => api.markAllNotificationsRead().catch((e) => console.warn('NotificationCenter: đánh dấu tất cả đã đọc thất bại', e)));
     }
   }, [readIds, notifications, serverNotifs]);
 
@@ -263,7 +263,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     if (notifId?.startsWith('srv-') && !isDemoMode()) {
       const serverId = notifId.slice(4);
       setServerNotifs(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
-      import('@/lib/api').then(({ api }) => api.markNotificationRead(serverId).catch(() => {}));
+      import('@/lib/api').then(({ api }) => api.markNotificationRead(serverId).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e)));
     }
     router.push(href);
   }, [router]);
@@ -307,8 +307,8 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const bellButton = (
     <button
       onClick={() => setOpen(true)}
-      className="relative p-2 rounded-xl transition-all hover:bg-white/5"
-      style={{ color: 'var(--text-tertiary)' }}
+      className="fixed top-4 right-4 z-40 lg:top-auto lg:bottom-6 lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
+      style={{ color: 'var(--text-tertiary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
       aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -421,7 +421,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
             onClick={() => setOpen(false)}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
             style={{ color: 'var(--text-tertiary)' }}
-            aria-label="Dong"
+            aria-label="Đóng"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M18 6L6 18M6 6l12 12" />

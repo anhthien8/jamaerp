@@ -23,6 +23,27 @@ async function getDemoData() {
 const _demoActivitiesCache: Activity[] = [];
 const _demoTaskActivitiesCache: TaskActivity[] = [];
 
+/**
+ * Cache trạng thái cho Chế độ Tập luyện: các thao tác POST/PUT phải NHÌN THẤY
+ * kết quả trên màn hình (đơn duyệt biến mất, lead đổi cột, check-in đổi nút...).
+ * Trước đây POST không có resolver bị giả lập thành công → nhân viên đào tạo hoang mang
+ * (lớp bug fake-success — xem Nhật ký 20/07).
+ */
+interface DemoApproval { id: string; type: string; type_label: string; ref_id: string; title: string; amount: number | null; requester_id: string; requester_name: string; step: number; total_steps: number; status: string; reason: string | null; due_at: string | null; created_at: string; resolved_at: string | null; delegated: boolean }
+let _demoApprovals: DemoApproval[] | null = null;
+function demoApprovals(): DemoApproval[] {
+  if (!_demoApprovals) {
+    _demoApprovals = [
+      { id: 'demo-apr-1', type: 'leave', type_label: 'Nghỉ phép', ref_id: 'demo-leave-1', title: 'Phép năm 2 ngày (2026-07-23 → 2026-07-24) — Trần Thị Sales', amount: null, requester_id: 'demo-sales-001', requester_name: 'Trần Thị Sales', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-20 09:00', resolved_at: null, delegated: false },
+      { id: 'demo-apr-2', type: 'payroll', type_label: 'Bảng lương', ref_id: 'demo-payrun-6', title: 'Duyệt bảng lương kỳ 2026-06 — thực lĩnh 614,8 triệu (3 nhân sự mẫu demo)', amount: 614_800_000, requester_id: 'demo-acct-001', requester_name: 'Phạm Thị Kế Toán', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-19 15:00', resolved_at: null, delegated: false },
+    ];
+  }
+  return _demoApprovals;
+}
+let _demoAttToday: Record<string, unknown> | null = null;
+let _demoPayrollRun: { period: string; status: string; items: Record<string, unknown>[] } | null = null;
+const _demoLeaves: Record<string, unknown>[] = [];
+
 /** Wrap an array in a PaginatedResponse shape for demo mode. */
 function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedResponse<T> {
   const page = parseInt(params?.page || '1', 10);
@@ -51,6 +72,22 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
 
   // ── Leads ──
+  if (path === '/leads' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Lead>;
+    const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+    const cu = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
+    const newLead = {
+      id: `demo-lead-${Date.now()}`, name: b.name || 'Lead mới', phone: b.phone || '',
+      address: b.address || '', needs: b.needs || '', source: b.source || 'other',
+      property_type: b.property_type || 'townhouse', area_sqm: b.area_sqm, estimated_budget: b.estimated_budget,
+      stage: 'new', priority: b.priority || 'medium', assigned_to: cu.id,
+      ai_score: 65, tags: [], deal_value: b.estimated_budget,
+      assigned_user_name: cu.full_name, team_name: 'Đội Văn Toàn', activity_count: 0,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    } as unknown as Lead;
+    d.DEMO_LEADS.unshift(newLead);
+    return newLead as T;
+  }
   if (path === '/leads' && !path.includes('/pipeline')) {
     let leads = [...d.DEMO_LEADS];
     if (params) {
@@ -58,6 +95,24 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
       if (params.priority && params.priority !== 'all') leads = leads.filter(l => l.priority === params.priority);
     }
     return toPaginated(leads, params) as T;
+  }
+  // Đổi giai đoạn / gán / sửa lead — mutate demo data để kanban thấy thẻ di chuyển thật
+  if (path.match(/^\/leads\/[^/]+\/stage$/) && method === 'PUT') {
+    const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
+    if (lead) { lead.stage = ((options?.body as Record<string, string>)?.stage) || lead.stage; lead.updated_at = new Date().toISOString(); return lead as T; }
+  }
+  if (path.match(/^\/leads\/[^/]+\/assign$/) && method === 'PUT') {
+    const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
+    if (lead) {
+      const uid = (options?.body as Record<string, string>)?.assigned_to;
+      const u = d.DEMO_USERS.find(x => x.id === uid);
+      if (u) { lead.assigned_to = u.id; lead.assigned_user_name = u.full_name; }
+      return lead as T;
+    }
+  }
+  if (path.match(/^\/leads\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_LEADS.findIndex(l => l.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_LEADS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_LEADS[idx] as T; }
   }
   // ── Lead Activities (POST = create note, GET = list) ──
   if (path.match(/\/leads\/[^/]+\/activities$/)) {
@@ -84,9 +139,26 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return [...staticActs, ...cachedActs] as T;
   }
   if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
-  if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) return d.DEMO_PIPELINE_KANBAN as T;
+  if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) {
+    // Tính động từ DEMO_LEADS (không dùng snapshot tĩnh) để lead mới tạo / kéo cột hiển thị ngay
+    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['survey_scheduled', 'Đang chờ'], ['potential', 'Đã chốt hồ sơ'], ['signed_design', 'Deal đã thắng']];
+    return defs.map(([stage, stage_label]) => {
+      const leads = d.DEMO_LEADS.filter(l => l.stage === stage);
+      return { stage, stage_label, leads, count: leads.length };
+    }) as T;
+  }
 
   // ── Projects ──
+  if (path === '/projects' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Project>;
+    const p = { id: `demo-proj-${Date.now()}`, code: `PRJ-2026-${String(d.DEMO_PROJECTS.length + 1).padStart(3, '0')}`, name: b.name || 'Dự án mới', client_name: b.client_name, client_phone: b.client_phone, address: b.address, project_type: b.project_type || 'design_build', status: 'active', stage: 'design', total_value: b.total_value || 0, design_value: b.design_value, construction_value: b.construction_value, spent: 0, progress: 0, start_date: b.start_date, target_end_date: b.target_end_date, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Project;
+    d.DEMO_PROJECTS.unshift(p);
+    return p as T;
+  }
+  if (path.match(/^\/projects\/[^/]+\/stage$/) && method === 'PUT') {
+    const p = d.DEMO_PROJECTS.find(x => x.id === path.split('/')[2]);
+    if (p) { p.stage = ((options?.body as Record<string, string>)?.stage) || p.stage; p.updated_at = new Date().toISOString(); return p as T; }
+  }
   if (path === '/projects' && !path.includes('/pipeline') && !path.includes('/tasks')) {
     let projects = [...d.DEMO_PROJECTS];
     if (params?.status && params.status !== 'all') projects = projects.filter(p => p.status === params.status);
@@ -154,6 +226,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   // PHẢI đứng TRƯỚC matcher /projects/{id} — 'by-department' khớp pattern {id},
   // nếu để sau sẽ bị nuốt và trả về 1 project object (không .items) → crash .length
   if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
+  if (path.match(/^\/projects\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_PROJECTS.findIndex(p => p.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_PROJECTS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_PROJECTS[idx] as T; }
+  }
   if (path.match(/^\/projects\/[^/]+$/)) {
     const projectId = path.split('/')[2];
     return (d.DEMO_PROJECTS.find(p => p.id === projectId) || d.DEMO_PROJECTS[0]) as T;
@@ -170,7 +246,18 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/accounting/payroll') return toPaginated(d.DEMO_PAYROLL, params) as T;
 
   // ── Customers ──
-  if (path === '/customers') return toPaginated(d.DEMO_CUSTOMERS, params) as T;
+  if (path === '/customers' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Customer>;
+    const c = { id: `demo-cust-${Date.now()}`, name: b.name || 'Khách hàng mới', phone: b.phone || '', email: b.email, address: b.address, type: b.type || 'individual', company_name: b.company_name, tax_code: b.tax_code, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Customer;
+    d.DEMO_CUSTOMERS.unshift(c);
+    return c as T;
+  }
+  if (path === '/customers') {
+    let list = [...d.DEMO_CUSTOMERS];
+    const q = (params?.search || params?.q || '').toLowerCase();
+    if (q) list = list.filter(c => `${c.name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(q));
+    return toPaginated(list, params) as T;
+  }
   // Portal link demo: token 'demo' → trang /portal/demo tự render dữ liệu mẫu
   if (path.match(/^\/customers\/[^/]+\/generate-portal-link$/) && method === 'POST') {
     return { portal_token: 'demo', portal_url: '/portal/demo' } as T;
@@ -186,42 +273,105 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
 
   // ── Contracts ──
+  if (path === '/contracts' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Contract>;
+    const ct = { id: `demo-ct-${Date.now()}`, code: `HD-2026-${String(d.DEMO_CONTRACTS.length + 1).padStart(3, '0')}`, title: b.title || 'Hợp đồng mới', status: 'draft', total_value: b.total_value || 0, project_id: b.project_id, working_days: b.working_days, start_date: b.start_date, signed_date: b.signed_date, notes: b.notes, payment_terms: { installments: [] }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Contract;
+    d.DEMO_CONTRACTS.unshift(ct);
+    return ct as T;
+  }
   if (path === '/contracts') return toPaginated(d.DEMO_CONTRACTS, params) as T;
+  if (path.match(/^\/contracts\/[^/]+\/payments\/\d+$/) && method === 'PUT') {
+    const contractId = path.split('/')[2];
+    const idx = parseInt(path.split('/')[4], 10);
+    const ct = d.DEMO_CONTRACTS.find(c => c.id === contractId);
+    const inst = ct?.payment_terms?.installments?.[idx];
+    if (ct && inst) { inst.status = 'paid'; inst.paid_date = new Date().toISOString().slice(0, 10); ct.updated_at = new Date().toISOString(); return ct as T; }
+  }
+  if (path.match(/^\/contracts\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_CONTRACTS.findIndex(c => c.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_CONTRACTS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_CONTRACTS[idx] as T; }
+  }
 
   // ── Quotations ──
+  if (path === '/quotations' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Quotation>;
+    const q = { id: `demo-q-${Date.now()}`, code: `BG-2026-${String(d.DEMO_QUOTATIONS.length + 1).padStart(3, '0')}`, type: b.type || 'design', title: b.title || 'Báo giá mới', status: 'draft', total_amount: b.total_amount || 0, tax_amount: b.tax_amount || 0, revision: 1, items: b.items || { line_items: [] }, project_id: b.project_id, lead_id: b.lead_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Quotation;
+    d.DEMO_QUOTATIONS.unshift(q);
+    return q as T;
+  }
   if (path === '/quotations') return toPaginated(d.DEMO_QUOTATIONS, params) as T;
+  if (path.match(/^\/quotations\/[^/]+\/approve$/) && method === 'POST') {
+    const q = d.DEMO_QUOTATIONS.find(x => x.id === path.split('/')[2]);
+    if (q) { q.status = 'approved'; q.updated_at = new Date().toISOString(); return q as T; }
+  }
+  if (path.match(/^\/quotations\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_QUOTATIONS.findIndex(x => x.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_QUOTATIONS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_QUOTATIONS[idx] as T; }
+  }
 
   // ── Inventory ──
+  if (path === '/inventory' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<Material>;
+    const m = { id: `demo-mat-${Date.now()}`, code: `VT-${String(d.DEMO_MATERIALS.length + 1).padStart(3, '0')}`, name: b.name || 'Vật tư mới', category: b.category || 'other', unit: b.unit || 'cái', unit_price: b.unit_price || 0, quantity_in_stock: b.quantity_in_stock || 0, min_stock: b.min_stock || 0, supplier: b.supplier, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Material;
+    d.DEMO_MATERIALS.unshift(m);
+    return m as T;
+  }
   if (path === '/inventory') return toPaginated(d.DEMO_MATERIALS, params) as T;
+  if (path.match(/^\/inventory\/[^/]+\/adjust-stock$/) && method === 'POST') {
+    const m = d.DEMO_MATERIALS.find(x => x.id === path.split('/')[2]);
+    const delta = Number((options?.body as Record<string, unknown>)?.quantity_delta ?? (options?.body as Record<string, unknown>)?.quantity ?? 0);
+    if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock + delta); m.updated_at = new Date().toISOString(); return m as T; }
+  }
   if (path === '/inventory/low-stock') return toPaginated(d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock), params) as T;
 
   // ── Users / Teams ──
+  if (path === '/users' && method === 'POST') {
+    const b = (options?.body || {}) as Partial<User>;
+    const u = { id: `demo-user-${Date.now()}`, full_name: b.full_name || 'Nhân viên mới', email: b.email || `nv${Date.now()}@jamahome.vn`, phone: b.phone, role: b.role || 'data_entry', department: b.department || 'SALES', is_active: true, created_at: new Date().toISOString() } as unknown as User;
+    d.DEMO_USERS.push(u);
+    return u as T;
+  }
   if (path === '/users') return toPaginated(d.DEMO_USERS, params) as T;
   if (path === '/users/teams') return d.DEMO_TEAMS as T;
+  if (path.match(/^\/users\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_USERS.findIndex(u => u.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_USERS[idx], options?.body || {}); return d.DEMO_USERS[idx] as T; }
+  }
 
   // ── P&L ──
   if (path === '/pl/summary') return d.DEMO_PNL_SUMMARY as T;
   if (path === '/pl/projects') return (d.DEMO_PNL_SUMMARY.revenue_by_project || []) as T;
   if (path === '/pl/receivables') {
+    // Khớp DEMO_CONTRACTS: 3 HĐ 72 tỷ, đã thu 26,25 tỷ → còn phải thu 45,75 tỷ
     return {
-      total_receivable: 1_450_000_000,
-      contract_count: 2,
+      total_receivable: 45_750_000_000,
+      contract_count: 3,
       contracts: [
         {
-          contract_id: 'demo-hd-1', contract_code: 'HD-2026-001', project_code: 'PRJ-2026-001',
-          project_name: 'Nhà phố Q7 - Chị Mai', signed_date: '2026-05-20', total_value: 2_000_000_000,
-          pending_amount: 1_000_000_000,
+          contract_id: 'demo-ct-001', contract_code: 'HD-2026-001', project_code: 'PRJ-2026-001',
+          project_name: 'Nhà phố Q7 - Chị Mai', signed_date: '2026-05-11', total_value: 12_000_000_000,
+          pending_amount: 6_000_000_000,
           pending_installments: [
-            { name: 'Đợt 3 (Nghiệm thu nội thất)', percentage: 25, amount: 500_000_000, milestone: 'interior_complete' },
-            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 500_000_000, milestone: 'handover' },
+            { name: 'Đợt 3 (Nội thất)', percentage: 25, amount: 3_000_000_000, milestone: 'interior_complete' },
+            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 3_000_000_000, milestone: 'handover' },
           ],
         },
         {
-          contract_id: 'demo-hd-2', contract_code: 'HD-2026-003', project_code: 'PRJ-2026-003',
-          project_name: 'Căn hộ Sunrise - Anh Tú', signed_date: '2026-06-10', total_value: 900_000_000,
-          pending_amount: 450_000_000,
+          contract_id: 'demo-ct-002', contract_code: 'HD-2026-002', project_code: 'PRJ-2026-002',
+          project_name: 'Biệt thự Bình Chánh - Anh Tuấn', signed_date: '2026-05-28', total_value: 45_000_000_000,
+          pending_amount: 33_750_000_000,
           pending_installments: [
-            { name: 'Đợt 4 (Bàn giao)', percentage: 50, amount: 450_000_000, milestone: 'handover' },
+            { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 25, amount: 11_250_000_000, milestone: 'rough_complete' },
+            { name: 'Đợt 3 (Nội thất)', percentage: 25, amount: 11_250_000_000, milestone: 'interior_complete' },
+            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 11_250_000_000, milestone: 'handover' },
+          ],
+        },
+        {
+          contract_id: 'demo-ct-003', contract_code: 'HD-2026-003', project_code: 'PRJ-2026-005',
+          project_name: 'Nhà phố Gò Vấp - Chị Lan', signed_date: '2026-05-11', total_value: 15_000_000_000,
+          pending_amount: 6_000_000_000,
+          pending_installments: [
+            { name: 'Đợt 3 (Bàn giao)', percentage: 40, amount: 6_000_000_000, milestone: 'handover' },
           ],
         },
       ],
@@ -247,8 +397,25 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return { status: 'ok' } as T;
   }
 
-  // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương ──
-  if (path === '/attendance/today') return { record: null } as T;
+  // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương (có trạng thái) ──
+  if (path === '/attendance/checkin' && method === 'POST') {
+    const now = new Date();
+    // Giờ ĐỊA PHƯƠNG dạng 'YYYY-MM-DD HH:mm' — không dùng toISOString() (UTC) kẻo hiện lệch 7 tiếng
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localStamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    _demoAttToday = { id: 'demo-att-today', work_date: localStamp.slice(0, 10), check_in: localStamp, check_out: null, source: 'web', work_hours: 0, ot_hours: 0, ot_status: 'none', needs_review: false };
+    return { status: 'ok', record: _demoAttToday, message: 'Đã vào ca (demo)' } as T;
+  }
+  if (path === '/attendance/checkout' && method === 'POST') {
+    if (_demoAttToday) {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      _demoAttToday.check_out = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      _demoAttToday.work_hours = 8;
+    }
+    return { status: 'ok', record: _demoAttToday, message: 'Đã tan ca (demo)' } as T;
+  }
+  if (path === '/attendance/today') return { record: _demoAttToday } as T;
   if (path === '/attendance/me') {
     return {
       summary: { period: '2026-07', records: 20, work_days: 20, work_days_fraction: 20, total_hours: 160, ot_approved_hours: 4, needs_review: 0 },
@@ -260,24 +427,68 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path === '/attendance/team') return { period: '2026-07', items: [] } as T;
   if (path === '/attendance/ot/pending') return { items: [] } as T;
-  if (path === '/approvals/pending-for-me') {
-    return { items: [
-      { id: 'demo-apr-1', type: 'leave', type_label: 'Nghỉ phép', ref_id: 'demo-leave-1', title: 'Phép năm 2 ngày (2026-07-20 → 2026-07-21) — Nguyễn Văn Sale', amount: null, requester_id: 'u-sales', requester_name: 'Nguyễn Văn Sale', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-14 09:00', resolved_at: null, delegated: false },
-    ], count: 1 } as T;
+  if (path.match(/^\/approvals\/[^/]+\/(approve|reject|cancel|request-changes)$/) && method === 'POST') {
+    const [, , aprId, action] = path.split('/');
+    const apr = demoApprovals().find(a => a.id === aprId);
+    if (apr) {
+      apr.status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action === 'cancel' ? 'cancelled' : 'changes_requested';
+      apr.resolved_at = new Date().toISOString();
+      apr.reason = (options?.body as Record<string, string>)?.reason || null;
+    }
+    return { status: 'ok', approval: apr } as T;
   }
-  if (path === '/approvals/my-requests') return { items: [] } as T;
-  if (path === '/approvals/handled') return { items: [] } as T;
-  if (path === '/leaves/me') return { items: [] } as T;
+  if (path === '/approvals/pending-for-me') {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+    const meId = stored ? (JSON.parse(stored) as { id?: string }).id : null;
+    // Đơn của chính mình không nằm trong "Chờ tôi duyệt"
+    const items = demoApprovals().filter(a => a.status === 'pending' && a.requester_id !== meId);
+    return { items, count: items.length } as T;
+  }
+  if (path === '/approvals/my-requests') {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+    const meId = stored ? (JSON.parse(stored) as { id?: string }).id : null;
+    return { items: demoApprovals().filter(a => a.requester_id === meId) } as T;
+  }
+  if (path === '/approvals/handled') return { items: demoApprovals().filter(a => a.status !== 'pending') } as T;
+  if (path === '/leaves' && method === 'POST') {
+    const b = (options?.body || {}) as Record<string, unknown>;
+    const leave = { id: `demo-leave-${Date.now()}`, type: b.type || 'annual', type_label: b.type === 'sick' ? 'Nghỉ ốm' : 'Phép năm', start_date: b.start_date, end_date: b.end_date, days: b.days || 1, reason: b.reason || '', status: 'pending', created_at: new Date().toISOString() };
+    _demoLeaves.unshift(leave);
+    return leave as T;
+  }
+  if (path === '/leaves/me') return { items: _demoLeaves } as T;
   if (path === '/leaves/balance/me') return { year: 2026, annual_total: 12, annual_used: 3, annual_remaining: 9, sick_used: 0, unpaid_used: 0 } as T;
   if (path === '/leaves/calendar') return { month: params?.month || '2026-07', items: [] } as T;
   if (path === '/payroll/me') {
     return { items: [
-      { id: 'demo-pay-1', period: '2026-06', base_salary: 12000000, work_days: 22, standard_days: 22, ot_hours: 4, ot_pay: 409000, commission_total: 6500000, bonus: 0, allowance: 0, gross_salary: 18909000, bhxh_employee: 1260000, taxable_income: 6649000, pit: 414900, advance_deduction: 0, deductions: 0, net_salary: 17234100, status: 'paid', notes: null, paid_at: '2026-07-05', payslip_sent_at: '2026-07-05' },
+      { id: 'demo-pay-1', period: '2026-06', base_salary: 18000000, work_days: 22, standard_days: 22, ot_hours: 4, ot_pay: 613000, commission_total: 185000000, bonus: 5000000, allowance: 2000000, gross_salary: 210613000, bhxh_employee: 1890000, taxable_income: 197723000, pit: 45400000, advance_deduction: 0, deductions: 0, net_salary: 163323000, status: 'paid', notes: 'Hoa hồng 2 công trình ký T6 — chúc mừng!', paid_at: '2026-07-05', payslip_sent_at: '2026-07-05' },
     ] } as T;
   }
   if (path === '/payroll/advances/me') return { items: [] } as T;
   if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
-  if (path === '/payroll') return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
+  // Chốt sổ lương demo: generate → submit → pay có trạng thái để stepper chạy thật
+  if (path.startsWith('/payroll/generate') && method === 'POST') {
+    _demoPayrollRun = {
+      period: params?.period || '2026-07', status: 'draft',
+      items: d.DEMO_PAYROLL.map(p => ({ ...p, id: `${p.id}-run`, period: params?.period || '2026-07' })),
+    };
+    return { ..._demoPayrollRun, ok: true } as T;
+  }
+  if (path.match(/^\/payroll\/[^/]+\/submit$/) && method === 'POST') {
+    if (_demoPayrollRun) _demoPayrollRun.status = 'pending_approval';
+    return { status: 'ok', run_status: _demoPayrollRun?.status } as T;
+  }
+  if (path.match(/^\/payroll\/[^/]+\/pay$/) && method === 'POST') {
+    if (_demoPayrollRun) _demoPayrollRun.status = 'paid';
+    return { status: 'ok', run_status: _demoPayrollRun?.status, message: 'Đã chi lương + gửi phiếu lương Telegram (demo)' } as T;
+  }
+  if (path === '/payroll') {
+    if (_demoPayrollRun && (!params?.period || params.period === _demoPayrollRun.period)) {
+      const total = _demoPayrollRun.items.reduce((s, i) => s + (Number(i.net_salary) || 0), 0);
+      return { period: _demoPayrollRun.period, items: _demoPayrollRun.items, total_net: total, total_company_cost: Math.round(total * 1.215), status: _demoPayrollRun.status } as T;
+    }
+    return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
+  }
 
   // ── Báo giá tức thì (demo): tính 3 phương án theo diện tích ──
   if (path === '/instant-quote/generate' && method === 'POST') {
@@ -305,6 +516,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     } as T;
   }
   if (path === '/instant-quote/price-items') return [] as T;
+  // PUT đơn giá demo: trả lại chính item đã sửa (tránh xóa trắng bảng — bug fake-success cũ)
+  if (path.match(/^\/instant-quote\/price-items\/[^/]+$/) && method === 'PUT') {
+    return { id: path.split('/')[3], ...(options?.body as Record<string, unknown> || {}) } as T;
+  }
 
   // ── AI Settings (demo) ──
   if (path === '/ai-settings') {
@@ -1299,6 +1514,8 @@ export interface DashboardPersonal {
   weekly_kpis: Record<string, unknown>;
   pipeline_value: number;
   ai_suggestions: Array<Record<string, unknown>>;
+  /** Hoa hồng đã duyệt kỳ gần nhất của chính user (backend chưa trả thì FE hiện —) */
+  commission_month?: number;
 }
 
 /** Unified dashboard type — all fields optional since exec/personal have different shapes */

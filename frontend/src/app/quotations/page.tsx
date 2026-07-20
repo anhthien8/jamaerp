@@ -8,6 +8,7 @@ import { api, Quotation, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 import AccessDenied from '@/components/ui/AccessDenied';
+import MoneyInput from '@/components/ui/MoneyInput';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -27,6 +28,18 @@ function fmtVND(n?: number) {
   return new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
 }
 
+/** Một dòng hạng mục trong editor. quantity/unit_price lưu dạng string (đơn giá tính bằng ĐỒNG như MoneyInput emit). */
+interface LineItemForm {
+  name: string;
+  unit: string;
+  quantity: string;
+  unit_price: string;
+}
+
+function lineItemTotal(li: LineItemForm) {
+  return (Number(li.quantity) || 0) * (Number(li.unit_price) || 0);
+}
+
 interface QuotationFormData {
   title: string;
   type: string;
@@ -35,7 +48,6 @@ interface QuotationFormData {
   tax_amount: string;
   valid_until: string;
   notes: string;
-  items: string;
 }
 
 const EMPTY_FORM: QuotationFormData = {
@@ -46,8 +58,22 @@ const EMPTY_FORM: QuotationFormData = {
   tax_amount: '',
   valid_until: '',
   notes: '',
-  items: '[]',
 };
+
+/** Parse q.items.line_items có sẵn (shape lưu trong DB) vào các dòng editor. */
+function parseLineItems(items: unknown): LineItemForm[] {
+  const raw = (items as { line_items?: unknown } | null)?.line_items;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(r => {
+    const o = (r || {}) as Record<string, unknown>;
+    return {
+      name: o.name != null ? String(o.name) : '',
+      unit: o.unit != null ? String(o.unit) : '',
+      quantity: o.quantity != null ? String(o.quantity) : '',
+      unit_price: o.unit_price != null ? String(o.unit_price) : '',
+    };
+  });
+}
 
 export default function QuotationsPage() {
   const { user, loading } = useAuth();
@@ -62,6 +88,7 @@ export default function QuotationsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Quotation | null>(null);
   const [formData, setFormData] = useState<QuotationFormData>(EMPTY_FORM);
+  const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Projects list for the select dropdown
@@ -103,6 +130,7 @@ export default function QuotationsPage() {
   const openCreateForm = () => {
     setEditing(null);
     setFormData(EMPTY_FORM);
+    setLineItems([]);
     setShowForm(true);
   };
 
@@ -117,10 +145,21 @@ export default function QuotationsPage() {
       tax_amount: q.tax_amount != null ? String(q.tax_amount) : '',
       valid_until: q.valid_until ? q.valid_until.slice(0, 10) : '',
       notes: q.notes || '',
-      items: q.items ? JSON.stringify(q.items, null, 2) : '[]',
     });
+    setLineItems(parseLineItems(q.items));
     setShowForm(true);
   };
+
+  // Cập nhật danh sách dòng hạng mục; nếu tổng > 0 thì tự điền "Tổng tiền" (vẫn cho phép ghi đè tay).
+  const updateLineItems = (next: LineItemForm[]) => {
+    setLineItems(next);
+    const sum = next.reduce((s, li) => s + lineItemTotal(li), 0);
+    if (sum > 0) setFormData(p => ({ ...p, total_amount: String(sum) }));
+  };
+  const addLineItem = () => updateLineItems([...lineItems, { name: '', unit: '', quantity: '1', unit_price: '' }]);
+  const patchLineItem = (i: number, patch: Partial<LineItemForm>) =>
+    updateLineItems(lineItems.map((li, idx) => (idx === i ? { ...li, ...patch } : li)));
+  const removeLineItem = (i: number) => updateLineItems(lineItems.filter((_, idx) => idx !== i));
 
   const handleFormSubmit = async () => {
     if (!formData.title.trim()) {
@@ -129,14 +168,14 @@ export default function QuotationsPage() {
     }
     setSaving(true);
     try {
-      let items: unknown = undefined;
-      try {
-        items = JSON.parse(formData.items);
-      } catch {
-        toast('JSON mục báo giá không hợp lệ', 'error');
-        setSaving(false);
-        return;
-      }
+      const line_items = lineItems
+        .filter(li => li.name.trim() !== '' || li.unit.trim() !== '' || li.unit_price !== '')
+        .map(li => {
+          const quantity = Number(li.quantity) || 0;
+          const unit_price = Number(li.unit_price) || 0;
+          return { name: li.name.trim(), unit: li.unit.trim(), quantity, unit_price, total: quantity * unit_price };
+        });
+      const items = { line_items };
 
       const payload: Partial<Quotation> = {
         title: formData.title.trim(),
@@ -237,7 +276,7 @@ export default function QuotationsPage() {
                     <p className="font-mono text-xs text-[var(--gold-400)]">{q.code}</p>
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] mt-1">{q.title}</h3>
                   </div>
-                  <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                  <span className="px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                   <span>{TYPE_MAP[q.type] || q.type}</span>
@@ -382,25 +421,21 @@ export default function QuotationsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-[var(--text-muted)] mb-1 block">Tổng tiền</label>
-                  <input
-                    type="number"
-                    value={formData.total_amount}
-                    onChange={e => setFormData(p => ({ ...p, total_amount: e.target.value }))}
-                    placeholder="0"
-                    min="0"
-                    className="w-full px-3 py-2 rounded-xl text-sm"
+                  <MoneyInput
+                    valueDong={formData.total_amount}
+                    onChangeDong={v => setFormData(p => ({ ...p, total_amount: v }))}
+                    placeholder="VD: 450000 = 450 triệu"
+                    className="w-full px-3 py-2 rounded-xl text-sm pr-24"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   />
                 </div>
                 <div>
                   <label className="text-xs text-[var(--text-muted)] mb-1 block">Thuế</label>
-                  <input
-                    type="number"
-                    value={formData.tax_amount}
-                    onChange={e => setFormData(p => ({ ...p, tax_amount: e.target.value }))}
-                    placeholder="0"
-                    min="0"
-                    className="w-full px-3 py-2 rounded-xl text-sm"
+                  <MoneyInput
+                    valueDong={formData.tax_amount}
+                    onChangeDong={v => setFormData(p => ({ ...p, tax_amount: v }))}
+                    placeholder="VD: 45000 = 45 triệu"
+                    className="w-full px-3 py-2 rounded-xl text-sm pr-24"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   />
                 </div>
@@ -431,17 +466,92 @@ export default function QuotationsPage() {
                 />
               </div>
 
-              {/* Items JSON */}
+              {/* Items editor — danh sách dòng hạng mục (thay cho ô JSON thô) */}
               <div>
-                <label className="text-xs text-[var(--text-muted)] mb-1 block">Mục báo giá (JSON)</label>
-                <textarea
-                  value={formData.items}
-                  onChange={e => setFormData(p => ({ ...p, items: e.target.value }))}
-                  placeholder={'[{"name": "Mục 1", "quantity": 1, "unit_price": 0}]'}
-                  rows={5}
-                  className="w-full px-3 py-2 rounded-xl text-xs font-mono resize-none"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
-                />
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Mục báo giá</label>
+                <div className="space-y-3">
+                  {lineItems.length === 0 && (
+                    <p className="text-xs italic text-[var(--text-muted)]">Chưa có hạng mục nào. Nhấn &quot;+ Thêm hạng mục&quot; để bắt đầu.</p>
+                  )}
+                  {lineItems.map((li, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl p-3 space-y-2"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={li.name}
+                          onChange={e => patchLineItem(i, { name: e.target.value })}
+                          placeholder="Tên hạng mục"
+                          className="flex-1 px-3 py-2 rounded-lg text-sm"
+                          style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        />
+                        <button
+                          onClick={() => removeLineItem(i)}
+                          className="p-2 rounded-lg transition-colors shrink-0"
+                          style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}
+                          title="Xóa hạng mục"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Đơn vị</label>
+                          <input
+                            type="text"
+                            value={li.unit}
+                            onChange={e => patchLineItem(i, { unit: e.target.value })}
+                            placeholder="gói / m2 / bộ"
+                            className="w-full px-3 py-2 rounded-lg text-sm"
+                            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Số lượng</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={li.quantity}
+                            onChange={e => patchLineItem(i, { quantity: e.target.value })}
+                            placeholder="1"
+                            className="w-full px-3 py-2 rounded-lg text-sm"
+                            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Đơn giá</label>
+                        <MoneyInput
+                          valueDong={li.unit_price}
+                          onChangeDong={v => patchLineItem(i, { unit_price: v })}
+                          placeholder="VD: 150000 = 150 triệu"
+                          className="w-full px-3 py-2 rounded-lg text-sm pr-24"
+                          style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-[var(--text-muted)]">Thành tiền</span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{fmtVND(lineItemTotal(li))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={addLineItem}
+                  className="mt-3 w-full py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: 'var(--surface-2)', color: 'var(--gold-400)', border: '1px dashed var(--border-subtle)' }}
+                >
+                  + Thêm hạng mục
+                </button>
+                {lineItems.length > 0 && (
+                  <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <span className="text-sm font-medium text-[var(--text-secondary)]">Tổng cộng</span>
+                    <span className="text-base font-bold text-[var(--gold-400)]">{fmtVND(lineItems.reduce((s, li) => s + lineItemTotal(li), 0))}</span>
+                  </div>
+                )}
               </div>
 
               {/* Submit buttons */}

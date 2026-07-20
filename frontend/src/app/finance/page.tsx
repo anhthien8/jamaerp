@@ -9,6 +9,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import { DEMO_SALARY_GRADES, DEMO_FIXED_COSTS, DEMO_VARIABLE_COSTS, DEMO_COMMISSION_STRUCTURES as DEMO_COMMISSIONS } from '@/lib/demo-data';
+import { labelOf, COMMISSION_TYPE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 
 type Tab = 'salary-grades' | 'fixed-costs' | 'variable-costs' | 'commissions';
 
@@ -80,10 +81,10 @@ export default function FinancePage() {
   const projectMap = projectsList.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {} as Record<string, string>);
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'salary-grades', label: 'Bac luong', icon: '💰' },
-    { key: 'fixed-costs', label: 'Chi phi co dinh', icon: '🏢' },
-    { key: 'variable-costs', label: 'Chi phi bien phi', icon: '📊' },
-    { key: 'commissions', label: 'Co cau hoa hong', icon: '🎁' },
+    { key: 'salary-grades', label: 'Bậc lương', icon: '💰' },
+    { key: 'fixed-costs', label: 'Chi phí cố định', icon: '🏢' },
+    { key: 'variable-costs', label: 'Chi phí biến phí', icon: '📊' },
+    { key: 'commissions', label: 'Cơ cấu hoa hồng', icon: '🎁' },
   ];
 
   const totalFixedCosts = fixedCosts.reduce((s, c) => s + c.amount, 0);
@@ -96,23 +97,23 @@ export default function FinancePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Tài chính — Lương &amp; Hoa hồng</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">Quan ly luong, chi phi, hoa hong</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">Quản lý lương, chi phí, hoa hồng</p>
           </div>
-          {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>🎯 DEMO MODE</span>}
+          {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>🎯 TẬP LUYỆN</span>}
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="glass-card p-5 border-l-2 border-l-emerald-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">🏢 Chi phi co dinh ({selectedMonth})</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1">🏢 Chi phí cố định ({selectedMonth})</p>
             <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalFixedCosts)}</p>
           </div>
           <div className="glass-card p-5 border-l-2 border-l-amber-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">📊 Chi phi bien phi ({selectedMonth})</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1">📊 Chi phí biến phí ({selectedMonth})</p>
             <p className="text-xl font-bold text-amber-400">{formatCurrency(totalVariableCosts)}</p>
           </div>
           <div className="glass-card p-5 border-l-2 border-l-blue-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">💰 Tong chi phi</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1">💰 Tổng chi phí</p>
             <p className="text-xl font-bold text-blue-400">{formatCurrency(totalFixedCosts + totalVariableCosts)}</p>
           </div>
         </div>
@@ -130,14 +131,14 @@ export default function FinancePage() {
 
         {/* Tab Content */}
         {loadingData ? (
-          <div className="text-center py-20 text-[var(--text-muted)]">Dang tai...</div>
+          <div className="text-center py-20 text-[var(--text-muted)]">Đang tải...</div>
         ) : (
           <>
             {/* Salary Grades Tab */}
             {tab === 'salary-grades' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">💰 Bac luong ({salaryGrades.length} bac)</h3>
+                  <h3 className="text-sm font-bold">💰 Bậc lương ({salaryGrades.length} bậc)</h3>
                 </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">
@@ -155,7 +156,7 @@ export default function FinancePage() {
                           <div><span className="text-[var(--text-muted)]">BHTN</span><br/><span className="text-red-400 font-mono">{g.bhtn_rate}%</span></div>
                         </div>
                         <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <span className="text-[var(--text-muted)]">Tong khau tru</span>
+                          <span className="text-[var(--text-muted)]">Tổng khấu trừ</span>
                           <span className="text-amber-400 font-mono font-semibold">{formatCurrency(totalDeduct)}</span>
                         </div>
                       </div>
@@ -167,12 +168,12 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Bac</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Luong gross</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">BHXH NLD</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Bậc</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Lương gross</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">BHXH NLĐ</th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">BHYT</th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">BHTN</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tong khau tru</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tổng khấu trừ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -199,7 +200,7 @@ export default function FinancePage() {
             {tab === 'fixed-costs' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">🏢 Chi phi co dinh — {selectedMonth}</h3>
+                  <h3 className="text-sm font-bold">🏢 Chi phí cố định — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
@@ -215,7 +216,7 @@ export default function FinancePage() {
                     </div>
                   ))}
                   <div className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid var(--gold-500)' }}>
-                    <span className="font-bold text-sm gold-gradient">TONG CONG</span>
+                    <span className="font-bold text-sm gold-gradient">TỔNG CỘNG</span>
                     <span className="text-[var(--gold-400)] font-mono font-bold">{formatCurrency(totalFixedCosts)}</span>
                   </div>
                 </div>
@@ -224,9 +225,9 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Khoan muc</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">So tien</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ghi chu</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Khoản mục</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Số tiền</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ghi chú</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -238,7 +239,7 @@ export default function FinancePage() {
                         </tr>
                       ))}
                       <tr className="border-t-2 font-bold" style={{ borderColor: 'var(--gold-500)', background: 'rgba(201,169,110,0.05)' }}>
-                        <td className="p-3 text-sm gold-gradient">TONG CONG</td>
+                        <td className="p-3 text-sm gold-gradient">TỔNG CỘNG</td>
                         <td className="p-3 text-right text-[var(--gold-400)] font-mono">{formatCurrency(totalFixedCosts)}</td>
                         <td></td>
                       </tr>
@@ -252,14 +253,14 @@ export default function FinancePage() {
             {tab === 'variable-costs' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">📊 Chi phi bien phi — {selectedMonth}</h3>
+                  <h3 className="text-sm font-bold">📊 Chi phí biến phí — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">
                   {variableCosts.length === 0 ? (
-                    <p className="text-center py-8 text-sm text-[var(--text-muted)]">Chua co chi phi bien phi</p>
+                    <p className="text-center py-8 text-sm text-[var(--text-muted)]">Chưa có chi phí biến phí</p>
                   ) : variableCosts.map(c => (
                     <div key={c.id} className="p-3 rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                       <div className="flex justify-between items-center">
@@ -273,7 +274,7 @@ export default function FinancePage() {
                     </div>
                   ))}
                   <div className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid var(--gold-500)' }}>
-                    <span className="font-bold text-sm gold-gradient">TONG CONG</span>
+                    <span className="font-bold text-sm gold-gradient">TỔNG CỘNG</span>
                     <span className="text-[var(--gold-400)] font-mono font-bold">{formatCurrency(totalVariableCosts)}</span>
                   </div>
                 </div>
@@ -282,15 +283,15 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Khoan muc</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">So tien</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Du an</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ghi chu</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Khoản mục</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Số tiền</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Dự án</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ghi chú</th>
                       </tr>
                     </thead>
                     <tbody>
                       {variableCosts.length === 0 ? (
-                        <tr><td colSpan={4} className="text-center p-8 text-[var(--text-muted)]">Chua co chi phi bien phi</td></tr>
+                        <tr><td colSpan={4} className="text-center p-8 text-[var(--text-muted)]">Chưa có chi phí biến phí</td></tr>
                       ) : variableCosts.map(c => (
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{c.category}</td>
@@ -300,7 +301,7 @@ export default function FinancePage() {
                         </tr>
                       ))}
                       <tr className="border-t-2 font-bold" style={{ borderColor: 'var(--gold-500)', background: 'rgba(201,169,110,0.05)' }}>
-                        <td className="p-3 text-sm gold-gradient">TONG CONG</td>
+                        <td className="p-3 text-sm gold-gradient">TỔNG CỘNG</td>
                         <td className="p-3 text-right text-[var(--gold-400)] font-mono">{formatCurrency(totalVariableCosts)}</td>
                         <td></td>
                         <td></td>
@@ -315,15 +316,15 @@ export default function FinancePage() {
             {tab === 'commissions' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">🎁 Co cau hoa hong theo phong ban</h3>
+                  <h3 className="text-sm font-bold">🎁 Cơ cấu hoa hồng theo phòng ban</h3>
                 </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">
                   {commissions.map(c => (
                     <div key={c.id} className="p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                       <div>
-                        <p className="font-medium text-sm capitalize">{c.department}</p>
-                        <p className="text-xs text-[var(--text-muted)] mt-0.5">{c.commission_type}</p>
+                        <p className="font-medium text-sm">{labelOf(DEPARTMENT_LABELS, c.department)}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">{labelOf(COMMISSION_TYPE_LABELS, c.commission_type)}</p>
                         <p className="text-xs text-[var(--text-muted)]">Từ {c.effective_date}</p>
                       </div>
                       <span className="text-[var(--gold-400)] font-mono font-bold text-lg">{(c.rate * 100).toFixed(1)}%</span>
@@ -335,17 +336,17 @@ export default function FinancePage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Phong ban</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loai HH</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Ty le</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Ap dung tu</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Phòng ban</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loại HH</th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tỷ lệ</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Áp dụng từ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {commissions.map(c => (
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <td className="p-3 font-medium capitalize">{c.department}</td>
-                          <td className="p-3 text-xs text-[var(--text-secondary)]">{c.commission_type}</td>
+                          <td className="p-3 font-medium">{labelOf(DEPARTMENT_LABELS, c.department)}</td>
+                          <td className="p-3 text-xs text-[var(--text-secondary)]">{labelOf(COMMISSION_TYPE_LABELS, c.commission_type)}</td>
                           <td className="p-3 text-right text-[var(--gold-400)] font-mono font-bold">{(c.rate * 100).toFixed(1)}%</td>
                           <td className="p-3 text-xs text-[var(--text-muted)]">{c.effective_date}</td>
                         </tr>

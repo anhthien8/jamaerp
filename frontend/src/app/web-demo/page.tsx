@@ -168,17 +168,17 @@ export default function WebDemoPage() {
           <div className="wd-g tall">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={IMG.g1} alt="Cải tạo nhà phố Bình Chánh — phòng khách" />
-            <div className="cap"><b className={serif.className}>Nhà phố Bình Chánh</b><span>Trước / Sau</span></div>
+            <div className="cap"><b className={serif.className}>Nhà phố Bình Chánh</b><span>Hoàn thiện</span></div>
           </div>
           <div className="wd-g">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={IMG.g2} alt="Cải tạo căn hộ Urban Green" />
-            <div className="cap"><b className={serif.className}>Căn hộ Urban Green</b><span>Trước / Sau</span></div>
+            <div className="cap"><b className={serif.className}>Căn hộ Urban Green</b><span>Hoàn thiện</span></div>
           </div>
           <div className="wd-g">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={IMG.g3} alt="Cải tạo bếp nhà phố Gò Vấp" />
-            <div className="cap"><b className={serif.className}>Nhà phố Gò Vấp</b><span>Trước / Sau</span></div>
+            <div className="cap"><b className={serif.className}>Nhà phố Gò Vấp</b><span>Hoàn thiện</span></div>
           </div>
         </div>
         <div className="wd-sec fade" style={{ paddingTop: 44, paddingBottom: 0 }}>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api } from '@/lib/api';
+import { monthLabelVN } from '@/lib/labels';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 const currentPeriod = () => new Date().toISOString().slice(0, 7);
@@ -107,21 +108,24 @@ export default function KpiPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Đánh giá hiệu suất KPI</h1>
-            <p className="text-sm text-[var(--text-muted)] mt-1">Kỳ: {period}</p>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Kỳ: {monthLabelVN(period)}</p>
           </div>
-          <input
-            type="month"
-            value={period}
-            onChange={e => setPeriod(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[var(--text-secondary)] whitespace-nowrap">{monthLabelVN(period)}</span>
+            <input
+              type="month"
+              value={period}
+              onChange={e => setPeriod(e.target.value)}
+              className="px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+            />
+          </div>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {([
             ['me', 'Của tôi'],
-            ...(isLeaderOrAbove ? [['team', 'Team'] as const] : []),
+            ...(isLeaderOrAbove ? [['team', 'Đội nhóm'] as const] : []),
             ['leaderboard', 'Bảng xếp hạng'],
           ] as const).map(([key, label]) => (
             <button
@@ -181,9 +185,19 @@ export default function KpiPage() {
           </div>
         )}
 
+        {/* Tab: My KPI — empty state */}
+        {!busy && tab === 'me' && !myKpi && (
+          <div className="glass-card p-10 flex flex-col items-center text-center">
+            <div className="text-4xl mb-3">📊</div>
+            <p className="text-sm text-[var(--text-secondary)] max-w-md">
+              Chưa có dữ liệu KPI kỳ này — KPI sẽ hiện khi có lead/công trình được gán cho bạn
+            </p>
+          </div>
+        )}
+
         {/* Tab: Team */}
         {!busy && tab === 'team' && (
-          <div className="glass-card overflow-hidden">
+          <div className="glass-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)]">
@@ -242,7 +256,7 @@ export default function KpiPage() {
 
         {/* Policy footer */}
         <p className="text-xs text-[var(--text-disabled)] mt-8 text-center">
-          Dữ liệu burnout chỉ dùng để hỗ trợ, không dùng để phạt hay xếp loại.
+          Dữ liệu quá tải chỉ dùng để hỗ trợ, không dùng để phạt hay xếp loại.
         </p>
       </main>
     </Sidebar>

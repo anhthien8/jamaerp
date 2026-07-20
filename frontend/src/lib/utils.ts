@@ -37,9 +37,11 @@ export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> =
 
 export function formatCurrency(value?: number | null): string {
   if (value == null) return '—';
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)} triệu`;
-  return `${value.toLocaleString('vi-VN')} ₫`;
+  const sign = value < 0 ? '-' : '';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)} tỷ`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(0)} triệu`;
+  return `${value.toLocaleString('vi-VN')} đ`;
 }
 
 export function formatDate(dateStr?: string | null): string {
@@ -76,18 +78,20 @@ export function cn(...classes: (string | undefined | false | null)[]): string {
 
 export function formatPricePerSqm(value?: number | null): string {
   if (value == null) return '—';
-  return `${value.toLocaleString('vi-VN')} ₫/m²`;
+  return `${value.toLocaleString('vi-VN')} đ/m²`;
 }
 
 export function formatDealValue(value?: number | null): string {
   if (value == null) return '—';
-  if (value >= 1_000_000_000) {
-    const v = value / 1_000_000_000;
+  const sign = value < 0 ? '-' : '';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) {
+    const v = abs / 1_000_000_000;
     const s = v % 1 === 0 ? String(Math.round(v)) : String(v);
-    return `${s} tỷ`;
+    return `${sign}${s} tỷ`;
   }
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)} triệu`;
-  return `${value.toLocaleString('vi-VN')} ₫`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(0)} triệu`;
+  return `${value.toLocaleString('vi-VN')} đ`;
 }
 
 export const PROPERTY_CLASS_LABELS: Record<string, { label: string; color: string }> = {

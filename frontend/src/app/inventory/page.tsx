@@ -8,6 +8,7 @@ import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
 import { DEMO_MATERIALS } from '@/lib/demo-data';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
+import { labelOf, MATERIAL_CATEGORY_LABELS } from '@/lib/labels';
 
 function fmtVND(n?: number) {
   if (!n) return '—';
@@ -186,7 +187,7 @@ export default function InventoryPage() {
                     border: `1px solid ${catFilter === cat ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
                   }}
                 >
-                  {cat === 'all' ? 'Tất cả' : cat}
+                  {cat === 'all' ? 'Tất cả' : labelOf(MATERIAL_CATEGORY_LABELS, cat)}
                 </button>
               ))}
             </div>
@@ -234,7 +235,7 @@ export default function InventoryPage() {
                     <div key={m.id} className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-mono text-xs text-[var(--gold-400)]">{m.code}</span>
-                        <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{m.category}</span>
+                        <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{labelOf(MATERIAL_CATEGORY_LABELS, m.category)}</span>
                       </div>
                       <p className="text-sm font-medium text-[var(--text-primary)] mb-2">{m.name}</p>
                       <div className="flex items-center justify-between text-xs">
@@ -282,7 +283,7 @@ export default function InventoryPage() {
                           <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{m.code}</td>
                           <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">{m.name}</td>
                           <td className="px-5 py-3.5">
-                            <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{m.category}</span>
+                            <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>{labelOf(MATERIAL_CATEGORY_LABELS, m.category)}</span>
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <span className={`font-semibold ${isLow ? 'text-[#f87171]' : 'text-[var(--text-primary)]'}`}>

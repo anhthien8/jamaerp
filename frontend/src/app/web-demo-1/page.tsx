@@ -107,6 +107,7 @@ const CSS = `
     .w1-steps { grid-template-columns: repeat(3, 1fr); }
     .w1-portal { grid-template-columns: 1fr; }
     .w1-foot .in { justify-content: center; text-align: center; }
+    .w1-badge { padding: 5px 10px; font-size: 9px; letter-spacing: .5px; }
   }
 `;
 
@@ -179,7 +180,7 @@ export default function WebDemo1Page() {
       <section className="w1-sec" id="congtrinh">
         <div className="wrap fade">
           <h2>Công trình thật — Trước &amp; Sau</h2>
-          <p className="ss">Kéo thanh so sánh trước/sau trên từng dự án · lọc theo Nhà phố / Chung cư / Biệt thự</p>
+          <p className="ss">Hình ảnh công trình thật JAMA HOME đã bàn giao — xem thêm tại jamahome.vn</p>
           <div className="w1-gal">
             {[
               [IMG.g1, 'Nhà phố Bình Chánh', 'Cải tạo trọn gói · 60 ngày'],
@@ -191,7 +192,7 @@ export default function WebDemo1Page() {
                 <img src={img} alt={`Công trình ${name}`} />
                 <div className="w1-gmeta">
                   <div><b>{name}</b><span>{meta}</span></div>
-                  <span className="ba">TRƯỚC ⇄ SAU</span>
+                  <span className="ba">HOÀN THIỆN</span>
                 </div>
               </div>
             ))}

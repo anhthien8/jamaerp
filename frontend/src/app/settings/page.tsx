@@ -8,6 +8,7 @@ import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } f
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
+import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
 
@@ -847,7 +848,7 @@ function AutomationSection() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm">Nhắc thanh toán hợp đồng</p>
-            <p className="text-xs text-[var(--text-muted)]">Nhắc kế toán các đợt thanh toán còn pending</p>
+            <p className="text-xs text-[var(--text-muted)]">Nhắc kế toán các đợt thanh toán còn đang chờ</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {numInput(form.payment_reminder_days, v => setForm(f => ({ ...f, payment_reminder_days: v })), 1, 90)}
@@ -965,8 +966,8 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-semibold text-lg">{user.full_name}</p>
                     <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
-                    <p className="text-xs text-[var(--text-muted)] capitalize mt-0.5">
-                      {user.role} · {user.department}
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                      {labelOf(ROLE_LABELS, user.role)} · {labelOf(DEPARTMENT_LABELS, user.department)}
                     </p>
                   </div>
                 </div>
@@ -999,9 +1000,9 @@ export default function SettingsPage() {
           <div className="glass-card p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="info" />Thông tin hệ thống</h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-[var(--text-secondary)]">Phiên bản</span>
-                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline">Beta 20/07 — Có gì mới?</a>
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-[var(--text-secondary)] flex-shrink-0">Phiên bản</span>
+                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline text-right">Beta 20/07 — Có gì mới?</a>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Backend</span>

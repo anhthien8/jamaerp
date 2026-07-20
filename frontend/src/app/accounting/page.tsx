@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS } from '@/lib/labels';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
@@ -299,7 +300,7 @@ export default function AccountingPage() {
                             <span className={cn('text-xs font-medium px-2 py-0.5 rounded', cat.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
                               {cat.type === 'income' ? '↑ Thu' : '↓ Chi'}
                             </span>
-                            <span className="text-sm">{cat.category}</span>
+                            <span className="text-sm">{labelOf(TX_CATEGORY_LABELS, cat.category)}</span>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-semibold">{formatCurrency(cat.total)}</p>
@@ -405,7 +406,7 @@ export default function AccountingPage() {
                         const rows = filtered.map(tx => [
                           tx.code,
                           tx.type === 'income' ? 'Thu' : 'Chi',
-                          tx.category,
+                          labelOf(TX_CATEGORY_LABELS, tx.category),
                           tx.description,
                           tx.amount,
                           new Date(tx.date).toLocaleDateString('vi-VN'),
@@ -440,7 +441,7 @@ export default function AccountingPage() {
                           border: `1px solid ${txCategory === cat ? 'rgba(201,169,110,0.3)' : 'transparent'}`,
                         }}
                       >
-                        {cat === 'all' ? 'Tất cả danh mục' : cat}
+                        {cat === 'all' ? 'Tất cả danh mục' : labelOf(TX_CATEGORY_LABELS, cat)}
                       </button>
                     ))}
                   </div>
@@ -507,7 +508,7 @@ export default function AccountingPage() {
                             <p className="text-xs text-[var(--text-primary)] mb-1 truncate">{tx.description}</p>
                             <div className="flex items-center justify-between">
                               <span className={cn('text-xs px-2 py-0.5 rounded', tx.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
-                                {tx.type === 'income' ? '↑ Thu' : '↓ Chi'} · {tx.category}
+                                {tx.type === 'income' ? '↑ Thu' : '↓ Chi'} · {labelOf(TX_CATEGORY_LABELS, tx.category)}
                               </span>
                               <span className={cn('text-sm font-semibold', tx.type === 'income' ? 'text-emerald-400' : 'text-red-400')}>
                                 {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
@@ -543,7 +544,7 @@ export default function AccountingPage() {
                                     {tx.type === 'income' ? '↑ Thu' : '↓ Chi'}
                                   </span>
                                 </td>
-                                <td className="p-3 text-xs">{tx.category}</td>
+                                <td className="p-3 text-xs">{labelOf(TX_CATEGORY_LABELS, tx.category)}</td>
                                 <td className="p-3 text-xs max-w-[200px] truncate">{tx.description}</td>
                                 <td className="p-3 text-right font-semibold">
                                   <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}>
@@ -609,9 +610,9 @@ export default function AccountingPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] text-[var(--text-muted)]">{c.type}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{labelOf(COMMISSION_TYPE_LABELS, c.type)}</span>
                         <span className="text-[10px] text-[var(--text-muted)]">·</span>
-                        <span className="text-[10px] text-[var(--text-muted)]">{c.milestone}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{labelOf(MILESTONE_LABELS, c.milestone)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {(c.rate * 100).toFixed(1)}%</span>
@@ -640,8 +641,8 @@ export default function AccountingPage() {
                       ) : visibleCommissions.map(c => (
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{c.user_name || '—'}</td>
-                          <td className="p-3 text-xs">{c.type}</td>
-                          <td className="p-3 text-xs">{c.milestone}</td>
+                          <td className="p-3 text-xs">{labelOf(COMMISSION_TYPE_LABELS, c.type)}</td>
+                          <td className="p-3 text-xs">{labelOf(MILESTONE_LABELS, c.milestone)}</td>
                           <td className="p-3 text-right text-xs">{formatCurrency(c.base_amount)}</td>
                           <td className="p-3 text-right text-xs">{(c.rate * 100).toFixed(1)}%</td>
                           <td className="p-3 text-right font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</td>

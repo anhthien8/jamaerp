@@ -26,6 +26,15 @@ const TYPE_ICON: Record<string, string> = {
 
 type Tab = 'pending' | 'mine' | 'handled';
 
+/** ISO -> "dd/MM HH:mm" kiểu Việt, giữ nguyên giờ đã lưu (không lệch múi giờ). */
+function fmtDateVN(s?: string | null): string {
+  if (!s) return '';
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return s.slice(0, 16);
+  const [, , mo, d, h, mi] = m;
+  return `${d}/${mo} ${h}:${mi}`;
+}
+
 export default function ApprovalsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -38,6 +47,7 @@ export default function ApprovalsPage() {
   const [rejectTarget, setRejectTarget] = useState<ApprovalItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -56,6 +66,8 @@ export default function ApprovalsPage() {
       setHandled(h.items);
     } catch (e) {
       toast(`Không tải được danh sách phê duyệt: ${e instanceof Error ? e.message : ''}`, 'error');
+    } finally {
+      setLoadingData(false);
     }
   }, [toast]);
 
@@ -133,7 +145,7 @@ export default function ApprovalsPage() {
           <div className="font-medium mt-1.5" style={{ color: 'var(--text-primary)' }}>{item.title}</div>
           <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             {item.requester_name && `Người tạo: ${item.requester_name} · `}
-            {item.created_at?.slice(0, 16)}
+            {fmtDateVN(item.created_at)}
             {item.amount != null && ` · ${item.amount.toLocaleString('vi-VN')}đ`}
             {item.reason && ` · Lý do: ${item.reason}`}
           </div>
@@ -197,12 +209,21 @@ export default function ApprovalsPage() {
         </div>
 
         <div className="space-y-3">
-          {lists[tab].length === 0 && (
+          {loadingData ? (
+            [0, 1, 2].map(i => (
+              <div key={i} className="rounded-2xl p-4 border animate-pulse" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+                <div className="h-3 w-24 rounded mb-3" style={{ background: 'var(--border-subtle)' }} />
+                <div className="h-4 w-2/3 rounded mb-2" style={{ background: 'var(--border-subtle)' }} />
+                <div className="h-3 w-1/2 rounded" style={{ background: 'var(--border-subtle)' }} />
+              </div>
+            ))
+          ) : lists[tab].length === 0 ? (
             <div className="rounded-2xl p-8 text-center border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
               {emptyText[tab]}
             </div>
+          ) : (
+            lists[tab].map(item => renderCard(item, tab))
           )}
-          {lists[tab].map(item => renderCard(item, tab))}
         </div>
 
         {/* Reject modal */}

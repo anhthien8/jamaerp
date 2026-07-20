@@ -73,6 +73,7 @@ export default function ContractsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [viewProof, setViewProof] = useState<string | null>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Contract create/edit form state
   const [formOpen, setFormOpen] = useState(false);
@@ -129,7 +130,8 @@ export default function ContractsPage() {
   };
 
   const handlePaymentConfirm = async () => {
-    if (!paymentModal || !confirmChecked) return;
+    if (!paymentModal || !confirmChecked || confirming) return;
+    setConfirming(true);
     try {
       const updated = await api.updatePayment(paymentModal.contractId, paymentModal.idx, proofUrl || undefined);
       setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -139,7 +141,9 @@ export default function ContractsPage() {
       setProofPreview('');
       setConfirmChecked(false);
       toast('Xác nhận thanh toán thành công!', 'success');
-    } catch { toast('Xác nhận thanh toán thất bại', 'error'); }
+    } catch { toast('Xác nhận thanh toán thất bại', 'error'); } finally {
+      setConfirming(false);
+    }
   };
 
   const openPaymentModal = (contractId: string, idx: number) => {
@@ -233,7 +237,7 @@ export default function ContractsPage() {
                 <span className="text-lg">{card.icon}</span>
                 <span className="text-xs text-[var(--text-muted)]">{card.label}</span>
               </div>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{card.value}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)] whitespace-nowrap">{card.value}</p>
             </div>
           ))}
         </div>
@@ -536,11 +540,11 @@ export default function ContractsPage() {
 
               <button
                 onClick={handlePaymentConfirm}
-                disabled={!confirmChecked}
+                disabled={!confirmChecked || confirming}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                style={{ background: confirmChecked ? 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' : 'var(--surface-3)', color: 'white' }}
+                style={{ background: (confirmChecked && !confirming) ? 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' : 'var(--surface-3)', color: 'white' }}
               >
-                ✅ Xác nhận đã thanh toán
+                {confirming ? 'Đang xác nhận...' : '✅ Xác nhận đã thanh toán'}
               </button>
             </div>
           </div>

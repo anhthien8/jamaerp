@@ -172,6 +172,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
       });
       toast(`Đã tạo Lead "${form.name}" thành công!`, 'success');
       setForm(INITIAL);
+      setErrors({});
       onClose();
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Không tạo được lead'}`, 'error');
@@ -180,10 +181,18 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
     }
   };
 
+  // Reset toàn bộ form + lỗi về mặc định khi đóng, để lần mở sau luôn sạch.
+  const handleClose = () => {
+    setForm(buildInitial());
+    setErrors({});
+    setSubmitting(false);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[8vh]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[8vh]" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-in"
@@ -196,7 +205,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
             <h2 className="text-lg font-bold text-white">➕ Tạo Lead mới</h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">Thêm khách hàng tiềm năng</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]">✕</button>
+          <button onClick={handleClose} aria-label="Đóng cửa sổ tạo lead" className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]">✕</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -378,7 +387,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
           {/* Submit */}
           <div className="flex gap-3 pt-2">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
             >

@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, User, Team, extractItems } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
+import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Giám đốc', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
@@ -47,6 +48,8 @@ export default function HRPage() {
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
   });
+  const [savingUser, setSavingUser] = useState(false);
+  const [userErrors, setUserErrors] = useState<{ full_name?: string; email?: string; password?: string }>({});
 
   // Resignation flow state
   const [resignTarget, setResignTarget] = useState<User | null>(null);
@@ -142,6 +145,32 @@ export default function HRPage() {
     }
   };
 
+  const handleCreateUser = async () => {
+    const errs: { full_name?: string; email?: string; password?: string } = {};
+    if (!newUser.full_name.trim()) errs.full_name = 'Vui lòng nhập họ tên';
+    if (!newUser.email.trim()) errs.email = 'Vui lòng nhập email';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email.trim())) errs.email = 'Email không hợp lệ';
+    if (!newUser.password) errs.password = 'Vui lòng nhập mật khẩu';
+    if (Object.keys(errs).length > 0) {
+      setUserErrors(errs);
+      toast('Vui lòng điền đủ trường bắt buộc: Tên và Email', 'error');
+      return;
+    }
+    setUserErrors({});
+    setSavingUser(true);
+    try {
+      await api.createUser({ ...newUser });
+      toast('Đã thêm nhân viên mới', 'success');
+      setShowCreateForm(false);
+      setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' });
+      load();
+    } catch (e) {
+      toast('Lỗi: ' + (e instanceof Error ? e.message : 'Unknown'), 'error');
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
   const isRecentlyResigned = (u: User): boolean => {
     if (!u.resign_date) return false;
     const resignDate = new Date(u.resign_date);
@@ -196,7 +225,7 @@ export default function HRPage() {
           </button>
           {permissions?.canManageUsers && (
             <button
-              onClick={() => setShowCreateForm(true)}
+              onClick={() => { setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' }); setUserErrors({}); setShowCreateForm(true); }}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
             >
               + Thêm nhân viên
@@ -266,10 +295,11 @@ export default function HRPage() {
                         ) : (
                           <button
                             onClick={() => openResignPreview(u)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                            title="Nghỉ việc"
+                            className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
+                            title="Cho nhân viên nghỉ việc"
                           >
-                            Nghỉ việc
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                            Cho nghỉ việc
                           </button>
                         )
                       ) : (
@@ -341,10 +371,11 @@ export default function HRPage() {
                             ) : (
                               <button
                                 onClick={() => openResignPreview(u)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                                title="Nghỉ việc"
+                                className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
+                                title="Cho nhân viên nghỉ việc"
                               >
-                                Nghỉ việc
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                                Cho nghỉ việc
                               </button>
                             )
                           ) : (
@@ -406,39 +437,49 @@ export default function HRPage() {
         <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Thêm nhân viên mới</h3>
           <div className="space-y-3">
-            <input placeholder="Họ tên *" value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-            <input placeholder="Email *" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-            <input placeholder="Số điện thoại" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-            <input type="password" placeholder="Mật khẩu *" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
-              <option value="data_entry">Nhân viên Sale</option>
-              <option value="leader">Trưởng phòng</option>
-              <option value="supervisor">Giám sát (Thiết kế / Thu mua / Dự án)</option>
-              <option value="accountant">Kế toán / Nhân sự</option>
-              <option value="admin">Giám đốc</option>
-              <option value="executive">Ban Quản Trị</option>
-            </select>
-            <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
-              <option value="SALES">Kinh doanh</option>
-              <option value="OPS">Giám sát / Vận hành</option>
-              <option value="ACCT">Kế toán</option>
-              <option value="EXEC">Ban Giám đốc</option>
-            </select>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Họ tên <span className="text-red-400">*</span></label>
+              <input placeholder="VD: Nguyễn Văn A" value={newUser.full_name} onChange={e => { setNewUser({...newUser, full_name: e.target.value}); setUserErrors(p => ({ ...p, full_name: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+              {userErrors.full_name && <p className="text-[10px] text-red-400 mt-1">{userErrors.full_name}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Email <span className="text-red-400">*</span></label>
+              <input placeholder="email@jamahome.vn" value={newUser.email} onChange={e => { setNewUser({...newUser, email: e.target.value}); setUserErrors(p => ({ ...p, email: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+              {userErrors.email && <p className="text-[10px] text-red-400 mt-1">{userErrors.email}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Số điện thoại</label>
+              <input placeholder="VD: 0901234567" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Mật khẩu <span className="text-red-400">*</span></label>
+              <input type="password" placeholder="Tối thiểu 6 ký tự" value={newUser.password} onChange={e => { setNewUser({...newUser, password: e.target.value}); setUserErrors(p => ({ ...p, password: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
+              {userErrors.password && <p className="text-[10px] text-red-400 mt-1">{userErrors.password}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
+              <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
+                <option value="data_entry">Nhân viên Sale</option>
+                <option value="leader">Trưởng phòng</option>
+                <option value="supervisor">Giám sát (Thiết kế / Thu mua / Dự án)</option>
+                <option value="accountant">Kế toán / Nhân sự</option>
+                <option value="admin">Giám đốc</option>
+                <option value="executive">Ban Quản Trị</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Phòng ban</label>
+              <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
+                <option value="SALES">Kinh doanh</option>
+                <option value="OPS">Giám sát / Vận hành</option>
+                <option value="ACCT">Kế toán</option>
+                <option value="EXEC">Ban Giám đốc</option>
+              </select>
+            </div>
           </div>
           <div className="flex gap-2 mt-4">
             <button onClick={() => setShowCreateForm(false)} className="flex-1 py-2 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)]">Hủy</button>
-            <button onClick={async () => {
-              if (!newUser.full_name || !newUser.email || !newUser.password) return;
-              try {
-                await api.createUser({ ...newUser });
-                toast('Đã thêm nhân viên mới', 'success');
-                setShowCreateForm(false);
-                setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' });
-                load();
-              } catch (e) {
-                toast('Lỗi: ' + (e instanceof Error ? e.message : 'Unknown'), 'error');
-              }
-            }} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium">Thêm</button>
+            <button onClick={handleCreateUser} disabled={savingUser} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium disabled:opacity-50">{savingUser ? 'Đang lưu...' : 'Thêm'}</button>
           </div>
         </div>
       </div>
@@ -483,7 +524,7 @@ export default function HRPage() {
                     {resignPreview.leads.map(lead => (
                       <div key={lead.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
                         <span className="text-[var(--text-primary)] truncate">{lead.name}</span>
-                        <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{lead.stage}</span>
+                        <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{labelOf(LEAD_STAGE_LABELS, lead.stage)}</span>
                       </div>
                     ))}
                   </div>

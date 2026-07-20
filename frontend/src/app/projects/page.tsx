@@ -156,6 +156,8 @@ export default function ProjectsPage() {
   const [savingMaterialRequest, setSavingMaterialRequest] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
+  const kanbanAutoScrolled = useRef(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -208,6 +210,24 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (user) refreshData();
   }, [user, refreshData]);
+
+  // Kanban trên mobile: khi cột đầu ('Thiết kế') trống, người dùng tưởng không có dự án.
+  // Tự cuộn ngang tới cột đầu tiên CÓ dự án (chỉ mobile < 768px).
+  useEffect(() => {
+    if (viewMode !== 'pipeline') { kanbanAutoScrolled.current = false; return; }
+    if (kanbanAutoScrolled.current) return;
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    if (kanbanData.length === 0) return;
+    const firstWithProjects = kanbanData.findIndex(col => col.count > 0);
+    if (firstWithProjects <= 0) { kanbanAutoScrolled.current = true; return; }
+    const container = kanbanScrollRef.current;
+    if (!container) return;
+    const target = container.children[firstWithProjects] as HTMLElement | undefined;
+    if (target) {
+      container.scrollTo({ left: target.offsetLeft - container.offsetLeft, behavior: 'smooth' });
+      kanbanAutoScrolled.current = true;
+    }
+  }, [viewMode, kanbanData]);
 
   const openProjectDetail = async (project: Project) => {
     setSelectedProject(project);
@@ -762,7 +782,7 @@ export default function ProjectsPage() {
                 <span className="text-xs text-[var(--text-secondary)]">Công việc của tôi</span>
               </label>
             </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
+          <div ref={kanbanScrollRef} className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
             {kanbanData.map(col => (
               <div key={col.stage} className="flex-shrink-0 w-[82vw] max-w-[20rem] sm:w-80 snap-start rounded-2xl p-3 flex flex-col" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-subtle)' }}>
                 {/* Column Title */}
@@ -840,11 +860,12 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* FAB "+ Dự án mới" — luôn nhìn thấy kể cả khi cuộn / trên mobile (feedback 15/07) */}
+      {/* FAB "+ Dự án mới" — chỉ hiện trên mobile (desktop đã có nút ở header). Đẩy lên trên
+          BottomNav (bottom-20) để không đè lên thanh điều hướng dưới. */}
       {permissions?.canCreateProjects && !selectedProject && (
         <button
           onClick={() => openProjectForm()}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3.5 rounded-full font-bold text-white shadow-2xl transition-transform active:scale-95 hover:scale-105"
+          className="fixed bottom-20 right-6 z-40 lg:hidden flex items-center gap-2 px-5 py-3.5 rounded-full font-bold text-white shadow-2xl transition-transform active:scale-95 hover:scale-105"
           style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', boxShadow: '0 8px 24px rgba(201,169,110,0.4)' }}
           aria-label="Tạo dự án mới"
         >

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, DashboardData, Project } from '@/lib/api';
+import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [acctSummary, setAcctSummary] = useState<AccountingSummary | null>(null);
   const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
   const [leaderCounts, setLeaderCounts] = useState<{ approvals: number; ot: number } | null>(null);
   const [error, setError] = useState('');
@@ -37,6 +38,11 @@ export default function DashboardPage() {
       fetchFn
         .then(setData)
         .catch((e) => setError(e.message));
+
+      // Kế toán: thẻ Tổng Thu/Tổng Chi lấy từ sổ kế toán thật (không dùng pipeline_value)
+      if (user.role === 'accountant') {
+        api.getAccountingSummary().then(setAcctSummary).catch(() => setAcctSummary(null));
+      }
 
       const dept = ROLE_DEPT[user.role];
       if (dept) {
@@ -153,16 +159,16 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Tổng Thu"
-              value={data?.pipeline_value ? formatCurrency(data.pipeline_value) : '—'}
-              subtitle="Tất cả doanh thu"
+              value={acctSummary ? formatCurrency(acctSummary.total_income) : '—'}
+              subtitle="Doanh thu kỳ này (sổ kế toán)"
               icon="💵"
               color="#10B981"
               onClick={() => router.push('/accounting')}
             />
             <KPICard
               title="Tổng Chi"
-              value={data?.financial_summary?.total_cost_ytd ? formatCurrency(data.financial_summary.total_cost_ytd) : '—'}
-              subtitle="Chi phí & lương"
+              value={acctSummary ? formatCurrency(acctSummary.total_expense) : '—'}
+              subtitle={acctSummary ? `Lãi ròng: ${formatCurrency(acctSummary.net)}` : 'Chi phí & lương'}
               icon="💸"
               color="#EF4444"
               onClick={() => router.push('/accounting')}
@@ -189,8 +195,8 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Lead Của Tôi"
-              value={data?.total_leads_month ?? 0}
-              subtitle={`${data?.total_leads ?? 0} leads đang xử lý`}
+              value={data?.total_active_leads ?? data?.total_leads ?? 0}
+              subtitle="lead đang xử lý"
               icon="👥"
               color="#3B82F6"
               onClick={() => router.push('/leads')}
@@ -213,8 +219,8 @@ export default function DashboardPage() {
             />
             <KPICard
               title="Hoa Hồng"
-              value={data?.financial_summary?.outstanding_receivable ? formatCurrency(data.financial_summary.outstanding_receivable) : '—'}
-              subtitle="Tháng 06/2026"
+              value={data?.commission_month != null ? formatCurrency(data.commission_month) : '—'}
+              subtitle="đã duyệt kỳ gần nhất"
               icon="💎"
               color="#10B981"
               onClick={() => router.push('/accounting')}
@@ -226,31 +232,31 @@ export default function DashboardPage() {
             <KPICard
               title="Tổng Lead"
               value={data?.total_leads ?? 0}
-              subtitle={`Tháng này: ${data?.total_leads_month ?? 15}`}
+              subtitle={`Tháng này: ${data?.total_leads_month ?? 0}`}
               icon="👥"
               color="#3B82F6"
               onClick={() => router.push('/leads')}
             />
             <KPICard
               title="Giá trị pipeline"
-              value={formatCurrency(data?.pipeline_value ?? 12500000000)}
-              subtitle={`${data?.conversion_rate ?? 18.5}% chuyển đổi`}
+              value={formatCurrency(data?.pipeline_value)}
+              subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="💰"
               color="#C9A96E"
               onClick={() => router.push('/leads')}
             />
             <KPICard
               title="Dự án Đang chạy"
-              value={data?.active_projects ?? 8}
-              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 62}%`}
+              value={data?.active_projects ?? 0}
+              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
               icon="🏗️"
               color="#10B981"
               onClick={() => router.push('/projects')}
             />
             <KPICard
               title="Hợp đồng"
-              value={data?.total_contracts ?? 5}
-              subtitle={formatCurrency(data?.total_contract_value ?? 8700000000)}
+              value={data?.total_contracts ?? 0}
+              subtitle={formatCurrency(data?.total_contract_value)}
               icon="📄"
               color="#8B5CF6"
               onClick={() => router.push('/contracts')}
@@ -267,14 +273,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'].map((stage) => {
                   const config = STAGE_CONFIG[stage];
-                  const fallbackCounts: Record<string, number> = {
-                    new: 12,
-                    interested: 9,
-                    survey_scheduled: 6,
-                    potential: 4,
-                    signed_design: 2,
-                  };
-                  const count = data?.stage_funnel?.[stage] ?? fallbackCounts[stage] ?? 0;
+                  const count = data?.stage_funnel?.[stage] ?? 0;
                   const maxCount = 20;
                   const pct = Math.min((count / maxCount) * 100, 100);
                   return (
@@ -510,14 +509,14 @@ export default function DashboardPage() {
                 onClick={() => router.push('/leads?filter=overdue')}
               />
               <AlertCard
-                count={data?.stage_funnel?.['lost'] ?? 3}
+                count={data?.stage_funnel?.['lost'] ?? 0}
                 label="Lead mất trong tháng"
                 color="#F59E0B"
                 onClick={() => router.push('/leads?stage=lost')}
               />
               <AlertCard
                 count={0}
-                label="Task quá deadline"
+                label="Việc quá hạn"
                 color="#3B82F6"
                 onClick={() => router.push('/projects')}
               />
@@ -532,13 +531,17 @@ export default function DashboardPage() {
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">📊 Phân tích Tài chính</h2>
               <div className="space-y-3">
-                {[
-                  { label: 'Tổng doanh thu YTD', value: '8.75 tỷ', color: '#10B981', pct: 87.5 },
-                  { label: 'Tổng chi phí YTD', value: '4.2 tỷ', color: '#EF4444', pct: 42 },
-                  { label: 'Lợi nhuận NET', value: '4.55 tỷ', color: '#3B82F6', pct: 52 },
-                  { label: 'Cash flow', value: '2.1 tỷ', color: '#C9A96E', pct: 21 },
-                  { label: 'Phải thu', value: '1.8 tỷ', color: '#F59E0B', pct: 18 },
-                ].map((item, i) => (
+                {(() => {
+                  const fs = data?.financial_summary;
+                  const rev = fs?.total_revenue_ytd || 1;
+                  return [
+                    { label: 'Doanh thu lũy kế năm', value: formatCurrency(fs?.total_revenue_ytd), color: '#10B981', pct: 100 },
+                    { label: 'Chi phí lũy kế năm', value: formatCurrency(fs?.total_cost_ytd), color: '#EF4444', pct: Math.round(((fs?.total_cost_ytd || 0) / rev) * 100) },
+                    { label: 'Lợi nhuận ròng', value: formatCurrency(fs?.net_profit_ytd), color: '#3B82F6', pct: Math.round(((fs?.net_profit_ytd || 0) / rev) * 100) },
+                    { label: 'Dòng tiền', value: formatCurrency(fs?.cash_flow), color: '#C9A96E', pct: Math.round(((fs?.cash_flow || 0) / rev) * 100) },
+                    { label: 'Phải thu', value: formatCurrency(fs?.outstanding_receivable), color: '#F59E0B', pct: Math.round(((fs?.outstanding_receivable || 0) / rev) * 100) },
+                  ];
+                })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="flex-1">
                       <div className="flex justify-between mb-1">
@@ -558,13 +561,16 @@ export default function DashboardPage() {
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🚀 Chỉ số Tăng trưởng</h2>
               <div className="space-y-3">
-                {[
-                  { label: 'Tăng trưởng leads', value: '+15.2%', icon: '📈', color: '#10B981' },
-                  { label: 'Cải thiện conversion', value: '+3.8%', icon: '🎯', color: '#3B82F6' },
-                  { label: 'Giá trị deal TB', value: '1.2 tỷ', icon: '💎', color: '#C9A96E' },
-                  { label: 'Chi phí thu hút KH', value: '5 triệu', icon: '📢', color: '#F59E0B' },
-                  { label: 'Giá trị vòng đời KH', value: '850 triệu', icon: '♻️', color: '#8B5CF6' },
-                ].map((item, i) => (
+                {(() => {
+                  const gm = data?.growth_metrics;
+                  return [
+                    { label: 'Tăng trưởng lead', value: gm ? `+${gm.lead_growth_rate}%` : '—', icon: '📈', color: '#10B981' },
+                    { label: 'Cải thiện tỷ lệ chốt', value: gm ? `+${gm.conversion_improvement}%` : '—', icon: '🎯', color: '#3B82F6' },
+                    { label: 'Giá trị deal trung bình', value: formatCurrency(gm?.avg_deal_size), icon: '💎', color: '#C9A96E' },
+                    { label: 'Chi phí thu hút KH', value: formatCurrency(gm?.customer_acquisition_cost), icon: '📢', color: '#F59E0B' },
+                    { label: 'Giá trị vòng đời KH', value: formatCurrency(gm?.customer_lifetime_value), icon: '♻️', color: '#8B5CF6' },
+                  ];
+                })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
                     <span className="text-xl">{item.icon}</span>
                     <span className="flex-1 text-sm text-[var(--text-secondary)]">{item.label}</span>
@@ -583,12 +589,16 @@ export default function DashboardPage() {
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🛡️ Phân tích Rủi ro</h2>
               <div className="space-y-3">
-                {[
-                  { label: 'Rủi ro tập trung KH', value: 'Trung bình', detail: 'Top KH 28.5%', color: '#F59E0B', icon: '⚠️' },
-                  { label: 'Mức phủ quy trình', value: '2.8x', detail: 'Mục tiêu: 3.0x', color: '#3B82F6', icon: '📊' },
-                  { label: 'Dự trữ tiền mặt', value: '4.2 tháng', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: '🏦' },
-                  { label: 'Phải thu quá hạn', value: '12.1%', detail: 'Cần theo dõi', color: '#EF4444', icon: '⏰' },
-                ].map((item, i) => (
+                {(() => {
+                  const rh = data?.risk_hedging;
+                  const riskLabel = rh?.concentration_risk === 'high' ? 'Cao' : rh?.concentration_risk === 'low' ? 'Thấp' : 'Trung bình';
+                  return [
+                    { label: 'Rủi ro tập trung KH', value: rh ? riskLabel : '—', detail: rh ? `KH lớn nhất chiếm ${rh.top_client_pct}%` : '', color: '#F59E0B', icon: '⚠️' },
+                    { label: 'Độ phủ pipeline', value: rh ? `${rh.pipeline_coverage}x` : '—', detail: 'Mục tiêu: 3.0x', color: '#3B82F6', icon: '📊' },
+                    { label: 'Dự trữ tiền mặt', value: rh ? `${rh.cash_reserve_months} tháng` : '—', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: '🏦' },
+                    { label: 'Phải thu quá hạn', value: rh ? `${rh.overdue_receivable_pct}%` : '—', detail: 'Cần theo dõi', color: '#EF4444', icon: '⏰' },
+                  ];
+                })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
                     <span className="text-xl">{item.icon}</span>
                     <div className="flex-1 min-w-0">
@@ -605,16 +615,21 @@ export default function DashboardPage() {
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🔮 Dự báo Doanh thu</h2>
               <div className="space-y-4">
-                {[
-                  { label: 'Q3/2026', value: 3.2, max: 15.2, color: '#10B981' },
-                  { label: 'Q4/2026', value: 4.1, max: 15.2, color: '#3B82F6' },
-                  { label: 'Cả năm 2026', value: 15.2, max: 18, color: '#C9A96E' },
-                  { label: 'Cả năm 2025', value: 12.3, max: 18, color: '#8B5CF6' },
-                ].map((item, i) => (
+                {(() => {
+                  const fc = data?.forecast;
+                  const toBil = (v?: number) => Math.round((v || 0) / 1_000_000_000);
+                  const max = Math.max(toBil(fc?.full_year_2026), 1);
+                  return [
+                    { label: 'Q3/2026', value: toBil(fc?.q3_2026), max, color: '#10B981' },
+                    { label: 'Q4/2026', value: toBil(fc?.q4_2026), max, color: '#3B82F6' },
+                    { label: 'Cả năm 2026', value: toBil(fc?.full_year_2026), max, color: '#C9A96E' },
+                    { label: 'Cả năm 2025', value: toBil(fc?.full_year_2025), max, color: '#8B5CF6' },
+                  ];
+                })().map((item, i) => (
                   <div key={i}>
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-[var(--text-secondary)]">{item.label}</span>
-                      <span className="text-sm font-bold" style={{ color: item.color }}>{item.value} tỷ</span>
+                      <span className="text-sm font-bold" style={{ color: item.color }}>{item.value.toLocaleString('vi-VN')} tỷ</span>
                     </div>
                     <div className="h-3 rounded-full bg-white/5 overflow-hidden">
                       <div
@@ -628,7 +643,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg">📈</span>
                     <div>
-                      <p className="text-sm font-semibold text-[#10B981]">Tăng trưởng: +23.5%</p>
+                      <p className="text-sm font-semibold text-[#10B981]">Tăng trưởng: +{data?.financial_summary?.yoy_growth ?? '—'}%</p>
                       <p className="text-xs text-[var(--text-muted)]">So với năm 2025 — xu hướng tích cực</p>
                     </div>
                   </div>

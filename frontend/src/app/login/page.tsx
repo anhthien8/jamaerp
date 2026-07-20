@@ -295,7 +295,7 @@ export default function LoginPage() {
                   >
                     <span className="font-mono">{acc.email}</span>
                     <span className="opacity-0 group-hover:opacity-100 text-[#C9A96E] transition-opacity text-[10px] font-medium">
-                      {acc.role} . Click de dien
+                      {acc.role} · Bấm để điền
                     </span>
                   </button>
                 ))}

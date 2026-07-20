@@ -130,6 +130,16 @@ export default function CustomersPage() {
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
+  // Đóng modal "Thêm/Sửa khách hàng" bằng phím Escape (không đóng khi đang lưu)
+  useEffect(() => {
+    if (!formOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) setFormOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [formOpen, saving]);
+
   if (loading || !user) return null;
   if (error) {
     return (

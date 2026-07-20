@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { api, User } from '@/lib/api';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
+import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
+import { useToast } from '@/components/ui/Toast';
 import Sidebar from '@/components/layout/Sidebar';
 
 const ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'accountant', 'supervisor'];
@@ -33,6 +35,7 @@ const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: ''
 export default function UsersPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -119,9 +122,9 @@ export default function UsersPage() {
     try {
       await api.updateUser(u.id, { is_active: next });
     } catch (e) {
-      // Lỗi → hoàn tác + hiện thông báo (trước đây nuốt lỗi im lặng → trông như "không bấm được")
+      // Lỗi → hoàn tác + báo bằng toast (trước đây set vào state error nhưng không render → trông như "không bấm được")
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: u.is_active } : x));
-      setError((e as Error).message || 'Không đổi được trạng thái tài khoản');
+      toast((e as Error).message || 'Không đổi được trạng thái tài khoản', 'error');
     }
   };
 
@@ -164,7 +167,7 @@ export default function UsersPage() {
         {/* Table */}
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm hidden md:table">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-muted)]">Họ tên</th>
@@ -196,7 +199,7 @@ export default function UsersPage() {
                         {getRoleLabel(u.role as UserRole)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[var(--text-secondary)]">{u.department}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{labelOf(DEPARTMENT_LABELS, u.department)}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => isAdmin && handleToggleActive(u)}
@@ -219,6 +222,58 @@ export default function UsersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile: danh sách thẻ (bảng ẩn dưới md nên cần bản thẻ đủ thao tác) */}
+          <div className="md:hidden">
+            {loading2 ? (
+              <p className="text-center py-8 text-sm text-[var(--text-muted)]">Đang tải...</p>
+            ) : users.length === 0 ? (
+              <p className="text-center py-8 text-sm text-[var(--text-muted)]">Không tìm thấy tài khoản</p>
+            ) : users.map(u => (
+              <div key={u.id} className="p-4 border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))' }}>
+                      {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">{u.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => isAdmin && handleToggleActive(u)}
+                    disabled={!isAdmin}
+                    aria-label={u.is_active ? 'Tắt tài khoản' : 'Bật tài khoản'}
+                    className={`flex items-center justify-center h-10 w-14 flex-shrink-0 ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`}
+                  >
+                    <span className={`relative w-11 h-6 rounded-full transition-colors ${u.is_active ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${u.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </span>
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium border ${ROLE_COLORS[u.role] || 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
+                    {labelOf(ROLE_LABELS, u.role)}
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-lg text-xs font-medium border bg-[var(--surface-2)] text-[var(--text-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {labelOf(DEPARTMENT_LABELS, u.department)}
+                  </span>
+                </div>
+                {isAdmin && (
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => openEdit(u)} className="flex-1 min-h-[40px] rounded-xl text-sm font-medium text-[var(--text-secondary)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] transition-colors">
+                      Sửa
+                    </button>
+                    <button onClick={() => openPassword(u)} className="flex-1 min-h-[40px] rounded-xl text-sm font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                      Mật khẩu
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
           {/* Pagination */}
           {total > pageSize && (
             <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -268,7 +323,7 @@ export default function UsersPage() {
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bộ phận</label>
                   <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{labelOf(DEPARTMENT_LABELS, d)}</option>)}
                   </select>
                 </div>
               </div>

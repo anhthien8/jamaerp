@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, DashboardExecutive, AccountingSummary } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
+import { labelOf, TX_CATEGORY_LABELS } from '@/lib/labels';
 import { getPermissions, UserRole } from '@/lib/roles';
 import AccessDenied from '@/components/ui/AccessDenied';
 
@@ -65,7 +66,7 @@ export default function ReportsPage() {
                         const pct = summary.total_income > 0 ? (item.total / summary.total_income) * 100 : 0;
                         return (
                           <div key={i} className="flex items-center gap-3">
-                            <span className="text-xs w-20 text-[var(--text-muted)] truncate">{item.category}</span>
+                            <span className="text-xs w-20 text-[var(--text-muted)] truncate">{labelOf(TX_CATEGORY_LABELS, item.category)}</span>
                             <div className="flex-1 h-2 rounded-full bg-white/10">
                               <div className="h-full rounded-full bg-[#C9A96E]" style={{ width: `${pct}%` }} />
                             </div>
@@ -191,9 +192,9 @@ export default function ReportsPage() {
                   {[
                     { label: 'Tổng leads', value: dashboard.total_leads, color: '#3B82F6' },
                     { label: 'Leads tháng này', value: dashboard.total_leads_month, color: '#8B5CF6' },
-                    { label: 'Dự án active', value: dashboard.active_projects, color: '#10B981' },
+                    { label: 'Dự án đang chạy', value: dashboard.active_projects, color: '#10B981' },
                     { label: 'Giá trị pipeline', value: formatCurrency(dashboard.pipeline_value), color: '#C9A96E' },
-                    { label: 'SLA Compliance', value: `${dashboard.sla_compliance?.toFixed(0) || 0}%`, color: '#10B981' },
+                    { label: 'Tuân thủ SLA', value: `${dashboard.sla_compliance?.toFixed(0) || 0}%`, color: '#10B981' },
                     { label: 'Leads quá hạn', value: dashboard.overdue_leads, color: '#EF4444' },
                     { label: 'HĐ ký', value: dashboard.total_contracts, color: '#C9A96E' },
                     { label: 'Giá trị HĐ', value: formatCurrency(dashboard.total_contract_value), color: '#10B981' },
