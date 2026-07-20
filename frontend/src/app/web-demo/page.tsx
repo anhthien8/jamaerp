@@ -224,7 +224,7 @@ export default function WebDemoPage() {
         <a className="btn-o" href="https://zalo.me/0705623456" target="_blank" rel="noreferrer">Chat Zalo</a>
       </footer>
 
-      <div className="wd-demo-badge">Bản demo nội bộ — chưa công khai</div>
+      <div className="wd-demo-badge">Bản demo 2 — luxury <a href="/web-demo-1" style={{ color: '#FBF8F1', textDecoration: 'underline', marginLeft: 8 }}>Xem bản 1 →</a></div>
     </div>
   );
 }
