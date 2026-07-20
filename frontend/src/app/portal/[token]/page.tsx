@@ -59,6 +59,7 @@ export default function PortalPage() {
   const [acceptances, setAcceptances] = useState<Record<string, { at: string; note?: string; by?: string }>>({});
   const [accepting, setAccepting] = useState(false);
   const [acceptNote, setAcceptNote] = useState('');
+  const [acceptError, setAcceptError] = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -127,6 +128,7 @@ export default function PortalPage() {
       return;
     }
     setAccepting(true);
+    setAcceptError('');
     try {
       const res = await fetch(`${API}/portal/${token}/projects/${selectedProject.id}/accept-stage`, {
         method: 'POST',
@@ -137,8 +139,12 @@ export default function PortalPage() {
         const data = await res.json();
         setAcceptances(prev => ({ ...prev, [stage]: data.acceptance }));
         setAcceptNote('');
+      } else {
+        setAcceptError('Chưa xác nhận được — vui lòng thử lại hoặc gọi JAMA HOME: 070.56.23456');
       }
-    } catch {} finally { setAccepting(false); }
+    } catch {
+      setAcceptError('Mất kết nối — vui lòng kiểm tra mạng rồi thử lại, hoặc gọi JAMA HOME: 070.56.23456');
+    } finally { setAccepting(false); }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[#C9A96E] border-t-transparent rounded-full"></div></div>;
@@ -246,6 +252,7 @@ export default function PortalPage() {
                       >
                         {accepting ? 'Đang gửi...' : `Xác nhận nghiệm thu — ${STAGE_LABELS[selectedProject.stage]}`}
                       </button>
+                      {acceptError && <p className="text-[11px]" style={{ color: '#F87171' }}>{acceptError}</p>}
                     </div>
                   ) : (
                     <p className="text-[11px]" style={{ color: '#10B981' }}>Giai đoạn hiện tại đã được bạn xác nhận. Cảm ơn bạn!</p>

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, FeedbackItem } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -21,6 +22,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function FeedbackPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -42,8 +44,8 @@ export default function FeedbackPage() {
       const data = await api.getFeedback(params);
       setItems(data.items || []);
       setTotal(data.total || 0);
-    } catch {}
-  }, [page, statusFilter, categoryFilter]);
+    } catch { toast('Không thể tải danh sách góp ý', 'error'); }
+  }, [page, statusFilter, categoryFilter, toast]);
 
   useEffect(() => { loadFeedback(); }, [loadFeedback]);
 
@@ -62,8 +64,8 @@ export default function FeedbackPage() {
   return (
     <Sidebar>
       <div className="p-6 animate-in">
-        <h1 className="text-2xl font-bold mb-1">Feedback từ nhân sự</h1>
-        <p className="text-sm text-[var(--text-muted)] mb-6">{total} phản hồi</p>
+        <h1 className="text-2xl font-bold mb-1">Góp ý từ nhân sự</h1>
+        <p className="text-sm text-[var(--text-muted)] mb-6">{total} phản hồi · gửi qua bot Telegram lệnh /feedback</p>
 
         {/* Filters */}
         <div className="flex gap-3 mb-4 flex-wrap">
@@ -80,7 +82,7 @@ export default function FeedbackPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+        <div className="rounded-2xl overflow-x-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -100,7 +102,7 @@ export default function FeedbackPage() {
                   <td className="px-4 py-3"><span className="text-xs px-2 py-1 rounded-full bg-white/5">{CATEGORY_LABELS[fb.category] || fb.category}</span></td>
                   <td className="px-4 py-3 text-[var(--text-secondary)] max-w-[200px] truncate">{fb.content.substring(0, 80)}{fb.content.length > 80 ? '...' : ''}</td>
                   <td className="px-4 py-3"><span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: `${STATUS_COLORS[fb.status]}20`, color: STATUS_COLORS[fb.status] }}>{STATUS_LABELS[fb.status]}</span></td>
-                  <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{fb.created_at.substring(0, 10)}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--text-muted)] whitespace-nowrap">{fb.created_at.substring(8, 10)}/{fb.created_at.substring(5, 7)}</td>
                 </tr>
               ))}
             </tbody>

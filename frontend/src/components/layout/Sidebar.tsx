@@ -52,7 +52,7 @@ const ALL_ITEMS = [
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
-  { href: '/feedback', label: 'Feedback', icon: Icon.reports, perm: 'canViewReports' },
+  { href: '/feedback', label: 'Góp ý', icon: Icon.reports, perm: 'canViewReports' },
   { href: '/users', label: 'Tài khoản', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
@@ -383,7 +383,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
       {/* Single main — children rendered ONCE */}
       <main
-        className="flex-1 min-h-screen pt-14 lg:pt-0 pb-16 lg:pb-0"
+        className="flex-1 min-w-0 min-h-screen pt-14 lg:pt-0 pb-16 lg:pb-0"
         style={{
           marginLeft: isDesktop ? 256 : 0,
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -398,7 +398,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu mẫu, dùng để demo cho nhân sự</span>
             </div>
             <button onClick={() => setMode('work')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium">
-              Chuyển sang Work →
+              Chuyển sang Làm việc →
             </button>
           </div>
         ) : (

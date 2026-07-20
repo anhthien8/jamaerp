@@ -34,6 +34,9 @@ const RELEASES: Release[] = [
     fixes: [
       'Báo giá tức thì trong Chế độ Tập luyện không còn báo lỗi khi bấm "Tạo báo giá".',
       'Trang Khách hàng (chế độ Làm việc) hết lỗi tải danh sách.',
+      'Trên điện thoại: bảng Dự án & Quy trình không còn kéo trôi cả trang sang ngang — chỉ vùng thẻ cuộn.',
+      'Portal khách hàng: nếu bấm "Xác nhận nghiệm thu" mà mạng lỗi sẽ hiện thông báo đỏ rõ ràng (trước đây im lặng).',
+      'Trang "Góp ý" thuần Việt (trước ghi "Feedback"), ngày hiển thị gọn dạng ngày/tháng.',
     ],
     test: [
       'Đăng nhập đúng vai trò của bạn, đi hết các trang mình hay dùng.',
