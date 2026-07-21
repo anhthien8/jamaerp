@@ -22,6 +22,8 @@ class Transaction(Base):
     project_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("projects.id"), nullable=True)
     lead_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("leads.id"), nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    # Nhân viên liên quan (giao dịch Lương/Hoa hồng) — không FK cứng, join tên ở tầng API
+    related_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
     # Statuses: pending, completed, cancelled
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)

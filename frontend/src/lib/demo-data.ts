@@ -281,7 +281,7 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
   { id: 'demo-tx-012', code: 'TX-012', type: 'expense', category: 'material', description: 'Vật liệu các công trình - kỳ T6', amount: 38_000_000_000, status: 'completed', date: '2026-06-15T00:00:00Z', created_at: '2026-06-15T00:00:00Z' },
   { id: 'demo-tx-013', code: 'TX-013', type: 'expense', category: 'labor', description: 'Nhân công + thầu phụ - kỳ T6', amount: 34_650_000_000, status: 'completed', date: '2026-06-20T00:00:00Z', created_at: '2026-06-20T00:00:00Z' },
   { id: 'demo-tx-014', code: 'TX-014', type: 'expense', category: 'salary', description: 'Lương văn phòng + đội ngũ T6 (100 nhân sự)', amount: 4_600_000_000, status: 'completed', date: '2026-06-25T00:00:00Z', created_at: '2026-06-25T00:00:00Z' },
-  { id: 'demo-tx-015', code: 'TX-015', type: 'expense', category: 'commission', description: 'Hoa hồng T6 - đội Sales', amount: 1_950_000_000, status: 'pending', date: '2026-06-27T00:00:00Z', created_at: '2026-06-27T00:00:00Z' },
+  { id: 'demo-tx-015', code: 'TX-015', type: 'expense', category: 'commission', description: 'Hoa hồng T6 - đội Sales', amount: 1_950_000_000, related_user_id: 'demo-sales-001', related_user_name: 'Trần Thị Sales', status: 'pending', date: '2026-06-27T00:00:00Z', created_at: '2026-06-27T00:00:00Z' },
 ];
 
 // ─── Accounting Summary (tháng hiện tại ≈ doanh thu 98,6 tỷ) ─────────────────

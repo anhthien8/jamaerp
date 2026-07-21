@@ -130,8 +130,9 @@ async def project_pl_list(
     revenues = await _build_project_revenues(db)
     costs = await _build_project_costs(db)
 
-    # Merge all known project IDs
-    all_project_ids = set(revenues.keys()) | set(costs.keys())
+    # Merge all known project IDs — loại None (giao dịch/vật tư không gắn dự án),
+    # nếu không sorted() ném TypeError None-vs-str → 500 cả endpoint (audit 22/07)
+    all_project_ids = {pid for pid in (set(revenues.keys()) | set(costs.keys())) if pid}
 
     result = await db.execute(select(Project))
     projects_map = {p.id: p for p in result.scalars().all()}

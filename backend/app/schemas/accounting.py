@@ -3,7 +3,7 @@
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 # ── Transaction ────────────────────────────────────────
@@ -17,7 +17,9 @@ class TransactionCreate(BaseModel):
     user_id: UUID | None = None
     description: str | None = None
     reference: str | None = None
-    transaction_date: date
+    # FE gửi key 'date'; bản cũ bắt buộc 'transaction_date' → mọi lần tạo giao dịch
+    # work mode đều 422 (bug tiềm ẩn, lộ ra khi audit 22/07). Nhận cả 2 tên, cho phép trống.
+    transaction_date: date | None = Field(default=None, validation_alias=AliasChoices("transaction_date", "date"))
 
 
 class TransactionUpdate(BaseModel):

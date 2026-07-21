@@ -143,9 +143,11 @@ WRITE_DENY_CASES = [
       "role": "data_entry", "department": "SALES"},
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
       ("supervisor", "OPS"), ("accountant", "ACCT")]),
+    # HR = admin + accountant (kế toán kiêm nhân sự, đồng bộ FE canManageUsers — 22/07);
+    # leader bị loại (bản cũ leader gọi lén được API dù UI ẩn)
     ("POST", "/api/v1/hr/resign-preview", {"user_id": "fake-id"},
      [("executive", "EXEC"), ("data_entry", "SALES"),
-      ("supervisor", "OPS"), ("accountant", "ACCT")]),
+      ("supervisor", "OPS"), ("leader", "SALES")]),
     ("POST", "/api/v1/payroll/generate?period=2099-01", None,
      [("executive", "EXEC"), ("leader", "SALES"), ("data_entry", "SALES"),
       ("supervisor", "OPS")]),

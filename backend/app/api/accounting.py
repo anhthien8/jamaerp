@@ -44,12 +44,21 @@ async def list_transactions(
     result = await db.execute(q)
     txns = result.scalars().all()
 
+    # Join tên nhân viên liên quan (giao dịch Lương/Hoa hồng) — 1 query cho cả trang
+    related_ids = {t.related_user_id for t in txns if t.related_user_id}
+    user_names: dict[str, str] = {}
+    if related_ids:
+        rows = await db.execute(select(User.id, User.full_name).where(User.id.in_(related_ids)))
+        user_names = {uid: name for uid, name in rows.all()}
+
     return {
         "items": [
             {
                 "id": t.id, "code": t.code, "type": t.type, "category": t.category,
                 "description": t.description, "amount": t.amount,
                 "project_id": t.project_id, "status": t.status,
+                "related_user_id": t.related_user_id,
+                "related_user_name": user_names.get(t.related_user_id) if t.related_user_id else None,
                 "date": str(t.date), "created_at": str(t.created_at),
             }
             for t in txns
@@ -207,9 +216,11 @@ async def create_transaction(
         description=data.description or "",
         amount=data.amount,
         project_id=str(data.project_id) if data.project_id else None,
+        related_user_id=str(data.user_id) if data.user_id else None,
         created_by=current_user.id,
         status="completed",
-        date=datetime.now(timezone.utc),
+        # Tôn trọng ngày kế toán chọn (bản cũ bỏ qua, luôn lấy giờ hiện tại)
+        date=datetime.combine(data.transaction_date, datetime.min.time()) if data.transaction_date else datetime.now(timezone.utc),
     )
     db.add(txn)
     await db.flush()
@@ -217,6 +228,7 @@ async def create_transaction(
     return {
         "id": txn.id, "code": txn.code, "type": txn.type,
         "category": txn.category, "amount": txn.amount, "status": txn.status,
+        "related_user_id": txn.related_user_id,
     }
 
 

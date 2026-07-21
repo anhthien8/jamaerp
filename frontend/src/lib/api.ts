@@ -241,6 +241,19 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
 
   // ── Accounting ──
   if (path === '/accounting/summary') return d.DEMO_ACCOUNTING_SUMMARY as T;
+  if (path === '/accounting/transactions' && method === 'POST') {
+    const b = (options?.body || {}) as { type?: string; category?: string; description?: string; amount?: number; date?: string; project_id?: string; user_id?: string };
+    const staff = b.user_id ? d.DEMO_USERS.find(u => u.id === b.user_id) : null;
+    const tx = {
+      id: `demo-tx-${Date.now()}`, code: `TX-${String(d.DEMO_TRANSACTIONS.length + 1).padStart(3, '0')}`,
+      type: b.type || 'expense', category: b.category || 'other', description: b.description || '',
+      amount: b.amount || 0, project_id: b.project_id,
+      related_user_id: b.user_id || null, related_user_name: staff?.full_name || null,
+      status: 'completed', date: b.date || new Date().toISOString(), created_at: new Date().toISOString(),
+    } as unknown as Transaction;
+    d.DEMO_TRANSACTIONS.unshift(tx);
+    return tx as T;
+  }
   if (path === '/accounting/transactions') return toPaginated(d.DEMO_TRANSACTIONS, params) as T;
   if (path === '/accounting/commissions') return toPaginated(d.DEMO_COMMISSIONS, params) as T;
   if (path === '/accounting/payroll') return toPaginated(d.DEMO_PAYROLL, params) as T;
@@ -764,7 +777,7 @@ class ApiClient {
     return this.request<PaginatedResponse<Transaction>>('/accounting/transactions', { params });
   }
 
-  async createTransaction(data: { type: string; category: string; description: string; amount: number; date: string; project_id?: string }) {
+  async createTransaction(data: { type: string; category: string; description: string; amount: number; date: string; project_id?: string; user_id?: string }) {
     return this.request<Transaction>('/accounting/transactions', { method: 'POST', body: data });
   }
   async updateTransaction(id: string, data: Record<string, unknown>) {
@@ -1391,6 +1404,9 @@ export interface Transaction {
   description: string;
   amount: number;
   project_id?: string;
+  /** Nhân viên liên quan — dùng cho giao dịch Lương/Hoa hồng gắn với một người cụ thể */
+  related_user_id?: string | null;
+  related_user_name?: string | null;
   status: string;
   date: string;
   created_at: string;

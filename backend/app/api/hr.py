@@ -17,14 +17,15 @@ from app.services.audit import log_action
 router = APIRouter(prefix="/hr", tags=["hr"])
 
 # ---------------------------------------------------------------------------
-# RBAC helper
-# ---------------------------------------------------------------------------
-_ALLOWED_ROLES = {"admin", "leader"}
+# RBAC helper — đồng bộ với FE canManageUsers (roles.ts): admin + accountant
+# (kế toán kiêm nhân sự theo cơ cấu công ty). Bản cũ cho leader (UI ẩn nhưng API
+# gọi lén được) và CHẶN accountant (UI hiện nút nhưng bấm là 403) — audit 22/07.
+_ALLOWED_ROLES = {"admin", "accountant"}
 
 
 def _require_admin_or_leader(current_user: User):
     if current_user.role not in _ALLOWED_ROLES:
-        raise HTTPException(status_code=403, detail="Chỉ admin/leader mới có quyền thực hiện thao tác này")
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán-nhân sự mới có quyền thực hiện thao tác này")
 
 
 # ---------------------------------------------------------------------------

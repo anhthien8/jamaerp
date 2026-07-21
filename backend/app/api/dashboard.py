@@ -10,6 +10,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity
+from app.api.leads import STAGE_LABELS
 from app.models.project import Project
 from app.cache import cache, cached
 

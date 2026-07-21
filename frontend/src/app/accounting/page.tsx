@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, extractItems } from '@/lib/api';
+import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
-import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS } from '@/lib/labels';
+import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS, ROLE_LABELS } from '@/lib/labels';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
@@ -46,9 +46,11 @@ export default function AccountingPage() {
     amount: '',
     date: new Date().toISOString().slice(0, 10),
     project_id: '',
+    user_id: '',
   });
   const [savingTx, setSavingTx] = useState(false);
   const [activeProjects, setActiveProjects] = useState<Project[]>([]);
+  const [staffList, setStaffList] = useState<User[]>([]);
   const [txAmountDisplay, setTxAmountDisplay] = useState('');
 
   useEffect(() => {
@@ -89,15 +91,20 @@ export default function AccountingPage() {
 
   const openTxForm = async () => {
     const today = new Date().toISOString().slice(0, 10);
-    setTxForm({ type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '' });
+    setTxForm({ type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '', user_id: '' });
     setTxAmountDisplay('');
     setShowTxForm(true);
-    // Load active projects for optional dropdown
+    // Load active projects + danh sách nhân viên (cho giao dịch Lương/Hoa hồng)
     try {
       const result = extractItems(await api.getProjects({ status: 'active' }));
       setActiveProjects(result);
     } catch {
       setActiveProjects([]);
+    }
+    try {
+      setStaffList(extractItems(await api.getUsers()));
+    } catch {
+      setStaffList([]);
     }
   };
 
@@ -121,6 +128,7 @@ export default function AccountingPage() {
         amount: Number(txForm.amount),
         date: txForm.date,
         project_id: txForm.project_id || undefined,
+        user_id: txForm.user_id || undefined,
       });
       setTransactions(prev => [created, ...prev]);
       setShowTxForm(false);
@@ -505,7 +513,10 @@ export default function AccountingPage() {
                                 {tx.status === 'completed' ? 'Đã xử lý' : tx.status === 'pending' ? 'Chờ duyệt' : tx.status}
                               </span>
                             </div>
-                            <p className="text-xs text-[var(--text-primary)] mb-1 truncate">{tx.description}</p>
+                            <p className="text-xs text-[var(--text-primary)] mb-1 truncate">
+                              {tx.description}
+                              {tx.related_user_name && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)' }}>{tx.related_user_name}</span>}
+                            </p>
                             <div className="flex items-center justify-between">
                               <span className={cn('text-xs px-2 py-0.5 rounded', tx.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>
                                 {tx.type === 'income' ? '↑ Thu' : '↓ Chi'} · {labelOf(TX_CATEGORY_LABELS, tx.category)}
@@ -545,7 +556,10 @@ export default function AccountingPage() {
                                   </span>
                                 </td>
                                 <td className="p-3 text-xs">{labelOf(TX_CATEGORY_LABELS, tx.category)}</td>
-                                <td className="p-3 text-xs max-w-[200px] truncate">{tx.description}</td>
+                                <td className="p-3 text-xs max-w-[200px] truncate">
+                                  {tx.description}
+                                  {tx.related_user_name && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap" style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)' }}>{tx.related_user_name}</span>}
+                                </td>
                                 <td className="p-3 text-right font-semibold">
                                   <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}>
                                     {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
@@ -822,6 +836,27 @@ export default function AccountingPage() {
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 />
               </div>
+
+              {/* Nhân viên liên quan — hiện khi danh mục Lương/Hoa hồng */}
+              {(txForm.category === 'salary' || txForm.category === 'commission') && (
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Liên kết nhân viên (tùy chọn)</label>
+                  <select
+                    value={txForm.user_id}
+                    onChange={e => setTxForm(f => ({ ...f, user_id: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">Không gắn — ghi tổng (cả kỳ/nhiều người)</option>
+                    {staffList.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name} — {labelOf(ROLE_LABELS, u.role)}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Lương chi tiết TỪNG NHÂN VIÊN (công, OT, BHXH, thuế) quản lý ở <a href="/attendance" className="underline text-[#C9A96E]">Chấm công → Chốt sổ</a> — hệ thống tự sinh bảng lương. Ô này dùng khi ghi sổ khoản chi lẻ cho một người cụ thể.
+                  </p>
+                </div>
+              )}
 
               {/* Project (optional) */}
               <div className="mb-4">

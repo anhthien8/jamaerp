@@ -319,6 +319,7 @@ export default function PLPage() {
   const router = useRouter();
   const [allProjects, setAllProjects] = useState<ProjectPL[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [plError, setPlError] = useState('');
   const [sortBy, setSortBy] = useState<'revenue' | 'profit' | 'margin'>('revenue');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -371,8 +372,12 @@ export default function PLPage() {
             start_date: item.start_date || '2026-01-01',
           }));
           setAllProjects(normalizedProjects);
+          setPlError('');
         } catch {
-          setAllProjects(MOCK_PROJECT_PL);
+          // TUYỆT ĐỐI không rơi về MOCK ở chế độ Làm việc — kế toán sẽ nhìn số bịa
+          // tưởng là thật (audit 22/07). Hiện lỗi rõ ràng, danh sách để trống.
+          setAllProjects([]);
+          setPlError('Không tải được số liệu P&L từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
         }
       }
     } catch (e) {
@@ -500,6 +505,12 @@ export default function PLPage() {
             </div>
           )}
         </div>
+
+        {plError && (
+          <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
+            ⚠️ {plError}
+          </div>
+        )}
 
         {/* ── Date Filter Bar ── */}
         <div className="glass-card p-4">
