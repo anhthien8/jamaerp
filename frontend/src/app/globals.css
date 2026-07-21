@@ -132,39 +132,41 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* === ☀️ Chế độ Ngoài trời (spec 08 §2.2) ===
-   Giám sát/PM ngoài nắng HCM: nền sáng + chữ đen đậm + tương phản cao.
-   Ghi chú: một số khối dùng inline rgba trắng sẽ nhạt hơn — chấp nhận v1,
-   mục tiêu chính là /attendance + /projects đọc được ngoài trời. */
+/* === ☀️ Chế độ Ngoài trời (spec 08 §2.2) — bảng màu "JAMA luxury sáng" ===
+   Học ngôn ngữ Masterise (đồng bộ /web-demo): nền NGÀ ẤM thay trắng-xám lạnh,
+   chữ THAN ấm thay xám xanh, điểm nhấn ĐỒNG thay vàng olive, viền chỉ + bóng ấm.
+   Ràng buộc giữ nguyên: tương phản cao để giám sát/PM đọc được ngoài nắng HCM
+   (chữ chính ≈ #1C1A15 trên ngà #F6F3EC — đậm hơn cả bản cũ). */
 [data-theme='outdoor'] {
-  --surface-0: #F7F6F2;
+  --surface-0: #F6F3EC;
   --surface-1: #FFFFFF;
-  --surface-2: #F1EFE9;
-  --surface-3: #E8E4DA;
-  --surface-4: #DDD7C9;
-  --surface-elevated: rgba(0, 0, 0, 0.04);
+  --surface-2: #F1EDE2;
+  --surface-3: #E9E2D3;
+  --surface-4: #DDD4C1;
+  --surface-elevated: rgba(35, 33, 28, 0.04);
 
-  --text-primary: #131313;
-  --text-secondary: #2E3A46;
-  --text-tertiary: #4A5A68;
-  --text-disabled: #7A8794;
-  --text-muted: #55636F;
+  --text-primary: #1C1A15;
+  --text-secondary: #403C34;
+  --text-tertiary: #59544A;
+  --text-disabled: #8A8375;
+  --text-muted: #665F52;
 
-  --border-subtle: rgba(0, 0, 0, 0.12);
-  --border-default: rgba(0, 0, 0, 0.2);
-  --border-strong: rgba(0, 0, 0, 0.32);
+  --border-subtle: rgba(74, 62, 40, 0.14);
+  --border-default: rgba(74, 62, 40, 0.24);
+  --border-strong: rgba(74, 62, 40, 0.38);
 
-  --gold-300: #8A6A2F;
-  --gold-400: #7A5C26;
-  --gold-500: #8A6A2F;
-  --gold-600: #6E521F;
-  --gold-700: #5A4218;
+  /* Đồng (bronze) — đủ đậm để làm chữ trên nền sáng, đủ ấm để sang */
+  --gold-300: #A07A42;
+  --gold-400: #916D38;
+  --gold-500: #855F2D;
+  --gold-600: #6F5124;
+  --gold-700: #59401B;
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.12);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
-  --shadow-xl: 0 12px 32px rgba(0,0,0,0.2);
-  --shadow-glow-gold: 0 0 0 rgba(0,0,0,0);
+  --shadow-sm: 0 1px 2px rgba(58, 46, 28, 0.08);
+  --shadow-md: 0 6px 16px rgba(58, 46, 28, 0.10);
+  --shadow-lg: 0 12px 32px rgba(58, 46, 28, 0.14);
+  --shadow-xl: 0 20px 48px rgba(58, 46, 28, 0.18);
+  --shadow-glow-gold: 0 0 24px rgba(150, 113, 59, 0.12);
   --shadow-glow-blue: 0 0 0 rgba(0,0,0,0);
 }
 
@@ -173,12 +175,31 @@
   color: var(--text-primary);
 }
 
-/* Chữ trắng cứng trong component → lật sang đen khi ngoài trời */
-[data-theme='outdoor'] .text-white { color: #131313 !important; }
-[data-theme='outdoor'] .bg-white\/5 { background: rgba(0, 0, 0, 0.05) !important; }
-[data-theme='outdoor'] .bg-white\/2 { background: rgba(0, 0, 0, 0.03) !important; }
-[data-theme='outdoor'] .border-white\/10 { border-color: rgba(0, 0, 0, 0.15) !important; }
-[data-theme='outdoor'] .border-white\/5 { border-color: rgba(0, 0, 0, 0.1) !important; }
+/* Chữ trắng cứng trong component → lật sang than ấm khi ngoài trời */
+[data-theme='outdoor'] .text-white { color: #1C1A15 !important; }
+[data-theme='outdoor'] .bg-white\/5 { background: rgba(74, 62, 40, 0.05) !important; }
+[data-theme='outdoor'] .bg-white\/2 { background: rgba(74, 62, 40, 0.03) !important; }
+[data-theme='outdoor'] .border-white\/10 { border-color: rgba(74, 62, 40, 0.15) !important; }
+[data-theme='outdoor'] .border-white\/5 { border-color: rgba(74, 62, 40, 0.1) !important; }
+
+/* Thẻ trong theme sáng: hiệu ứng "kính" gần vô hình trên nền sáng → thay bằng
+   thẻ trắng ấm + viền chỉ + bóng đổ ấm 2 lớp (chất khách sạn, chữ vẫn rõ). */
+[data-theme='outdoor'] .glass-card,
+[data-theme='outdoor'] .card-glass {
+  background: #FFFFFF;
+  backdrop-filter: none;
+  border: 1px solid #E7DFCC;
+  box-shadow: 0 1px 2px rgba(58, 46, 28, 0.05), 0 8px 24px rgba(58, 46, 28, 0.06);
+}
+[data-theme='outdoor'] .glass-card:hover,
+[data-theme='outdoor'] .card-glass:hover {
+  background: #FFFFFF;
+  border-color: #D8CCAF;
+  box-shadow: 0 2px 4px rgba(58, 46, 28, 0.06), 0 14px 36px rgba(58, 46, 28, 0.11);
+}
+[data-theme='outdoor'] .card { background: #FBF9F3; }
+[data-theme='outdoor'] ::-webkit-scrollbar-thumb { background: rgba(74, 62, 40, 0.25); }
+[data-theme='outdoor'] ::-webkit-scrollbar-thumb:hover { background: rgba(74, 62, 40, 0.4); }
 
 /* === Base Layer === */
 @layer base {
