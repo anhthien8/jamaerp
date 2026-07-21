@@ -44,17 +44,19 @@
   --animate-slide-in: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
 
+  /* QUAN TRỌNG: keyframes chỉ có `from` — trạng thái kết thúc = trạng thái tự nhiên
+     của phần tử. Nếu keyframe `to` đặt transform (kể cả translateY(0)) thì với
+     fill-mode both, computed transform ≠ none VĨNH VIỄN → phần tử thành containing
+     block, NHỐT mọi modal `fixed` bên trong (backdrop chỉ phủ vùng nội dung —
+     bug modal Hợp đồng 22/07). */
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes fadeIn {
     from { opacity: 0; }
-    to { opacity: 1; }
   }
   @keyframes slideInLeft {
     from { opacity: 0; transform: translateX(-16px); }
-    to { opacity: 1; transform: translateX(0); }
   }
   @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
@@ -447,9 +449,12 @@
 
 /* === Utility Layer === */
 @layer utilities {
-  .animate-in { animation: fadeInUp 0.5s var(--ease-out-expo) both; }
-  .animate-fade { animation: fadeIn 0.4s ease both; }
-  .animate-slide { animation: slideInLeft 0.4s var(--ease-out-expo) both; }
+  /* fill-mode BẮT BUỘC là backwards (không dùng both/forwards): giữ transform sau
+     khi animation xong (kể cả ma trận đơn vị) sẽ biến phần tử thành containing block
+     nhốt mọi modal fixed bên trong — bug backdrop Hợp đồng 22/07. */
+  .animate-in { animation: fadeInUp 0.5s var(--ease-out-expo) backwards; }
+  .animate-fade { animation: fadeIn 0.4s ease backwards; }
+  .animate-slide { animation: slideInLeft 0.4s var(--ease-out-expo) backwards; }
   .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
 
   /* Stagger children */
