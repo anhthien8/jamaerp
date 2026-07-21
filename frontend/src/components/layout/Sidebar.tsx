@@ -161,15 +161,10 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   if (!user) return <>{children}</>;
   const sidebarContent = (
     <>
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
-          <span className="text-sm font-bold text-white tracking-tight">J</span>
-        </div>
-        <div className="animate-fade">
-          <span className="text-base font-bold gold-gradient tracking-tight">JAMA</span>
-          <span className="text-base font-light text-[var(--text-secondary)] ml-1">HOME</span>
-        </div>
+      {/* Brand — logo thật của công ty (public/jama-logo.png, đã cắt đệm trong suốt) */}
+      <div className="flex items-center px-4 h-16 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/jama-logo.png" alt="JAMA HOME" className="h-8 w-auto animate-fade" />
       </div>
 
       {/* Search button */}

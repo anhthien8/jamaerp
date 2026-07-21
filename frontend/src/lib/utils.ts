@@ -1,13 +1,15 @@
 /** Utility helpers */
 
+// Màu stage qua CSS var để mỗi theme tự chọn bảng phù hợp:
+// theme tối giữ bộ rực cũ; theme sáng (Ngoài trời) override sang bộ đất ấm luxury (globals.css).
 export const STAGE_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
-  new: { label: 'Tiếp nhận mới', color: '#3B82F6', emoji: '🆕' },
-  interested: { label: 'Đang tư vấn', color: '#8B5CF6', emoji: '💡' },
-  survey_scheduled: { label: 'Đang chờ', color: '#F59E0B', emoji: '⏳' },
-  potential: { label: 'Đã chốt hồ sơ', color: '#10B981', emoji: '⭐' },
-  signed_design: { label: 'Deal đã thắng', color: '#C9A96E', emoji: '🏆' },
-  lost: { label: 'Mất', color: '#EF4444', emoji: '❌' },
-  dormant: { label: 'Ngủ đông', color: '#6B7280', emoji: '😴' },
+  new: { label: 'Tiếp nhận mới', color: 'var(--stage-new)', emoji: '🆕' },
+  interested: { label: 'Đang tư vấn', color: 'var(--stage-interested)', emoji: '💡' },
+  survey_scheduled: { label: 'Đang chờ', color: 'var(--stage-survey)', emoji: '⏳' },
+  potential: { label: 'Đã chốt hồ sơ', color: 'var(--stage-potential)', emoji: '⭐' },
+  signed_design: { label: 'Deal đã thắng', color: 'var(--stage-signed)', emoji: '🏆' },
+  lost: { label: 'Mất', color: 'var(--stage-lost)', emoji: '❌' },
+  dormant: { label: 'Ngủ đông', color: 'var(--stage-dormant)', emoji: '😴' },
 };
 
 export const SOURCE_LABELS: Record<string, string> = {

@@ -168,6 +168,17 @@
   --shadow-xl: 0 20px 48px rgba(58, 46, 28, 0.18);
   --shadow-glow-gold: 0 0 24px rgba(150, 113, 59, 0.12);
   --shadow-glow-blue: 0 0 0 rgba(0,0,0,0);
+
+  /* Bộ màu stage "đất ấm" cho nền sáng (góp ý UI Designer B1):
+     tím/xanh SaaS lạnh đánh nhau với ngà — thay bằng gia đình ấm cùng độ bão hòa,
+     vẫn đủ tách bậc. Theme tối giữ bộ rực mặc định. */
+  --stage-new: #94897A;
+  --stage-interested: #A07A42;
+  --stage-survey: #C79A4C;
+  --stage-potential: #7E845A;
+  --stage-signed: #855F2D;
+  --stage-lost: #B5533C;
+  --stage-dormant: #8A8375;
 }
 
 [data-theme='outdoor'] body {

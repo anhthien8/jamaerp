@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import LineIcon from '@/components/ui/LineIcon';
 import {
   STAGE_CONFIG, formatCurrency, timeAgo, cn,
   formatPricePerSqm, formatDealValue,
@@ -653,7 +654,7 @@ function LeadsContent() {
                                   .catch(() => {});
                               }}
                             >
-                              📞
+                              <LineIcon name="phone" size={16} color="currentColor" />
                             </a>
                           </div>
                         </div>

@@ -127,7 +127,7 @@ export default function DashboardPage() {
               value={formatCurrency(data?.pipeline_value)}
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="📈"
-              color="#10B981"
+              color="var(--gold-500)"
             />
             <KPICard
               title="Tổng Lead"
@@ -142,7 +142,7 @@ export default function DashboardPage() {
               value={data?.active_projects ?? '—'}
               subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
               icon="🏗️"
-              color="#3B82F6"
+              color="var(--stage-new)"
               onClick={() => router.push('/projects')}
             />
             <KPICard
@@ -150,7 +150,7 @@ export default function DashboardPage() {
               value={data?.total_contracts ?? '—'}
               subtitle={formatCurrency(data?.total_contract_value)}
               icon="📄"
-              color="#8B5CF6"
+              color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
           </div>
@@ -162,7 +162,7 @@ export default function DashboardPage() {
               value={acctSummary ? formatCurrency(acctSummary.total_income) : '—'}
               subtitle="Doanh thu kỳ này (sổ kế toán)"
               icon="💵"
-              color="#10B981"
+              color="var(--stage-potential)"
               onClick={() => router.push('/accounting')}
             />
             <KPICard
@@ -186,7 +186,7 @@ export default function DashboardPage() {
               value={data?.total_contracts ?? 0}
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
-              color="#8B5CF6"
+              color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
           </div>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
               value={data?.total_active_leads ?? data?.total_leads ?? 0}
               subtitle="lead đang xử lý"
               icon="👥"
-              color="#3B82F6"
+              color="var(--stage-new)"
               onClick={() => router.push('/leads')}
             />
             <KPICard
@@ -214,7 +214,7 @@ export default function DashboardPage() {
               value={data?.total_contracts ?? 0}
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
-              color="#8B5CF6"
+              color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
             <KPICard
@@ -222,7 +222,7 @@ export default function DashboardPage() {
               value={data?.commission_month != null ? formatCurrency(data.commission_month) : '—'}
               subtitle="đã duyệt kỳ gần nhất"
               icon="💎"
-              color="#10B981"
+              color="var(--stage-potential)"
               onClick={() => router.push('/accounting')}
             />
           </div>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
               value={data?.total_leads ?? 0}
               subtitle={`Tháng này: ${data?.total_leads_month ?? 0}`}
               icon="👥"
-              color="#3B82F6"
+              color="var(--stage-new)"
               onClick={() => router.push('/leads')}
             />
             <KPICard
@@ -250,7 +250,7 @@ export default function DashboardPage() {
               value={data?.active_projects ?? 0}
               subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
               icon="🏗️"
-              color="#10B981"
+              color="var(--stage-potential)"
               onClick={() => router.push('/projects')}
             />
             <KPICard
@@ -258,7 +258,7 @@ export default function DashboardPage() {
               value={data?.total_contracts ?? 0}
               subtitle={formatCurrency(data?.total_contract_value)}
               icon="📄"
-              color="#8B5CF6"
+              color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
           </div>
@@ -297,27 +297,22 @@ export default function DashboardPage() {
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🏆 Hiệu suất Đội</h2>
               <div className="space-y-3">
-                {(data?.team_performance ?? [
-                  { team: 'Đội Văn Toàn', total_leads: 12, signed: 3, conversion: 25.0 },
-                  { team: 'Đội Thái Phượng', total_leads: 10, signed: 2, conversion: 20.0 },
-                  { team: 'Đội Huỳnh Trần', total_leads: 8, signed: 2, conversion: 25.0 },
-                  { team: 'Đội Huỳnh Tiến', total_leads: 7, signed: 1, conversion: 14.3 },
-                  { team: 'Đội Lưu Mạnh Hồng', total_leads: 5, signed: 0, conversion: 0 },
-                ]).map((team: { team: string; total_leads: number; signed: number; conversion: number }, i: number) => (
+                {(data?.team_performance ?? []).map((team: { team: string; total_leads: number; signed: number; conversion: number }, i: number) => (
                   <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-[#1A535C] flex items-center justify-center text-sm">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>
                       {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{team.team}</p>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {team.total_leads} leads · {team.signed} ký
+                        {team.total_leads} lead · {team.signed} ký
                       </p>
                     </div>
                     <div className="text-right">
+                      {/* 0% = chưa có số liệu, hiển thị trung tính — không phải lỗi để tô đỏ */}
                       <span
                         className="text-sm font-bold"
-                        style={{ color: team.conversion >= 20 ? '#10B981' : team.conversion >= 10 ? '#F59E0B' : '#EF4444' }}
+                        style={{ color: team.conversion > 0 ? 'var(--gold-500)' : 'var(--text-disabled)' }}
                       >
                         {team.conversion}%
                       </span>
@@ -335,23 +330,24 @@ export default function DashboardPage() {
           <div className="glass-card p-5">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">⚡ Cần xử lý ngay</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Vạch màu trái thay nền pastel nhiều màu (góp ý UI Designer A6) — màu ngữ nghĩa qua stage vars để hợp cả 2 theme */}
               <button onClick={() => router.push('/leads')}
                 className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
-                style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)' }}>
+                style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-lost)' }}>
                 <span className="text-sm text-[var(--text-secondary)]">Khách quá hạn</span>
-                <span className="text-xl font-bold" style={{ color: '#F87171' }}>{data?.overdue_leads ?? 0}</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--stage-lost)' }}>{data?.overdue_leads ?? 0}</span>
               </button>
               <button onClick={() => router.push('/approvals')}
                 className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
-                style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-survey)' }}>
                 <span className="text-sm text-[var(--text-secondary)]">Đơn chờ duyệt</span>
-                <span className="text-xl font-bold" style={{ color: '#FBBF24' }}>{leaderCounts.approvals}</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--stage-survey)' }}>{leaderCounts.approvals}</span>
               </button>
               <button onClick={() => router.push('/attendance')}
                 className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
-                style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)' }}>
+                style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-dormant)' }}>
                 <span className="text-sm text-[var(--text-secondary)]">Tăng ca chờ</span>
-                <span className="text-xl font-bold" style={{ color: '#60A5FA' }}>{leaderCounts.ot}</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--stage-dormant)' }}>{leaderCounts.ot}</span>
               </button>
             </div>
           </div>
@@ -517,7 +513,7 @@ export default function DashboardPage() {
               <AlertCard
                 count={0}
                 label="Việc quá hạn"
-                color="#3B82F6"
+                color="var(--stage-new)"
                 onClick={() => router.push('/projects')}
               />
             </div>
@@ -535,9 +531,9 @@ export default function DashboardPage() {
                   const fs = data?.financial_summary;
                   const rev = fs?.total_revenue_ytd || 1;
                   return [
-                    { label: 'Doanh thu lũy kế năm', value: formatCurrency(fs?.total_revenue_ytd), color: '#10B981', pct: 100 },
+                    { label: 'Doanh thu lũy kế năm', value: formatCurrency(fs?.total_revenue_ytd), color: 'var(--stage-potential)', pct: 100 },
                     { label: 'Chi phí lũy kế năm', value: formatCurrency(fs?.total_cost_ytd), color: '#EF4444', pct: Math.round(((fs?.total_cost_ytd || 0) / rev) * 100) },
-                    { label: 'Lợi nhuận ròng', value: formatCurrency(fs?.net_profit_ytd), color: '#3B82F6', pct: Math.round(((fs?.net_profit_ytd || 0) / rev) * 100) },
+                    { label: 'Lợi nhuận ròng', value: formatCurrency(fs?.net_profit_ytd), color: 'var(--stage-new)', pct: Math.round(((fs?.net_profit_ytd || 0) / rev) * 100) },
                     { label: 'Dòng tiền', value: formatCurrency(fs?.cash_flow), color: '#C9A96E', pct: Math.round(((fs?.cash_flow || 0) / rev) * 100) },
                     { label: 'Phải thu', value: formatCurrency(fs?.outstanding_receivable), color: '#F59E0B', pct: Math.round(((fs?.outstanding_receivable || 0) / rev) * 100) },
                   ];
@@ -564,11 +560,11 @@ export default function DashboardPage() {
                 {(() => {
                   const gm = data?.growth_metrics;
                   return [
-                    { label: 'Tăng trưởng lead', value: gm ? `+${gm.lead_growth_rate}%` : '—', icon: '📈', color: '#10B981' },
-                    { label: 'Cải thiện tỷ lệ chốt', value: gm ? `+${gm.conversion_improvement}%` : '—', icon: '🎯', color: '#3B82F6' },
+                    { label: 'Tăng trưởng lead', value: gm ? `+${gm.lead_growth_rate}%` : '—', icon: '📈', color: 'var(--stage-potential)' },
+                    { label: 'Cải thiện tỷ lệ chốt', value: gm ? `+${gm.conversion_improvement}%` : '—', icon: '🎯', color: 'var(--stage-new)' },
                     { label: 'Giá trị deal trung bình', value: formatCurrency(gm?.avg_deal_size), icon: '💎', color: '#C9A96E' },
                     { label: 'Chi phí thu hút KH', value: formatCurrency(gm?.customer_acquisition_cost), icon: '📢', color: '#F59E0B' },
-                    { label: 'Giá trị vòng đời KH', value: formatCurrency(gm?.customer_lifetime_value), icon: '♻️', color: '#8B5CF6' },
+                    { label: 'Giá trị vòng đời KH', value: formatCurrency(gm?.customer_lifetime_value), icon: '♻️', color: 'var(--stage-interested)' },
                   ];
                 })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
@@ -594,7 +590,7 @@ export default function DashboardPage() {
                   const riskLabel = rh?.concentration_risk === 'high' ? 'Cao' : rh?.concentration_risk === 'low' ? 'Thấp' : 'Trung bình';
                   return [
                     { label: 'Rủi ro tập trung KH', value: rh ? riskLabel : '—', detail: rh ? `KH lớn nhất chiếm ${rh.top_client_pct}%` : '', color: '#F59E0B', icon: '⚠️' },
-                    { label: 'Độ phủ pipeline', value: rh ? `${rh.pipeline_coverage}x` : '—', detail: 'Mục tiêu: 3.0x', color: '#3B82F6', icon: '📊' },
+                    { label: 'Độ phủ pipeline', value: rh ? `${rh.pipeline_coverage}x` : '—', detail: 'Mục tiêu: 3.0x', color: 'var(--stage-new)', icon: '📊' },
                     { label: 'Dự trữ tiền mặt', value: rh ? `${rh.cash_reserve_months} tháng` : '—', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: '🏦' },
                     { label: 'Phải thu quá hạn', value: rh ? `${rh.overdue_receivable_pct}%` : '—', detail: 'Cần theo dõi', color: '#EF4444', icon: '⏰' },
                   ];
@@ -620,10 +616,10 @@ export default function DashboardPage() {
                   const toBil = (v?: number) => Math.round((v || 0) / 1_000_000_000);
                   const max = Math.max(toBil(fc?.full_year_2026), 1);
                   return [
-                    { label: 'Q3/2026', value: toBil(fc?.q3_2026), max, color: '#10B981' },
-                    { label: 'Q4/2026', value: toBil(fc?.q4_2026), max, color: '#3B82F6' },
+                    { label: 'Q3/2026', value: toBil(fc?.q3_2026), max, color: 'var(--stage-potential)' },
+                    { label: 'Q4/2026', value: toBil(fc?.q4_2026), max, color: 'var(--stage-new)' },
                     { label: 'Cả năm 2026', value: toBil(fc?.full_year_2026), max, color: '#C9A96E' },
-                    { label: 'Cả năm 2025', value: toBil(fc?.full_year_2025), max, color: '#8B5CF6' },
+                    { label: 'Cả năm 2025', value: toBil(fc?.full_year_2025), max, color: 'var(--stage-interested)' },
                   ];
                 })().map((item, i) => (
                   <div key={i}>
