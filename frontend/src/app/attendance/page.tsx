@@ -92,7 +92,14 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
       key: 'generate', label: '3. Sinh bảng lương', done: !!status,
       detail: status ? `Đã sinh (${payroll?.items.length ?? 0} người · thực lĩnh ${fmtMoney(payroll?.total_net ?? 0)})` : 'Chưa sinh',
       action: !status && (
-        <button disabled={busy} onClick={() => run(() => api.payrollGenerate(period), `Đã sinh bảng lương kỳ ${period}`)}
+        <button disabled={busy} onClick={() => run(async () => {
+          const res = await api.payrollGenerate(period) as { missing_grade?: number };
+          // Không gán bậc lương = lương 0đ — báo ngay để kế toán biết đường xử lý
+          if (res?.missing_grade) {
+            toast(`⚠️ ${res.missing_grade} nhân viên CHƯA gán bậc lương (lương = 0đ) — vào Tài khoản → Sửa để gán trước khi trình duyệt`, 'error');
+          }
+          return res;
+        }, `Đã sinh bảng lương kỳ ${period}`)}
           className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
           Sinh bảng lương
         </button>

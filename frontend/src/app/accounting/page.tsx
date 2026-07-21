@@ -114,6 +114,26 @@ export default function AccountingPage() {
     setTxAmountDisplay(formatAmountInput(digits));
   };
 
+  // Duyệt / đánh dấu chi trả hoa hồng (admin + kế toán) — trước đây tab chỉ xem,
+  // hoa hồng kẹt ở "Chờ" vĩnh viễn không ai chuyển trạng thái được (audit 22/07)
+  const canActCommission = user?.role === 'admin' || user?.role === 'accountant';
+  const handleCommissionStatus = async (id: string, status: 'approved' | 'paid') => {
+    try {
+      await api.updateCommissionStatus(id, status);
+      setCommissions(prev => prev.map(c => (c.id === id ? { ...c, status } : c)));
+      toast(status === 'approved' ? 'Đã duyệt hoa hồng' : 'Đã đánh dấu chi trả', 'success');
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không cập nhật được hoa hồng'}`, 'error');
+    }
+  };
+
+  const commissionChip = (status: string) =>
+    status === 'paid'
+      ? { cls: 'bg-emerald-500/15 text-emerald-400', label: 'Đã trả' }
+      : status === 'approved'
+        ? { cls: 'bg-sky-500/15 text-sky-400', label: 'Đã duyệt' }
+        : { cls: 'bg-amber-500/15 text-amber-400', label: 'Chờ duyệt' };
+
   const handleCreateTransaction = async () => {
     if (!txForm.description.trim() || !txForm.amount || Number(txForm.amount) <= 0) {
       toast('Vui lòng nhập đầy đủ mô tả và số tiền', 'error');
@@ -617,10 +637,8 @@ export default function AccountingPage() {
                     <div key={c.id} className="p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs font-medium text-[var(--text-primary)]">{c.user_name || '—'}</span>
-                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
-                          (c.status === 'paid' || c.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
-                        )}>
-                          {(c.status === 'paid' || c.status === 'approved') ? 'Đã trả' : 'Chờ'}
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded', commissionChip(c.status).cls)}>
+                          {commissionChip(c.status).label}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mb-1">
@@ -632,6 +650,22 @@ export default function AccountingPage() {
                         <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {(c.rate * 100).toFixed(1)}%</span>
                         <span className="text-sm font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</span>
                       </div>
+                      {canActCommission && c.status !== 'paid' && (
+                        <div className="flex gap-2 mt-2">
+                          {c.status === 'pending' && (
+                            <button onClick={() => handleCommissionStatus(c.id, 'approved')}
+                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px]" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
+                              ✓ Duyệt
+                            </button>
+                          )}
+                          {c.status === 'approved' && (
+                            <button onClick={() => handleCommissionStatus(c.id, 'paid')}
+                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px]" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
+                              💵 Đã chi trả
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -647,11 +681,12 @@ export default function AccountingPage() {
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tỷ lệ</th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">Hoa hồng</th>
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">TT</th>
+                        {canActCommission && <th className="text-right p-3 text-xs text-[var(--text-muted)]">Thao tác</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {visibleCommissions.length === 0 ? (
-                        <tr><td colSpan={7} className="text-center p-8 text-[var(--text-muted)]">Chưa có hoa hồng</td></tr>
+                        <tr><td colSpan={canActCommission ? 8 : 7} className="text-center p-8 text-[var(--text-muted)]">Chưa có hoa hồng</td></tr>
                       ) : visibleCommissions.map(c => (
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{c.user_name || '—'}</td>
@@ -661,12 +696,26 @@ export default function AccountingPage() {
                           <td className="p-3 text-right text-xs">{(c.rate * 100).toFixed(1)}%</td>
                           <td className="p-3 text-right font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</td>
                           <td className="p-3">
-                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
-                              (c.status === 'paid' || c.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
-                            )}>
-                              {(c.status === 'paid' || c.status === 'approved') ? 'Đã trả' : 'Chờ'}
+                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap', commissionChip(c.status).cls)}>
+                              {commissionChip(c.status).label}
                             </span>
                           </td>
+                          {canActCommission && (
+                            <td className="p-3 text-right">
+                              {c.status === 'pending' && (
+                                <button onClick={() => handleCommissionStatus(c.id, 'approved')}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
+                                  ✓ Duyệt
+                                </button>
+                              )}
+                              {c.status === 'approved' && (
+                                <button onClick={() => handleCommissionStatus(c.id, 'paid')}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
+                                  💵 Đã chi trả
+                                </button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

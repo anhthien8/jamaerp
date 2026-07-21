@@ -49,6 +49,7 @@ async def list_users(
                 "id": u.id, "full_name": u.full_name, "email": u.email,
                 "phone": u.phone, "role": u.role, "department": u.department,
                 "team_id": u.team_id, "is_active": u.is_active,
+                "salary_grade_id": u.salary_grade_id, "dependents_count": u.dependents_count,
                 "created_at": str(u.created_at),
             }
             for u in users
@@ -93,6 +94,7 @@ async def get_user(
         "phone": user.phone, "role": user.role, "department": user.department,
         "team_id": user.team_id, "is_active": user.is_active,
         "telegram_username": user.telegram_username,
+        "salary_grade_id": user.salary_grade_id, "dependents_count": user.dependents_count,
         "created_at": str(user.created_at),
     }
 
@@ -145,7 +147,9 @@ async def update_user(
     current_user: User = Depends(get_current_user),
 ):
     """Update user."""
-    if current_user.role != "admin" and current_user.id != user_id:
+    # Admin/kế toán-nhân sự sửa được người khác; user thường chỉ sửa chính mình
+    # (bản cũ chặn accountant dù UI /users hiện nút Sửa — audit 22/07)
+    if current_user.role not in ("admin", "accountant") and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Không có quyền")
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -178,7 +182,11 @@ async def update_user(
                 detail="Telegram ID này đã được liên kết với tài khoản khác — liên hệ Admin nếu cần chuyển",
             )
 
-    allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username"]
+    # Trường lương: chỉ admin/kế toán (tự sửa hồ sơ mình cũng không được đổi bậc lương)
+    if ("salary_grade_id" in provided or "dependents_count" in provided) and current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được gán bậc lương")
+
+    allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username", "salary_grade_id", "dependents_count"]
     before_sensitive = {
         "role": user.role, "is_active": user.is_active, "team_id": user.team_id,
         "telegram_user_id": user.telegram_user_id,

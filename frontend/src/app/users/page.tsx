@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { api, User } from '@/lib/api';
+import { api, SalaryGrade, User } from '@/lib/api';
 import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
@@ -28,9 +28,12 @@ interface FormData {
   phone: string;
   role: UserRole;
   department: string;
+  /** Cấu hình lương — không gán bậc thì payroll sinh 0đ (audit 22/07) */
+  salary_grade_id: string;
+  dependents_count: string;
 }
 
-const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES' };
+const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES', salary_grade_id: '', dependents_count: '0' };
 
 export default function UsersPage() {
   const router = useRouter();
@@ -47,6 +50,7 @@ export default function UsersPage() {
   const [editId, setEditId] = useState('');
   const [pwForm, setPwForm] = useState({ password: '', confirm: '' });
   const [saving, setSaving] = useState(false);
+  const [grades, setGrades] = useState<SalaryGrade[]>([]);
   const [error, setError] = useState('');
   const pageSize = 20;
 
@@ -77,7 +81,11 @@ export default function UsersPage() {
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); };
-  const openEdit = (u: User) => { setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role as UserRole, department: u.department }); setEditId(u.id); setModal('edit'); setError(''); };
+  const openEdit = (u: User) => {
+    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role as UserRole, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0) });
+    setEditId(u.id); setModal('edit'); setError('');
+    api.getSalaryGrades().then(setGrades).catch(() => setGrades([]));
+  };
   const openPassword = (u: User) => { setEditId(u.id); setPwForm({ password: '', confirm: '' }); setModal('password'); setError(''); };
 
   const handleCreate = async () => {
@@ -85,7 +93,9 @@ export default function UsersPage() {
     if (form.password.length < 8) { setError('Mật khẩu tối thiểu 8 ký tự'); return; }
     setSaving(true);
     try {
-      await api.createUser({ ...form, is_active: true });
+      // Tách 2 trường lương (string trong form) — gán bậc lương làm ở bước Sửa sau khi tạo
+      const { salary_grade_id: _sg, dependents_count: _dc, ...createPayload } = form;
+      await api.createUser({ ...createPayload, is_active: true });
       setModal(null);
       loadUsers();
     } catch (e: unknown) { setError((e as Error).message || 'Lỗi tạo user'); }
@@ -96,7 +106,11 @@ export default function UsersPage() {
     if (!form.full_name) { setError('Tên không được để trống'); return; }
     setSaving(true);
     try {
-      await api.updateUser(editId, { full_name: form.full_name, phone: form.phone, role: form.role, department: form.department });
+      await api.updateUser(editId, {
+        full_name: form.full_name, phone: form.phone, role: form.role, department: form.department,
+        salary_grade_id: form.salary_grade_id || null,
+        dependents_count: Number(form.dependents_count) || 0,
+      });
       setModal(null);
       loadUsers();
     } catch (e: unknown) { setError((e as Error).message || 'Lỗi cập nhật'); }
@@ -327,6 +341,21 @@ export default function UsersPage() {
                   </select>
                 </div>
               </div>
+              {modal === 'edit' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bậc lương</label>
+                    <select value={form.salary_grade_id} onChange={e => setForm({ ...form, salary_grade_id: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                      <option value="">Chưa gán (lương = 0)</option>
+                      {grades.map(g => <option key={g.id} value={g.id}>{g.grade_name} — {(g.base_salary / 1_000_000).toLocaleString('vi-VN')}tr</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Người phụ thuộc (giảm trừ thuế)</label>
+                    <input type="number" min={0} max={20} value={form.dependents_count} onChange={e => setForm({ ...form, dependents_count: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--surface-2)]">Hủy</button>

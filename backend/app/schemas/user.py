@@ -36,6 +36,10 @@ class UserUpdate(BaseModel):
     telegram_user_id: int | None = None
     telegram_username: str | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    # Cấu hình lương (chỉ admin/kế toán) — thiếu 2 trường này nên payroll generate
+    # toàn missing_grade → thực lĩnh 0đ, không có đường gán bậc lương (audit 22/07)
+    salary_grade_id: str | None = None
+    dependents_count: int | None = Field(default=None, ge=0, le=20)
 
 
 class UserResponse(BaseModel):
@@ -49,6 +53,8 @@ class UserResponse(BaseModel):
     telegram_user_id: int | None = None
     telegram_username: str | None = None
     is_active: bool
+    salary_grade_id: str | None = None
+    dependents_count: int = 0
     resign_date: datetime | None = None
     resigned_by: str | None = None
     created_at: datetime

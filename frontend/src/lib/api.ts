@@ -255,7 +255,12 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return tx as T;
   }
   if (path === '/accounting/transactions') return toPaginated(d.DEMO_TRANSACTIONS, params) as T;
+  if (path.match(/^\/accounting\/commissions\/[^/]+$/) && method === 'PUT') {
+    const comm = d.DEMO_COMMISSIONS.find(c => c.id === path.split('/')[3]);
+    if (comm) { comm.status = ((options?.body as Record<string, string>)?.status) || comm.status; return { id: comm.id, status: comm.status } as T; }
+  }
   if (path === '/accounting/commissions') return toPaginated(d.DEMO_COMMISSIONS, params) as T;
+  if (path === '/salary-grades') return d.DEMO_SALARY_GRADES as T;
   if (path === '/accounting/payroll') return toPaginated(d.DEMO_PAYROLL, params) as T;
 
   // ── Customers ──
@@ -1112,6 +1117,9 @@ class ApiClient {
 
   // Finance Module
   async getSalaryGrades() { return this.request<SalaryGrade[]>('/salary-grades'); }
+  async updateCommissionStatus(id: string, status: string) {
+    return this.request<{ id: string; status: string }>(`/accounting/commissions/${id}`, { method: 'PUT', body: { status } });
+  }
   async createSalaryGrade(data: Partial<SalaryGrade>) { return this.request<SalaryGrade>('/salary-grades', { method: 'POST', body: data }); }
   async updateSalaryGrade(id: string, data: Partial<SalaryGrade>) { return this.request<SalaryGrade>(`/salary-grades/${id}`, { method: 'PUT', body: data }); }
   async deleteSalaryGrade(id: string) { return this.request<unknown>(`/salary-grades/${id}`, { method: 'DELETE' }); }
@@ -1274,6 +1282,9 @@ export interface User {
   team_id?: string;
   telegram_user_id?: number;
   is_active: boolean;
+  /** Cấu hình lương — admin/kế toán gán để payroll tính được (không gán = lương 0đ) */
+  salary_grade_id?: string | null;
+  dependents_count?: number;
   resign_date?: string;
   resigned_by?: string;
   created_at: string;
