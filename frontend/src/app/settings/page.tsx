@@ -9,6 +9,7 @@ import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
+import { RELEASES } from '@/lib/releases';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
 
@@ -1002,7 +1003,7 @@ export default function SettingsPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[var(--text-secondary)] flex-shrink-0">Phiên bản</span>
-                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline text-right">Beta 20/07 — Có gì mới?</a>
+                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline text-right">Beta {RELEASES[0]?.date?.slice(0, 5) || ''} — Có gì mới?</a>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Backend</span>
