@@ -307,9 +307,6 @@ export default function LoginPage() {
           <p className="text-center text-xs font-medium mt-6" style={{ color: 'var(--text-secondary)' }}>
             JAMA HOME <span style={{ opacity: 0.5 }}>·</span> Thiết kế cho cuộc sống mới
           </p>
-          <p className="text-center text-[11px] mt-1.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
-            Phát triển bởi <span className="gold-gradient font-medium">Dương Anh Thiện</span>
-          </p>
         </div>
       </div>
     </div>

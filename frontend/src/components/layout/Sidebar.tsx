@@ -324,9 +324,6 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         <p className="text-center text-[9px] mt-2 leading-tight px-1" style={{ color: 'var(--text-muted)' }}>
           JAMA HOME · Thiết kế cho cuộc sống mới
         </p>
-        <p className="text-center text-[10px] mt-1 select-none" style={{ color: 'var(--text-disabled)', opacity: 0.8 }} title="Người phát triển hệ thống">
-          Dev bởi Dương Anh Thiện
-        </p>
       </div>
     </>
   );
