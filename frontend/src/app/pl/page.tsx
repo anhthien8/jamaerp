@@ -229,13 +229,15 @@ const PL_TARGETS = new Map(DEMO_PNL_SUMMARY.revenue_by_project.map(p => [p.proje
 const MOCK_PROJECT_PL: ProjectPL[] = MOCK_PROJECT_PL_RAW.map(p => {
   const t = PL_TARGETS.get(p.project_id);
   if (!t) return p;
-  const k = p.costs > 0 ? t.costs / p.costs : 1;
+  const rawCost = (p as any).costs || (p as any).cost || 0;
+  const tCost = (t as any).costs || (t as any).cost || 0;
+  const k = rawCost > 0 ? tCost / rawCost : 1;
   const materials = Math.round((p.cost_breakdown?.materials || 0) * k / 10_000_000) * 10_000_000;
   const commissions = Math.round((p.cost_breakdown?.commissions || 0) * k / 10_000_000) * 10_000_000;
   return {
     ...p,
-    revenue: t.revenue, costs: t.costs, profit: t.profit, margin: t.margin_pct,
-    cost_breakdown: p.cost_breakdown ? { materials, commissions, transactions: t.costs - materials - commissions } : p.cost_breakdown,
+    revenue: t.revenue, costs: t.cost, profit: t.profit, margin: t.margin_pct,
+    cost_breakdown: p.cost_breakdown ? { materials, commissions, transactions: t.cost - materials - commissions } : p.cost_breakdown,
   };
 });
 
