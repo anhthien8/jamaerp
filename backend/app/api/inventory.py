@@ -19,6 +19,40 @@ def _escape_like(term: str) -> str:
     return term.replace("%", "\\%").replace("_", "\\_")
 
 
+# ── Import báo giá/danh sách vật tư từ file (CSV parse ở FE, gửi rows JSON) ──
+from pydantic import BaseModel, Field
+
+VALID_CATEGORIES = {"wood", "stone", "metal", "paint", "electrical", "plumbing", "furniture", "fabric", "glass", "general"}
+# Thu mua điền file bằng nhãn Việt → map về key hệ thống
+CATEGORY_VN_MAP = {
+    "gỗ": "wood", "go": "wood",
+    "đá": "stone", "da": "stone",
+    "kim loại": "metal", "kim loai": "metal",
+    "sơn": "paint", "son": "paint",
+    "điện": "electrical", "dien": "electrical",
+    "nước": "plumbing", "nuoc": "plumbing",
+    "phụ kiện nội thất": "furniture", "nội thất": "furniture", "noi that": "furniture",
+    "vải": "fabric", "vai": "fabric",
+    "kính": "glass", "kinh": "glass",
+    "khác": "general", "khac": "general", "chung": "general",
+}
+
+
+class MaterialImportRow(BaseModel):
+    code: str | None = None
+    name: str
+    category: str | None = None
+    unit: str | None = None
+    unit_price: float | None = Field(default=None, ge=0)
+    supplier: str | None = None
+    quantity_in_stock: float | None = Field(default=None, ge=0)
+    min_stock: float | None = Field(default=None, ge=0)
+
+
+class MaterialImportRequest(BaseModel):
+    rows: list[MaterialImportRow]
+
+
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
@@ -110,6 +144,93 @@ async def create_material(
     db.add(m)
     await db.flush()
     return MaterialResponse.model_validate(m)
+
+
+@router.post("/import")
+async def import_materials(
+    data: MaterialImportRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(verify_inventory_access),
+):
+    """Import hàng loạt vật tư/báo giá NCC từ file (đã parse ở FE).
+
+    Upsert: khớp theo Mã (code) trước, không có mã thì khớp theo Tên;
+    dòng mới tự sinh mã VT-xxx. Chỉ ghi đè các cột có giá trị trong file.
+    """
+    if not data.rows:
+        raise HTTPException(status_code=400, detail="File không có dòng dữ liệu nào")
+    if len(data.rows) > 500:
+        raise HTTPException(status_code=400, detail="Tối đa 500 dòng mỗi lần import")
+
+    existing = (await db.execute(select(Material))).scalars().all()
+    by_code = {m.code.strip().upper(): m for m in existing if m.code}
+    by_name = {m.name.strip().lower(): m for m in existing}
+    # Sinh mã mới tiếp nối dãy VT-xxx hiện có
+    max_num = 0
+    for c in by_code:
+        if c.startswith("VT-") and c[3:].isdigit():
+            max_num = max(max_num, int(c[3:]))
+
+    created, updated, errors = 0, 0, []
+    now = datetime.now(timezone.utc)
+    for i, row in enumerate(data.rows, start=2):  # dòng 1 của file là tiêu đề
+        name = (row.name or "").strip()
+        if not name:
+            errors.append(f"Dòng {i}: thiếu Tên vật tư")
+            continue
+        category = None
+        if row.category:
+            raw = row.category.strip().lower()
+            category = raw if raw in VALID_CATEGORIES else CATEGORY_VN_MAP.get(raw)
+            if category is None:
+                errors.append(f"Dòng {i}: danh mục '{row.category}' không hợp lệ (dùng: Gỗ, Đá, Kim loại, Sơn, Điện, Nước, Phụ kiện nội thất, Vải, Kính, Khác)")
+                continue
+
+        code_key = (row.code or "").strip().upper()
+        target = by_code.get(code_key) if code_key else by_name.get(name.lower())
+        if target:
+            if category is not None:
+                target.category = category
+            if row.unit:
+                target.unit = row.unit.strip()
+            if row.unit_price is not None:
+                target.unit_price = row.unit_price
+            if row.supplier:
+                target.supplier = row.supplier.strip()
+            if row.quantity_in_stock is not None:
+                target.quantity_in_stock = row.quantity_in_stock
+            if row.min_stock is not None:
+                target.min_stock = row.min_stock
+            target.updated_at = now
+            updated += 1
+        else:
+            if code_key and code_key in by_code:
+                code = code_key  # không xảy ra (đã match ở trên) — giữ nhánh cho rõ
+            elif code_key:
+                code = code_key
+            else:
+                max_num += 1
+                code = f"VT-{max_num:03d}"
+                while code.upper() in by_code:
+                    max_num += 1
+                    code = f"VT-{max_num:03d}"
+            m = Material(
+                code=code,
+                name=name,
+                category=category or "general",
+                unit=(row.unit or "cái").strip(),
+                unit_price=row.unit_price or 0,
+                supplier=(row.supplier or "").strip() or None,
+                quantity_in_stock=row.quantity_in_stock or 0,
+                min_stock=row.min_stock or 0,
+            )
+            db.add(m)
+            by_code[code.upper()] = m
+            by_name[name.lower()] = m
+            created += 1
+
+    await db.flush()
+    return {"created": created, "updated": updated, "errors": errors, "total": len(data.rows)}
 
 
 @router.put("/{material_id}", response_model=MaterialResponse)

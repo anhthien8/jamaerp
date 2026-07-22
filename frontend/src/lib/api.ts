@@ -340,6 +340,41 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     const delta = Number((options?.body as Record<string, unknown>)?.quantity_delta ?? (options?.body as Record<string, unknown>)?.quantity ?? 0);
     if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock + delta); m.updated_at = new Date().toISOString(); return m as T; }
   }
+  if (path === '/inventory/import' && method === 'POST') {
+    // Upsert demo: khớp theo mã/tên như backend, để đào tạo thu mua đúng luồng thật
+    const rows = ((options?.body as { rows?: Array<Record<string, unknown>> })?.rows) || [];
+    const vnMap: Record<string, string> = { 'gỗ': 'wood', 'đá': 'stone', 'kim loại': 'metal', 'sơn': 'paint', 'điện': 'electrical', 'nước': 'plumbing', 'phụ kiện nội thất': 'furniture', 'nội thất': 'furniture', 'vải': 'fabric', 'kính': 'glass', 'khác': 'general' };
+    let created = 0, updated = 0; const errors: string[] = [];
+    rows.forEach((r, idx) => {
+      const name = String(r.name || '').trim();
+      if (!name) { errors.push(`Dòng ${idx + 2}: thiếu Tên vật tư`); return; }
+      const catRaw = String(r.category || '').trim().toLowerCase();
+      const category = catRaw ? (vnMap[catRaw] || catRaw) : undefined;
+      const code = String(r.code || '').trim().toUpperCase();
+      const target = d.DEMO_MATERIALS.find(m => (code && m.code.toUpperCase() === code) || m.name.toLowerCase() === name.toLowerCase());
+      if (target) {
+        Object.assign(target, {
+          ...(category ? { category } : {}),
+          ...(r.unit ? { unit: r.unit } : {}),
+          ...(r.unit_price != null ? { unit_price: Number(r.unit_price) } : {}),
+          ...(r.supplier ? { supplier: r.supplier } : {}),
+          ...(r.quantity_in_stock != null ? { quantity_in_stock: Number(r.quantity_in_stock) } : {}),
+          ...(r.min_stock != null ? { min_stock: Number(r.min_stock) } : {}),
+          updated_at: new Date().toISOString(),
+        });
+        updated++;
+      } else {
+        d.DEMO_MATERIALS.unshift({
+          id: `demo-mat-${Date.now()}-${idx}`, code: code || `VT-${String(d.DEMO_MATERIALS.length + 1).padStart(3, '0')}`,
+          name, category: category || 'general', unit: String(r.unit || 'cái'), unit_price: Number(r.unit_price) || 0,
+          quantity_in_stock: Number(r.quantity_in_stock) || 0, min_stock: Number(r.min_stock) || 0,
+          supplier: (r.supplier as string) || undefined, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        } as unknown as Material);
+        created++;
+      }
+    });
+    return { created, updated, errors, total: rows.length } as T;
+  }
   if (path === '/inventory/low-stock') return toPaginated(d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock), params) as T;
 
   // ── Users / Teams ──
@@ -1117,6 +1152,9 @@ class ApiClient {
 
   // Finance Module
   async getSalaryGrades() { return this.request<SalaryGrade[]>('/salary-grades'); }
+  async importMaterials(rows: Array<Record<string, unknown>>) {
+    return this.request<{ created: number; updated: number; errors: string[]; total: number }>('/inventory/import', { method: 'POST', body: { rows } });
+  }
   async updateCommissionStatus(id: string, status: string) {
     return this.request<{ id: string; status: string }>(`/accounting/commissions/${id}`, { method: 'PUT', body: { status } });
   }

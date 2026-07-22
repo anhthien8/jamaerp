@@ -32,10 +32,107 @@ export default function InventoryPage() {
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [pageInfo, setPageInfo] = useState<{ page: number; total_pages: number; total: number }>({ page: 1, total_pages: 1, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  // Import báo giá/vật tư từ file CSV (Bước 1 gói NCC — 22/07)
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<Array<Record<string, unknown>>>([]);
+  const [importIssues, setImportIssues] = useState<string[]>([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
+
+  // ── CSV helpers: parse trên trình duyệt để xem trước (chạy cả demo lẫn work) ──
+  const HEADER_MAP: Record<string, string> = {
+    'mã': 'code', 'ma': 'code', 'mã vật tư': 'code',
+    'tên': 'name', 'ten': 'name', 'tên vật tư': 'name', 'ten vat tu': 'name',
+    'danh mục': 'category', 'danh muc': 'category',
+    'đơn vị': 'unit', 'don vi': 'unit', 'đvt': 'unit', 'dvt': 'unit',
+    'đơn giá': 'unit_price', 'don gia': 'unit_price', 'giá': 'unit_price', 'gia': 'unit_price',
+    'ncc': 'supplier', 'nhà cung cấp': 'supplier', 'nha cung cap': 'supplier',
+    'tồn kho': 'quantity_in_stock', 'ton kho': 'quantity_in_stock', 'tồn': 'quantity_in_stock',
+    'tồn tối thiểu': 'min_stock', 'ton toi thieu': 'min_stock', 'min': 'min_stock',
+  };
+  const NUMBER_FIELDS = new Set(['unit_price', 'quantity_in_stock', 'min_stock']);
+
+  const parseCsvLine = (line: string, delim: string): string[] => {
+    const out: string[] = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === delim) { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  };
+
+  const handleImportFile = (file: File) => {
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '').replace(/^﻿/, '');
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+      if (lines.length < 2) { setImportRows([]); setImportIssues(['File cần dòng tiêu đề + ít nhất 1 dòng dữ liệu']); return; }
+      // Excel VN hay xuất CSV với dấu ';'
+      const delim = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
+      const headers = parseCsvLine(lines[0], delim).map(h => HEADER_MAP[h.trim().toLowerCase()] || null);
+      if (!headers.includes('name')) { setImportRows([]); setImportIssues(['Không tìm thấy cột "Tên vật tư" — tải file mẫu để xem đúng định dạng']); return; }
+      const rows: Array<Record<string, unknown>> = [];
+      const issues: string[] = [];
+      lines.slice(1).forEach((line, idx) => {
+        const cells = parseCsvLine(line, delim);
+        const row: Record<string, unknown> = {};
+        headers.forEach((h, c) => {
+          if (!h) return;
+          const raw = (cells[c] || '').trim();
+          if (raw === '') return;
+          if (NUMBER_FIELDS.has(h)) {
+            const num = Number(raw.replace(/[^\d]/g, ''));
+            if (Number.isNaN(num)) issues.push(`Dòng ${idx + 2}: "${raw}" không phải số`);
+            else row[h] = num;
+          } else row[h] = raw;
+        });
+        if (Object.keys(row).length > 0) rows.push(row);
+      });
+      setImportRows(rows);
+      setImportIssues(issues);
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  const downloadTemplate = () => {
+    const csv = '﻿Mã,Tên vật tư,Danh mục,Đơn vị,Đơn giá,NCC,Tồn kho,Tồn tối thiểu\n'
+      + 'VT-101,Gỗ óc chó tự nhiên,Gỗ,m2,2800000,Công ty An Cường,50,10\n'
+      + ',Đèn thả trần phòng khách,Điện,cái,1250000,Rạng Đông,20,5\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'mau-import-vat-tu-jama.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const handleImportConfirm = async () => {
+    if (importRows.length === 0) return;
+    setImporting(true);
+    try {
+      const res = await api.importMaterials(importRows);
+      toast(`Nhập xong: ${res.created} vật tư mới, ${res.updated} cập nhật${res.errors.length ? ` — ${res.errors.length} dòng lỗi` : ''}`, res.errors.length ? 'error' : 'success');
+      if (res.errors.length) setImportIssues(res.errors);
+      else { setImportOpen(false); setImportRows([]); setImportFileName(''); }
+      load();
+    } catch (e) {
+      toast(`Lỗi nhập file: ${e instanceof Error ? e.message : 'Thử lại sau'}`, 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     // In demo mode, use local demo data directly
@@ -119,9 +216,18 @@ export default function InventoryPage() {
   return (
     <Sidebar>
       <div className="p-6 space-y-6 animate-in">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kho vật tư</h1>
-          <p className="text-sm text-[var(--text-tertiary)] mt-1">{materials.length} mặt hàng</p>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kho vật tư</h1>
+            <p className="text-sm text-[var(--text-tertiary)] mt-1">{materials.length} mặt hàng</p>
+          </div>
+          <button
+            onClick={() => { setImportOpen(true); setImportRows([]); setImportIssues([]); setImportFileName(''); }}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}
+          >
+            📥 Nhập từ file
+          </button>
         </div>
 
         {/* Summary cards */}
@@ -311,6 +417,70 @@ export default function InventoryPage() {
           )}
         </div>
       </div>
+
+      {/* Modal Nhập từ file (CSV) */}
+      {importOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4" onClick={() => !importing && setImportOpen(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-2xl rounded-2xl p-5 sm:p-6 max-h-[88vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-1 text-[var(--text-primary)]">📥 Nhập vật tư / báo giá NCC từ file</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+              File CSV (Excel: <b>Lưu dưới dạng → CSV UTF-8</b>). Cột bắt buộc: <b>Tên vật tư</b>; tùy chọn: Mã, Danh mục, Đơn vị, Đơn giá, NCC, Tồn kho, Tồn tối thiểu.
+              Trùng Mã/Tên = cập nhật giá & NCC (báo giá mới); chưa có = tạo mới.{' '}
+              <button onClick={downloadTemplate} className="underline text-[#C9A96E]">Tải file mẫu</button>
+            </p>
+
+            <label className="block w-full p-6 rounded-xl text-center cursor-pointer transition-all hover:opacity-80 mb-3" style={{ border: '2px dashed var(--border-default)', color: 'var(--text-secondary)' }}>
+              <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }} />
+              {importFileName ? <span className="text-sm font-medium">📄 {importFileName} — bấm để chọn file khác</span> : <span className="text-sm">Bấm để chọn file CSV</span>}
+            </label>
+
+            {importIssues.length > 0 && (
+              <div className="mb-3 p-3 rounded-xl text-xs space-y-1" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
+                {importIssues.slice(0, 6).map((iss, i) => <p key={i}>⚠️ {iss}</p>)}
+                {importIssues.length > 6 && <p>… và {importIssues.length - 6} lỗi khác</p>}
+              </div>
+            )}
+
+            {importRows.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold mb-2 text-[var(--text-secondary)]">Xem trước {Math.min(importRows.length, 8)}/{importRows.length} dòng:</p>
+                <div className="rounded-xl overflow-x-auto" style={{ border: '1px solid var(--border-subtle)' }}>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        {['Mã', 'Tên vật tư', 'Danh mục', 'ĐVT', 'Đơn giá', 'NCC', 'Tồn'].map(h => <th key={h} className="text-left p-2 text-[var(--text-muted)] whitespace-nowrap">{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0, 8).map((r, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td className="p-2 font-mono">{String(r.code || '—')}</td>
+                          <td className="p-2">{String(r.name || '')}</td>
+                          <td className="p-2">{String(r.category || '—')}</td>
+                          <td className="p-2">{String(r.unit || '—')}</td>
+                          <td className="p-2 whitespace-nowrap">{r.unit_price != null ? Number(r.unit_price).toLocaleString('vi-VN') + ' đ' : '—'}</td>
+                          <td className="p-2">{String(r.supplier || '—')}</td>
+                          <td className="p-2">{r.quantity_in_stock != null ? String(r.quantity_in_stock) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setImportOpen(false)} disabled={importing} className="px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+                Hủy
+              </button>
+              <button onClick={handleImportConfirm} disabled={importing || importRows.length === 0} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+                {importing ? 'Đang nhập...' : `Nhập ${importRows.length} dòng`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Sidebar>
   );
 }

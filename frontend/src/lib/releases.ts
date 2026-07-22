@@ -19,6 +19,7 @@ export const RELEASES: Release[] = [
     title: 'Lương & hoa hồng vận hành trọn vòng',
     tag: 'BETA',
     news: [
+      'Kho vật tư có nút "📥 Nhập từ file": thu mua nhận báo giá NCC bằng Excel/CSV là nhập cả trăm dòng một lần — xem trước rồi mới xác nhận, trùng Mã/Tên thì tự cập nhật giá + NCC mới, có file mẫu tải về. (Excel: Lưu dưới dạng CSV UTF-8.)',
       'Gán bậc lương + số người phụ thuộc cho từng nhân viên ngay tại Tài khoản → Sửa — từ đó Chốt sổ sinh bảng lương ra SỐ THẬT (công, tăng ca, BHXH, thuế TNCN) thay vì 0đ.',
       'Tab Hoa hồng có nút "✓ Duyệt" và "💵 Đã chi trả" — hoa hồng không còn treo trạng thái "Chờ" vĩnh viễn; trạng thái tách rõ 3 nấc: Chờ duyệt / Đã duyệt / Đã trả.',
       'Giao dịch Lương/Hoa hồng gắn được với nhân viên cụ thể — chọn danh mục Lương là hiện ô "Liên kết nhân viên", tên hiện thành thẻ vàng cạnh mô tả.',
