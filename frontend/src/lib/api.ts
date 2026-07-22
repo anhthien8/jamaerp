@@ -99,7 +99,12 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   // Đổi giai đoạn / gán / sửa lead — mutate demo data để kanban thấy thẻ di chuyển thật
   if (path.match(/^\/leads\/[^/]+\/stage$/) && method === 'PUT') {
     const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
-    if (lead) { lead.stage = ((options?.body as Record<string, string>)?.stage) || lead.stage; lead.updated_at = new Date().toISOString(); return lead as T; }
+    if (lead) {
+      const body = (options?.body || {}) as Record<string, string>;
+      lead.stage = body.new_stage || body.stage || lead.stage;
+      lead.updated_at = new Date().toISOString();
+      return lead as T;
+    }
   }
   if (path.match(/^\/leads\/[^/]+\/assign$/) && method === 'PUT') {
     const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
