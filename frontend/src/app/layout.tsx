@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/ui/Toast";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
+import InstallBanner from "@/components/ui/InstallBanner";
 
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
@@ -36,6 +37,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <ToastProvider>{children}</ToastProvider>
+            <InstallBanner />
           </AuthProvider>
         </ErrorBoundary>
       </body>
