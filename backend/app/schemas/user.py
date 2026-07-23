@@ -78,6 +78,13 @@ class UserResponse(BaseModel):
         return None
 
 
+class CustomRoleCreate(BaseModel):
+    role_key: str = Field(min_length=1, max_length=20)
+    role_name: str = Field(min_length=1, max_length=50)
+    department: str = Field(min_length=1, max_length=20)
+    permissions: dict = Field(default_factory=dict)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

@@ -9,7 +9,14 @@ import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import Sidebar from '@/components/layout/Sidebar';
 
-const ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'accountant', 'supervisor'];
+interface CustomRole {
+  role_key: string;
+  role_name: string;
+  department: string;
+  permissions: Record<string, boolean>;
+}
+
+const BUILTIN_ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'accountant', 'supervisor'];
 const DEPARTMENTS = ['EXEC', 'SALES', 'OPS', 'ACCT'];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -26,7 +33,7 @@ interface FormData {
   email: string;
   password: string;
   phone: string;
-  role: UserRole;
+  role: string;
   department: string;
   /** Cấu hình lương — không gán bậc thì payroll sinh 0đ (audit 22/07) */
   salary_grade_id: string;
@@ -52,12 +59,30 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [grades, setGrades] = useState<SalaryGrade[]>([]);
   const [error, setError] = useState('');
+  // Custom roles
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+  const [roleModal, setRoleModal] = useState(false);
+  const [roleForm, setRoleForm] = useState({ role_key: '', role_name: '', department: 'SALES' });
+  const [rolePerms, setRolePerms] = useState<Record<string, boolean>>(() => {
+    const all: Record<string, boolean> = {};
+    ALL_PERMISSION_KEYS.forEach(k => { all[k.key] = true; });
+    return all;
+  });
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleError, setRoleError] = useState('');
   // Per-user permission overrides
   const [customPerms, setCustomPerms] = useState<Record<string, boolean>>({});
   const [customPermsLoaded, setCustomPermsLoaded] = useState(false);
   const pageSize = 20;
 
   const isAdmin = user?.role === 'admin';
+
+  /** Get display label for built-in or custom roles */
+  const getAnyRoleLabel = (roleKey: string): string => {
+    const custom = customRoles.find(r => r.role_key === roleKey);
+    if (custom) return custom.role_name;
+    return getRoleLabel(roleKey as UserRole);
+  };
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -83,9 +108,14 @@ export default function UsersPage() {
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
+  // Load custom roles on mount
+  useEffect(() => {
+    api.getCustomRoles().then(res => setCustomRoles(res.roles || [])).catch(() => {});
+  }, []);
+
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); setCustomPerms({}); setCustomPermsLoaded(false); };
   const openEdit = (u: User) => {
-    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role as UserRole, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0) });
+    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0) });
     setEditId(u.id); setModal('edit'); setError('');
     // Load salary grades and custom permissions
     api.getSalaryGrades().then(setGrades).catch(() => setGrades([]));
@@ -154,6 +184,37 @@ export default function UsersPage() {
     }
   };
 
+  const openRoleModal = () => {
+    setRoleForm({ role_key: '', role_name: '', department: 'SALES' });
+    const all: Record<string, boolean> = {};
+    ALL_PERMISSION_KEYS.forEach(k => { all[k.key] = true; });
+    setRolePerms(all);
+    setRoleError('');
+    setRoleModal(true);
+  };
+
+  const handleCreateRole = async () => {
+    if (!roleForm.role_key.trim() || !roleForm.role_name.trim()) {
+      setRoleError('Vui lòng điền tên vai trò và key'); return;
+    }
+    setRoleSaving(true);
+    try {
+      const res = await api.createCustomRole({
+        role_key: roleForm.role_key.trim().toLowerCase().replace(/\s+/g, '_'),
+        role_name: roleForm.role_name.trim(),
+        department: roleForm.department,
+        permissions: rolePerms,
+      });
+      setCustomRoles(prev => [...prev, res.role]);
+      // Auto-select the new role and fill department
+      setForm(f => ({ ...f, role: res.role.role_key, department: res.role.department }));
+      setRoleModal(false);
+    } catch (e: unknown) {
+      setRoleError((e as Error).message || 'Lỗi tạo vai trò');
+    }
+    setRoleSaving(false);
+  };
+
   if (!user) return null;
 
   return (
@@ -186,7 +247,9 @@ export default function UsersPage() {
             className="px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
           >
             <option value="">Tất cả vai trò</option>
-            {ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
+            {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
+            {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Tùy chỉnh ──</option>}
+            {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
           </select>
         </div>
 
@@ -222,7 +285,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-[var(--text-secondary)]">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium border ${ROLE_COLORS[u.role] || 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
-                        {getRoleLabel(u.role as UserRole)}
+                        {getAnyRoleLabel(u.role)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)]">{labelOf(DEPARTMENT_LABELS, u.department)}</td>
@@ -280,7 +343,7 @@ export default function UsersPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 mt-3">
                   <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium border ${ROLE_COLORS[u.role] || 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
-                    {labelOf(ROLE_LABELS, u.role)}
+                    {getAnyRoleLabel(u.role)}
                   </span>
                   <span className="inline-block px-2 py-0.5 rounded-lg text-xs font-medium border bg-[var(--surface-2)] text-[var(--text-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
                     {labelOf(DEPARTMENT_LABELS, u.department)}
@@ -342,16 +405,28 @@ export default function UsersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Vai trò</label>
-                  <select value={form.role} onChange={e => {
-                    const newRole = e.target.value as UserRole;
-                    const defaultDept: Record<string, string> = {
-                      admin: 'EXEC', executive: 'EXEC', leader: 'SALES',
-                      data_entry: 'SALES', accountant: 'ACCT', supervisor: 'OPS',
-                    };
-                    setForm({ ...form, role: newRole, department: defaultDept[newRole] || form.department });
-                  }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
-                    {ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
-                  </select>
+                  <div className="flex gap-1.5">
+                    <select value={form.role} onChange={e => {
+                      const newRole = e.target.value;
+                      // Auto-fill department from built-in defaults or custom role
+                      const builtInDept: Record<string, string> = {
+                        admin: 'EXEC', executive: 'EXEC', leader: 'SALES',
+                        data_entry: 'SALES', accountant: 'ACCT', supervisor: 'OPS',
+                      };
+                      const custom = customRoles.find(r => r.role_key === newRole);
+                      const dept = builtInDept[newRole] || custom?.department || form.department;
+                      setForm({ ...form, role: newRole, department: dept });
+                    }} className="flex-1 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                      {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
+                      {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Vai trò tùy chỉnh ──</option>}
+                      {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
+                    </select>
+                    {isAdmin && (
+                      <button type="button" onClick={openRoleModal} title="Tạo vai trò mới" className="flex-shrink-0 w-9 h-[38px] rounded-xl text-sm font-bold text-[var(--gold-500)] bg-[var(--surface-2)] border border-[var(--border-subtle)] hover:bg-[var(--surface-3)] transition-colors">
+                        +
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bộ phận</label>
@@ -468,6 +543,77 @@ export default function UsersPage() {
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--surface-2)]">Hủy</button>
               <button onClick={handlePassword} disabled={saving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50 bg-amber-600 hover:bg-amber-700">
                 {saving ? 'Đang lưu...' : 'Đổi mật khẩu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Tạo vai trò mới */}
+      {roleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRoleModal(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-2xl p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">Tạo vai trò mới</h2>
+            {roleError && <p className="text-sm text-red-400 mb-3">{roleError}</p>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Tên vai trò *</label>
+                <input
+                  value={roleForm.role_name}
+                  onChange={e => setRoleForm({ ...roleForm, role_name: e.target.value })}
+                  placeholder="VD: Trưởng phòng Design"
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Key (tự动生成, không dấu cách)</label>
+                <input
+                  value={roleForm.role_key}
+                  onChange={e => setRoleForm({ ...roleForm, role_key: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') })}
+                  placeholder="VD: design_leader"
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bộ phận</label>
+                <select value={roleForm.department} onChange={e => setRoleForm({ ...roleForm, department: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                  {DEPARTMENTS.map(d => <option key={d} value={d}>{labelOf(DEPARTMENT_LABELS, d)}</option>)}
+                </select>
+              </div>
+              {/* Permission checklist */}
+              <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Phân quyền mặc định</h3>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { const all: Record<string, boolean> = {}; ALL_PERMISSION_KEYS.forEach(k => { all[k.key] = true; }); setRolePerms(all); }} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] underline">Chọn tất cả</button>
+                    <button type="button" onClick={() => { const all: Record<string, boolean> = {}; ALL_PERMISSION_KEYS.forEach(k => { all[k.key] = false; }); setRolePerms(all); }} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] underline">Bỏ tất cả</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 max-h-56 overflow-y-auto pr-1">
+                  {ALL_PERMISSION_KEYS.map(({ key, label }) => (
+                    <label
+                      key={key}
+                      className={`flex items-center gap-1.5 py-0.5 px-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                        rolePerms[key] ? 'bg-[var(--surface-2)]' : 'bg-[var(--surface-2)] opacity-60'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!rolePerms[key]}
+                        onChange={() => setRolePerms(prev => ({ ...prev, [key]: !prev[key] }))}
+                        className="w-3.5 h-3.5 rounded accent-emerald-500"
+                      />
+                      <span className="truncate">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setRoleModal(false)} className="px-4 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--surface-2)]">Hủy</button>
+              <button onClick={handleCreateRole} disabled={roleSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+                {roleSaving ? 'Đang lưu...' : 'Tạo vai trò'}
               </button>
             </div>
           </div>

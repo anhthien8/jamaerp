@@ -1087,6 +1087,14 @@ class ApiClient {
     );
   }
 
+  // === Custom roles (stored in system_settings) ===
+  async getCustomRoles() {
+    return this.request<{ roles: Array<{ role_key: string; role_name: string; department: string; permissions: Record<string, boolean> }> }>('/users/roles/custom');
+  }
+  async createCustomRole(data: { role_key: string; role_name: string; department: string; permissions: Record<string, boolean> }) {
+    return this.request<{ role: { role_key: string; role_name: string; department: string; permissions: Record<string, boolean> }; message: string }>('/users/roles', { method: 'POST', body: data });
+  }
+
   // === Resignation / Transfer ===
   async resignPreview(userId: string) {
     return this.request<{

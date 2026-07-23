@@ -11,7 +11,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user, hash_password
 from app.models.user import User, Team
 from app.models.notification import SystemSetting
-from app.schemas.user import UserCreate, UserUpdate, VALID_ROLES
+from app.schemas.user import UserCreate, UserUpdate, CustomRoleCreate, VALID_ROLES
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -175,6 +175,92 @@ async def list_teams(
     ]
 
 
+# ── Custom roles (stored in system_settings) ─────────────────────────────
+
+async def _load_custom_roles(db: AsyncSession) -> list[dict]:
+    """Load custom roles from system_settings (key=custom_roles)."""
+    setting = await db.get(SystemSetting, "custom_roles")
+    if not setting:
+        return []
+    try:
+        roles = json.loads(setting.value)
+        return roles if isinstance(roles, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+@router.get("/roles/custom")
+async def get_custom_roles(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all custom roles from system_settings."""
+    roles = await _load_custom_roles(db)
+    return {"roles": roles}
+
+
+@router.post("/roles")
+async def create_custom_role(
+    data: CustomRoleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a custom role. Only admin. Saved to system_settings."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới được tạo vai trò mới")
+
+    key = data.role_key.strip().lower().replace(" ", "_")
+
+    # Must not collide with built-in roles
+    if key in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Role key '{key}' trùng với vai trò hệ thống")
+
+    existing = await _load_custom_roles(db)
+    if any(r["role_key"] == key for r in existing):
+        raise HTTPException(status_code=400, detail=f"Role '{key}' đã tồn tại")
+
+    # Default: all 23 permissions = true (admin can toggle later)
+    perms = data.permissions if data.permissions else {
+        "canViewDashboard": True, "dashboardType": "executive",
+        "canViewLeads": True, "leadsScope": "all",
+        "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
+        "canViewHR": True, "canManageUsers": True,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+        "canCreateQuotations": True, "canViewInventory": True,
+        "canViewReports": True, "canViewPnL": True,
+        "canCreateProjects": True, "canCreateContracts": True,
+        "canCreateTasks": True, "canEditTasks": True,
+        "canViewAttendance": True, "canViewKPI": True,
+        "canViewApprovals": True, "canViewFeedback": True, "canViewSettings": True,
+    }
+
+    new_role = {
+        "role_key": key,
+        "role_name": data.role_name.strip(),
+        "department": data.department,
+        "permissions": perms,
+    }
+    existing.append(new_role)
+
+    setting = await db.get(SystemSetting, "custom_roles")
+    value = json.dumps(existing, ensure_ascii=False)
+    if setting:
+        setting.value = value
+        setting.updated_at = datetime.now(timezone.utc)
+    else:
+        db.add(SystemSetting(key="custom_roles", value=value))
+
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="custom_role.create",
+        entity_type="custom_role", entity_id=key,
+        after={"role_name": data.role_name, "department": data.department},
+    )
+
+    return {"role": new_role, "message": "Đã tạo vai trò mới"}
+
+
 # ── Role-level permissions (matrix admin) ────────────────────────────────
 
 @router.get("/permissions/roles")
@@ -294,7 +380,10 @@ async def create_user(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ admin mới được tạo user")
 
-    if data.role not in VALID_ROLES:
+    # Accept built-in or custom role keys
+    custom_roles = await _load_custom_roles(db)
+    custom_role_keys = {r["role_key"] for r in custom_roles}
+    if data.role not in VALID_ROLES and data.role not in custom_role_keys:
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
     # Check email exists
@@ -351,7 +440,10 @@ async def update_user(
     if "is_active" in provided and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi trạng thái")
     if "role" in provided and data.role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+        custom_roles = await _load_custom_roles(db)
+        custom_role_keys = {r["role_key"] for r in custom_roles}
+        if data.role not in custom_role_keys:
+            raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
 
     # Liên kết Telegram (tự phục vụ tại Cài đặt): chặn 1 Telegram ID gắn 2 tài khoản
     if "telegram_user_id" in provided and provided["telegram_user_id"] is not None:
