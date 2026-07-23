@@ -237,8 +237,12 @@ export default function ProjectsPage() {
     setTasks([]);
     setLoadingTasks(true);
     try {
-      const t = await api.getProjectTasks(project.id);
+      const [t, u] = await Promise.all([
+        api.getProjectTasks(project.id),
+        users.length === 0 ? extractItems(await api.getUsers()) : Promise.resolve(users),
+      ]);
       setTasks(t);
+      if (u.length > 0 && users.length === 0) setUsers(u);
     } catch {
       setTasks([]);
     } finally {
