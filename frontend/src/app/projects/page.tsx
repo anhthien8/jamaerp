@@ -37,6 +37,16 @@ const DEPT_LABELS: Record<string, { label: string; color: string }> = {
   sales: { label: 'Kinh doanh', color: '#F97316' },
 };
 
+// Mapping: task department → user department (for filtering assignees)
+const DEPT_TO_USER_DEPT: Record<string, string[]> = {
+  design: ['DESIGN'],
+  quotation: ['SALES', 'DESIGN'],
+  procurement: ['OPS', 'PURCHASING'],
+  construction: ['OPS'],
+  accounting: ['ACCT'],
+  sales: ['SALES'],
+};
+
 // ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
 const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'paused'] as const;
 const STAGE_SHORT: Record<string, string> = {
@@ -1230,7 +1240,12 @@ export default function ProjectsPage() {
                                       }}
                                     >
                                       <option value="">👤 Đảm nhận</option>
-                                      {users.filter(u => !task.department || u.department === task.department || u.role === 'admin' || u.role === 'supervisor').map(u => (
+                                      {users.filter(u => {
+                                        if (u.role === 'admin' || u.role === 'supervisor') return true;
+                                        if (!task.department) return true;
+                                        const allowedDepts = DEPT_TO_USER_DEPT[task.department] || [];
+                                        return allowedDepts.includes(u.department);
+                                      }).map(u => (
                                         <option key={u.id} value={u.id}>{u.full_name}</option>
                                       ))}
                                     </select>
