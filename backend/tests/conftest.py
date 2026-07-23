@@ -40,6 +40,7 @@ from app.models.leave import LeaveBalance, LeaveRequest  # noqa
 from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa
 from app.models.payroll import SalaryAdvance  # noqa
 from app.api.telegram_workflow import MaterialRequest  # noqa
+from app.models.supplier import Supplier, SupplierQuote, PriceComparison  # noqa
 
 
 # ---------------------------------------------------------------------------

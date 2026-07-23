@@ -382,6 +382,78 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path === '/inventory/low-stock') return toPaginated(d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock), params) as T;
 
+  // ── Suppliers (demo) ──
+  const _demoSuppliers: Array<Record<string, unknown>> = [
+    { id: 'demo-sup-1', name: 'Gỗ Phước An', contact_person: 'Anh Nam', phone: '0901234567', email: 'nam@phuocan.vn', address: 'Bình Dương', category: 'wood', notes: 'NCC gỗ tự nhiên, giao hàng 3-5 ngày', is_active: true, quote_count: 12, created_at: '2026-01-15', updated_at: '2026-07-10' },
+    { id: 'demo-sup-2', name: 'Đá Hoàn Cầu', contact_person: 'Chị Hoa', phone: '0912345678', email: 'hoa@hoancu.vn', address: 'Bình Định', category: 'stone', notes: 'Đá granite, marble', is_active: true, quote_count: 8, created_at: '2026-02-20', updated_at: '2026-07-05' },
+    { id: 'demo-sup-3', name: 'Sơn Nippon', contact_person: 'Anh Tuấn', phone: '0923456789', email: 'tuan@nippon.vn', address: 'TP.HCM', category: 'paint', notes: 'Sơn nội thất, ngoại thất', is_active: true, quote_count: 15, created_at: '2026-01-10', updated_at: '2026-07-12' },
+    { id: 'demo-sup-4', name: 'Điện Quang', contact_person: 'Chị Mai', phone: '0934567890', email: 'mai@dienquang.vn', address: 'TP.HCM', category: 'electrical', notes: 'Thiết bị điện dân dụng', is_active: true, quote_count: 6, created_at: '2026-03-01', updated_at: '2026-06-28' },
+    { id: 'demo-sup-5', name: 'Nội Thất Hòa Phát', contact_person: 'Anh Dũng', phone: '0945678901', email: 'dung@hoaphat.vn', address: 'Hà Nội', category: 'furniture', notes: 'Nội thất văn gia đình', is_active: true, quote_count: 10, created_at: '2026-02-01', updated_at: '2026-07-08' },
+  ];
+  const _demoSupplierQuotes: Array<Record<string, unknown>> = [
+    { id: 'demo-sq-1', supplier_id: 'demo-sup-1', supplier_name: 'Gỗ Phước An', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 850000, min_quantity: 5, lead_time_days: 5, notes: 'Gỗ đã xử lý chống ẩm', valid_from: '2026-07-01', valid_until: '2026-09-30', created_at: '2026-07-01' },
+    { id: 'demo-sq-2', supplier_id: 'demo-sup-2', supplier_name: 'Đá Hoàn Cầu', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 920000, min_quantity: 3, lead_time_days: 7, notes: 'Gỗ nhập khẩu', valid_from: '2026-07-01', valid_until: '2026-08-31', created_at: '2026-07-05' },
+    { id: 'demo-sq-3', supplier_id: 'demo-sup-3', supplier_name: 'Sơn Nippon', material_name: 'Sơn nội thất', material_category: 'paint', unit: 'thùng', unit_price: 1250000, min_quantity: 2, lead_time_days: 2, notes: 'Sơn Nippon Odour-less 5L', valid_from: '2026-07-01', valid_until: '2026-12-31', created_at: '2026-07-10' },
+    { id: 'demo-sq-4', supplier_id: 'demo-sup-4', supplier_name: 'Điện Quang', material_name: 'Đèn LED âm trần', material_category: 'electrical', unit: 'cái', unit_price: 185000, min_quantity: 10, lead_time_days: 3, notes: 'Đèn LED 7W', valid_from: '2026-07-01', valid_until: '2026-10-31', created_at: '2026-07-08' },
+    { id: 'demo-sq-5', supplier_id: 'demo-sup-5', supplier_name: 'Nội Thất Hòa Phát', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 780000, min_quantity: 10, lead_time_days: 10, notes: 'Gỗ trong nước, số lượng lớn', valid_from: '2026-07-01', valid_until: '2026-09-30', created_at: '2026-07-12' },
+  ];
+  if (path === '/suppliers') {
+    let list = [..._demoSuppliers];
+    const q = (params?.search || params?.q || '').toLowerCase();
+    if (q) list = list.filter(s => `${s.name} ${s.contact_person || ''}`.toLowerCase().includes(q));
+    if (params?.category && params.category !== 'all') list = list.filter(s => s.category === params.category);
+    return toPaginated(list as unknown as Supplier[], params) as T;
+  }
+  if (path === '/suppliers/compare') {
+    const matName = params?.material_name || '';
+    const matched = _demoSupplierQuotes.filter(q => String(q.material_name).toLowerCase().includes(matName.toLowerCase()));
+    const prices = matched.map(q => Number(q.unit_price));
+    const cheapest = Math.min(...prices);
+    const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    return {
+      material_name: matName, unit: matched[0]?.unit || '',
+      quotes: matched.map(q => ({
+        supplier_id: q.supplier_id, supplier_name: q.supplier_name,
+        unit_price: Number(q.unit_price), min_quantity: Number(q.min_quantity) || undefined,
+        lead_time_days: Number(q.lead_time_days) || undefined, valid_until: q.valid_until as string | undefined,
+        is_cheapest: Number(q.unit_price) === cheapest,
+        price_trend: 'stable' as const,
+      })),
+      cheapest_price: cheapest, avg_price: avg,
+    } as T;
+  }
+  if (path === '/suppliers/price-history') {
+    const matName = params?.material_name || '';
+    return _demoSupplierQuotes
+      .filter(q => String(q.material_name).toLowerCase().includes(matName.toLowerCase()))
+      .map(q => ({ date: String(q.created_at), supplier_name: String(q.supplier_name), unit_price: Number(q.unit_price) })) as T;
+  }
+  if (path.match(/^\/suppliers\/[^/]+\/quotes$/)) {
+    const supId = path.split('/')[2];
+    if (method === 'POST') {
+      const b = (options?.body || {}) as Record<string, unknown>;
+      const sup = _demoSuppliers.find(s => s.id === supId);
+      const newQ = { id: `demo-sq-${Date.now()}`, supplier_id: supId, supplier_name: sup?.name || '', ...b, created_at: new Date().toISOString() };
+      _demoSupplierQuotes.push(newQ);
+      return newQ as T;
+    }
+    return _demoSupplierQuotes.filter(q => q.supplier_id === supId) as T;
+  }
+  if (path === '/suppliers' && method === 'POST') {
+    const b = (options?.body || {}) as Record<string, unknown>;
+    const newS = { id: `demo-sup-${Date.now()}`, ...b, is_active: true, quote_count: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    _demoSuppliers.push(newS);
+    return newS as T;
+  }
+  if (path.match(/^\/suppliers\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = _demoSuppliers.findIndex(s => s.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(_demoSuppliers[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return _demoSuppliers[idx] as T; }
+  }
+  if (path.match(/^\/suppliers\/[^/]+$/)) {
+    const sup = _demoSuppliers.find(s => s.id === path.split('/')[2]);
+    return (sup || _demoSuppliers[0]) as T;
+  }
+
   // ── Users / Teams ──
   if (path === '/users' && method === 'POST') {
     const b = (options?.body || {}) as Partial<User>;
@@ -959,6 +1031,34 @@ class ApiClient {
   }
   async getMaterialUsages(materialId: string) {
     return this.request<MaterialUsage[]>(`/inventory/${materialId}/usages`);
+  }
+
+  // === ERP: Suppliers & Price Board ===
+  async getSuppliers(params?: Record<string, string>) {
+    return this.request<PaginatedResponse<Supplier>>('/suppliers', { params });
+  }
+  async getSupplier(id: string) {
+    return this.request<Supplier>(`/suppliers/${id}`);
+  }
+  async createSupplier(data: Partial<Supplier>) {
+    return this.request<Supplier>('/suppliers', { method: 'POST', body: data });
+  }
+  async updateSupplier(id: string, data: Partial<Supplier>) {
+    return this.request<Supplier>(`/suppliers/${id}`, { method: 'PUT', body: data });
+  }
+  async getSupplierQuotes(supplierId: string) {
+    return this.request<SupplierQuote[]>(`/suppliers/${supplierId}/quotes`);
+  }
+  async addSupplierQuote(supplierId: string, data: Partial<SupplierQuote>) {
+    return this.request<SupplierQuote>(`/suppliers/${supplierId}/quotes`, { method: 'POST', body: data });
+  }
+  async comparePrices(materialName: string) {
+    return this.request<PriceComparison>('/suppliers/compare', { params: { material_name: materialName } });
+  }
+  async getPriceHistory(materialName: string) {
+    return this.request<Array<{ date: string; supplier_name: string; unit_price: number }>>(
+      '/suppliers/price-history', { params: { material_name: materialName } }
+    );
   }
 
   // === ERP: Users (HR) ===
@@ -2069,6 +2169,55 @@ export interface ZaloSignalInfo {
   assigned_user_id: string | null;
   payload: Record<string, unknown>;
   created_at: string;
+}
+
+// === Supplier & Price Board types ===
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  category: string; // wood | stone | metal | paint | electrical | plumbing | furniture | glass | general
+  notes?: string;
+  is_active: boolean;
+  quote_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierQuote {
+  id: string;
+  supplier_id: string;
+  supplier_name?: string;
+  material_name: string;
+  material_category?: string;
+  unit: string;
+  unit_price: number;
+  min_quantity?: number;
+  lead_time_days?: number;
+  notes?: string;
+  valid_from: string;
+  valid_until?: string;
+  created_at: string;
+}
+
+export interface PriceComparison {
+  material_name: string;
+  unit: string;
+  quotes: Array<{
+    supplier_id: string;
+    supplier_name: string;
+    unit_price: number;
+    min_quantity?: number;
+    lead_time_days?: number;
+    valid_until?: string;
+    is_cheapest: boolean;
+    price_trend: 'up' | 'down' | 'stable';
+  }>;
+  cheapest_price: number;
+  avg_price: number;
 }
 
 // === Feedback types ===
