@@ -72,6 +72,7 @@ export default function ContractsPage() {
   const [proofPreview, setProofPreview] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [viewProof, setViewProof] = useState<string | null>(null);
+  const [instDetail, setInstDetail] = useState<{ name: string; percentage: number; amount: number; status: string; paid_date?: string; proof_image?: string } | null>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -438,9 +439,15 @@ export default function ContractsPage() {
                     className="rounded-xl px-4 py-3 cursor-pointer transition-all hover:scale-[1.005]"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
                     onClick={() => {
-                      if (inst.proof_image) {
-                        setViewProof(inst.proof_image);
-                      }
+                      const amount = selected.total_value ? selected.total_value * inst.percentage / 100 : 0;
+                      setInstDetail({
+                        name: inst.name,
+                        percentage: inst.percentage,
+                        amount,
+                        status: inst.status,
+                        paid_date: inst.paid_date,
+                        proof_image: inst.proof_image,
+                      });
                     }}
                   >
                     <div className="flex items-center justify-between">
@@ -480,6 +487,51 @@ export default function ContractsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Installment detail modal */}
+        {instDetail && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[8vh] px-4" onClick={() => setInstDetail(null)}>
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm mx-4 rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+              <button onClick={() => setInstDetail(null)} className="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-4">Chi tiết đợt thanh toán</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--text-muted)]">Đợt</span>
+                  <span className="font-medium text-[var(--text-primary)]">{instDetail.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--text-muted)]">Tỷ lệ</span>
+                  <span className="font-medium text-[var(--text-primary)]">{instDetail.percentage}%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--text-muted)]">Số tiền</span>
+                  <span className="font-bold text-[var(--gold-400)]">{fmtVND(instDetail.amount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--text-muted)]">Trạng thái</span>
+                  <span className={`font-medium ${instDetail.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {instDetail.status === 'paid' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                  </span>
+                </div>
+                {instDetail.paid_date && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--text-muted)]">Ngày thanh toán</span>
+                    <span className="font-medium text-[var(--text-primary)]">{new Date(instDetail.paid_date).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                )}
+                {instDetail.proof_image && (
+                  <div className="mt-2">
+                    <p className="text-[10px] text-[var(--text-muted)] mb-1">Sao kê / Hợp đồng:</p>
+                    <img src={instDetail.proof_image} alt="Sao kê" className="w-full rounded-lg" />
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -147,40 +147,56 @@ export default function KpiPage() {
 
         {/* Tab: My KPI */}
         {!busy && tab === 'me' && myKpi && (
-          <div className="space-y-6">
-            {/* Score card */}
-            <div className="glass-card p-6 flex items-center gap-6">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ border: `4px solid ${SCORE_COLOR(myKpi.score)}` }}>
-                <span className="text-2xl font-bold" style={{ color: SCORE_COLOR(myKpi.score) }}>{myKpi.score}</span>
+          <div className="space-y-4">
+            {/* Score + Rank compact */}
+            <div className="glass-card p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ border: `3px solid ${SCORE_COLOR(myKpi.score)}` }}>
+                  <span className="text-xl font-bold" style={{ color: SCORE_COLOR(myKpi.score) }}>{myKpi.score}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Điểm KPI</p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {myKpi.rank_overall ? `#${myKpi.rank_overall} toàn company` : 'Chưa xếp hạng'}
+                    {myKpi.rank_in_team ? ` · #${myKpi.rank_in_team} team` : ''}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Điểm KPI tổng hợp</h2>
-                <p className="text-sm text-[var(--text-muted)]">
-                  {myKpi.rank_overall && `Xếp hạng #${myKpi.rank_overall} toàn công ty`}
-                  {myKpi.rank_in_team && ` · #${myKpi.rank_in_team} trong team`}
-                </p>
+              <div className="text-right">
+                <p className="text-xs text-[var(--text-muted)]">Kỳ {monthLabelVN(period)}</p>
               </div>
             </div>
 
-            {/* Metrics breakdown */}
-            <div className="glass-card p-6 space-y-4">
-              <h3 className="font-semibold text-white mb-3">Nỗ lực (30%)</h3>
-              <MetricBar label="Tần suất hoạt động" value={myKpi.metrics.activity_rate} max={3} color="#3b82f6" />
-              <MetricBar label="Tuân thủ SLA" value={myKpi.metrics.sla_compliance} max={100} color="#10b981" />
-              <MetricBar label="Phản hồi (giờ)" value={myKpi.metrics.first_touch_hours} max={48} color="#f59e0b" />
-            </div>
-
-            <div className="glass-card p-6 space-y-4">
-              <h3 className="font-semibold text-white mb-3">Kết quả (50%)</h3>
-              <MetricBar label="HĐ đã ký" value={myKpi.metrics.signed_count} max={10} color="#10b981" />
-              <MetricBar label="Giá trị ký" value={myKpi.metrics.signed_value / 1_000_000} max={5_000} color="#c9a96e" />
-              <MetricBar label="Tỷ lệ chuyển đổi" value={myKpi.metrics.stage_conversion} max={100} color="#8b5cf6" />
-            </div>
-
-            <div className="glass-card p-6 space-y-4">
-              <h3 className="font-semibold text-white mb-3">Chất lượng (20%)</h3>
-              <MetricBar label="Tỷ lệ thu hồi" value={myKpi.metrics.recall_rate} max={10} color="#ef4444" />
-              <MetricBar label="Mất KH không phản hồi" value={myKpi.metrics.lost_no_response_rate} max={50} color="#f97316" />
+            {/* All metrics in one card — compact grid */}
+            <div className="glass-card p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Nỗ lực */}
+                <div>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Nỗ lực (30%)</p>
+                  <div className="space-y-2">
+                    <MetricBar label="Hoạt động" value={myKpi.metrics.activity_rate} max={3} color="#3b82f6" />
+                    <MetricBar label="SLA" value={myKpi.metrics.sla_compliance} max={100} color="#10b981" />
+                    <MetricBar label="Phản hồi" value={myKpi.metrics.first_touch_hours} max={48} color="#f59e0b" />
+                  </div>
+                </div>
+                {/* Kết quả */}
+                <div>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Kết quả (50%)</p>
+                  <div className="space-y-2">
+                    <MetricBar label="HĐ ký" value={myKpi.metrics.signed_count} max={10} color="#10b981" />
+                    <MetricBar label="Giá trị" value={myKpi.metrics.signed_value / 1_000_000} max={5_000} color="#c9a96e" />
+                    <MetricBar label="Chuyển đổi" value={myKpi.metrics.stage_conversion} max={100} color="#8b5cf6" />
+                  </div>
+                </div>
+                {/* Chất lượng */}
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Chất lượng (20%)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <MetricBar label="Thu hồi" value={myKpi.metrics.recall_rate} max={10} color="#ef4444" />
+                    <MetricBar label="Mất KH" value={myKpi.metrics.lost_no_response_rate} max={50} color="#f97316" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
