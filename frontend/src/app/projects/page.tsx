@@ -941,6 +941,27 @@ export default function ProjectsPage() {
                 ))}
               </div>
 
+              {/* Team Assignment — Phân công bộ phận */}
+              <div className="glass-card p-4">
+                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">👥 Phân công bộ phận</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'PM', id: selectedProject.pm_id, color: '#8B5CF6', icon: '📋' },
+                    { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: '🎨' },
+                    { label: 'Kinh doanh', id: selectedProject.sales_id, color: '#3B82F6', icon: '💼' },
+                  ].map(m => {
+                    const userName = m.id ? (users.find(u => u.id === m.id)?.full_name || '—') : '—';
+                    return (
+                      <div key={m.label} className="p-2 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
+                        <p className="text-lg mb-1">{m.icon}</p>
+                        <p className="text-[10px] font-medium text-[var(--text-muted)]">{m.label}</p>
+                        <p className="text-xs font-semibold truncate" style={{ color: m.color }}>{userName}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Client Info */}
               <div className="glass-card p-4">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Thông tin khách hàng</h3>
