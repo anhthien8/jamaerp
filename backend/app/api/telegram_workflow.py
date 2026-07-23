@@ -194,7 +194,7 @@ async def quick_project_lookup(
             "code": project.code,
             "name": project.name,
             "client_name": project.client_name,
-            "client_phone": project.client_phone,
+            "client_phone": (project.client_phone[:3] + "***") if project.client_phone and len(project.client_phone) >= 3 else (project.client_phone or "—"),
             "address": project.address,
             "status": project.status,
             "stage": project.stage,

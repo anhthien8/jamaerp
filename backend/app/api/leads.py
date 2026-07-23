@@ -41,9 +41,19 @@ STAGE_LABELS = {
 }
 
 
-def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act_count: int = 0) -> LeadResponse:
+_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
+
+
+def _mask_phone(phone: str | None, current_user=None) -> str | None:
+    """Mask phone for non-privileged roles: show first 3 digits + '***'."""
+    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+        return phone
+    return phone[:3] + "***" if len(phone) >= 3 else "***"
+
+
+def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act_count: int = 0, current_user=None) -> LeadResponse:
     return LeadResponse(
-        id=lead.id, name=lead.name, phone=lead.phone, email=lead.email,
+        id=lead.id, name=lead.name, phone=_mask_phone(lead.phone, current_user), email=lead.email,
         contact_person=lead.contact_person, address=lead.address, needs=lead.needs,
         source=lead.source, channel=lead.channel,
         property_type=lead.property_type,
@@ -132,7 +142,7 @@ async def list_leads(
 
     leads = []
     for lead, user_name, team_name, act_count in rows:
-        leads.append(_lead_response(lead, user_name, team_name, act_count or 0))
+        leads.append(_lead_response(lead, user_name, team_name, act_count or 0, current_user))
 
     return {
         "items": leads,
@@ -204,7 +214,7 @@ async def pipeline_kanban(
 
         result = await db.execute(q)
         rows = result.all()
-        leads = [_lead_response(lead, un, tn) for lead, un, tn in rows]
+        leads = [_lead_response(lead, un, tn, 0, current_user) for lead, un, tn in rows]
 
         kanban.append(PipelineKanban(
             stage=stage,
@@ -279,6 +289,40 @@ async def team_workload(
         for r in rows
     ]
 
+# ── CSV Export (must be before /{lead_id} to avoid route conflict) ───────
+
+import csv
+import io
+from fastapi.responses import StreamingResponse
+
+
+@router.get("/export")
+async def export_leads_csv(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all leads as CSV."""
+    result = await db.execute(select(Lead).order_by(Lead.created_at.desc()))
+    leads = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Tên", "SĐT", "Email", "Nguồn", "Kênh", "Giai đoạn", "Ưu tiên", "Người phụ trách", "Ngày tạo"])
+    for lead in leads:
+        writer.writerow([
+            lead.name, lead.phone, lead.email or "",
+            lead.source or "", lead.channel or "",
+            STAGE_LABELS.get(lead.stage, lead.stage), lead.priority,
+            lead.assigned_to or "", lead.created_at.strftime("%d/%m/%Y") if lead.created_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=leads_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"},
+    )
+
 
 @router.get("/{lead_id}", response_model=LeadResponse)
 async def get_lead(
@@ -303,7 +347,7 @@ async def get_lead(
         raise HTTPException(status_code=403, detail="Không có quyền xem lead này")
     act_q = select(func.count(Activity.id)).where(Activity.lead_id == lead.id)
     act_count = (await db.execute(act_q)).scalar() or 0
-    return _lead_response(lead, user_name, team_name, act_count)
+    return _lead_response(lead, user_name, team_name, act_count, current_user)
 
 
 @router.post("", response_model=LeadResponse)
@@ -337,7 +381,7 @@ async def create_lead(
     ))
     await db.flush()
 
-    return _lead_response(lead, current_user.full_name, None, 1)
+    return _lead_response(lead, current_user.full_name, None, 1, current_user)
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)
@@ -361,7 +405,7 @@ async def update_lead(
     lead.updated_at = datetime.now(timezone.utc)
     await db.flush()
 
-    return _lead_response(lead)
+    return _lead_response(lead, current_user=current_user)
 
 
 @router.put("/{lead_id}/stage", response_model=LeadResponse)
@@ -558,7 +602,7 @@ async def change_stage(
     # Invalidate caches affected by lead stage changes
     cache.clear_prefix("dashboard")
 
-    return _lead_response(lead)
+    return _lead_response(lead, current_user=current_user)
 
 
 @router.post("/{lead_id}/assign", response_model=LeadResponse)
@@ -596,7 +640,7 @@ async def assign_lead(
     ))
     await db.flush()
 
-    return _lead_response(lead, target_user.full_name, None)
+    return _lead_response(lead, target_user.full_name, None, 0, current_user)
 
 
 # ── Activities ──
@@ -733,36 +777,3 @@ async def bulk_change_stage(
     return {"updated": len(leads)}
 
 
-# ── CSV Export ───────────────────────────────────────────────────────────
-
-import csv
-import io
-from fastapi.responses import StreamingResponse
-
-
-@router.get("/export")
-async def export_leads_csv(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Export all leads as CSV."""
-    result = await db.execute(select(Lead).order_by(Lead.created_at.desc()))
-    leads = result.scalars().all()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Tên", "SĐT", "Email", "Nguồn", "Kênh", "Giai đoạn", "Ưu tiên", "Người phụ trách", "Ngày tạo"])
-    for lead in leads:
-        writer.writerow([
-            lead.name, lead.phone, lead.email or "",
-            lead.source or "", lead.channel or "",
-            STAGE_LABELS.get(lead.stage, lead.stage), lead.priority,
-            lead.assigned_to or "", lead.created_at.strftime("%d/%m/%Y") if lead.created_at else "",
-        ])
-
-    output.seek(0)
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=leads_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"},
-    )
