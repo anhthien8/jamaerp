@@ -65,6 +65,7 @@ async def lifespan(app: FastAPI):
         from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
         from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa
         from app.models.supplier import Supplier, SupplierQuote, PriceComparison  # noqa
+        from app.models.estimation import Estimation, EstimationItem  # noqa
 
         from app.migrate import run_migrations
         await run_migrations()
@@ -223,5 +224,7 @@ app.include_router(leaves_router, prefix="/api/v1")
 
 from app.api.payroll import router as payroll_router
 from app.api.suppliers import router as suppliers_router
+from app.api.estimations import router as estimations_router
 app.include_router(payroll_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")
+app.include_router(estimations_router, prefix="/api/v1")

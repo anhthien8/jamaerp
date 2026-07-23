@@ -24,6 +24,7 @@ from bot.handlers import (
     group_utils,
     feedback,
     hr,
+    estimation,
 )
 
 load_dotenv()
@@ -79,6 +80,7 @@ async def main():
     dp.include_router(checkin_out.router)
     dp.include_router(feedback.router)
     dp.include_router(hr.router)
+    dp.include_router(estimation.router)
 
     logger.info("JAMA HOME CRM Bot starting...")
     await dp.start_polling(bot)

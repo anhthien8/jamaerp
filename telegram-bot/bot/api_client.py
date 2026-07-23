@@ -414,5 +414,58 @@ class APIClient:
             return None
 
 
+    # ── Estimation (Du toan) ─────────────────────────────────────────────────
+
+    async def create_estimation(self, tg_user_id: int, data: dict) -> dict | None:
+        """Submit an estimation to backend."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self._base_url}/telegram/estimation",
+                    json=data,
+                    headers=self._headers(tg_user_id),
+                    timeout=15.0,
+                )
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Loi gui du toan")
+                except Exception:
+                    detail = "Loi gui du toan"
+                return {"error": detail}
+        except Exception:
+            return None
+
+    async def list_estimations(self, tg_user_id: int) -> list | dict | None:
+        """List recent estimations for the current user."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/telegram/estimations",
+                    headers=self._headers(tg_user_id),
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
+
+    async def get_estimation(self, tg_user_id: int, estimation_id: str) -> dict | None:
+        """Get estimation detail by ID."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/telegram/estimation/{estimation_id}",
+                    headers=self._headers(tg_user_id),
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                return None
+        except Exception:
+            return None
+
+
 # Singleton
 api = APIClient()
