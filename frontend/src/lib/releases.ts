@@ -15,6 +15,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '23/07/2026',
+    title: 'Quản trị Dự toán Công trình, Thầu phụ & Báo cáo Chiến lược BOD',
+    tag: 'RELEASE',
+    news: [
+      'Cảnh báo Vượt Dự toán Công trình: Hiển thị thanh tiến độ ngân sách thực chi vs tổng ngân sách (Cost Overrun), tự động cảnh báo màu Cam (>=85%) và màu Đỏ (>=100%) khi công trình chạm hạn mức.',
+      'Quản lý Đội thầu phụ & Thi công: Thêm Tab "Thầu phụ & Thi công" trong Chi tiết Dự án, theo dõi thầu thạch cao, sơn, đồ gỗ, điện nước, đơn giá giao khoán và nghiệm thu 4 giai đoạn.',
+      'Quản lý Phiên bản Báo giá (Versioning): Hỗ trợ nhân bản và lưu vết lịch sử Báo giá (v1.0, v2.0, v3.0), cho phép chọn lại phiên bản cũ và theo dõi ghi chú thay đổi.',
+      'Báo cáo Chiến lược BOD (Tab mới trong Kế toán):',
+      '  - Sub-tab 1: Biên Lợi nhuận theo Gói (Cơ bản, Tiêu chuẩn, Cao cấp) & Loại căn hộ (1PN, 2PN, Villa, Penthouse).',
+      '  - Sub-tab 2: Dự báo Dòng tiền 30-60 ngày (Biểu đồ + Bảng dự tính Tiền vào từ Hợp đồng vs Tiền ra cho Thầu phụ, Vật tư & Lương).',
+    ],
+    fixes: [
+      'Đồng bộ dữ liệu Demo offline cho Thầu phụ, Phiên bản Báo giá và Báo cáo Chiến lược.',
+      'Khắc phục triệt để các lỗi thuộc tính TypeScript trên trang P&L và Báo giá.',
+    ],
+    test: [
+      'BOD / Giám đốc: Mở Kế toán -> Tab Báo cáo Chiến lược BOD -> Kiểm tra Biểu đồ Dòng tiền 30-60 ngày & Biên lợi nhuận gói.',
+      'Quản lý Dự án: Mở Dự án -> Chi tiết Dự án -> Tab Thầu phụ & Thi công -> Xem thanh Cảnh báo Vượt dự toán (amber/red).',
+      'Kinh doanh / KTS: Mở Báo giá -> Thao tác "Tạo bản thảo mới (Version)" để lưu vết v2.0.',
+    ],
+  },
+  {
     date: '22/07/2026',
     title: 'Lương & hoa hồng vận hành trọn vòng',
     tag: 'BETA',

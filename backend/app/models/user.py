@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, BigInteger, Integer, ForeignKey, DateTime, Index
+from sqlalchemy import String, Boolean, BigInteger, Integer, Text, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -67,6 +67,10 @@ class User(Base):
     # Resignation tracking
     resign_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     resigned_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    # Per-user permission overrides (JSON string of {permission: boolean} overrides)
+    # Custom overrides take precedence over role defaults
+    custom_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)

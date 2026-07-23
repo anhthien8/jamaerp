@@ -1,5 +1,6 @@
 """Users API — admin CRUD for employees & teams."""
 
+import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +14,100 @@ from app.schemas.user import UserCreate, UserUpdate, VALID_ROLES
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+# ── Role permission defaults (mirrors frontend/src/lib/roles.ts) ───────────
+# Keys = all fields in RolePermissions interface
+_ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
+    "admin": {
+        "canViewDashboard": True, "dashboardType": "executive",
+        "canViewLeads": True, "leadsScope": "all",
+        "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
+        "canViewHR": True, "canManageUsers": True,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+        "canCreateQuotations": True, "canViewInventory": True,
+        "canViewReports": True, "canViewPnL": True,
+        "canCreateProjects": True, "canCreateContracts": True,
+        "canCreateTasks": True, "canEditTasks": True,
+        "canViewAttendance": True, "canViewKPI": True,
+        "canViewApprovals": True, "canViewFeedback": True, "canViewSettings": True,
+    },
+    "leader": {
+        "canViewDashboard": True, "dashboardType": "team",
+        "canViewLeads": True, "leadsScope": "team",
+        "canViewAccounting": True, "canViewPayroll": False, "canViewCommissionOthers": False,
+        "canViewHR": True, "canManageUsers": False,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+        "canCreateQuotations": True, "canViewInventory": False,
+        "canViewReports": True, "canViewPnL": False,
+        "canCreateProjects": True, "canCreateContracts": True,
+        "canCreateTasks": True, "canEditTasks": True,
+        "canViewAttendance": True, "canViewKPI": True,
+        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+    },
+    "data_entry": {
+        "canViewDashboard": True, "dashboardType": "personal",
+        "canViewLeads": True, "leadsScope": "own",
+        "canViewAccounting": True, "canViewPayroll": False, "canViewCommissionOthers": False,
+        "canViewHR": False, "canManageUsers": False,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+        "canCreateQuotations": True, "canViewInventory": False,
+        "canViewReports": True, "canViewPnL": False,
+        "canCreateProjects": False, "canCreateContracts": True,
+        "canCreateTasks": False, "canEditTasks": False,
+        "canViewAttendance": True, "canViewKPI": False,
+        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+    },
+    "accountant": {
+        "canViewDashboard": True, "dashboardType": "financial",
+        "canViewLeads": False, "leadsScope": "none",
+        "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
+        "canViewHR": True, "canManageUsers": True,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": False,
+        "canCreateQuotations": False, "canViewInventory": True,
+        "canViewReports": True, "canViewPnL": True,
+        "canCreateProjects": False, "canCreateContracts": True,
+        "canCreateTasks": False, "canEditTasks": False,
+        "canViewAttendance": True, "canViewKPI": False,
+        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+    },
+    "executive": {
+        "canViewDashboard": True, "dashboardType": "executive",
+        "canViewLeads": False, "leadsScope": "none",
+        "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+        "canViewHR": False, "canManageUsers": False,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": False,
+        "canCreateQuotations": False, "canViewInventory": False,
+        "canViewReports": True, "canViewPnL": True,
+        "canCreateProjects": True, "canCreateContracts": False,
+        "canCreateTasks": False, "canEditTasks": False,
+        "canViewAttendance": False, "canViewKPI": True,
+        "canViewApprovals": False, "canViewFeedback": True, "canViewSettings": True,
+    },
+    "supervisor": {
+        "canViewDashboard": True, "dashboardType": "team",
+        "canViewLeads": False, "leadsScope": "none",
+        "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+        "canViewHR": False, "canManageUsers": False,
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+        "canCreateQuotations": True, "canViewInventory": True,
+        "canViewReports": True, "canViewPnL": False,
+        "canCreateProjects": True, "canCreateContracts": True,
+        "canCreateTasks": True, "canEditTasks": True,
+        "canViewAttendance": True, "canViewKPI": True,
+        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+    },
+}
+
+
+def _get_combined_permissions(role: str, custom: dict | None) -> dict:
+    """Merge role defaults with custom overrides. Custom overrides take precedence."""
+    defaults = _ROLE_PERMISSION_DEFAULTS.get(role, _ROLE_PERMISSION_DEFAULTS["data_entry"])
+    if not custom:
+        return dict(defaults)
+    merged = dict(defaults)
+    merged.update(custom)
+    return merged
 
 
 @router.get("")
@@ -50,6 +145,7 @@ async def list_users(
                 "phone": u.phone, "role": u.role, "department": u.department,
                 "team_id": u.team_id, "is_active": u.is_active,
                 "salary_grade_id": u.salary_grade_id, "dependents_count": u.dependents_count,
+                "custom_permissions": json.loads(u.custom_permissions) if u.custom_permissions else None,
                 "created_at": str(u.created_at),
             }
             for u in users
@@ -95,6 +191,7 @@ async def get_user(
         "team_id": user.team_id, "is_active": user.is_active,
         "telegram_username": user.telegram_username,
         "salary_grade_id": user.salary_grade_id, "dependents_count": user.dependents_count,
+        "custom_permissions": json.loads(user.custom_permissions) if user.custom_permissions else None,
         "created_at": str(user.created_at),
     }
 
@@ -216,4 +313,86 @@ async def update_user(
     return {
         "id": user.id, "full_name": user.full_name, "email": user.email,
         "role": user.role, "department": user.department, "is_active": user.is_active,
+    }
+
+
+# ── Per-user permission overrides ─────────────────────────────────────────
+
+@router.get("/{user_id}/permissions")
+async def get_user_permissions(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return combined permissions for a user (role defaults + custom overrides).
+
+    Only admin and accountant can view permissions for other users.
+    Any user can view their own.
+    """
+    if current_user.role not in ("admin", "accountant") and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Không có quyền xem phân quyền")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+
+    custom = None
+    if user.custom_permissions:
+        try:
+            custom = json.loads(user.custom_permissions)
+        except (json.JSONDecodeError, TypeError):
+            custom = None
+
+    combined = _get_combined_permissions(user.role, custom)
+
+    return {
+        "user_id": user.id,
+        "role": user.role,
+        "custom_permissions": custom,
+        "combined_permissions": combined,
+    }
+
+
+@router.put("/{user_id}/permissions")
+async def set_user_permissions(
+    user_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save per-user permission overrides. Only admin can manage permissions.
+
+    Body: { "permissions": { "canViewAccounting": true, "canViewLeads": false, ... } }
+    An empty object {} resets to role defaults.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới được thay đổi phân quyền")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+
+    perms = data.get("permissions", {})
+
+    if perms:
+        # Store the full permissions map as the custom override
+        user.custom_permissions = json.dumps(perms, ensure_ascii=False)
+    else:
+        user.custom_permissions = None
+
+    user.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="user.permissions.update",
+        entity_type="user", entity_id=user.id,
+        after={"custom_permissions": user.custom_permissions},
+    )
+
+    return {
+        "user_id": user.id,
+        "custom_permissions": perms or None,
+        "message": "Đã cập nhật phân quyền",
     }

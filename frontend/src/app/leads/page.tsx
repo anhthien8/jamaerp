@@ -151,6 +151,8 @@ function LeadsContent() {
   const perms = getPermissions((user?.role || 'data_entry') as UserRole);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [stageChangeTarget, setStageChangeTarget] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
@@ -523,7 +525,21 @@ function LeadsContent() {
             {kanban.map(col => {
               const config = STAGE_CONFIG[col.stage];
               return (
-                <div key={col.stage} className="kanban-column flex-shrink-0">
+                <div
+                  key={col.stage}
+                  className={cn('kanban-column flex-shrink-0 rounded-xl transition-colors', dragOverStage === col.stage && 'bg-white/5 ring-1 ring-[var(--gold-500)]')}
+                  onDragOver={e => { e.preventDefault(); if (dragOverStage !== col.stage) setDragOverStage(col.stage); }}
+                  onDragLeave={() => setDragOverStage(s => (s === col.stage ? null : s))}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setDragOverStage(null);
+                    const leadId = e.dataTransfer.getData('text/lead-id');
+                    const lead = leads.find(l => l.id === leadId);
+                    if (!lead || lead.stage === col.stage) return;
+                    if (col.stage === 'lost') { toast('Chuyển vào "Mất" cần chọn lý do — mở thẻ lead và dùng menu trạng thái', 'error'); return; }
+                    handleStageChange(lead, col.stage);
+                  }}
+                >
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <div className="stage-dot" style={{ backgroundColor: config?.color }} />
                     <span className="text-sm font-medium">{config?.label}</span>
@@ -535,9 +551,13 @@ function LeadsContent() {
                     {col.leads.map(lead => (
                       <div
                         key={lead.id}
+                        draggable={lead.stage !== 'signed_design'}
+                        onDragStart={e => { e.dataTransfer.setData('text/lead-id', lead.id); e.dataTransfer.effectAllowed = 'move'; }}
                         onClick={() => openLeadDetail(lead)}
+                        title={lead.stage === 'signed_design' ? 'Deal đã thắng — đã tạo Khách hàng + Dự án, không kéo lùi được' : 'Kéo thả sang cột khác để đổi trạng thái'}
                         className={cn(
                           'glass-card p-3 border-l-2 cursor-pointer hover:bg-white/8 transition-all group',
+                          lead.stage !== 'signed_design' && 'cursor-grab active:cursor-grabbing',
                           lead.priority === 'urgent' ? 'border-l-red-500' :
                           lead.priority === 'high' ? 'border-l-amber-500' :
                           lead.priority === 'medium' ? 'border-l-blue-500' : 'border-l-gray-500'

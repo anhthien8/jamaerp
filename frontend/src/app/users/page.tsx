@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { api, SalaryGrade, User } from '@/lib/api';
-import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
+import { getPermissions, getEffectivePermissions, getRoleLabel, ALL_PERMISSION_KEYS, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import Sidebar from '@/components/layout/Sidebar';
@@ -52,6 +52,9 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [grades, setGrades] = useState<SalaryGrade[]>([]);
   const [error, setError] = useState('');
+  // Per-user permission overrides
+  const [customPerms, setCustomPerms] = useState<Record<string, boolean>>({});
+  const [customPermsLoaded, setCustomPermsLoaded] = useState(false);
   const pageSize = 20;
 
   const isAdmin = user?.role === 'admin';
@@ -80,11 +83,16 @@ export default function UsersPage() {
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); };
+  const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); setCustomPerms({}); setCustomPermsLoaded(false); };
   const openEdit = (u: User) => {
     setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role as UserRole, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0) });
     setEditId(u.id); setModal('edit'); setError('');
+    // Load salary grades and custom permissions
     api.getSalaryGrades().then(setGrades).catch(() => setGrades([]));
+    api.getUserPermissions(u.id).then(res => {
+      setCustomPerms(res.custom_permissions || {});
+      setCustomPermsLoaded(true);
+    }).catch(() => { setCustomPerms({}); setCustomPermsLoaded(true); });
   };
   const openPassword = (u: User) => { setEditId(u.id); setPwForm({ password: '', confirm: '' }); setModal('password'); setError(''); };
 
@@ -111,6 +119,10 @@ export default function UsersPage() {
         salary_grade_id: form.salary_grade_id || null,
         dependents_count: Number(form.dependents_count) || 0,
       });
+      // Save custom permissions if any changes were made
+      if (customPermsLoaded && isAdmin) {
+        await api.setUserPermissions(editId, customPerms);
+      }
       setModal(null);
       loadUsers();
     } catch (e: unknown) { setError((e as Error).message || 'Lỗi cập nhật'); }
@@ -353,6 +365,67 @@ export default function UsersPage() {
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Người phụ thuộc (giảm trừ thuế)</label>
                     <input type="number" min={0} max={20} value={form.dependents_count} onChange={e => setForm({ ...form, dependents_count: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
+                  </div>
+                </div>
+              )}
+              {/* Per-user permission overrides (admin only) */}
+              {modal === 'edit' && isAdmin && customPermsLoaded && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold text-[var(--text-primary)]">Phân quyền tùy chỉnh</h3>
+                    <button
+                      type="button"
+                      onClick={() => setCustomPerms({})}
+                      className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] underline"
+                    >
+                      Xóa tất cả (dùng mặc định vai trò)
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-2">
+                    Bỏ chọn = tắt quyền, chọn = bật. Chỉ quyền thay đổi so với vai trò mặc định sẽ được lưu.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 max-h-48 overflow-y-auto pr-1">
+                    {ALL_PERMISSION_KEYS.map(({ key, label }) => {
+                      const roleDefault = getPermissions(form.role as UserRole);
+                      const defaultVal = Boolean(roleDefault[key]);
+                      const currentVal = key in customPerms ? customPerms[key] : defaultVal;
+                      const isOverridden = key in customPerms;
+                      return (
+                        <label
+                          key={key}
+                          className={`flex items-center gap-1.5 py-0.5 px-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                            currentVal
+                              ? isOverridden ? 'bg-emerald-500/10' : 'bg-[var(--surface-2)]'
+                              : isOverridden ? 'bg-red-500/10' : 'bg-[var(--surface-2)] opacity-60'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={currentVal}
+                            onChange={() => {
+                              setCustomPerms(prev => {
+                                const next = { ...prev };
+                                const newVal = !currentVal;
+                                if (newVal === defaultVal) {
+                                  // Reset to role default — remove override
+                                  delete next[key];
+                                } else {
+                                  next[key] = newVal;
+                                }
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 rounded accent-emerald-500"
+                          />
+                          <span className={`truncate ${isOverridden ? 'font-medium' : ''}`}>{label}</span>
+                          {isOverridden && (
+                            <span className={`ml-auto text-[9px] px-1 rounded ${currentVal ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {currentVal ? 'BẬT' : 'TẮT'}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}

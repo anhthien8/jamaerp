@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
+import { getEffectivePermissions, RolePermissions, UserRole } from '@/lib/roles';
 
 // Demo mode — single shared password for all accounts (training/offline only)
 const DEMO_PASSWORD = 'demo123';
@@ -44,6 +45,8 @@ interface AuthContextType {
   isDemo: boolean;
   mode: AppMode;
   setMode: (mode: AppMode) => void;
+  /** Effective permissions: role defaults merged with per-user custom overrides */
+  effectivePermissions: RolePermissions;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -54,6 +57,7 @@ const AuthContext = createContext<AuthContextType>({
   isDemo: false,
   mode: 'work',
   setMode: () => {},
+  effectivePermissions: getEffectivePermissions('data_entry'),
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -63,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Derive isDemo from mode for backward compatibility
   const isDemo = mode === 'demo';
+
+  // Effective permissions: role defaults merged with per-user custom overrides
+  const effectivePermissions = useMemo(() => {
+    if (!user) return getEffectivePermissions('data_entry');
+    return getEffectivePermissions(user.role as UserRole, user.custom_permissions);
+  }, [user]);
 
   useEffect(() => {
     void Promise.resolve().then(() => {
@@ -158,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions }}>
       {children}
     </AuthContext.Provider>
   );

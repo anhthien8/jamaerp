@@ -56,12 +56,19 @@ function ChangePasswordSection() {
 
 /** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
 function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
+  const { isDemo } = useAuth();
   const [tgId, setTgId] = useState<string>(initialTgId ? String(initialTgId) : '');
   const [linked, setLinked] = useState<number | null>(initialTgId);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const save = async () => {
+    // Chế độ Tập luyện lưu vào dữ liệu mẫu → bot THẬT không biết → nhân viên tưởng
+    // liên kết xong mà Telegram vẫn báo "chưa liên kết CRM" (feedback beta 22/07)
+    if (isDemo) {
+      setMessage({ text: '⚠️ Đang ở Chế độ Tập luyện — liên kết ở đây không có tác dụng thật. Bấm "Chuyển sang Làm việc" (banner đầu trang), đăng nhập tài khoản thật rồi liên kết lại nhé.', ok: false });
+      return;
+    }
     const raw = tgId.trim();
     const parsed = raw === '' ? null : Number(raw);
     if (raw !== '' && (!Number.isInteger(parsed) || (parsed as number) <= 0)) {

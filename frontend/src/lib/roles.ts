@@ -111,3 +111,49 @@ export function getRoleLabel(role: UserRole): string {
 export function getPermissions(role: UserRole): RolePermissions {
   return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.data_entry;
 }
+
+/**
+ * Merge role defaults with per-user custom overrides.
+ * Custom overrides take precedence over role defaults.
+ * This enables admin to toggle individual permissions for each user.
+ */
+export function getEffectivePermissions(
+  role: UserRole,
+  customPermissions?: Record<string, boolean> | null,
+): RolePermissions {
+  const defaults = getPermissions(role);
+  if (!customPermissions || Object.keys(customPermissions).length === 0) {
+    return defaults;
+  }
+  // Custom overrides take precedence
+  return { ...defaults, ...customPermissions } as RolePermissions;
+}
+
+/**
+ * All permission keys (used to render the permissions checklist UI).
+ */
+export const ALL_PERMISSION_KEYS: Array<{ key: keyof RolePermissions; label: string }> = [
+  { key: 'canViewDashboard', label: 'Xem Dashboard' },
+  { key: 'canViewLeads', label: 'Xem Leads' },
+  { key: 'canViewAccounting', label: 'Xem Kế toán' },
+  { key: 'canViewPayroll', label: 'Xem Lương' },
+  { key: 'canViewCommissionOthers', label: 'Xem hoa hồng người khác' },
+  { key: 'canViewHR', label: 'Xem Nhân sự' },
+  { key: 'canManageUsers', label: 'Quản lý Users' },
+  { key: 'canViewProjects', label: 'Xem Dự án' },
+  { key: 'canViewContracts', label: 'Xem Hợp đồng' },
+  { key: 'canViewQuotations', label: 'Xem Báo giá' },
+  { key: 'canCreateQuotations', label: 'Tạo Báo giá' },
+  { key: 'canViewInventory', label: 'Xem Kho' },
+  { key: 'canViewReports', label: 'Xem Báo cáo' },
+  { key: 'canViewPnL', label: 'Xem Lợi nhuận (P&L)' },
+  { key: 'canCreateProjects', label: 'Tạo Dự án' },
+  { key: 'canCreateContracts', label: 'Tạo Hợp đồng' },
+  { key: 'canCreateTasks', label: 'Tạo Công việc' },
+  { key: 'canEditTasks', label: 'Sửa Công việc' },
+  { key: 'canViewAttendance', label: 'Xem Chấm công' },
+  { key: 'canViewKPI', label: 'Xem KPI' },
+  { key: 'canViewApprovals', label: 'Xem Phê duyệt' },
+  { key: 'canViewFeedback', label: 'Xem Feedback' },
+  { key: 'canViewSettings', label: 'Xem Cài đặt' },
+];

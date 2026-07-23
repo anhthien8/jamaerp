@@ -391,6 +391,18 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path === '/users') return toPaginated(d.DEMO_USERS, params) as T;
   if (path === '/users/teams') return d.DEMO_TEAMS as T;
+  // Per-user permission overrides (demo: store in-memory)
+  const _demoPermsCache: Record<string, Record<string, boolean>> = {};
+  if (path.match(/^\/users\/[^/]+\/permissions$/) && method === 'GET') {
+    const uid = path.split('/')[2];
+    return { user_id: uid, role: 'data_entry', custom_permissions: _demoPermsCache[uid] || null, combined_permissions: {} } as T;
+  }
+  if (path.match(/^\/users\/[^/]+\/permissions$/) && method === 'PUT') {
+    const uid = path.split('/')[2];
+    const body = (options?.body || {}) as { permissions?: Record<string, boolean> };
+    _demoPermsCache[uid] = body.permissions || {};
+    return { user_id: uid, custom_permissions: body.permissions || null, message: 'OK' } as T;
+  }
   if (path.match(/^\/users\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
     const idx = d.DEMO_USERS.findIndex(u => u.id === path.split('/')[2]);
     if (idx >= 0) { Object.assign(d.DEMO_USERS[idx], options?.body || {}); return d.DEMO_USERS[idx] as T; }
@@ -963,6 +975,18 @@ class ApiClient {
     return this.request<User>(`/users/${id}`, { method: 'PUT', body: data });
   }
 
+  // === Per-user permission overrides (admin only) ===
+  async getUserPermissions(userId: string) {
+    return this.request<{ user_id: string; role: string; custom_permissions: Record<string, boolean> | null; combined_permissions: Record<string, boolean> }>(
+      `/users/${userId}/permissions`
+    );
+  }
+  async setUserPermissions(userId: string, permissions: Record<string, boolean>) {
+    return this.request<{ user_id: string; custom_permissions: Record<string, boolean> | null; message: string }>(
+      `/users/${userId}/permissions`, { method: 'PUT', body: { permissions } }
+    );
+  }
+
   // === Resignation / Transfer ===
   async resignPreview(userId: string) {
     return this.request<{
@@ -1330,6 +1354,8 @@ export interface User {
   dependents_count?: number;
   resign_date?: string;
   resigned_by?: string;
+  /** Per-user permission overrides — null = use role defaults only */
+  custom_permissions?: Record<string, boolean> | null;
   created_at: string;
 }
 

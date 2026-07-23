@@ -1,6 +1,7 @@
 """Pydantic schemas for auth & users."""
 
-from pydantic import BaseModel, EmailStr, Field
+import json
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 
 
@@ -57,9 +58,24 @@ class UserResponse(BaseModel):
     dependents_count: int = 0
     resign_date: datetime | None = None
     resigned_by: str | None = None
+    # Per-user permission overrides (JSON string stored in DB, parsed to dict for API)
+    custom_permissions: dict | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("custom_permissions", mode="before")
+    @classmethod
+    def _parse_custom_permissions(cls, v):
+        """Parse JSON string from SQLAlchemy model to dict."""
+        if v is None or isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return None
 
 
 class TokenResponse(BaseModel):
