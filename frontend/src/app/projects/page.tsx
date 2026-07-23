@@ -25,6 +25,7 @@ const STAGE_LABELS: Record<string, string> = {
   construction: 'Thi công',
   acceptance: 'Nghiệm thu & Bàn giao',
   completed: 'Hoàn thành',
+  paused: 'Tạm dừng',
 };
 
 const DEPT_LABELS: Record<string, { label: string; color: string }> = {
@@ -1536,7 +1537,7 @@ export default function ProjectsPage() {
                   <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Phòng ban</label>
                   <select
                     value={taskForm.department}
-                    onChange={e => setTaskForm(f => ({ ...f, department: e.target.value }))}
+                    onChange={e => setTaskForm(f => ({ ...f, department: e.target.value, assigned_to: '' }))}
                     className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
                   >
                     {Object.entries(DEPT_LABELS).map(([k, v]) => (
@@ -1553,9 +1554,12 @@ export default function ProjectsPage() {
                   className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
                 >
                   <option value="">-- Chọn người --</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                  ))}
+                  {users
+                    .filter(u => !taskForm.department || u.department === taskForm.department || u.role === 'admin' || u.role === 'supervisor')
+                    .map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}{u.department ? ` (${u.department})` : ''}</option>
+                    ))
+                  }
                 </select>
               </div>
 
