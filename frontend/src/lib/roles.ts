@@ -108,8 +108,65 @@ export function getRoleLabel(role: UserRole): string {
   return labels[role] || role;
 }
 
+// ── Role-level permission overrides (loaded from API) ───────────────────
+// When admin toggles permissions in the matrix, overrides are stored here.
+let _roleOverrides: Partial<Record<UserRole, Partial<RolePermissions>>> = {};
+
+/** Load role-level permission overrides from backend (admin only). */
+export async function loadRolePermissions(): Promise<void> {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
+    if (!token) return;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const res = await fetch(`${baseUrl}/users/permissions/roles`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.roles) {
+      const overrides: Partial<Record<UserRole, Partial<RolePermissions>>> = {};
+      for (const [role, info] of Object.entries(data.roles) as Array<[string, { overrides?: Partial<RolePermissions> | null }]>) {
+        if (info.overrides && Object.keys(info.overrides).length > 0) {
+          overrides[role as UserRole] = info.overrides;
+        }
+      }
+      _roleOverrides = overrides;
+    }
+  } catch {
+    // Silently ignore — defaults will be used
+  }
+}
+
+/** Save role-level permission overrides for a specific role. */
+export async function saveRolePermissions(role: UserRole, permissions: Record<string, boolean>): Promise<void> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
+  if (!token) throw new Error('Not authenticated');
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const res = await fetch(`${baseUrl}/users/permissions/roles/${role}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ permissions }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  // Update local cache
+  _roleOverrides[role] = permissions as Partial<RolePermissions>;
+}
+
+/** Get current role-level overrides (for the matrix UI). */
+export function getRoleOverrides(): Partial<Record<UserRole, Partial<RolePermissions>>> {
+  return _roleOverrides;
+}
+
 export function getPermissions(role: UserRole): RolePermissions {
-  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.data_entry;
+  const base = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.data_entry;
+  const overrides = _roleOverrides[role];
+  if (overrides && Object.keys(overrides).length > 0) {
+    return { ...base, ...overrides } as RolePermissions;
+  }
+  return base;
 }
 
 /**

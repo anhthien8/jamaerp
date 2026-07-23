@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user, hash_password
 from app.models.user import User, Team
+from app.models.notification import SystemSetting
 from app.schemas.user import UserCreate, UserUpdate, VALID_ROLES
 from app.services.audit import log_action
 
@@ -172,6 +173,93 @@ async def list_teams(
         }
         for t in teams
     ]
+
+
+# ── Role-level permissions (matrix admin) ────────────────────────────────
+
+@router.get("/permissions/roles")
+async def get_role_permissions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all roles with their current permissions (defaults + overrides).
+
+    Only admin can manage role permissions.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới được xem phân quyền vai trò")
+
+    result = await db.execute(
+        select(SystemSetting).where(SystemSetting.key.like("role_permissions_%"))
+    )
+    stored = {s.key: s.value for s in result.scalars().all()}
+
+    roles_data = {}
+    for role in VALID_ROLES:
+        defaults = _ROLE_PERMISSION_DEFAULTS.get(role, {})
+        stored_key = f"role_permissions_{role}"
+        overrides = None
+        if stored_key in stored:
+            try:
+                overrides = json.loads(stored[stored_key])
+            except (json.JSONDecodeError, TypeError):
+                overrides = None
+
+        # Merge: defaults + overrides (overrides take precedence)
+        merged = dict(defaults)
+        if overrides:
+            merged.update(overrides)
+        roles_data[role] = {
+            "permissions": merged,
+            "overrides": overrides,
+        }
+
+    return {"roles": roles_data}
+
+
+@router.put("/permissions/roles/{role}")
+async def set_role_permissions(
+    role: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save role-level permission overrides.
+
+    Body: { "permissions": { "canViewAccounting": true, "canViewLeads": false, ... } }
+    An empty object {} resets to defaults.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới được thay đổi phân quyền vai trò")
+
+    if role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+
+    perms = data.get("permissions", {})
+    setting_key = f"role_permissions_{role}"
+
+    setting = await db.get(SystemSetting, setting_key)
+    if perms:
+        value = json.dumps(perms, ensure_ascii=False)
+        if setting:
+            setting.value = value
+            setting.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(SystemSetting(key=setting_key, value=value))
+    else:
+        # Empty: remove override (reset to defaults)
+        if setting:
+            await db.delete(setting)
+
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="role_permissions.update",
+        entity_type="role", entity_id=role,
+        after={"permissions": perms or None},
+    )
+
+    return {"role": role, "permissions": perms or None, "message": "Đã cập nhật phân quyền vai trò"}
 
 
 @router.get("/{user_id}")

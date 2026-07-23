@@ -55,6 +55,7 @@ const ALL_ITEMS = [
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
   { href: '/feedback', label: 'Góp ý', icon: Icon.reports, perm: 'canViewReports' },
+  { href: '/permissions', label: 'Phân quyền', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/users', label: 'Tài khoản', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/changelog', label: 'Có gì mới', icon: Icon.bell },
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
@@ -65,7 +66,7 @@ const ALL_ITEMS = [
 // theo tần suất dùng THẬT — còn lại vào "Xem thêm". Khối hiện trường (sales/GS)
 // thao tác chính trên Telegram, web chỉ giữ trang xem; khối văn phòng giữ trang làm việc sâu.
 const ROLE_ESSENTIALS: Record<string, string[]> = {
-  admin:      ['/', '/approvals', '/leads', '/projects', '/suppliers'],
+  admin:      ['/', '/approvals', '/leads', '/projects', '/permissions'],
   executive:  ['/', '/pl', '/projects', '/reports'],
   leader:     ['/', '/approvals', '/leads', '/kpi', '/attendance'],
   data_entry: ['/', '/leads', '/quote-tool', '/attendance', '/kpi'],

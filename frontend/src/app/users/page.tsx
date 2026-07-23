@@ -342,7 +342,14 @@ export default function UsersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Vai trò</label>
-                  <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value as UserRole })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                  <select value={form.role} onChange={e => {
+                    const newRole = e.target.value as UserRole;
+                    const defaultDept: Record<string, string> = {
+                      admin: 'EXEC', executive: 'EXEC', leader: 'SALES',
+                      data_entry: 'SALES', accountant: 'ACCT', supervisor: 'OPS',
+                    };
+                    setForm({ ...form, role: newRole, department: defaultDept[newRole] || form.department });
+                  }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
                     {ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
                   </select>
                 </div>
