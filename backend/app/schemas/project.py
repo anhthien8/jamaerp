@@ -60,6 +60,8 @@ class ProjectResponse(BaseModel):
     budget_total: float | None = None
     handover_date: datetime | None = None
     warranty_months: int = 12
+    pause_reason: str | None = None
+    paused_at: datetime | None = None
     stage_acceptances: dict | None = None
     created_at: datetime
     updated_at: datetime

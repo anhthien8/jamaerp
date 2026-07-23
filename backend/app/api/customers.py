@@ -17,6 +17,15 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerRespons
 def _escape_like(term: str) -> str:
     return term.replace("%", "\\%").replace("_", "\\_")
 
+_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
+
+
+def _mask_phone(phone: str | None, current_user=None) -> str | None:
+    """Mask phone for non-privileged roles: show first 3 digits + '***'."""
+    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+        return phone
+    return phone[:3] + "***" if len(phone) >= 3 else "***"
+
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -58,8 +67,13 @@ async def list_customers(
     result = await db.execute(q)
     customers = result.scalars().all()
 
+    items = []
+    for c in customers:
+        resp = CustomerResponse.model_validate(c).model_dump()
+        resp["phone"] = _mask_phone(resp.get("phone"), current_user)
+        items.append(resp)
     return {
-        "items": [CustomerResponse.model_validate(c) for c in customers],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -97,6 +111,7 @@ async def get_customer(
     ]
 
     resp = CustomerResponse.model_validate(customer).model_dump()
+    resp["phone"] = _mask_phone(resp.get("phone"), current_user)
     resp["projects"] = projects
     resp["project_count"] = len(projects)
     return resp
@@ -112,7 +127,9 @@ async def create_customer(
     customer = Customer(**data.model_dump())
     db.add(customer)
     await db.flush()
-    return CustomerResponse.model_validate(customer)
+    resp = CustomerResponse.model_validate(customer).model_dump()
+    resp["phone"] = _mask_phone(resp.get("phone"), current_user)
+    return resp
 
 
 @router.post("/{customer_id}/generate-portal-link")
@@ -158,4 +175,6 @@ async def update_customer(
         setattr(customer, k, v)
     customer.updated_at = datetime.now(timezone.utc)
     await db.flush()
-    return CustomerResponse.model_validate(customer)
+    resp = CustomerResponse.model_validate(customer).model_dump()
+    resp["phone"] = _mask_phone(resp.get("phone"), current_user)
+    return resp

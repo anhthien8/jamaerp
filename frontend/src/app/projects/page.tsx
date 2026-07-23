@@ -1201,6 +1201,42 @@ export default function ProjectsPage() {
                                       </option>
                                     ))}
                                   </select>
+                                  {/* Đảm nhận button — hiện khi task chưa có người phụ trách */}
+                                  {!task.assigned_to && (
+                                    <select
+                                      className="text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
+                                      style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
+                                      title="Đảm nhận / Giao việc"
+                                      value=""
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        if (e.target.value) {
+                                          handleTaskStatusChange(task.id, task.status); // refresh
+                                          // Assign via API
+                                          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/projects/${selectedProject?.id}/tasks/${task.id}/assign`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('jama_token') : ''}` },
+                                            body: JSON.stringify({ status: task.status, assigned_to: e.target.value }),
+                                          }).then(() => {
+                                            toast(`Đã giao việc cho ${users.find(u => u.id === e.target.value)?.full_name || 'nhân viên'}`, 'success');
+                                            refreshData();
+                                          }).catch(() => toast('Lỗi giao việc', 'error'));
+                                        }
+                                      }}
+                                    >
+                                      <option value="">👤 Đảm nhận</option>
+                                      {users.filter(u => !task.department || u.department === task.department || u.role === 'admin' || u.role === 'supervisor').map(u => (
+                                        <option key={u.id} value={u.id}>{u.full_name}</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                  {/* Assigned user display */}
+                                  {task.assigned_to && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]" title={users.find(u => u.id === task.assigned_to)?.full_name || ''}>
+                                      {users.find(u => u.id === task.assigned_to)?.full_name?.split(' ').pop() || '✓'}
+                                    </span>
+                                  )}
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                                 </div>
                               );

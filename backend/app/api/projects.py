@@ -17,6 +17,22 @@ from app.schemas.project import (
 )
 from pydantic import BaseModel
 
+_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
+
+
+def _mask_phone(phone: str | None, current_user=None) -> str | None:
+    """Mask phone for non-privileged roles: show first 3 digits + '***'."""
+    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+        return phone
+    return phone[:3] + "***" if len(phone) >= 3 else "***"
+
+
+def _mask_project_response(proj_resp, current_user=None):
+    """Mask client_phone in a ProjectResponse dict."""
+    d = proj_resp.model_dump() if not isinstance(proj_resp, dict) else proj_resp
+    d["client_phone"] = _mask_phone(d.get("client_phone"), current_user)
+    return d
+
 
 # ── RBAC dependency ──────────────────────────────────────────────────────────
 
@@ -176,7 +192,7 @@ async def list_projects(
     projects = result.scalars().all()
 
     return {
-        "items": [ProjectResponse.model_validate(p) for p in projects],
+        "items": [_mask_project_response(ProjectResponse.model_validate(p), current_user) for p in projects],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -190,13 +206,14 @@ async def project_kanban(
     current_user: User = Depends(require_project_access),
 ):
     """Kanban board data — projects grouped by stage."""
-    stages = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
+    stages = ["design", "quotation", "procurement", "construction", "acceptance", "paused", "completed"]
     stage_labels = {
         "design": "Thiết kế",
         "quotation": "Báo giá",
         "procurement": "Thu mua",
         "construction": "Thi công",
         "acceptance": "Nghiệm thu",
+        "paused": "Tạm dừng",
         "completed": "Hoàn thành",
     }
     kanban = []
@@ -213,7 +230,7 @@ async def project_kanban(
         if p.stage in by_stage:
             response = ProjectResponse.model_validate(p)
             response.stage_progress = progress_map.get(p.id)
-            by_stage[p.stage].append(response)
+            by_stage[p.stage].append(_mask_project_response(response, current_user))
 
     for stage in stages:
         kanban.append(ProjectKanbanStage(
@@ -282,7 +299,7 @@ async def projects_by_department(
             end = end.replace(tzinfo=timezone.utc)
         days_left = (end - now).days if end else None
         items.append({
-            **ProjectResponse.model_validate(p).model_dump(),
+            **_mask_project_response(ProjectResponse.model_validate(p), current_user),
             "pending_tasks": pending_map.get(p.id, 0),
             "days_left": days_left,
         })
@@ -300,7 +317,7 @@ async def get_project(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
-    return ProjectResponse.model_validate(project)
+    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
 
 
 @router.post("", response_model=ProjectResponse)
@@ -315,7 +332,7 @@ async def create_project(
     project = Project(**data.model_dump())
     db.add(project)
     await db.flush()
-    return ProjectResponse.model_validate(project)
+    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
@@ -344,7 +361,7 @@ async def update_project(
         cache.clear_prefix("pl")
         cache.clear_prefix("dashboard")
 
-    return ProjectResponse.model_validate(project)
+    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
 
 
 @router.get("/{project_id}/tasks", response_model=list[TaskResponse])
@@ -419,7 +436,7 @@ async def update_project_stage(
     cache.clear_prefix("pl")
     cache.clear_prefix("dashboard")
 
-    return ProjectResponse.model_validate(project)
+    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
 
 
 @router.get("/tasks/{task_id}/activities", response_model=list[TaskActivityResponse])
@@ -539,6 +556,63 @@ async def update_task_status(
         project.updated_at = datetime.now(timezone.utc)
         await db.flush()
 
+    return TaskResponse.model_validate(task)
+
+
+@router.put("/{project_id}/tasks/{task_id}/assign")
+async def assign_task(
+    project_id: str,
+    task_id: str,
+    data: TaskStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Assign a task to a user."""
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.project_id == project_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    # The body should contain assigned_to
+    assigned_to = getattr(data, 'assigned_to', None) or (data.model_dump().get('assigned_to'))
+    if assigned_to:
+        task.assigned_to = assigned_to
+        await db.flush()
+        # Create notification for the assigned user
+        from app.models.notification import Notification
+        notif = Notification(
+            user_id=assigned_to,
+            type="system",
+            title="Bạn được giao task mới",
+            body=f"Task: {task.title}",
+            link="/projects",
+        )
+        db.add(notif)
+        await db.flush()
+    return TaskResponse.model_validate(task)
+
+
+@router.put("/{project_id}/tasks/{task_id}")
+async def update_task(
+    project_id: str,
+    task_id: str,
+    data: TaskCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update task details (title, description, assigned_to)."""
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.project_id == project_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if data.title:
+        task.title = data.title
+    if data.description is not None:
+        task.description = data.description
+    if data.assigned_to:
+        task.assigned_to = data.assigned_to
+    if data.department:
+        task.department = data.department
+    await db.flush()
     return TaskResponse.model_validate(task)
 
 
