@@ -37,6 +37,10 @@ class Project(Base):
     # Ngân sách kế hoạch — so với chi thực tế (spent) để cảnh báo vượt ngân sách sớm
     budget_total: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Lý do tạm dừng
+    pause_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Bàn giao & bảo hành: warranty_end = handover_date + warranty_months
     handover_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     warranty_months: Mapped[int] = mapped_column(Integer, nullable=False, default=12)

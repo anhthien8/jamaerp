@@ -38,7 +38,7 @@ const DEPT_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 // ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
-const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance'] as const;
+const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'paused'] as const;
 const STAGE_SHORT: Record<string, string> = {
   design: 'Thiết kế', quotation: 'Báo giá', procurement: 'Thu mua',
   construction: 'Thi công', acceptance: 'Nghiệm thu',
@@ -135,6 +135,8 @@ export default function ProjectsPage() {
     budget_total: '', handover_date: '', warranty_months: '12',
   });
   const [savingProject, setSavingProject] = useState(false);
+  const [showPauseReason, setShowPauseReason] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
 
   // Task form modal state
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -344,6 +346,12 @@ export default function ProjectsPage() {
 
   const handleProjectStageChange = async (newStage: string) => {
     if (!selectedProject) return;
+    // Nếu chọn "Tạm dừng" → hỏi lý do
+    if (newStage === 'paused') {
+      setShowPauseReason(true);
+      setPauseReason('');
+      return;
+    }
     try {
       const updated = await api.updateProjectStage(selectedProject.id, newStage);
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? updated : p));
@@ -352,6 +360,23 @@ export default function ProjectsPage() {
       toast(`Đã chuyển dự án sang giai đoạn ${STAGE_LABELS[newStage]}`, 'success');
     } catch {
       toast('Lỗi khi cập nhật giai đoạn', 'error');
+    }
+  };
+
+  const confirmPause = async () => {
+    if (!selectedProject) return;
+    try {
+      const updated = await api.request(`/projects/${selectedProject.id}/stage`, {
+        method: 'PUT', body: { stage: 'paused', pause_reason: pauseReason.trim() || null },
+      });
+      const u = updated as Record<string, unknown>;
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, ...u } as Project : p));
+      setSelectedProject(prev => prev ? { ...prev, ...u } as Project : null);
+      refreshData();
+      setShowPauseReason(false);
+      toast(`Đã tạm dừng dự án. Lý do: ${pauseReason || 'Không ghi rõ'}`, 'success');
+    } catch {
+      toast('Lỗi khi tạm dừng dự án', 'error');
     }
   };
 
@@ -926,6 +951,14 @@ export default function ProjectsPage() {
             </div>
 
             <div className="p-5 space-y-5">
+              {/* Pause Reason — hiển thị khi dự án tạm dừng */}
+              {selectedProject.stage === 'paused' && (
+                <div className="p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                  <p className="text-xs font-semibold text-amber-400 mb-1">⏸️ Lý do tạm dừng:</p>
+                  <p className="text-sm text-[var(--text-secondary)]">{(selectedProject as unknown as Record<string, string>).pause_reason || 'Không ghi rõ'}</p>
+                </div>
+              )}
+
               {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
@@ -1179,6 +1212,33 @@ export default function ProjectsPage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pause Reason Modal */}
+      {showPauseReason && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setShowPauseReason(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">⏸️ Tạm dừng dự án</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-3">Nhập lý do tạm dừng để lần sau quay lại biết context:</p>
+            <textarea
+              value={pauseReason}
+              onChange={e => setPauseReason(e.target.value)}
+              placeholder="VD: Đang xin phép, khách đi du lịch, chờ vật liệu..."
+              rows={3}
+              className="w-full text-xs px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white resize-none outline-none focus:border-[#C9A96E]"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-3 justify-end">
+              <button onClick={() => setShowPauseReason(false)}
+                className="px-3 py-1.5 rounded-xl text-xs bg-white/5 text-[var(--text-muted)]">Hủy</button>
+              <button onClick={confirmPause}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
+                Xác nhận tạm dừng
+              </button>
             </div>
           </div>
         </div>

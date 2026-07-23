@@ -62,6 +62,7 @@ async def require_project_access(
 
 class ProjectStageUpdate(BaseModel):
     stage: str
+    pause_reason: str | None = None
 
 class TaskCreate(BaseModel):
     title: str
@@ -406,6 +407,12 @@ async def update_project_stage(
 
     project.stage = data.stage
     project.updated_at = datetime.now(timezone.utc)
+    if data.stage == "paused" and hasattr(data, 'pause_reason') and data.pause_reason:
+        project.pause_reason = data.pause_reason
+        project.paused_at = datetime.now(timezone.utc)
+    elif data.stage != "paused":
+        project.pause_reason = None
+        project.paused_at = None
     await db.flush()
 
     # Invalidate caches affected by project stage changes
