@@ -41,19 +41,30 @@ STAGE_LABELS = {
 }
 
 
-_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
-
-
-def _mask_phone(phone: str | None, current_user=None) -> str | None:
-    """Mask phone for non-privileged roles: show first 3 digits + '***'."""
-    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+def _mask_phone(phone: str | None, current_user=None, lead: Lead | None = None) -> str | None:
+    """Mask phone based on scope: admin=full, leader=own team, sale=own leads, others=masked."""
+    if not phone or not current_user:
         return phone
+    # Admin always sees full
+    if current_user.role == "admin":
+        return phone
+    # Leader: full for own team leads, masked for others
+    if current_user.role == "leader":
+        if lead and lead.team_id == current_user.team_id:
+            return phone
+        return phone[:3] + "***" if len(phone) >= 3 else "***"
+    # Sale (data_entry): full for own leads, masked for others
+    if current_user.role == "data_entry":
+        if lead and lead.assigned_to == current_user.id:
+            return phone
+        return phone[:3] + "***" if len(phone) >= 3 else "***"
+    # All other roles: always masked
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 
 
 def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act_count: int = 0, current_user=None) -> LeadResponse:
     return LeadResponse(
-        id=lead.id, name=lead.name, phone=_mask_phone(lead.phone, current_user), email=lead.email,
+        id=lead.id, name=lead.name, phone=_mask_phone(lead.phone, current_user, lead), email=lead.email,
         contact_person=lead.contact_person, address=lead.address, needs=lead.needs,
         source=lead.source, channel=lead.channel,
         property_type=lead.property_type,
