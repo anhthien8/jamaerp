@@ -187,13 +187,10 @@ function LeadsContent() {
       const params: Record<string, string> = {};
       if (filterSource !== 'all') params.source = filterSource;
       if (filterPriority !== 'all') params.priority = filterPriority;
-      const allLeads = extractItems(await api.getLeads(params));
-      // Normalize tags: backend may return JSON string instead of array
-      for (const lead of allLeads) {
-        if (typeof lead.tags === 'string') {
-          try { lead.tags = JSON.parse(lead.tags); } catch { lead.tags = []; }
-        }
-      }
+      const allLeads = extractItems(await api.getLeads(params)).map(lead => ({
+        ...lead,
+        tags: typeof lead.tags === 'string' ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })() : lead.tags || [],
+      }));
       // Apply role-based scope filtering
       let filtered = allLeads;
       if (perms.leadsScope === 'own') {
@@ -272,7 +269,7 @@ function LeadsContent() {
     }
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="grid grid-cols-5 gap-3">{[1,2,3,4,5].map(i => <div key={i} className="skeleton h-32 rounded-xl" />)}</div></div></Sidebar>;
   if (error) {
     return (
       <Sidebar>

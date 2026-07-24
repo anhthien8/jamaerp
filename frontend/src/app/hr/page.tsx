@@ -181,7 +181,7 @@ export default function HRPage() {
 
   const permissions = user ? getPermissions(user.role as UserRole) : null;
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-64 rounded-xl" /></div></Sidebar>;
 
   // Group by department
   const byDept = users.reduce((acc, u) => {

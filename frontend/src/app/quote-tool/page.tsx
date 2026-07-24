@@ -114,7 +114,7 @@ export default function QuoteToolPage() {
     api.getPriceItems().then(setPriceItems).catch(() => {});
   }, []);
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-48 rounded-xl" /></div></Sidebar>;
   const canEditPrices = user.role === 'admin' || user.role === 'supervisor';
   const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
 

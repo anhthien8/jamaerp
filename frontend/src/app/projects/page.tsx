@@ -514,7 +514,7 @@ export default function ProjectsPage() {
     }
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="grid grid-cols-4 gap-3">{[1,2,3,4].map(i => <div key={i} className="skeleton h-24 rounded-xl" />)}</div></div></Sidebar>;
   if (error) {
     return (
       <Sidebar>
@@ -1228,11 +1228,7 @@ export default function ProjectsPage() {
                                         if (e.target.value) {
                                           handleTaskStatusChange(task.id, task.status); // refresh
                                           // Assign via API
-                                          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/projects/${selectedProject?.id}/tasks/${task.id}/assign`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('jama_token') : ''}` },
-                                            body: JSON.stringify({ status: task.status, assigned_to: e.target.value }),
-                                          }).then(() => {
+                                          api.assignTask(selectedProject?.id || '', task.id, e.target.value).then(() => {
                                             toast(`Đã giao việc cho ${users.find(u => u.id === e.target.value)?.full_name || 'nhân viên'}`, 'success');
                                             refreshData();
                                           }).catch(() => toast('Lỗi giao việc', 'error'));

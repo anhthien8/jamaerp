@@ -79,6 +79,7 @@ export default function KpiPage() {
   const [teamData, setTeamData] = useState<TeamMember[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [busy, setBusy] = useState(false);
+  const [kpiError, setKpiError] = useState<string | null>(null);
 
   const isLeaderOrAbove = user && ['admin', 'leader', 'executive'].includes(user.role);
 
@@ -90,16 +91,17 @@ export default function KpiPage() {
   useEffect(() => {
     if (!user) return;
     setBusy(true);
+    setKpiError(null);
     if (tab === 'me') {
-      api.getKpiMe(period).then(setMyKpi).catch(() => {}).finally(() => setBusy(false));
+      api.getKpiMe(period).then(setMyKpi).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
     } else if (tab === 'team' && isLeaderOrAbove) {
-      api.getKpiTeam(period).then((d: any) => setTeamData(d.members || [])).catch(() => {}).finally(() => setBusy(false));
+      api.getKpiTeam(period).then((d: any) => setTeamData(d.members || [])).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
     } else if (tab === 'leaderboard') {
-      api.getKpiLeaderboard(period).then((d: any) => setLeaderboard(d.leaderboard || [])).catch(() => {}).finally(() => setBusy(false));
+      api.getKpiLeaderboard(period).then((d: any) => setLeaderboard(d.leaderboard || [])).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
     }
   }, [tab, period, user]);
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></Sidebar>;
 
   return (
     <Sidebar>
@@ -201,8 +203,16 @@ export default function KpiPage() {
           </div>
         )}
 
+        {/* Tab: My KPI — error state */}
+        {!busy && kpiError && (
+          <div className="glass-card p-8 flex flex-col items-center text-center">
+            <div className="text-4xl mb-3">⚠️</div>
+            <p className="text-sm text-red-400 mb-2">{kpiError}</p>
+            <button onClick={() => setKpiError(null)} className="text-xs px-3 py-1 rounded-lg bg-white/5">Thử lại</button>
+          </div>
+        )}
         {/* Tab: My KPI — empty state */}
-        {!busy && tab === 'me' && !myKpi && (
+        {!busy && !kpiError && tab === 'me' && !myKpi && (
           <div className="glass-card p-10 flex flex-col items-center text-center">
             <div className="text-4xl mb-3">📊</div>
             <p className="text-sm text-[var(--text-secondary)] max-w-md">

@@ -900,6 +900,12 @@ class ApiClient {
       body: { status },
     });
   }
+  async assignTask(projectId: string, taskId: string, userId: string) {
+    return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/assign`, {
+      method: 'PUT',
+      body: { status: 'not_started', assigned_to: userId },
+    });
+  }
 
   // Accounting
   async getTransactions(params?: Record<string, string>) {

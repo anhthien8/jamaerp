@@ -111,7 +111,7 @@ export default function PermissionsPage() {
     setHasChanges(true);
   };
 
-  const handleSaveRole = async (role: UserRole) => {
+  const handleSaveRole = async (role: UserRole, skipReset = false) => {
     setSaving(role);
     try {
       const roleOverrides = overrides[role] || {};
@@ -125,7 +125,7 @@ export default function PermissionsPage() {
       }
       await saveRolePermissions(role, relevantOverrides);
       toast(`Da luu phan quyen vai tro ${getRoleLabel(role)}`, 'success');
-      setHasChanges(false);
+      if (!skipReset) setHasChanges(false);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Luu that bai', 'error');
     } finally {
@@ -135,8 +135,9 @@ export default function PermissionsPage() {
 
   const handleSaveAll = async () => {
     for (const role of ROLES) {
-      await handleSaveRole(role);
+      await handleSaveRole(role, true); // pass true to skip individual hasChanges reset
     }
+    setHasChanges(false);
   };
 
   const handleResetRole = (role: UserRole) => {
