@@ -1,6 +1,6 @@
 """Pydantic schemas for projects, tasks, and task activities."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from datetime import datetime
 
 
@@ -68,6 +68,30 @@ class ProjectResponse(BaseModel):
     # Tiến độ đầu việc theo giai đoạn: {"design": {"done": 3, "total": 5}, ...}
     # Chỉ được đổ ở endpoint kanban (aggregate 1 query) — nơi khác để None
     stage_progress: dict[str, dict] | None = None
+    # Trạng thái hiển thị gộp (status + stage) — frontend dùng thay cho 2 field riêng
+    display_status: str | None = None
+
+    _STAGE_LABELS = {
+        "design": "Thiet ke",
+        "quotation": "Bao gia",
+        "procurement": "Thu mau",
+        "construction": "Thi cong",
+        "acceptance": "Nghiem thu",
+        "completed": "Hoan thanh",
+        "paused": "Tam dung",
+    }
+
+    @model_validator(mode="after")
+    def _compute_display_status(self):
+        stage = getattr(self, "stage", None)
+        status = getattr(self, "status", None)
+        if stage == "paused" or status == "paused":
+            self.display_status = "Tam dung"
+        elif stage == "completed" or status == "completed":
+            self.display_status = "Hoan thanh"
+        else:
+            self.display_status = self._STAGE_LABELS.get(stage, stage)
+        return self
 
     model_config = {"from_attributes": True}
 
@@ -81,6 +105,7 @@ class TaskResponse(BaseModel):
     stage: str
     department: str | None = None
     final_file_url: str | None = None
+    final_file_versions: list[dict] | None = None
     assigned_to: str | None = None
     order: int
     due_date: datetime | None = None

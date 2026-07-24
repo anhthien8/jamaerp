@@ -44,6 +44,7 @@ class MaterialRequest(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     # Statuses: pending, approved, rejected
     requester_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    task_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("tasks.id"), nullable=True)
     approver_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     reject_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -54,6 +55,7 @@ class MaterialRequest(Base):
     __table_args__ = (
         Index("ix_material_requests_project", "project_id"),
         Index("ix_material_requests_status", "status"),
+        Index("ix_material_requests_task", "task_id"),
     )
 
     def __repr__(self) -> str:
@@ -77,6 +79,7 @@ class MaterialRequestPayload(BaseModel):
     quantity: float = Field(..., gt=0)
     unit: str = Field(..., min_length=1, max_length=20)
     requester_tg_id: int = Field(..., description="Telegram user ID of the requester")
+    task_id: str | None = Field(default=None, description="Optional: link to a specific task")
 
 
 class IncidentRequest(BaseModel):
@@ -319,9 +322,25 @@ async def create_material_request(
         estimated_cost=estimated_cost,
         status="pending",
         requester_id=requester.id,
+        task_id=data.task_id,
     )
     db.add(mat_request)
     await db.flush()
+
+    # If a task_id was provided, log a TaskActivity on the linked task
+    if data.task_id:
+        task_result = await db.execute(
+            select(Task).where(Task.id == data.task_id, Task.project_id == project.id)
+        )
+        linked_task = task_result.scalar_one_or_none()
+        if linked_task:
+            activity = TaskActivity(
+                task_id=linked_task.id,
+                user_id=requester.id,
+                content=f"Yeu cau vat tu: {data.material_name} x {data.quantity} {data.unit}",
+            )
+            db.add(activity)
+            await db.flush()
 
     return {
         "request_id": mat_request.id,

@@ -87,6 +87,7 @@ class BackgroundWorker:
         self._last_backup_date: str = ""          # "YYYY-MM-DD" (VN time)
         self._last_attendance_close_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
+        self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -276,6 +277,15 @@ class BackgroundWorker:
                     "timesheet_lock_notify",
                     process_timesheet_lock_notify,
                     vn_now,
+                    priority=TaskPriority.NORMAL,
+                )
+
+            # Daily payment reminder for overdue installments — 08:30 VN
+            if vn_now.hour >= 8 and vn_now.minute >= 30 and self._last_payment_reminder_date != today_str:
+                self._last_payment_reminder_date = today_str
+                self.enqueue_task(
+                    "payment_reminders",
+                    process_payment_reminders,
                     priority=TaskPriority.NORMAL,
                 )
 
@@ -557,6 +567,86 @@ async def process_timesheet_lock_notify(vn_now: datetime) -> dict[str, Any]:
         return {"status": "completed", "notified": notified, "period": prev_period}
     except Exception as exc:
         logger.exception("Timesheet lock notification failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_payment_reminders() -> dict[str, Any]:
+    """Nhắc kế toán về các đợt thanh toán quá hạn (daily)."""
+    logger.info("Starting payment reminder check for overdue installments...")
+    try:
+        from datetime import date, timezone as tz
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models.contract import Contract
+        from app.models.user import User
+        from app.services.automation import _notify
+
+        today = date.today()
+        notified = 0
+        checked = 0
+
+        async with async_session() as session:
+            # Find signed/active contracts with pending installments
+            result = await session.execute(
+                select(Contract).where(
+                    Contract.status.in_(["signed", "active"]),
+                    Contract.payment_terms.isnot(None),
+                )
+            )
+            contracts = result.scalars().all()
+
+            for contract in contracts:
+                terms = contract.payment_terms or {}
+                installments = terms.get("installments", [])
+                for inst in installments:
+                    checked += 1
+                    if inst.get("status") != "pending":
+                        continue
+                    # Check for overdue: installment has a due_date in the past
+                    due_date_str = inst.get("due_date")
+                    if not due_date_str:
+                        continue
+                    try:
+                        due_date = date.fromisoformat(due_date_str)
+                    except (ValueError, TypeError):
+                        continue
+                    if due_date >= today:
+                        continue
+
+                    # Find accountant users to notify
+                    acct_result = await session.execute(
+                        select(User).where(
+                            User.role.in_(["accountant", "admin"]),
+                            User.is_active == True,  # noqa: E712
+                        )
+                    )
+                    for acct in acct_result.scalars().all():
+                        inst_name = inst.get("name", "Không rõ")
+                        amount = contract.total_value or 0
+                        pct = inst.get("percentage", 0)
+                        inst_amount = round(amount * pct / 100, 2) if pct else 0
+                        ok = await _notify(
+                            session,
+                            acct,
+                            "payment_reminder",
+                            f"Nhắc thanh toán: HĐ {contract.code}",
+                            f"Đợt thanh toán {inst_name} của HĐ {contract.code} đã quá hạn. "
+                            f"Số tiền: {inst_amount:,.0f} VND",
+                            link=f"/contracts?id={contract.id}",
+                            ref_id=f"{contract.id}:{inst_name}",
+                        )
+                        if ok:
+                            notified += 1
+                        break  # Only notify one accountant per installment (dedupe)
+
+            await session.commit()
+        logger.info(
+            "Payment reminders finished: checked=%d installments, notified=%d",
+            checked, notified,
+        )
+        return {"status": "completed", "checked": checked, "notified": notified}
+    except Exception as exc:
+        logger.exception("Payment reminders failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

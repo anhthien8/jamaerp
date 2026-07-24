@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAMA HOME CRM — Slide Thuyết Trình</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1117; color: #E6EDF3; }
+  .slide { width: 1280px; height: 720px; margin: 40px auto; padding: 48px 56px; background: linear-gradient(135deg, #0D1526, #1A2332); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; position: relative; overflow: hidden; page-break-after: always; }
+  .slide::before { content: ''; position: absolute; top: -100px; right: -100px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(201,169,110,0.08), transparent 70%); }
+  .slide h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+  .slide h1 span { color: #C9A96E; }
+  .slide h2 { font-size: 20px; color: #9BA7B4; margin-bottom: 24px; }
+  .slide h3 { font-size: 16px; color: #C9A96E; margin: 16px 0 8px; }
+  .slide .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 20px 0; }
+  .slide .kpi-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; text-align: center; }
+  .slide .kpi-card .value { font-size: 28px; font-weight: 800; color: #C9A96E; }
+  .slide .kpi-card .label { font-size: 12px; color: #9BA7B4; margin-top: 4px; }
+  .slide .kanban { display: flex; gap: 12px; overflow: hidden; }
+  .slide .kanban-col { flex: 1; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px; min-width: 0; }
+  .slide .kanban-col h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .slide .kanban-col .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .slide .kanban-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; margin-bottom: 8px; border-left: 3px solid; }
+  .slide .kanban-card .title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .slide .kanban-card .meta { font-size: 10px; color: #9BA7B4; }
+  .slide .progress-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; }
+  .slide .progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #C9A96E, #B8935A); }
+  .slide .footer { position: absolute; bottom: 24px; left: 56px; right: 56px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #6B7683; }
+  .slide .footer .logo { font-weight: 800; color: #C9A96E; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 8px 12px; font-size: 12px; color: #9BA7B4; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .section-title { font-size: 14px; font-weight: 700; color: #C9A96E; margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+  @media print { .slide { margin: 0; border: none; } }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Dashboard -->
+<div class="slide">
+  <h1>📊 <span>Dashboard</span> Tổng Quan</h1>
+  <h2>JAMA HOME CRM — Hệ thống quản lý ERP</h2>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="value">100+</div>
+      <div class="label">Leads đang xử lý</div>
+    </div>
+    <div class="kpi-card">
+      <div class="value">98 tỷ</div>
+      <div class="label">Doanh thu tháng</div>
+    </div>
+    <div class="kpi-card">
+      <div class="value">30+</div>
+      <div class="label">Dự án đang chạy</div>
+    </div>
+    <div class="kpi-card">
+      <div class="value">20%</div>
+      <div class="label">Tỷ suất lợi nhuận</div>
+    </div>
+  </div>
+
+  <h3>📈 Xu hướng 6 tháng</h3>
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0;">
+    <div style="text-align:center;padding:12px 0;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <div style="font-size:10px;color:#9BA7B4;">T1</div>
+      <div style="font-size:16px;font-weight:700;color:#34d399;">85 tỷ</div>
+    </div>
+    <div style="text-align:center;padding:12px 0;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <div style="font-size:10px;color:#9BA7B4;">T2</div>
+      <div style="font-size:16px;font-weight:700;color:#34d399;">92 tỷ</div>
+    </div>
+    <div style="text-align:center;padding:12px 0;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <div style="font-size:10px;color:#9BA7B4;">T3</div>
+      <div style="font-size:16px;font-weight:700;color:#34d399;">105 tỷ</div>
+    </div>
+    <div style="text-align:center;padding:12px 0;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <div style="font-size:10px;color:#9BA7B4;">T4</div>
+      <div style="font-size:16px;font-weight:700;color:#34d399;">98 tỷ</div>
+    </div>
+    <div style="text-align:center;padding:12px 0;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <div style="font-size:10px;color:#9BA7B4;">T5</div>
+      <div style="font-size:16px;font-weight:700;color:#34d399;">110 tỷ</div>
+    </div>
+    <div style="text-align:center;padding:12px 0;background:rgba(201,169,110,0.1);border:1px solid rgba(201,169,110,0.3);border-radius:8px;">
+      <div style="font-size:10px;color:#C9A96E;">T6</div>
+      <div style="font-size:16px;font-weight:700;color:#C9A96E;">115 tỷ</div>
+    </div>
+  </div>
+
+  <h3>👥 Hiệu suất theo team</h3>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+    <div class="kpi-card"><div class="value" style="font-size:20px;">Đội Văn Toàn</div><div class="label">40 leads · 8 deal thắng · Conversion 20%</div></div>
+    <div class="kpi-card"><div class="value" style="font-size:20px;">Đội Thái Phượng</div><div class="label">35 leads · 7 deal thắng · Conversion 20%</div></div>
+  </div>
+
+  <div class="footer"><span class="logo">JAMA HOME</span><span>ERP + CRM — Thiết kế cho cuộc sống mới</span></div>
+</div>
+
+<!-- SLIDE 2: CRM Pipeline -->
+<div class="slide">
+  <h1>🔄 <span>Pipeline</span> Quản lý Lead</h1>
+  <h2>Theo dõi 100+ khách hàng tiềm năng qua 5 giai đoạn</h2>
+
+  <div class="kanban">
+    <div class="kanban-col">
+      <h4><div class="dot" style="background:#3B82F6;"></div> Tiếp nhận mới <span style="color:#9BA7B4;font-weight:400;">(15)</span></h4>
+      <div class="kanban-card" style="border-color:#3B82F6;"><div class="title">Nguyễn Văn A</div><div class="meta">0901*** · FB · Nhà phố Q7</div></div>
+      <div class="kanban-card" style="border-color:#3B82F6;"><div class="title">Trần Thị Bình</div><div class="meta">0912*** · Zalo · Villa Bình Chánh</div></div>
+    </div>
+    <div class="kanban-col">
+      <h4><div class="dot" style="background:#F59E0B;"></div> Đang tư vấn <span style="color:#9BA7B4;font-weight:400;">(20)</span></h4>
+      <div class="kanban-card" style="border-color:#F59E0B;"><div class="title">Lê Hoàng Chương</div><div class="meta">0978*** · Referral · Căn hộ Q9</div></div>
+      <div class="kanban-card" style="border-color:#F59E0B;"><div class="title">Phạm Minh Đức</div><div class="meta">0989*** · Website · Shophouse Q2</div></div>
+    </div>
+    <div class="kanban-col">
+      <h4><div class="dot" style="background:#8B5CF6;"></div> Khảo sát <span style="color:#9BA7B4;font-weight:400;">(15)</span></h4>
+      <div class="kanban-card" style="border-color:#8B5CF6;"><div class="title">Vũ Thanh Giang</div><div class="meta">0905*** · TikTok · Office Q1</div></div>
+    </div>
+    <div class="kanban-col">
+      <h4><div class="dot" style="background:#10B981;"></div> Dự toán <span style="color:#9BA7B4;font-weight:400;">(15)</span></h4>
+      <div class="kanban-card" style="border-color:#10B981;"><div class="title">Đặng Văn Hùng</div><div class="meta">0967*** · FB · Biệt thự Long An</div></div>
+    </div>
+    <div class="kanban-col">
+      <h4><div class="dot" style="background:#C9A96E;"></div> Ký HĐ <span style="color:#9BA7B4;font-weight:400;">(20)</span></h4>
+      <div class="kanban-card" style="border-color:#C9A96E;"><div class="title">Bùi Thị Iris</div><div class="meta">0934*** · Zalo · Nhà phố Gò Vấp</div></div>
+      <div class="kanban-card" style="border-color:#C9A96E;"><div class="title">Ngô Cảnh Khoa</div><div class="meta">0945*** · FB · Villa Thủ Đức</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;padding:12px 16px;background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);border-radius:12px;">
+    <p style="font-size:12px;color:#C9A96E;"><b>⚡ Tự động hóa:</b> Lead mới từ Zalo → AI parse → tạo lead. Lead quá hạn 7 ngày → tự thu hồi + giao sale khác. Ký HĐ → tự tạo hợp đồng + dự án + 19 tasks.</p>
+  </div>
+
+  <div class="footer"><span class="logo">JAMA HOME</span><span>CRM — Pipeline quản lý khách hàng tiềm năng</span></div>
+</div>
+
+<!-- SLIDE 3: Quản lý Dự án -->
+<div class="slide">
+  <h1>🏗️ <span>Quản lý</span> Dự án</h1>
+  <h2>Kanban 5 giai đoạn · 19 tasks tự tạo · Theo dõi tiến độ real-time</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="section-title">📋 Quy trình 5 giai đoạn</div>
+      <div style="display:flex;gap:4px;margin:8px 0;">
+        <div style="flex:1;padding:8px 0;text-align:center;background:rgba(139,92,246,0.15);border-radius:8px;font-size:11px;color:#8B5CF6;">Thiết kế</div>
+        <div style="flex:1;padding:8px 0;text-align:center;background:rgba(245,158,11,0.15);border-radius:8px;font-size:11px;color:#F59E0B;">Báo giá</div>
+        <div style="flex:1;padding:8px 0;text-align:center;background:rgba(16,185,129,0.15);border-radius:8px;font-size:11px;color:#10B981;">Thu mua</div>
+        <div style="flex:1;padding:8px 0;text-align:center;background:rgba(59,130,246,0.15);border-radius:8px;font-size:11px;color:#3B82F6;">Thi công</div>
+        <div style="flex:1;padding:8px 0;text-align:center;background:rgba(201,169,110,0.15);border-radius:8px;font-size:11px;color:#C9A96E;">Nghiệm thu</div>
+      </div>
+
+      <div class="section-title">📝 19 Tasks tự tạo</div>
+      <table>
+        <tr><th>Giai đoạn</th><th>Số tasks</th><th>Ví dụ</th></tr>
+        <tr><td>Thiết kế</td><td>5</td><td>2D Concept, 3D Render, Bản vẽ KT</td></tr>
+        <tr><td>Báo giá</td><td>4</td><td>Báo giá 2D, 3D, Nội thất, Final</td></tr>
+        <tr><td>Thu mua</td><td>3</td><td>Chuẩn bị VL, SPECS, Đặt hàng</td></tr>
+        <tr><td>Thi công</td><td>4</td><td>Xin phép, Tiến độ, Thô, Nội thất</td></tr>
+        <tr><td>Nghiệm thu</td><td>3</td><td>Bàn giao, Nghiệm thu, Bảo hành</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="section-title">⚡ Tính năng nổi bật</div>
+      <div class="stat-row"><span>📱 Telegram Bot</span><span style="color:#C9A96E;">/duan /baocao /vatlieu /checkin</span></div>
+      <div class="stat-row"><span>📸 Upload ảnh thi công</span><span style="color:#C9A96E;">Chọn nhiều + thumbnail</span></div>
+      <div class="stat-row"><span>📦 Yêu cầu vật tư</span><span style="color:#C9A96E;">Tự gửi Thu mua duyệt</span></div>
+      <div class="stat-row"><span>⏸️ Tạm dừng dự án</span><span style="color:#C9A96E;">Ghi lý do + hiển thị trên Kanban</span></div>
+      <div class="stat-row"><span>👤 Đảm nhận task</span><span style="color:#C9A96E;">Leader giao việc theo phòng ban</span></div>
+      <div class="stat-row"><span>🔗 Customer Portal</span><span style="color:#C9A96E;">Khách tự xem tiến độ</span></div>
+      <div class="stat-row"><span>📐 Dự toán cải tạo</span><span style="color:#C9A96E;">3 phương án: Số liệu/Mô tả/Hình ảnh</span></div>
+      <div class="stat-row"><span>🤝 Phân quyền linh hoạt</span><span style="color:#C9A96E;">Admin tạo role mới + matrix quyền</span></div>
+    </div>
+  </div>
+
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Quản lý dự án — Thiết kế đến nghiệm thu</span></div>
+</div>
+
+<!-- SLIDE 4: Lương thưởng & Hoa hồng -->
+<div class="slide">
+  <h1>💰 <span>Lương thưởng</span> & Hoa hồng</h1>
+  <h2>Hệ thống tính lương tự động + hoa hồng theo deal</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="section-title">💵 Cấu trúc lương</div>
+      <table>
+        <tr><th>Bậc</th><th>Lương cơ bản</th><th>BHXH CN</th><th>BHXH CT</th></tr>
+        <tr><td>Nhân viên</td><td>8,000,000đ</td><td>8%</td><td>17.5%</td></tr>
+        <tr><td>Chuyên viên</td><td>12,000,000đ</td><td>8%</td><td>17.5%</td></tr>
+        <tr><td>Trưởng nhóm</td><td>18,000,000đ</td><td>8%</td><td>17.5%</td></tr>
+        <tr><td>Trưởng phòng</td><td>25,000,000đ</td><td>8%</td><td>17.5%</td></tr>
+      </table>
+
+      <div class="section-title">🧮 Công thức tính lương</div>
+      <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:12px;font-family:monospace;">
+        Lương NET = Lương cơ bản + Hoa hồng + Thưởng<br>
+        - BHXH CN (8%)<br>
+        - BHTN (1%)<br>
+        - Thuế TNCN (theo bậc)<br>
+        - Tạm ứng (nếu có)
+      </div>
+    </div>
+    <div>
+      <div class="section-title">🤝 Hoa hồng theo Deal</div>
+      <table>
+        <tr><th>Loại</th><th>Tỷ lệ</th><th>Điều kiện</th></tr>
+        <tr><td>Thiết kế</td><td style="color:#C9A96E;">3%</td><td>Ký hợp đồng thiết kế</td></tr>
+        <tr><td>Thi công</td><td style="color:#C9A96E;">2%</td><td>Hoàn thành thi công</td></tr>
+        <tr><td>Leader override</td><td style="color:#C9A96E;">+1%</td><td>Leader quản lý team</td></tr>
+      </table>
+
+      <div class="section-title">📊 Ví dụ tính toán</div>
+      <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:12px;">
+        <div class="stat-row"><span>HĐ Thiết kế 2.5 tỷ</span><span style="color:#C9A96E;">HC: 75 triệu (3%)</span></div>
+        <div class="stat-row"><span>HĐ Thi công 12 tỷ</span><span style="color:#C9A96E;">HC: 240 triệu (2%)</span></div>
+        <div class="stat-row"><span>Tổng hoa hồng tháng</span><span style="color:#C9A96E;font-weight:700;">315 triệu</span></div>
+        <div class="stat-row"><span>+ Lương cơ bản</span><span>15 triệu</span></div>
+        <div class="stat-row" style="font-weight:700;color:#C9A96E;"><span>Tổng thu nhập</span><span>330 triệu/tháng</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Lương thưởng minh bạch — Tính tự động theo hệ thống</span></div>
+</div>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -239,4 +239,97 @@ async def personal_dashboard(
         "pipeline_value": pipeline_value,
         "priorities": priorities[:10],
         "ai_suggestions": [],
+    }
+
+
+DRILL_DOWN_METRICS = {"leads_by_stage", "projects_by_stage", "revenue_by_project"}
+
+
+@router.get("/drill-down/{metric}")
+async def dashboard_drill_down(
+    metric: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Drill-down endpoint for executive dashboard metrics.
+
+    Supported metrics:
+    - leads_by_stage: detailed leads per pipeline stage
+    - projects_by_stage: detailed projects per kanban stage
+    - revenue_by_project: project revenue breakdown
+    """
+    if metric not in DRILL_DOWN_METRICS:
+        raise HTTPException(status_code=400, detail=f"Unknown metric '{metric}'. Valid: {sorted(DRILL_DOWN_METRICS)}")
+
+    if metric == "leads_by_stage":
+        rows = (
+            await db.execute(
+                select(
+                    Lead.stage,
+                    func.count(Lead.id).label("count"),
+                    func.sum(Lead.estimated_budget).label("total_budget"),
+                )
+                .group_by(Lead.stage)
+                .order_by(func.count(Lead.id).desc())
+            )
+        ).all()
+        return {
+            "metric": metric,
+            "items": [
+                {"stage": stage, "count": cnt, "total_budget": float(budget or 0)}
+                for stage, cnt, budget in rows
+            ],
+        }
+
+    if metric == "projects_by_stage":
+        rows = (
+            await db.execute(
+                select(
+                    Project.stage,
+                    Project.status,
+                    func.count(Project.id).label("count"),
+                    func.sum(Project.total_value).label("total_value"),
+                )
+                .group_by(Project.stage, Project.status)
+                .order_by(Project.stage)
+            )
+        ).all()
+        return {
+            "metric": metric,
+            "items": [
+                {"stage": stage, "status": status, "count": cnt, "total_value": float(val or 0)}
+                for stage, status, cnt, val in rows
+            ],
+        }
+
+    # revenue_by_project
+    rows = (
+        await db.execute(
+            select(
+                Project.id,
+                Project.code,
+                Project.name,
+                Project.total_value,
+                Project.spent,
+                Project.status,
+            )
+            .where(Project.total_value.is_not(None))
+            .order_by(Project.total_value.desc())
+            .limit(50)
+        )
+    ).all()
+    return {
+        "metric": metric,
+        "items": [
+            {
+                "id": pid,
+                "code": code,
+                "name": name,
+                "total_value": float(val or 0),
+                "spent": float(spent or 0),
+                "profit": float((val or 0) - (spent or 0)),
+                "status": status,
+            }
+            for pid, code, name, val, spent, status in rows
+        ],
     }

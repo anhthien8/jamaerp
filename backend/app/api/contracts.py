@@ -10,6 +10,8 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.contract import Contract
+from app.models.project import Project
+from app.models.payroll import Commission
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -106,9 +108,75 @@ async def update_contract(
     if not contract:
         raise HTTPException(status_code=404, detail="Hợp đồng không tồn tại")
 
+    old_status = contract.status
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(contract, k, v)
     contract.updated_at = datetime.now(timezone.utc)
+
+    # --- Feature: auto-create commission records when contract is signed ---
+    new_status = contract.status
+    if new_status == "signed" and old_status != "signed":
+        result_project = await db.execute(
+            select(Project).where(Project.id == contract.project_id)
+        )
+        project = result_project.scalar_one_or_none()
+
+        if project and project.sales_id:
+            commissions_created = []
+
+            # Design commission: 3% of design_value
+            if project.design_value and project.design_value > 0:
+                rate = 0.03
+                commission = Commission(
+                    user_id=project.sales_id,
+                    project_id=project.id,
+                    type="design_commission",
+                    rate=rate,
+                    base_amount=project.design_value,
+                    commission_amount=round(project.design_value * rate, 2),
+                    milestone="signing",
+                    milestone_pct=0.5,
+                    status="pending",
+                )
+                db.add(commission)
+                commissions_created.append("design")
+
+            # Construction commission: 2% of construction_value
+            if project.construction_value and project.construction_value > 0:
+                rate = 0.02
+                commission = Commission(
+                    user_id=project.sales_id,
+                    project_id=project.id,
+                    type="construction_commission",
+                    rate=rate,
+                    base_amount=project.construction_value,
+                    commission_amount=round(project.construction_value * rate, 2),
+                    milestone="signing",
+                    milestone_pct=0.5,
+                    status="pending",
+                )
+                db.add(commission)
+                commissions_created.append("construction")
+
+            # Notify the sales user
+            if commissions_created:
+                from app.services.automation import _notify
+                sales_user_result = await db.execute(
+                    select(User).where(User.id == project.sales_id)
+                )
+                sales_user = sales_user_result.scalar_one_or_none()
+                if sales_user:
+                    await _notify(
+                        db,
+                        sales_user,
+                        "commission_created",
+                        f"Hoa hồng đã được tạo từ hợp đồng {contract.code}",
+                        f"Các loại hoa hồng đã tạo: {', '.join(commissions_created)}. "
+                        f"Vui lòng theo dõi trên trang lương & hoa hồng.",
+                        link="/hr/commissions",
+                        ref_id=contract.id,
+                    )
+
     await db.flush()
     return ContractResponse.model_validate(contract)
 

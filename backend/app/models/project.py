@@ -44,6 +44,7 @@ class Project(Base):
     # Bàn giao & bảo hành: warranty_end = handover_date + warranty_months
     handover_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     warranty_months: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
+    warranty_end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Nghiệm thu giai đoạn qua Customer Portal: {stage: {"at": iso, "note": str}}
     stage_acceptances: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -103,6 +104,8 @@ class Task(Base):
     department: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # Departments: design, quotation, procurement, construction, accounting, sales
     final_file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    final_file_versions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # JSON array: [{"url": str, "version": int, "label": str|None, "uploaded_at": iso}]
     assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

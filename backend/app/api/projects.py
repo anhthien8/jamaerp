@@ -10,6 +10,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.project import Project, Task, TaskActivity
+from app.models.notification import Notification
 from app.cache import cache
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectResponse, TaskResponse,
@@ -95,6 +96,7 @@ class TaskStatusUpdate(BaseModel):
 
 class TaskFileUpdate(BaseModel):
     final_file_url: str | None = None
+    version_label: str | None = None
 
 class BulkTaskAssign(BaseModel):
     assignments: list[dict]  # each dict: {"task_id": str, "assigned_to": str}
@@ -430,6 +432,27 @@ async def update_project_stage(
     elif data.stage != "paused":
         project.pause_reason = None
         project.paused_at = None
+
+    # ── Customer lifecycle: post-completion actions ────────────────────────
+    if data.stage == "completed":
+        project.status = "completed"
+        # Calculate warranty_end_date from handover_date + warranty_months
+        if project.handover_date is not None:
+            hd = project.handover_date
+            if hd.tzinfo is None:
+                hd = hd.replace(tzinfo=timezone.utc)
+            project.warranty_end_date = hd + timedelta(days=project.warranty_months * 30)
+        # Notify admin to run satisfaction survey & set warranty reminder
+        notif = Notification(
+            user_id=current_user.id,
+            type="system",
+            title="Dự án đã hoàn thành",
+            body=f"Dự án {project.code} đã hoàn thành. Cần survey满意度 và nhắc bảo hành.",
+            link=f"/projects",
+            ref_id=project.id,
+        )
+        db.add(notif)
+
     await db.flush()
 
     # Invalidate caches affected by project stage changes
@@ -510,13 +533,26 @@ async def update_task_final_file(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Set the final result file for a task."""
+    """Set the final result file for a task, appending to version history."""
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
 
+    # Update the main field (always points to latest)
     task.final_file_url = data.final_file_url
+
+    # Append to version history
+    versions = list(task.final_file_versions or [])
+    next_version = len(versions) + 1
+    if data.final_file_url:
+        versions.append({
+            "url": data.final_file_url,
+            "version": next_version,
+            "label": data.version_label,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        })
+    task.final_file_versions = versions
     await db.flush()
     return TaskResponse.model_validate(task)
 
