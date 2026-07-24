@@ -80,6 +80,7 @@ export default function ContractsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formEdit, setFormEdit] = useState<Contract | null>(null);
   const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
     title: '',
@@ -158,6 +159,7 @@ export default function ContractsPage() {
 
   const openCreateForm = () => {
     setFormEdit(null);
+    setFormError('');
     setForm({ title: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: '', notes: '' });
     setFormOpen(true);
   };
@@ -165,6 +167,7 @@ export default function ContractsPage() {
   const openEditForm = (contract: Contract, e: React.MouseEvent) => {
     e.stopPropagation();
     setFormEdit(contract);
+    setFormError('');
     setForm({
       title: contract.title,
       project_id: contract.project_id || '',
@@ -178,7 +181,12 @@ export default function ContractsPage() {
   };
 
   const handleFormSubmit = async () => {
-    if (!form.title.trim()) { toast('Vui lòng nhập tiêu đề hợp đồng', 'error'); return; }
+    if (!form.title.trim()) {
+      setFormError('Vui lòng nhập tiêu đề hợp đồng');
+      toast('Vui lòng nhập tiêu đề hợp đồng', 'error');
+      return;
+    }
+    setFormError('');
     setFormSaving(true);
     try {
       const payload: Partial<Contract> = {
@@ -632,11 +640,12 @@ export default function ContractsPage() {
                   <input
                     type="text"
                     value={form.title}
-                    onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                    onChange={e => { setForm(p => ({ ...p, title: e.target.value })); if (formError) setFormError(''); }}
                     placeholder="VD: HĐ Thi công Nhà phố Q7"
                     className="w-full px-3 py-2 rounded-xl text-sm"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                    style={{ background: 'var(--surface-2)', border: formError ? '1px solid #f87171' : '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   />
+                  {formError && <p className="text-xs text-red-400 mt-1 font-medium">{formError}</p>}
                 </div>
 
                 {/* Project */}
@@ -729,7 +738,7 @@ export default function ContractsPage() {
                 </button>
                 <button
                   onClick={handleFormSubmit}
-                  disabled={formSaving || !form.title.trim()}
+                  disabled={formSaving}
                   className="px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                   style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
                 >

@@ -242,10 +242,24 @@
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 100px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
-/* === Focus Visible === */
+/* === Focus Visible & Accessibility === */
 :focus-visible {
   outline: 2px solid var(--gold-500);
   outline-offset: 2px;
+}
+
+/* Tối ưu diện tích chạm (Touch target min 36px) trên Mobile cho tất cả button & clickable items */
+@media (max-width: 640px) {
+  button, 
+  [role="button"],
+  .btn-primary,
+  .btn-ghost {
+    min-height: 36px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 }
 

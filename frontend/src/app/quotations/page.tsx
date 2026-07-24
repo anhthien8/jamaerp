@@ -88,6 +88,7 @@ export default function QuotationsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Quotation | null>(null);
   const [formData, setFormData] = useState<QuotationFormData>(EMPTY_FORM);
+  const [formError, setFormError] = useState('');
   const [lineItems, setLineItems] = useState<LineItemForm[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -129,6 +130,7 @@ export default function QuotationsPage() {
 
   const openCreateForm = () => {
     setEditing(null);
+    setFormError('');
     setFormData(EMPTY_FORM);
     setLineItems([]);
     setShowForm(true);
@@ -137,6 +139,7 @@ export default function QuotationsPage() {
   const openEditForm = (q: Quotation, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setEditing(q);
+    setFormError('');
     setFormData({
       title: q.title,
       type: q.type || 'design',
@@ -163,9 +166,11 @@ export default function QuotationsPage() {
 
   const handleFormSubmit = async () => {
     if (!formData.title.trim()) {
+      setFormError('Tiêu đề không được để trống');
       toast('Tiêu đề không được để trống', 'error');
       return;
     }
+    setFormError('');
     setSaving(true);
     try {
       const line_items = lineItems
@@ -380,11 +385,12 @@ export default function QuotationsPage() {
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+                  onChange={e => { setFormData(p => ({ ...p, title: e.target.value })); if (formError) setFormError(''); }}
                   placeholder="Nhập tiêu đề báo giá"
                   className="w-full px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                  style={{ background: 'var(--surface-2)', border: formError ? '1px solid #f87171' : '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 />
+                {formError && <p className="text-xs text-red-400 mt-1 font-medium">{formError}</p>}
               </div>
 
               {/* Type */}
@@ -565,7 +571,7 @@ export default function QuotationsPage() {
                 </button>
                 <button
                   onClick={handleFormSubmit}
-                  disabled={saving || !formData.title.trim()}
+                  disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                   style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}
                 >

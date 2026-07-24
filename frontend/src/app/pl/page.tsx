@@ -523,7 +523,7 @@ export default function PLPage() {
                 key={ft}
                 onClick={() => setFilterType(ft)}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                  'px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] sm:min-h-0',
                   filterType === ft
                     ? 'text-white shadow-lg'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
