@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>JAMA HOME CRM — Slide Thuyết Trinh: Vai trò & Workflow</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0D1117;color:#E6EDF3}
+  .slide{width:1280px;height:720px;margin:40px auto;padding:48px 56px;background:linear-gradient(135deg,#0D1526,#1A2332);border:1px solid rgba(255,255,255,.08);border-radius:24px;position:relative;overflow:hidden;page-break-after:always}
+  .slide::before{content:'';position:absolute;top:-100px;right:-100px;width:300px;height:300px;background:radial-gradient(circle,rgba(201,169,110,.08),transparent 70%)}
+  h1{font-size:32px;font-weight:800;margin-bottom:8px}h1 span{color:#C9A96E}
+  h2{font-size:18px;color:#9BA7B4;margin-bottom:20px}
+  h3{font-size:15px;color:#C9A96E;margin:14px 0 8px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}
+  .kpi-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;text-align:center}
+  .kpi-card .value{font-size:24px;font-weight:800;color:#C9A96E}
+  .kpi-card .label{font-size:11px;color:#9BA7B4;margin-top:4px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:7px 10px;color:#9BA7B4;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px}
+  td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .role-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;text-align:center}
+  .role-card .icon{font-size:24px;margin-bottom:6px}
+  .role-card .name{font-size:13px;font-weight:700;color:#C9A96E}
+  .role-card .desc{font-size:10px;color:#9BA7B4;margin-top:4px}
+  .flow-box{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .flow-step{padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid}
+  .flow-arrow{color:#9BA7B4;font-size:16px}
+  .stat-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+  .section-title{font-size:13px;font-weight:700;color:#C9A96E;margin:12px 0 6px;display:flex;align-items:center;gap:6px}
+  .footer{position:absolute;bottom:20px;left:56px;right:56px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#6B7683}
+  .footer .logo{font-weight:800;color:#C9A96E}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Tổng quan -->
+<div class="slide">
+  <h1>🏠 <span>JAMA HOME</span> CRM</h1>
+  <h2>Hệ thống ERP + CRM cho công ty thiết kế nội thất — 100 nhân sự, TP.HCM</h2>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="value">13</div><div class="label">Modules</div></div>
+    <div class="kpi-card"><div class="value">160+</div><div class="label">API Endpoints</div></div>
+    <div class="kpi-card"><div class="value">343</div><div class="label">Unit Tests</div></div>
+    <div class="kpi-card"><div class="value">8</div><div class="label">Vai trò RBAC</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">
+    <div style="padding:16px;background:rgba(255,255,255,.04);border-radius:12px">
+      <h3>Tech Stack</h3>
+      <div class="stat-row"><span>Frontend</span><span style="color:#C9A96E">Next.js 16 + Tailwind</span></div>
+      <div class="stat-row"><span>Backend</span><span style="color:#C9A96E">FastAPI + PostgreSQL</span></div>
+      <div class="stat-row"><span>Bot</span><span style="color:#C9A96E">Telegram aiogram 3.x</span></div>
+      <div class="stat-row"><span>AI</span><span style="color:#C9A96E">LiteLLM (5 agents)</span></div>
+    </div>
+    <div style="padding:16px;background:rgba(255,255,255,.04);border-radius:12px">
+      <h3>Tính năng chính</h3>
+      <div class="stat-row"><span>CRM Pipeline</span><span>100+ leads tự động</span></div>
+      <div class="stat-row"><span>Quản lý dự án</span><span>19 tasks tự tạo</span></div>
+      <div class="stat-row"><span>Báo giá kép</span><span>Xây mới + Cải tạo</span></div>
+      <div class="stat-row"><span>Telegram Bot</span><span>12 lệnh + inline buttons</span></div>
+      <div class="stat-row"><span>Commission auto</span><span>Tự tạo khi ký HĐ</span></div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Thiết kế cho cuộc sống mới</span></div>
+</div>
+
+<!-- SLIDE 2: 8 Vai trò -->
+<div class="slide">
+  <h1>👥 <span>8 Vai trò</span> RBAC</h1>
+  <h2>Mỗi role có quyền riêng — Admin tùy chỉnh được</h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div class="role-card"><div class="icon">👔</div><div class="name">Admin</div><div class="desc">Toàn quyền · Quản lý hệ thống · Tạo role mới</div></div>
+    <div class="role-card"><div class="icon">📊</div><div class="name">Executive</div><div class="desc">Xem P&L · Báo cáo · Dashboard tổng quan</div></div>
+    <div class="role-card"><div class="icon">👥</div><div class="name">Leader KD</div><div class="desc">Quản lý team · Phân lead · Duyệt yêu cầu</div></div>
+    <div class="role-card"><div class="icon">💼</div><div class="name">Sale</div><div class="desc">Nhập lead · Báo giá · Theo dõi CSKH</div></div>
+    <div class="role-card"><div class="icon">🏗️</div><div class="name">Supervisor</div><div class="desc">Thiết kế + Thu mua + Dự án · Checkin GPS</div></div>
+    <div class="role-card"><div class="icon">💰</div><div class="name">Kế toán</div><div class="desc">Thu chi · Lương · Hoa hồng · P&L</div></div>
+    <div class="role-card"><div class="icon">🎨</div><div class="name">Designer</div><div class="desc">Thiết kế · Upload file · Báo giá</div></div>
+    <div class="role-card"><div class="icon">📋</div><div class="name">PM</div><div class="desc">Dự án · Task · Vật tư · Nghiệm thu</div></div>
+  </div>
+  <div style="margin-top:14px;padding:12px;background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.2);border-radius:10px">
+    <p style="font-size:12px;color:#C9A96E"><b>⚡ Admin tạo role mới:</b> Vào /permissions → Matrix quyền → Bật/tắt cho từng tính năng. Role mới tự hiện trong dropdown tạo tài khoản.</p>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Phân quyền linh hoạt — 23 quyền tùy chỉnh</span></div>
+</div>
+
+<!-- SLIDE 3: Pipeline CRM -->
+<div class="slide">
+  <h1>🔄 <span>Pipeline</span> CRM</h1>
+  <h2>5 giai đoạn · Tự động hóa CSKH · AI parse lead</h2>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+    <div>
+      <div class="section-title">📊 5 giai đoạn</div>
+      <div style="display:flex;gap:6px;margin:8px 0">
+        <div style="flex:1;padding:10px;text-align:center;background:rgba(59,130,246,.12);border-radius:8px;font-size:11px;color:#3B82F6">Tiếp nhận mới</div>
+        <div style="flex:1;padding:10px;text-align:center;background:rgba(245,158,11,.12);border-radius:8px;font-size:11px;color:#F59E0B">Đang tư vấn</div>
+        <div style="flex:1;padding:10px;text-align:center;background:rgba(139,92,246,.12);border-radius:8px;font-size:11px;color:#8B5CF6">Khảo sát</div>
+        <div style="flex:1;padding:10px;text-align:center;background:rgba(16,185,129,.12);border-radius:8px;font-size:11px;color:#10B981">Dự toán</div>
+        <div style="flex:1;padding:10px;text-align:center;background:rgba(201,169,110,.12);border-radius:8px;font-size:11px;color:#C9A96E">Ký HĐ</div>
+      </div>
+      <div class="section-title">🤖 Tự động hóa</div>
+      <div class="stat-row"><span>Zalo → AI parse → Lead</span><span style="color:#10B981">Tự động</span></div>
+      <div class="stat-row"><span>Lead quá hạn 7 ngày</span><span style="color:#10B981">Thu hồi + giao sale khác</span></div>
+      <div class="stat-row"><span>Ký HĐ → Tự tạo</span><span style="color:#10B981">Customer + Project + 19 Tasks + Contract</span></div>
+      <div class="stat-row"><span>Auto-assign lead</span><span style="color:#10B981">Conversion rate 70% + Load 30%</span></div>
+    </div>
+    <div>
+      <div class="section-title">📱 Telegram Bot</div>
+      <div class="stat-row"><span>/lead</span><span>Nhập lead từ Zalo</span></div>
+      <div class="stat-row"><span>/pipeline</span><span>Xem pipeline</span></div>
+      <div class="stat-row"><span>/briefing</span><span>Briefing hàng ngày</span></div>
+      <div class="stat-row"><span>/feedback</span><span>Gửi feedback</span></div>
+      <div class="stat-row"><span>/dutoan</span><span>Dự toán cải tạo</span></div>
+      <div style="margin-top:10px;padding:10px;background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.2);border-radius:8px">
+        <p style="font-size:11px;color:#C9A96E"><b>📞 SĐT masked:</b> Admin/LLeader/See full · Others see 090***</p>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>CRM — 100+ leads · Auto-assign theo conversion rate</span></div>
+</div>
+
+<!-- SLIDE 4: Quản lý Dự án -->
+<div class="slide">
+  <h1>🏗️ <span>Quản lý</span> Dự án</h1>
+  <h2>5 giai đoạn · 19 tasks · Telegram bot · Customer Portal</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div class="section-title">📋 5 giai đoạn Kanban</div>
+      <div style="display:flex;gap:4px;margin:6px 0">
+        <div style="flex:1;padding:8px;text-align:center;background:rgba(139,92,246,.12);border-radius:8px;font-size:10px;color:#8B5CF6">Thiết kế</div>
+        <div style="flex:1;padding:8px;text-align:center;background:rgba(245,158,11,.12);border-radius:8px;font-size:10px;color:#F59E0B">Báo giá</div>
+        <div style="flex:1;padding:8px;text-align:center;background:rgba(16,185,129,.12);border-radius:8px;font-size:10px;color:#10B981">Thu mua</div>
+        <div style="flex:1;padding:8px;text-align:center;background:rgba(59,130,246,.12);border-radius:8px;font-size:10px;color:#3B82F6">Thi công</div>
+        <div style="flex:1;padding:8px;text-align:center;background:rgba(201,169,110,.12);border-radius:8px;font-size:10px;color:#C9A96E">Nghiệm thu</div>
+      </div>
+      <div class="section-title">📝 19 Tasks tự tạo</div>
+      <table>
+        <tr><th>Giai đoạn</th><th>Tasks</th><th>Ví dụ</th></tr>
+        <tr><td>Thiết kế</td><td>5</td><td>2D Concept → Final</td></tr>
+        <tr><td>Báo giá</td><td>4</td><td>2D → 3D → Nội thất → Final</td></tr>
+        <tr><td>Thu mua</td><td>3</td><td>Vật liệu → SPECS → Đặt hàng</td></tr>
+        <tr><td>Thi công</td><td>4</td><td>Xin phép → Tiến độ → Thô → Nội thất</td></tr>
+        <tr><td>Nghiệm thu</td><td>3</td><td>Bàn giao → Nghiệm thu → BH</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="section-title">⚡ Tính năng</div>
+      <div class="stat-row"><span>📱 Telegram Bot</span><span>/duan /baocao /vatlieu /checkin</span></div>
+      <div class="stat-row"><span>📸 Upload ảnh thi công</span><span>Multi-file + thumbnail</span></div>
+      <div class="stat-row"><span>📦 Yêu cầu vật tư</span><span>Link với task + duyệt</span></div>
+      <div class="stat-row"><span>⏸️ Tạm dừng</span><span>Ghi lý do + hiển thị Kanban</span></div>
+      <div class="stat-row"><span>👤 Đảm nhận task</span><span>Leader giao việc theo phòng ban</span></div>
+      <div class="stat-row"><span>🔗 Customer Portal</span><span>Khách tự xem tiến độ</span></div>
+      <div class="stat-row"><span>📐 Dự toán</span><span>3 phương án: Số liệu/Mô tả/Hình</span></div>
+      <div class="stat-row"><span>📁 File versioning</span><span>v1 → v2 → v3, lịch sử đầy đủ</span></div>
+      <div class="stat-row"><span>🤝 Phân quyền role mới</span><span>Admin tạo + matrix quyền</span></div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Quản lý dự án — Thiết kế đến nghiệm thu</span></div>
+</div>
+
+<!-- SLIDE 5: Báo giá & Dự toán -->
+<div class="slide">
+  <h1>📐 <span>Báo giá</span> & Dự toán</h1>
+  <h2>Dual mode: Xây mới + Cải tạo · Instant Quote · Lead Magnet</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div class="section-title">🏗️ Xây mới (3 phân khúc)</div>
+      <table>
+        <tr><th>Phân khúc</th><th>Hạng mục</th><th>Giá tham khảo</th></tr>
+        <tr><td>Cơ bản</td><td>28 hạng mục</td><td>184 triệu (75m²)</td></tr>
+        <tr><td>Tiêu chuẩn</td><td>28 hạng mục</td><td>338 triệu (75m²)</td></tr>
+        <tr><td>Cao cấp</td><td>28 hạng mục</td><td>702 triệu (75m²)</td></tr>
+      </table>
+      <div class="section-title">🔨 Cải tạo (100+ hạng mục)</div>
+      <div class="stat-row"><span>Tháo dỡ</span><span>13 mục · 327tr (80m²×1T)</span></div>
+      <div class="stat-row"><span>Kết cấu</span><span>4 mục</span></div>
+      <div class="stat-row"><span>Hoàn thiện</span><span>60+ mục theo tầng</span></div>
+      <div class="stat-row"><span>Cửa + M&E + Khác</span><span>35+ mục</span></div>
+      <div class="stat-row"><span>Gợi ý vật liệu</span><span>Sàn/Cửa/WC/Sơn theo budget</span></div>
+    </div>
+    <div>
+      <div class="section-title">⚡ Instant Quote Tool</div>
+      <div class="stat-row"><span>Nhập diện tích + loại nhà</span><span>→ 3 phương án ±15%</span></div>
+      <div class="stat-row"><span>Copy text Zalo</span><span>Gửi khách ngay</span></div>
+      <div class="stat-row"><span>Lead Magnet /bao-gia</span><span>Khách tự tính giá → tạo lead</span></div>
+      <div class="section-title">📊 So sánh NCC</div>
+      <div class="stat-row"><span>/suppliers</span><span>Quản lý NCC</span></div>
+      <div class="stat-row"><span>So sánh giá</span><span>Bảng compare nhiều NCC</span></div>
+      <div class="stat-row"><span>Lịch sử giá</span><span>Biến động giá theo ngày</span></div>
+      <div style="margin-top:10px;padding:10px;background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.2);border-radius:8px">
+        <p style="font-size:11px;color:#C9A96E"><b>📐 Dự toán:</b> Nhân viên nhập số liệu → Hệ thống nhân đơn giá → Dự toán tự động. 3 phương án: Số liệu / Mô tả / Hình ảnh.</p>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Báo giá kép — Xây mới + Cải tạo</span></div>
+</div>
+
+<!-- SLIDE 6: Kế toán & Tài chính -->
+<div class="slide">
+  <h1>💰 <span>Kế toán</span> & Tài chính</h1>
+  <h2>P&L · Commission auto · Payment reminders · CSV export</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div class="section-title">📊 P&L theo dự án</div>
+      <div class="stat-row"><span>Doanh thu theo HĐ</span><span style="color:#10B981">Auto từ contract</span></div>
+      <div class="stat-row"><span>Chi phí vật tư + nhân công</span><span style="color:#F59E0B">Từ material_usages</span></div>
+      <div class="stat-row"><span>Lợi nhuận gộp</span><span style="color:#C9A96E">Tự tính theo dự án</span></div>
+      <div class="stat-row"><span>Margin %</span><span style="color:#C9A96E">Tự động</span></div>
+      <div class="section-title">🤝 Commission auto-create</div>
+      <div class="stat-row"><span>HĐ ký → Tự tạo commission</span><span style="color:#10B981">3% TK + 2% TC</span></div>
+      <div class="stat-row"><span>Notify sale</span><span style="color:#10B981">Tự động qua Telegram</span></div>
+    </div>
+    <div>
+      <div class="section-title">⏰ Payment reminders</div>
+      <div class="stat-row"><span>Đợt quá hạn</span><span style="color:#F59E0B">Nhắc kế toán hàng ngày</span></div>
+      <div class="stat-row"><span>4 đợt thanh toán</span><span style="color:#10B981">25% mỗi đợt</span></div>
+      <div class="section-title">📤 Export</div>
+      <div class="stat-row"><span>/leads/export</span><span>CSV leads</span></div>
+      <div class="stat-row"><span>/accounting/transactions/export</span><span>CSV giao dịch</span></div>
+      <div class="section-title">🔐 Phone masking</div>
+      <div class="stat-row"><span>Admin/Leader/Sale</span><span>Full SĐT lead mình</span></div>
+      <div class="stat-row"><span>Supervisor/Kế toán</span><span>090*** masked</span></div>
+      <div class="stat-row"><span>Khách hàng portal</span><span>Không thấy SĐT</span></div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Tài chính minh bạch — Commission tự tạo</span></div>
+</div>
+
+<!-- SLIDE 7: Lương thưởng & Hoa hồng -->
+<div class="slide">
+  <h1>💵 <span>Lương thưởng</span> & Hoa hồng</h1>
+  <h2>Cấu trúc lương 3 bậc · Hoa hồng theo deal · Ví dụ tính toán</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div class="section-title">💵 Cấu trúc lương</div>
+      <table>
+        <tr><th>Bậc</th><th>Lương CB</th><th>BHXH CN</th><th>BHXH CT</th></tr>
+        <tr><td>Nhân viên</td><td>8tr</td><td>8%</td><td>17.5%</td></tr>
+        <tr><td>Chuyên viên</td><td>12tr</td><td>8%</td><td>17.5%</td></tr>
+        <tr><td>Trưởng nhóm</td><td>18tr</td><td>8%</td><td>10.5%</td></tr>
+        <tr><td>Trưởng phòng</td><td>25tr</td><td>8%</td><td>10.5%</td></tr>
+      </table>
+      <div class="section-title">🧮 Công thức NET</div>
+      <div style="padding:10px;background:rgba(255,255,255,.03);border-radius:8px;font-size:11px;font-family:monospace">
+        NET = CB + HC + Thưởng − BHXH CN − BHTN − TNCN − Tạm ứng
+      </div>
+    </div>
+    <div>
+      <div class="section-title">🤝 Hoa hồng</div>
+      <table>
+        <tr><th>Loại</th><th>Tỷ lệ</th><th>Điều kiện</th></tr>
+        <tr><td>Thiết kế</td><td style="color:#C9A96E">3%</td><td>Ký HĐ TK</td></tr>
+        <tr><td>Thi công</td><td style="color:#C9A96E">2%</td><td>Hoàn thành TC</td></tr>
+        <tr><td>Leader</td><td style="color:#C9A96E">+1%</td><td>Quản lý team</td></tr>
+      </table>
+      <div class="section-title">📊 Ví dụ: Sale thu nhập</div>
+      <div style="padding:10px;background:rgba(255,255,255,.03);border-radius:8px;font-size:11px">
+        <div class="stat-row"><span>HĐ TK 2.5 tỷ</span><span style="color:#C9A96E">HC: 75tr (3%)</span></div>
+        <div class="stat-row"><span>HĐ TC 12 tỷ</span><span style="color:#C9A96E">HC: 240tr (2%)</span></div>
+        <div class="stat-row"><span>Tổng HC tháng</span><span style="color:#C9A96E;font-weight:700">315 triệu</span></div>
+        <div class="stat-row"><span>+ Lương CB</span><span>15 triệu</span></div>
+        <div class="stat-row" style="font-weight:700;color:#C9A96E"><span>Tổng thu nhập</span><span>330 triệu/tháng</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Lương minh bạch — HC tự tạo khi ký HĐ</span></div>
+</div>
+
+<!-- SLIDE 8: Workflow giữa các phòng ban -->
+<div class="slide">
+  <h1>🔄 <span>Workflow</span> giữa các phòng ban</h1>
+  <h2>Flow từ lead đến nghiệm thu — ai làm gì, ai thông báo cho ai</h2>
+  <div style="margin:16px 0">
+    <div class="flow-box">
+      <div class="flow-step" style="border-color:#3B82F6;color:#3B82F6">💼 Sale<br><span style="font-size:10px;color:#9BA7B4">Nhập lead từ Zalo</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="border-color:#F59E0B;color:#F59E0B">🎨 Designer<br><span style="font-size:10px;color:#9BA7B4">Thiết kế 2D/3D</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="border-color:#10B981;color:#10B981">👥 Leader KD<br><span style="font-size:10px;color:#9BA7B4">Báo giá + Duyệt</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="border-color:#8B5CF6;color:#8B5CF6">📦 Thu mua<br><span style="font-size:10px;color:#9BA7B4">Tìm NCC + Mua</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="border-color:#EC4899;color:#EC4899">🏗️ Supervisor<br><span style="font-size:10px;color:#9BA7B4">Thi công + Nghiệm thu</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="border-color:#C9A96E;color:#C9A96E">💰 Kế toán<br><span style="font-size:10px;color:#9BA7B4">Thanh toán + HC</span></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div>
+      <div class="section-title">🔔 Notification Flow</div>
+      <div class="stat-row"><span>Lead mới → Zalo Bot</span><span>Sale nhận briefing</span></div>
+      <div class="stat-row"><span>Ký HĐ → Commission</span><span>Sale + Kế toán nhận HC</span></div>
+      <div class="stat-row"><span>Đợt quá hạn</span><span>Kế toán nhận nhắc</span></div>
+      <div class="stat-row"><span>Task hoàn thành</span><span>PM + Leader nhận thông báo</span></div>
+      <div class="stat-row"><span>Nhân viên nghỉ</span><span>Leader + PM nhận chuyển giao</span></div>
+      <div class="stat-row"><span>Feedback mới</span><span>Admin nhận trên Telegram</span></div>
+    </div>
+    <div>
+      <div class="section-title">⚠️ Cross-role Dependencies</div>
+      <div class="stat-row"><span>Sale → Designer</span><span>Lead info khi thiết kế</span></div>
+      <div class="stat-row"><span>Designer → Leader</span><span>Báo giá khi xong thiết kế</span></div>
+      <div class="stat-row"><span>Leader → Thu mua</span><span>Duyệt vật tư</span></div>
+      <div class="stat-row"><span>Thu mua → Supervisor</span><span>Vật tư về → thi công</span></div>
+      <div class="stat-row"><span>Supervisor → Kế toán</span><span>Nghiệm thu → thanh toán</span></div>
+      <div class="stat-row"><span>Kế toán → Sale</span><span>Commission đã duyệt</span></div>
+    </div>
+  </div>
+  <div class="footer"><span class="logo">JAMA HOME</span><span>Workflow xuyên phòng ban — Auto-notification mọi bước</span></div>
+</div>
+
+</body>
+</html>
