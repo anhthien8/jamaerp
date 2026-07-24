@@ -149,7 +149,7 @@ async def run_followup_reminders(db: AsyncSession) -> dict:
 # ---------------------------------------------------------------------------
 
 async def _pick_new_sales(db: AsyncSession, lead: Lead) -> User | None:
-    """Least-loaded active SALES user (same team preferred), excluding current."""
+    """Pick best sales user: weighted by conversion rate (70%) + least load (30%), same team preferred."""
     candidates_q = select(User).where(
         User.department == "SALES",
         User.is_active == True,  # noqa: E712
@@ -164,8 +164,8 @@ async def _pick_new_sales(db: AsyncSession, lead: Lead) -> User | None:
     same_team = [u for u in candidates if lead.team_id and u.team_id == lead.team_id]
     pool = same_team or candidates
 
-    # Least-loaded: count active leads per candidate
-    counts: dict[str, int] = {}
+    # Count active leads per candidate (for load scoring)
+    load_counts: dict[str, int] = {}
     for user in pool:
         c = await db.execute(
             select(func.count(Lead.id)).where(
@@ -173,9 +173,38 @@ async def _pick_new_sales(db: AsyncSession, lead: Lead) -> User | None:
                 Lead.stage.in_(ACTIVE_LEAD_STAGES),
             )
         )
-        counts[user.id] = c.scalar() or 0
+        load_counts[user.id] = c.scalar() or 0
 
-    return min(pool, key=lambda u: counts[u.id])
+    # Calculate conversion rate per candidate
+    conv_rates: dict[str, float] = {}
+    for user in pool:
+        total_q = await db.execute(
+            select(func.count(Lead.id)).where(Lead.assigned_to == user.id)
+        )
+        total = total_q.scalar() or 0
+        if total == 0:
+            conv_rates[user.id] = 0.5  # Default for new users
+            continue
+        signed_q = await db.execute(
+            select(func.count(Lead.id)).where(
+                Lead.assigned_to == user.id,
+                Lead.stage == "signed_design",
+            )
+        )
+        signed = signed_q.scalar() or 0
+        conv_rates[user.id] = signed / total
+
+    # Weighted score: conversion_rate (70%) + least_load (30%)
+    max_load = max(load_counts.values()) if load_counts else 1
+    scored = []
+    for user in pool:
+        cr = conv_rates.get(user.id, 0)
+        load_score = 1 - (load_counts.get(user.id, 0) / max(max_load, 1))
+        score = cr * 0.7 + load_score * 0.3
+        scored.append((user, score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[0][0]
 
 
 async def run_lead_recall(db: AsyncSession) -> dict:
