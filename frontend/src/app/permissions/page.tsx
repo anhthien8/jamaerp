@@ -124,10 +124,10 @@ export default function PermissionsPage() {
         }
       }
       await saveRolePermissions(role, relevantOverrides);
-      toast(`Da luu phan quyen vai tro ${getRoleLabel(role)}`, 'success');
+      toast(`Đã lưu phân quyền vai trò ${getRoleLabel(role)}`, 'success');
       if (!skipReset) setHasChanges(false);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Luu that bai', 'error');
+      toast(e instanceof Error ? e.message : 'Lưu thất bại', 'error');
     } finally {
       setSaving(null);
     }
@@ -151,7 +151,7 @@ export default function PermissionsPage() {
     return (
       <Sidebar>
         <div className="p-8 text-center">
-          <p className="text-[var(--text-muted)]">Chi admin moi co quyen truy cap trang nay.</p>
+          <p className="text-[var(--text-muted)]">Chỉ admin mới có quyền truy cập trang này.</p>
         </div>
       </Sidebar>
     );
@@ -164,10 +164,10 @@ export default function PermissionsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              Phan quyen vai tro
+              Phân quyền vai trò
             </h1>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-              Cau hinh quyen truy cap cho tung vai tro. Bat/tat quyen cho moi tinh nang.
+              Cấu hình quyền truy cập cho từng vai trò. Bật/tắt quyền cho mỗi tính năng.
             </p>
           </div>
           <div className="flex gap-2">
@@ -180,7 +180,7 @@ export default function PermissionsPage() {
                 color: 'var(--text-muted)',
               }}
             >
-              Tai lai
+              Tải lại
             </button>
             {hasChanges && (
               <button
@@ -191,7 +191,7 @@ export default function PermissionsPage() {
                   color: '#000',
                 }}
               >
-                Luu tat ca thay doi
+                Lưu tất cả thay đổi
               </button>
             )}
           </div>
@@ -202,7 +202,7 @@ export default function PermissionsPage() {
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-block w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--text-muted)', borderTopColor: 'transparent' }} />
-              <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>Dang tai du lieu...</p>
+              <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>Đang tải dữ liệu...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -217,7 +217,7 @@ export default function PermissionsPage() {
                         minWidth: 180,
                       }}
                     >
-                      Tinh nang
+                      Tính năng
                     </th>
                     {ROLES.map(role => (
                       <th
@@ -234,7 +234,7 @@ export default function PermissionsPage() {
                               background: 'var(--surface-2)',
                               color: 'var(--text-muted)',
                             }}
-                            title="Reset ve mac dinh"
+                            title="Reset về mặc định"
                           >
                             Reset
                           </button>
@@ -266,7 +266,7 @@ export default function PermissionsPage() {
                           )}
                           {feature.key === '__skip__' && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                              luon mo
+                              luôn mở
                             </span>
                           )}
                         </span>
@@ -285,7 +285,7 @@ export default function PermissionsPage() {
                                   ? 'linear-gradient(135deg, #C9A96E, #B8944F)'
                                   : 'transparent',
                               }}
-                              title={`${getRoleLabel(role)}: ${feature.label} = ${isPermOn(role, feature.key) ? 'Bat' : 'Tat'}`}
+                              title={`${getRoleLabel(role)}: ${feature.label} = ${isPermOn(role, feature.key) ? 'Bật' : 'Tắt'}`}
                             >
                               {isPermOn(role, feature.key) && (
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -308,13 +308,13 @@ export default function PermissionsPage() {
         <div className="mt-4 flex flex-wrap gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded border-2" style={{ borderColor: '#C9A96E', background: 'linear-gradient(135deg, #C9A96E, #B8944F)' }} />
-            <span>Bat</span>
+            <span>Bật</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded border-2" style={{ borderColor: 'var(--border-subtle)' }} />
-            <span>Tat</span>
+            <span>Tắt</span>
           </div>
-          <span>Nhan vao o de chuyen doi. Nhan &quot;Reset&quot; de khoi phuc mac dinh vai tro.</span>
+          <span>Nhấn vào ô để chuyển đổi. Nhấn &quot;Reset&quot; để khôi phục mặc định vai trò.</span>
         </div>
       </div>
     </Sidebar>

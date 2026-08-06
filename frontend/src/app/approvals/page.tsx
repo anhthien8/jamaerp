@@ -122,7 +122,7 @@ export default function ApprovalsPage() {
       key={item.id}
       className="rounded-2xl p-4 border"
       style={{
-        background: 'var(--bg-elevated)',
+        background: 'var(--surface-2)',
         borderColor: isOverdue(item) ? '#f87171' : 'var(--border-subtle)',
       }}
     >
@@ -130,7 +130,7 @@ export default function ApprovalsPage() {
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span>{TYPE_ICON[item.type] || '📋'}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-base)', color: 'var(--text-muted)' }}>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-1)', color: 'var(--text-muted)' }}>
               {item.type_label}
             </span>
             <span className="text-xs font-semibold" style={{ color: STATUS_BADGE[item.status]?.color }}>
@@ -199,7 +199,7 @@ export default function ApprovalsPage() {
               <button key={t} onClick={() => setTab(t)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition"
                 style={{
-                  background: tab === t ? 'var(--gold-500)' : 'var(--bg-elevated)',
+                  background: tab === t ? 'var(--gold-500)' : 'var(--surface-2)',
                   color: tab === t ? '#fff' : 'var(--text-secondary)',
                 }}>
                 {t === 'pending' ? `Chờ tôi (${pending.length})` : t === 'mine' ? 'Đơn của tôi' : 'Đã xử lý'}
@@ -211,7 +211,7 @@ export default function ApprovalsPage() {
         <div className="space-y-3">
           {loadingData ? (
             [0, 1, 2].map(i => (
-              <div key={i} className="rounded-2xl p-4 border animate-pulse" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+              <div key={i} className="rounded-2xl p-4 border animate-pulse" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
                 <div className="h-3 w-24 rounded mb-3" style={{ background: 'var(--border-subtle)' }} />
                 <div className="h-4 w-2/3 rounded mb-2" style={{ background: 'var(--border-subtle)' }} />
                 <div className="h-3 w-1/2 rounded" style={{ background: 'var(--border-subtle)' }} />
@@ -229,7 +229,7 @@ export default function ApprovalsPage() {
         {/* Reject modal */}
         {rejectTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-            <div className="rounded-2xl p-5 w-full max-w-md border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+            <div className="rounded-2xl p-5 w-full max-w-md border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
               <div className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Từ chối: {rejectTarget.title}</div>
               <textarea
                 autoFocus
@@ -238,7 +238,7 @@ export default function ApprovalsPage() {
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm mb-3"
-                style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
               />
               <div className="flex justify-end gap-2">
                 <button onClick={() => setRejectTarget(null)} className="px-4 py-2 rounded-xl text-sm border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>

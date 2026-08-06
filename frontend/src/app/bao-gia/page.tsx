@@ -97,7 +97,7 @@ export default function PublicQuotePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input placeholder="Họ tên *" value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
-              <input placeholder="Số điện thoại *" value={form.phone}
+              <input placeholder="Số điện thoại *" inputMode="tel" value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
               <input type="number" placeholder="Diện tích (m²) *" value={form.area}
                 onChange={e => setForm(f => ({ ...f, area: e.target.value }))} className={inputCls} />

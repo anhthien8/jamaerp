@@ -1528,7 +1528,7 @@ export default function ProjectsPage() {
                 <div>
                   <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Số điện thoại</label>
                   <input
-                    type="text" value={projectForm.client_phone}
+                    type="text" inputMode="tel" value={projectForm.client_phone}
                     onChange={e => setProjectForm(f => ({ ...f, client_phone: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
                     placeholder="SĐT khách hàng"

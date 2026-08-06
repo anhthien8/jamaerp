@@ -107,12 +107,12 @@ export default function KpiPage() {
     <Sidebar>
       <main className="flex-1 overflow-auto p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">Đánh giá hiệu suất KPI</h1>
             <p className="text-sm text-[var(--text-muted)] mt-1">Kỳ: {monthLabelVN(period)}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-[var(--text-secondary)] whitespace-nowrap">{monthLabelVN(period)}</span>
             <input
               type="month"
@@ -222,7 +222,7 @@ export default function KpiPage() {
         )}
 
         {/* Tab: Team */}
-        {!busy && tab === 'team' && (
+        {!busy && !kpiError && tab === 'team' && (
           <div className="glass-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -255,7 +255,7 @@ export default function KpiPage() {
         )}
 
         {/* Tab: Leaderboard */}
-        {!busy && tab === 'leaderboard' && (
+        {!busy && !kpiError && tab === 'leaderboard' && (
           <div className="space-y-3">
             {leaderboard.map((entry) => (
               <div

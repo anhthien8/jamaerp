@@ -215,7 +215,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
               <input value={form.name} onChange={set('name')} placeholder="VD: Chị Mai" className="input" />
             </Field>
             <Field label="Số điện thoại *" error={errors.phone}>
-              <input value={form.phone} onChange={set('phone')} placeholder="0901234567" className="input" />
+              <input value={form.phone} onChange={set('phone')} placeholder="0901234567" inputMode="tel" className="input" />
             </Field>
           </div>
 

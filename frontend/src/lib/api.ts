@@ -44,6 +44,19 @@ let _demoAttToday: Record<string, unknown> | null = null;
 let _demoPayrollRun: { period: string; status: string; items: Record<string, unknown>[] } | null = null;
 const _demoLeaves: Record<string, unknown>[] = [];
 
+/** Góp ý demo — cache module để cập nhật trạng thái/trả lời NHÌN THẤY sau khi sửa (không giả lập thành công). */
+let _demoFeedback: Array<Record<string, unknown>> | null = null;
+function demoFeedback(): Array<Record<string, unknown>> {
+  if (!_demoFeedback) {
+    _demoFeedback = [
+      { id: 'demo-fb-1', user_name: 'Trần Thị Sales', category: 'bug', content: 'Không thể upload ảnh khi tạo lead mới trên mobile', status: 'new', admin_reply: null, created_at: '2026-07-15 10:30' },
+      { id: 'demo-fb-2', user_name: 'Lê Văn Leader', category: 'feature_request', content: 'Cần chức năng xuất báo cáo KPI theo tuần thay vì chỉ theo tháng', status: 'in_review', admin_reply: null, created_at: '2026-07-14 14:20' },
+      { id: 'demo-fb-3', user_name: 'Nguyễn Thị Thiết Kế', category: 'workflow_improvement', content: 'Nên thêm nút "hoàn thành" nhanh cho task thiết kế thay vì mở từng cái', status: 'done', admin_reply: 'Đã thêm vào roadmap sprint sau.', created_at: '2026-07-10 09:15' },
+    ];
+  }
+  return _demoFeedback;
+}
+
 /** Wrap an array in a PaginatedResponse shape for demo mode. */
 function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedResponse<T> {
   const page = parseInt(params?.page || '1', 10);
@@ -228,6 +241,26 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
       return task as T;
     }
   }
+  // PUT /projects/tasks/{taskId}/final-file — lưu file kết quả (design versioning) để trang thấy thay đổi thật
+  if (path.match(/^\/projects\/tasks\/[^/]+\/final-file$/) && method === 'PUT') {
+    const taskId = path.split('/')[3];
+    const task = d.DEMO_TASKS.find(t => t.id === taskId);
+    if (task) {
+      task.final_file_url = ((options?.body as Record<string, unknown>)?.final_file_url as string | undefined) ?? undefined;
+      return task as T;
+    }
+  }
+  // PUT /projects/{projectId}/tasks/{taskId}/assign — gán việc cho nhân sự (demo mutate)
+  if (path.match(/^\/projects\/[^/]+\/tasks\/[^/]+\/assign$/) && method === 'PUT') {
+    const taskId = path.split('/')[4];
+    const task = d.DEMO_TASKS.find(t => t.id === taskId);
+    if (task) {
+      const b = (options?.body || {}) as Record<string, string>;
+      if (b.assigned_to) task.assigned_to = b.assigned_to;
+      if (b.status) task.status = b.status;
+      return task as T;
+    }
+  }
   // PHẢI đứng TRƯỚC matcher /projects/{id} — 'by-department' khớp pattern {id},
   // nếu để sau sẽ bị nuốt và trả về 1 project object (không .items) → crash .length
   if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
@@ -260,6 +293,15 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return tx as T;
   }
   if (path === '/accounting/transactions') return toPaginated(d.DEMO_TRANSACTIONS, params) as T;
+  if (path.match(/^\/accounting\/transactions\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_TRANSACTIONS.findIndex(t => t.id === path.split('/')[3]);
+    if (idx >= 0) { Object.assign(d.DEMO_TRANSACTIONS[idx], options?.body || {}); return d.DEMO_TRANSACTIONS[idx] as T; }
+  }
+  if (path.match(/^\/accounting\/transactions\/[^/]+$/) && method === 'DELETE') {
+    const idx = d.DEMO_TRANSACTIONS.findIndex(t => t.id === path.split('/')[3]);
+    if (idx >= 0) d.DEMO_TRANSACTIONS.splice(idx, 1);
+    return { status: 'ok' } as T;
+  }
   if (path.match(/^\/accounting\/commissions\/[^/]+$/) && method === 'PUT') {
     const comm = d.DEMO_COMMISSIONS.find(c => c.id === path.split('/')[3]);
     if (comm) { comm.status = ((options?.body as Record<string, string>)?.status) || comm.status; return { id: comm.id, status: comm.status } as T; }
@@ -284,6 +326,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   // Portal link demo: token 'demo' → trang /portal/demo tự render dữ liệu mẫu
   if (path.match(/^\/customers\/[^/]+\/generate-portal-link$/) && method === 'POST') {
     return { portal_token: 'demo', portal_url: '/portal/demo' } as T;
+  }
+  if (path.match(/^\/customers\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_CUSTOMERS.findIndex(c => c.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_CUSTOMERS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_CUSTOMERS[idx] as T; }
   }
   if (path.match(/^\/customers\/[^/]+$/) && method === 'GET') {
     const custId = path.split('/')[2];
@@ -344,6 +390,18 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     const m = d.DEMO_MATERIALS.find(x => x.id === path.split('/')[2]);
     const delta = Number((options?.body as Record<string, unknown>)?.quantity_delta ?? (options?.body as Record<string, unknown>)?.quantity ?? 0);
     if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock + delta); m.updated_at = new Date().toISOString(); return m as T; }
+  }
+  // POST /inventory/use — yêu cầu/xuất vật tư cho công trình (trừ tồn kho demo)
+  if (path === '/inventory/use' && method === 'POST') {
+    const b = (options?.body || {}) as { material_id?: string; quantity?: number };
+    const m = d.DEMO_MATERIALS.find(x => x.id === b.material_id);
+    if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock - (Number(b.quantity) || 0)); m.updated_at = new Date().toISOString(); }
+    return { status: 'ok', material_id: b.material_id, used: Number(b.quantity) || 0 } as T;
+  }
+  // PUT /inventory/{id} — sửa thông tin vật tư (demo mutate)
+  if (path.match(/^\/inventory\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const idx = d.DEMO_MATERIALS.findIndex(x => x.id === path.split('/')[2]);
+    if (idx >= 0) { Object.assign(d.DEMO_MATERIALS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_MATERIALS[idx] as T; }
   }
   if (path === '/inventory/import' && method === 'POST') {
     // Upsert demo: khớp theo mã/tên như backend, để đào tạo thu mua đúng luồng thật
@@ -539,6 +597,31 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     return { status: 'ok' } as T;
   }
 
+  // ── HR: Nghỉ việc / chuyển giao (demo) — tránh crash TypeError undefined.length ──
+  if (path === '/hr/resign-preview' && method === 'POST') {
+    const b = (options?.body || {}) as { user_id?: string };
+    const u = d.DEMO_USERS.find(x => x.id === b.user_id);
+    return {
+      user_id: b.user_id,
+      user_name: u?.full_name || 'Nhân viên',
+      lead_count: 2,
+      task_count: 1,
+      leads: [
+        { id: 'demo-l1', name: 'Lead mẫu A', phone: '0900000001', stage: 'interested' },
+        { id: 'demo-l2', name: 'Lead mẫu B', phone: '0900000002', stage: 'survey_scheduled' },
+      ],
+      tasks: [
+        { id: 'demo-t1', title: 'Task mẫu', project_name: 'Nhà phố Q7', status: 'in_progress' },
+      ],
+    } as T;
+  }
+  if (path === '/hr/resign' && method === 'POST') {
+    return { status: 'ok', transferred_leads: 2, transferred_tasks: 1, message: '(Demo) Đã xử lý nghỉ việc — dữ liệu mẫu' } as T;
+  }
+  if (path === '/hr/undo-resign' && method === 'POST') {
+    return { status: 'ok', message: '(Demo) Đã hoàn tác nghỉ việc — dữ liệu mẫu' } as T;
+  }
+
   // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương (có trạng thái) ──
   if (path === '/attendance/checkin' && method === 'POST') {
     const now = new Date();
@@ -689,11 +772,37 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   ] } as T;
 
   // ── Feedback (demo) ──
-  if (path === '/feedback') return toPaginated([
-    { id: 'demo-fb-1', user_name: 'Trần Thị Sales', category: 'bug', content: 'Không thể upload ảnh khi tạo lead mới trên mobile', status: 'new', admin_reply: null, created_at: '2026-07-15 10:30' },
-    { id: 'demo-fb-2', user_name: 'Lê Văn Leader', category: 'feature_request', content: 'Cần chức năng xuất báo cáo KPI theo tuần thay vì chỉ theo tháng', status: 'in_review', admin_reply: null, created_at: '2026-07-14 14:20' },
-    { id: 'demo-fb-3', user_name: 'Nguyễn Thị Thiết Kế', category: 'workflow_improvement', content: 'Nên thêm nút "hoàn thành" nhanh cho task thiết kế thay vì mở từng cái', status: 'done', admin_reply: 'Đã thêm vào roadmap sprint sau.', created_at: '2026-07-10 09:15' },
-  ], params) as T;
+  if (path === '/feedback') return toPaginated(demoFeedback(), params) as T;
+  if (path.match(/^\/feedback\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
+    const fb = demoFeedback().find(f => f.id === path.split('/')[2]);
+    if (fb) { Object.assign(fb, options?.body || {}); return fb as T; }
+  }
+
+  // ── KPI (demo) — câu chuyện số: Trần Thị Sales dẫn đầu, hoa hồng lớn ──
+  if (path === '/kpi/me' || path === '/kpi/team' || path === '/kpi/leaderboard') {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
+    const me = stored ? JSON.parse(stored) : d.DEMO_USERS[0];
+    const kpiMembers = [
+      { user_id: 'demo-sales-001', name: 'Trần Thị Sales', team_id: 'demo-team-01', score: 92, rank_in_team: 1, metrics: { activity_rate: 2.8, sla_compliance: 96, first_touch_hours: 1.5, signed_count: 8, signed_value: 4_200_000_000, stage_conversion: 34, pipeline_value_weighted: 12_500_000_000, recall_rate: 1, lost_no_response_rate: 8 } },
+      { user_id: 'demo-sales-002', name: 'Nguyễn Văn Bán', team_id: 'demo-team-01', score: 78, rank_in_team: 2, metrics: { activity_rate: 2.1, sla_compliance: 88, first_touch_hours: 3.2, signed_count: 5, signed_value: 2_600_000_000, stage_conversion: 26, pipeline_value_weighted: 8_100_000_000, recall_rate: 2, lost_no_response_rate: 15 } },
+      { user_id: 'demo-sales-003', name: 'Phạm Thị Chăm', team_id: 'demo-team-02', score: 64, rank_in_team: 3, metrics: { activity_rate: 1.6, sla_compliance: 79, first_touch_hours: 6.5, signed_count: 3, signed_value: 1_400_000_000, stage_conversion: 18, pipeline_value_weighted: 5_200_000_000, recall_rate: 4, lost_no_response_rate: 24 } },
+    ];
+    const period = params?.period || '2026-07';
+    if (path === '/kpi/team') {
+      return { period, members: kpiMembers } as T;
+    }
+    if (path === '/kpi/leaderboard') {
+      const leaderboard = kpiMembers.map((m, i) => ({ rank: i + 1, score: m.score, name: m.name, team_id: m.team_id, is_me: m.user_id === me?.id }));
+      leaderboard.push({ rank: 4, score: 57, name: 'Hoàng Thu Em', team_id: 'demo-team-02', is_me: false });
+      return { leaderboard } as T;
+    }
+    // /kpi/me — nếu user hiện tại là sale trong bảng thì trả KPI của họ, ngược lại (giám đốc/kế toán…) trả KPI điều hành mẫu
+    const mine = kpiMembers.find(m => m.user_id === me?.id);
+    if (mine) {
+      return { period, score: mine.score, metrics: mine.metrics, rank_in_team: mine.rank_in_team, rank_overall: kpiMembers.indexOf(mine) + 1 } as T;
+    }
+    return { period, score: 88, metrics: { activity_rate: 2.4, sla_compliance: 93, first_touch_hours: 2.0, signed_count: 6, signed_value: 3_100_000_000, stage_conversion: 30, pipeline_value_weighted: 9_800_000_000, recall_rate: 1, lost_no_response_rate: 10 }, rank_in_team: null, rank_overall: null } as T;
+  }
 
   // Fallback: throw so caller shows error
   throw new Error(`Demo mode: no data for ${path}`);
@@ -737,11 +846,11 @@ class ApiClient {
         return await resolveDemo<T>(endpoint, params, { method, body });
       } catch {
         if (method !== 'GET') {
-          // POST/PUT in demo mode: simulate success with generated ID
-          const fakeResponse = { ...(body as Record<string, unknown> || {}), id: `demo-${Date.now()}`, code: `DEMO-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-          return fakeResponse as T;
+          // Mutation KHÔNG có resolver: KHÔNG giả lập thành công (bug fake-success cũ — toast xanh giả).
+          // Ném lỗi trung thực để UI hiện toast đỏ, người đào tạo biết dữ liệu KHÔNG đổi.
+          throw new Error('Thao tác này chưa được mô phỏng trong Chế độ Tập luyện — dữ liệu không thay đổi. Chuyển sang Chế độ Làm việc để thao tác thật.');
         }
-        // Fall through to real API for GET
+        // GET không có resolver: rơi xuống API thật bên dưới
       }
     }
 

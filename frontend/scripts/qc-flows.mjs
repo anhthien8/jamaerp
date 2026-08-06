@@ -19,7 +19,8 @@ ok('Login demo admin', await noBoundary());
 
 // ── FLOW 1: Portal link end-to-end ──
 await page.goto(`${BASE}/customers`, { waitUntil: 'domcontentloaded' }); await page.waitForTimeout(2000); await dismiss();
-await page.locator('main tr:has-text("Chị Mai"), main div[class*="cursor-pointer"]:has-text("Chị Mai")').locator('visible=true').first().click().catch(() => {});
+// Không bám tên cứng — demo data đổi theo thời gian; mở KH đầu tiên trong bảng
+await page.locator('main tbody tr, main div[class*="cursor-pointer"]').locator('visible=true').first().click().catch(() => {});
 await page.waitForTimeout(1200);
 const genBtn = page.locator('button:has-text("Tạo link portal")').first();
 if (await genBtn.isVisible().catch(() => false)) {

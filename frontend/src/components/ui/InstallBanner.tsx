@@ -65,7 +65,7 @@ export default function InstallBanner() {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[90] p-3 animate-in" style={{ background: 'linear-gradient(135deg, #1C1A15, #2A2620)', borderTop: '1px solid rgba(201,169,110,0.35)' }}>
+    <div className="fixed bottom-16 left-0 right-0 z-[45] p-3 animate-in" style={{ background: 'linear-gradient(135deg, #1C1A15, #2A2620)', borderTop: '1px solid rgba(201,169,110,0.35)' }}>
       <div className="max-w-lg mx-auto flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icon-192.png" alt="JAMA HOME" className="w-10 h-10 rounded-xl flex-shrink-0" style={{ border: '1px solid rgba(201,169,110,0.3)' }} />

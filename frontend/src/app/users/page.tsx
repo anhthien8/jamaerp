@@ -400,7 +400,7 @@ export default function UsersPage() {
               )}
               <div>
                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Số điện thoại</label>
-                <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
+                <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} inputMode="tel" className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

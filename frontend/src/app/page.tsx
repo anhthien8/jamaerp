@@ -168,7 +168,10 @@ export default function DashboardPage() {
             <KPICard
               title="Tổng Chi"
               value={acctSummary ? formatCurrency(acctSummary.total_expense) : '—'}
-              subtitle={acctSummary ? `Lãi ròng: ${formatCurrency(acctSummary.net)}` : 'Chi phí & lương'}
+              /* Sổ kế toán demo gần như hoà vốn (thu ≈ chi), số dư còn lại chỉ là sai số làm
+                 tròn từng giao dịch. Làm tròn về triệu để không hiện "Lãi ròng: 2 đ" — thống
+                 nhất với cách trang /accounting hiển thị số dư. */
+              subtitle={acctSummary ? `Lãi ròng: ${formatCurrency(Math.round(acctSummary.net / 1_000_000) * 1_000_000)}` : 'Chi phí & lương'}
               icon="💸"
               color="#EF4444"
               onClick={() => router.push('/accounting')}

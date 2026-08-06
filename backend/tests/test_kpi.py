@@ -75,6 +75,10 @@ async def _seed_kpi_data(db: AsyncSession, user: User, period: str = "2026-07"):
             assigned_to=user.id, stage=stage,
             deal_value=500_000_000 if stage in ("potential", "signed_design") else 200_000_000,
             created_at=start + timedelta(days=i),
+            # PHẢI set tường minh trong kỳ test: mặc định = now() → khi lịch thật sang
+            # tháng mới, signed_count query (updated_at trong kỳ) trả 0 — test nổ hẹn giờ
+            # (fail lần đầu 06/08/2026 dù code không đổi)
+            updated_at=start + timedelta(days=i),
             last_contacted_at=start + timedelta(days=i, hours=12),
         )
         db.add(lead)

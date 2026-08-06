@@ -464,7 +464,7 @@ export default function CustomersPage() {
                 ].map(([key, label]) => (
                   <label key={key} className="space-y-1">
                     <span className="text-xs text-[var(--text-muted)]">{label}</span>
-                    <input type={key === 'email' ? 'email' : 'text'} value={form[key as keyof CustomerForm]} onChange={e => setForm({ ...form, [key]: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                    <input type={key === 'email' ? 'email' : 'text'} inputMode={key === 'phone' ? 'tel' : undefined} value={form[key as keyof CustomerForm]} onChange={e => setForm({ ...form, [key]: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
                   </label>
                 ))}
                 <label className="space-y-1">

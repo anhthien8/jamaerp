@@ -15,6 +15,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '06/08/2026',
+    title: 'Tổng duyệt trước ra mắt chính thức — sạch lỗi toàn hệ thống',
+    tag: 'RELEASE',
+    news: [
+      'Cài app lên điện thoại đẹp chuẩn thương hiệu: icon logo JM mới + banner hướng dẫn cài đặt (Android một chạm, iPhone có chỉ dẫn).',
+      'Chế độ Tập luyện trung thực 100%: trang KPI hiện đủ số liệu mẫu cả 3 tab; thao tác nào chưa mô phỏng sẽ báo rõ thay vì "thành công giả".',
+    ],
+    fixes: [
+      'HR "Cho nghỉ việc" trong Chế độ Tập luyện hết làm treo ứng dụng — xem trước bàn giao lead/việc hoạt động bình thường.',
+      'Số tiền deal hết đuôi thập phân lê thê (7.071341221 tỷ → 7.1 tỷ) trên toàn hệ thống.',
+      'Trang Kế toán: lợi nhuận/tỷ lệ chi-thu/danh mục cùng kỳ lọc — hết cảnh "Lợi nhuận: 2 đ" khó hiểu.',
+      'Trang Phân quyền + Nhà cung cấp: toàn bộ chữ đã có dấu đầy đủ.',
+      'Đổi giai đoạn lead có khóa chống bấm đúp — hết nguy cơ tạo trùng Khách hàng + Dự án.',
+      'Chữ phụ trên nền tối đậm rõ hơn (đạt chuẩn dễ đọc); modal Từ chối hết "tàng hình" ở giao diện sáng.',
+      'Điện thoại: banner cài đặt hết che thanh điều hướng; ô SĐT bật đúng bàn phím số; chuông thông báo hết đè nút Sửa.',
+    ],
+    test: [
+      'Vào Chế độ Tập luyện đi hết một vòng: KPI, Nhân sự → Cho nghỉ việc (xem trước rồi Hủy), kéo thả lead, tạo giao dịch.',
+      'Trên điện thoại: cài app từ banner, kiểm tra icon ngoài màn hình chính có đúng logo JM không.',
+    ],
+  },
+  {
     date: '23/07/2026',
     title: 'Quản trị Dự toán Công trình, Thầu phụ & Báo cáo Chiến lược BOD',
     tag: 'RELEASE',

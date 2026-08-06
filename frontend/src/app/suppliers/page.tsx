@@ -97,15 +97,15 @@ export default function SuppliersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Nha cung cap</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Quan ly nha cung cap va bang gia</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Nhà cung cấp</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Quản lý nhà cung cấp và bảng giá</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
           style={{ background: 'var(--gold-500)', color: '#000' }}
         >
-          + Them nha cung cap
+          + Thêm nhà cung cấp
         </button>
       </div>
 
@@ -113,7 +113,7 @@ export default function SuppliersPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="text"
-          placeholder="Tim kiem nha cung cap..."
+          placeholder="Tìm kiếm nhà cung cấp..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -125,7 +125,7 @@ export default function SuppliersPage() {
           className="px-4 py-2.5 rounded-xl text-sm outline-none"
           style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
         >
-          <option value="all">Tat ca loai</option>
+          <option value="all">Tất cả loại</option>
           {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
@@ -137,10 +137,10 @@ export default function SuppliersPage() {
         className="flex items-center gap-3 p-4 rounded-xl"
         style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)' }}
       >
-        <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>So sanh gia:</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>So sánh giá:</span>
         <input
           type="text"
-          placeholder="Nhap ten vat tu (VD: Go soi, Son noi that)..."
+          placeholder="Nhập tên vật tư (VD: Gỗ sồi, Sơn nội thất)..."
           value={compareMaterial}
           onChange={e => setCompareMaterial(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCompare()}
@@ -152,7 +152,7 @@ export default function SuppliersPage() {
           className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
           style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)', border: '1px solid rgba(201,169,110,0.3)' }}
         >
-          So sanh gia
+          So sánh giá
         </button>
       </div>
 
@@ -161,9 +161,9 @@ export default function SuppliersPage() {
         {/* Supplier List */}
         <div className="lg:w-1/2 space-y-3">
           {loading ? (
-            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Dang tai...</div>
+            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Đang tải...</div>
           ) : suppliers.length === 0 ? (
-            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Khong co nha cung cap nao</div>
+            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Không có nhà cung cấp nào</div>
           ) : (
             suppliers.map(s => (
               <div
@@ -197,7 +197,7 @@ export default function SuppliersPage() {
                   </div>
                   {s.quote_count != null && s.quote_count > 0 && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
-                      {s.quote_count} bao gia
+                      {s.quote_count} báo giá
                     </span>
                   )}
                 </div>
@@ -219,14 +219,14 @@ export default function SuppliersPage() {
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold"
                     style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}
                   >
-                    + Them bao gia
+                    + Thêm báo giá
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {selectedSupplier.contact_person && <div><span style={{ color: 'var(--text-muted)' }}>Lien he:</span> {selectedSupplier.contact_person}</div>}
-                  {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Dien thoai:</span> {selectedSupplier.phone}</div>}
+                  {selectedSupplier.contact_person && <div><span style={{ color: 'var(--text-muted)' }}>Liên hệ:</span> {selectedSupplier.contact_person}</div>}
+                  {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span> {selectedSupplier.phone}</div>}
                   {selectedSupplier.email && <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {selectedSupplier.email}</div>}
-                  {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Dia chi:</span> {selectedSupplier.address}</div>}
+                  {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Địa chỉ:</span> {selectedSupplier.address}</div>}
                 </div>
                 {selectedSupplier.notes && (
                   <p className="text-xs mt-3 p-2 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
@@ -238,12 +238,12 @@ export default function SuppliersPage() {
               {/* Price Quotes */}
               <div className="p-5 rounded-xl" style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)' }}>
                 <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                  Bang gia ({quotes.length})
+                  Bảng giá ({quotes.length})
                 </h3>
                 {quotesLoading ? (
-                  <div className="text-center py-6 text-xs" style={{ color: 'var(--text-muted)' }}>Dang tai...</div>
+                  <div className="text-center py-6 text-xs" style={{ color: 'var(--text-muted)' }}>Đang tải...</div>
                 ) : quotes.length === 0 ? (
-                  <div className="text-center py-6 text-xs" style={{ color: 'var(--text-muted)' }}>Chua co bao gia</div>
+                  <div className="text-center py-6 text-xs" style={{ color: 'var(--text-muted)' }}>Chưa có báo giá</div>
                 ) : (
                   <div className="space-y-2">
                     {quotes.map(q => (
@@ -251,13 +251,13 @@ export default function SuppliersPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{q.material_name}</p>
                           <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                            {q.unit} · SL toi thieu: {q.min_quantity || '-'} · Giao hang: {q.lead_time_days || '-'} ngay
+                            {q.unit} · SL tối thiểu: {q.min_quantity || '-'} · Giao hàng: {q.lead_time_days || '-'} ngày
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0 ml-3">
-                          <p className="text-sm font-bold" style={{ color: 'var(--gold-400)' }}>{fmt(q.unit_price)}d</p>
+                          <p className="text-sm font-bold" style={{ color: 'var(--gold-400)' }}>{fmt(q.unit_price)}đ</p>
                           {q.valid_until && (
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>HS den {q.valid_until}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>HL đến {q.valid_until}</p>
                           )}
                         </div>
                       </div>
@@ -268,7 +268,7 @@ export default function SuppliersPage() {
             </div>
           ) : (
             <div className="flex items-center justify-center h-64 rounded-xl" style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)' }}>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chon nha cung cap de xem chi tiet</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chọn nhà cung cấp để xem chi tiết</p>
             </div>
           )}
         </div>
@@ -285,9 +285,9 @@ export default function SuppliersPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-                So sanh gia: {compareData.material_name}
+                So sánh giá: {compareData.material_name}
               </h2>
-              <button onClick={() => setShowCompare(false)} className="text-sm" style={{ color: 'var(--text-muted)' }}>Dong</button>
+              <button onClick={() => setShowCompare(false)} className="text-sm" style={{ color: 'var(--text-muted)' }}>Đóng</button>
             </div>
             <PriceComparisonTable data={compareData} />
           </div>
@@ -303,19 +303,20 @@ export default function SuppliersPage() {
             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}
             onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Them nha cung cap moi</h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Thêm nhà cung cấp mới</h2>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { key: 'name', label: 'Ten NCC', required: true },
-                { key: 'contact_person', label: 'Nguoi lien he', required: false },
-                { key: 'phone', label: 'Dien thoai', required: false },
+                { key: 'name', label: 'Tên NCC', required: true },
+                { key: 'contact_person', label: 'Người liên hệ', required: false },
+                { key: 'phone', label: 'Điện thoại', required: false },
                 { key: 'email', label: 'Email', required: false },
-                { key: 'address', label: 'Dia chi', required: false },
+                { key: 'address', label: 'Địa chỉ', required: false },
               ] as const).map(f => (
                 <div key={f.key} className={f.key === 'name' ? 'col-span-2' : ''}>
                   <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>{f.label}{f.required && ' *'}</label>
                   <input
                     type={f.key === 'email' ? 'email' : 'text'}
+                    inputMode={f.key === 'phone' ? 'tel' : undefined}
                     value={form[f.key]}
                     onChange={e => setForm({ ...form, [f.key]: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -324,7 +325,7 @@ export default function SuppliersPage() {
                 </div>
               ))}
               <div className="col-span-2">
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Loai</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Loại</label>
                 <select
                   value={form.category}
                   onChange={e => setForm({ ...form, category: e.target.value })}
@@ -337,7 +338,7 @@ export default function SuppliersPage() {
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ghi chu</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ghi chú</label>
                 <textarea
                   value={form.notes}
                   onChange={e => setForm({ ...form, notes: e.target.value })}
@@ -348,14 +349,14 @@ export default function SuppliersPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Huy</button>
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Hủy</button>
               <button
                 onClick={handleCreateSupplier}
                 disabled={!form.name.trim()}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ background: 'var(--gold-500)', color: '#000' }}
               >
-                Them
+                Thêm
               </button>
             </div>
           </div>
@@ -372,11 +373,11 @@ export default function SuppliersPage() {
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-              Them bao gia — {selectedSupplier.name}
+              Thêm báo giá — {selectedSupplier.name}
             </h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ten vat tu *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Tên vật tư *</label>
                 <input
                   type="text"
                   value={quoteForm.material_name}
@@ -386,7 +387,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Don vi</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Đơn vị</label>
                 <input
                   type="text"
                   value={quoteForm.unit}
@@ -396,7 +397,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Don gia (VND) *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Đơn giá (VND) *</label>
                 <input
                   type="number"
                   value={quoteForm.unit_price}
@@ -406,7 +407,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>SL toi thieu</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>SL tối thiểu</label>
                 <input
                   type="number"
                   value={quoteForm.min_quantity}
@@ -416,7 +417,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Giao hang (ngay)</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Giao hàng (ngày)</label>
                 <input
                   type="number"
                   value={quoteForm.lead_time_days}
@@ -426,7 +427,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ghi chu</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ghi chú</label>
                 <input
                   type="text"
                   value={quoteForm.notes}
@@ -437,14 +438,14 @@ export default function SuppliersPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowQuoteModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Huy</button>
+              <button onClick={() => setShowQuoteModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Hủy</button>
               <button
                 onClick={handleAddQuote}
                 disabled={!quoteForm.material_name.trim() || quoteForm.unit_price <= 0}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ background: 'var(--gold-500)', color: '#000' }}
               >
-                Them bao gia
+                Thêm báo giá
               </button>
             </div>
           </div>

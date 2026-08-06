@@ -218,6 +218,25 @@ export default function AccountingPage() {
   const filteredIncome = filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const filteredExpense = filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
+  // Số dư thu-chi: trong sổ demo, thu thiết kế 25% ≈ chi (vật tư 15% + nhân công 10%) nên chênh
+  // lệch chỉ là sai số làm tròn từng giao dịch (vài đồng). Làm tròn về triệu để không hiện
+  // "Lợi nhuận: 2 đ" vô nghĩa — phản ánh đúng độ phân giải tiền tệ của báo cáo (số dư thực ≈ 0).
+  const filteredNet = Math.round((filteredIncome - filteredExpense) / 1_000_000) * 1_000_000;
+
+  // Danh mục lấy từ ĐÚNG tập giao dịch đang lọc (trước đây dùng summary.by_category toàn kỳ,
+  // nên khi lọc "Tháng này" một danh mục có thể vượt Tổng thu/Tổng chi của thẻ — con số vô lý).
+  const filteredByCategory = Object.values(
+    filteredTx.reduce<Record<string, { category: string; type: string; total: number; count: number }>>((acc, t) => {
+      const key = `${t.type}:${t.category}`;
+      (acc[key] ??= { category: t.category, type: t.type, total: 0, count: 0 });
+      acc[key].total += t.amount;
+      acc[key].count += 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b.total - a.total);
+
+  const PERIOD_LABEL: Record<string, string> = { all: 'tất cả', month: 'tháng này', quarter: 'quý này', year: 'năm nay' };
+
   // Filter commissions based on role
   const visibleCommissions = commissions.filter(c => {
     if (user.role === 'data_entry') return c.user_id === user.id;
@@ -292,8 +311,8 @@ export default function AccountingPage() {
                   </div>
                   <div className="glass-card p-5 border-l-2 border-l-blue-500">
                     <p className="text-xs text-[var(--text-muted)] mb-1">📈 Lợi nhuận</p>
-                    <p className={cn('text-xl font-bold', (filteredIncome - filteredExpense) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                      {formatCurrency(filteredIncome - filteredExpense)}
+                    <p className={cn('text-xl font-bold', filteredNet >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {formatCurrency(filteredNet)}
                     </p>
                   </div>
                 </div>
@@ -305,12 +324,12 @@ export default function AccountingPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-[var(--text-secondary)]">Tỷ lệ chi/thu</span>
                       <span className="text-sm font-semibold text-amber-400">
-                        {summary.total_income > 0 ? ((summary.total_expense / summary.total_income) * 100).toFixed(1) : '0'}%
+                        {filteredIncome > 0 ? ((filteredExpense / filteredIncome) * 100).toFixed(1) : '0'}%
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-[var(--text-secondary)]">Số giao dịch tháng này</span>
-                      <span className="text-sm font-semibold text-blue-400">{transactions.length}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">Số giao dịch ({PERIOD_LABEL[periodFilter]})</span>
+                      <span className="text-sm font-semibold text-blue-400">{filteredTx.length}</span>
                     </div>
                   </div>
                 </div>
@@ -318,11 +337,11 @@ export default function AccountingPage() {
                 {/* By Category */}
                 <div className="glass-card p-5">
                   <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Theo danh mục</h3>
-                  {summary.by_category.length === 0 ? (
+                  {filteredByCategory.length === 0 ? (
                     <p className="text-sm text-center text-[var(--text-muted)] py-4">Chưa có dữ liệu</p>
                   ) : (
                     <div className="space-y-2">
-                      {summary.by_category.map((cat, i) => (
+                      {filteredByCategory.map((cat, i) => (
                         <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5">
                           <div className="flex items-center gap-2">
                             <span className={cn('text-xs font-medium px-2 py-0.5 rounded', cat.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>

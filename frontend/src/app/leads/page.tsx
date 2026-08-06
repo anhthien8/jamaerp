@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
@@ -175,6 +175,9 @@ function LeadsContent() {
   const activeStage = urlStage && ALL_STAGES.includes(urlStage) ? urlStage : null;
   const activeQuickFilter = urlFilter === 'overdue' ? 'overdue' : null;
   const { toast } = useToast();
+  // Khóa chống double-click / double-drop khi đang gọi API đổi stage:
+  // vào "Deal đã thắng" (signed_design) mà bắn 2 lần sẽ tạo TRÙNG Khách hàng + Dự án.
+  const stageBusy = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -221,6 +224,9 @@ function LeadsContent() {
 
   const openLeadDetail = async (lead: Lead) => {
     setSelectedLead(lead);
+    // Ô ghi chú luôn sạch khi mở thẻ mới (tránh sót nội dung của lead trước).
+    setNewNote('');
+    setNewNoteLink('');
     setActivities([]);
     setLoadingActivities(true);
     try {
@@ -232,6 +238,13 @@ function LeadsContent() {
       setLoadingActivities(false);
     }
   };
+
+  // Đóng thẻ lead: reset luôn ô ghi chú để lần mở sau không dính nội dung cũ.
+  const closeLeadDetail = useCallback(() => {
+    setSelectedLead(null);
+    setNewNote('');
+    setNewNoteLink('');
+  }, []);
 
   const handleAddNote = async () => {
     if (!selectedLead || !newNote.trim()) return;
@@ -255,6 +268,9 @@ function LeadsContent() {
       toast('Vui lòng chọn lý do mất lead', 'error');
       return;
     }
+    // Đang có 1 lượt đổi stage chạy dở → bỏ qua lượt thứ 2 (chặn tạo trùng KH+Dự án).
+    if (stageBusy.current) return;
+    stageBusy.current = true;
     try {
       if (newStage === 'lost' && reasonOverride) {
         await api.updateLead(lead.id, { stage: newStage, lost_reason: reasonOverride });
@@ -263,9 +279,11 @@ function LeadsContent() {
       }
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
       fetchLeads();
-      setSelectedLead(null);
+      closeLeadDetail();
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+    } finally {
+      stageBusy.current = false;
     }
   };
 
@@ -690,7 +708,7 @@ function LeadsContent() {
       {selectedLead && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]"
-          onClick={() => setSelectedLead(null)}
+          onClick={closeLeadDetail}
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
@@ -710,7 +728,7 @@ function LeadsContent() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedLead(null)}
+                onClick={closeLeadDetail}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]"
               >
                 ✕

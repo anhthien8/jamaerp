@@ -307,7 +307,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const bellButton = (
     <button
       onClick={() => setOpen(true)}
-      className="fixed top-4 right-4 z-40 lg:top-auto lg:bottom-6 lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
+      className="fixed top-4 right-4 z-40 lg:top-16 lg:bottom-auto lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
       style={{ color: 'var(--text-tertiary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
       aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}
     >
@@ -406,7 +406,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   function renderHeader() {
     return (
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Thong bao</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Thông báo</h3>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <button
@@ -414,7 +414,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
               className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition-colors"
               style={{ color: 'var(--gold-400)', background: 'rgba(201,169,110,0.08)' }}
             >
-              Danh dau da doc
+              Đánh dấu đã đọc
             </button>
           )}
           <button
@@ -438,7 +438,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
             <span className="text-3xl block mb-2">🔔</span>
-            <p className="text-sm text-[var(--text-muted)]">Khong co thong bao nao</p>
+            <p className="text-sm text-[var(--text-muted)]">Không có thông báo nào</p>
           </div>
         </div>
       );
@@ -462,10 +462,10 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     return (
       <div className="px-4 py-2.5 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
         <span className="text-[10px] text-[var(--text-disabled)]">
-          {notifications.length} tong cong · {unreadCount} chua doc
+          {notifications.length} tổng cộng · {unreadCount} chưa đọc
         </span>
         <span className="text-[10px] text-[var(--text-disabled)]">
-          Tu dong tao tu du lieu he thong
+          Tự động tạo từ dữ liệu hệ thống
         </span>
       </div>
     );

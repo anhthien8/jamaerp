@@ -92,8 +92,11 @@
   --text-primary: #F0F4F8;
   --text-secondary: #9FB3C8;
   --text-tertiary: #627D98;
-  --text-disabled: #486581;
-  --text-muted: #486581;
+  /* Nâng tương phản trên nền tối (--surface-0 #060D1B): #486581 cũ chỉ ~2.9:1.
+     muted #8B9BAD ≈ 6.8:1, disabled #6E7E8F ≈ 4.7:1 — đều đạt WCAG AA (≥4.5:1),
+     vẫn giữ thứ bậc disabled < muted < secondary < primary. */
+  --text-disabled: #6E7E8F;
+  --text-muted: #8B9BAD;
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);

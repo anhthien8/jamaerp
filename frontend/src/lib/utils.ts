@@ -89,7 +89,8 @@ export function formatDealValue(value?: number | null): string {
   const abs = Math.abs(value);
   if (abs >= 1_000_000_000) {
     const v = abs / 1_000_000_000;
-    const s = v % 1 === 0 ? String(Math.round(v)) : String(v);
+    // tỷ: tối đa 1 chữ số thập phân (7.071341221 → 7.1); tròn tỷ thì bỏ ".0".
+    const s = v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1);
     return `${sign}${s} tỷ`;
   }
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(0)} triệu`;

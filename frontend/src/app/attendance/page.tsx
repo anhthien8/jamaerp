@@ -137,7 +137,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
       <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>🧾 Chốt sổ kỳ {monthLabelVN(period)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
       <div className="space-y-2">
         {steps.map(s => (
-          <div key={s.key} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--bg-elevated, rgba(255,255,255,0.03))' }}>
+          <div key={s.key} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--surface-2)' }}>
             <div className="min-w-0">
               <div className="text-sm font-semibold" style={{ color: s.done ? '#34d399' : 'var(--text-primary)' }}>
                 {s.done ? '✅' : '○'} {s.label}
@@ -332,7 +332,7 @@ export default function AttendancePage() {
                 onClick={() => setTab(t)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition"
                 style={{
-                  background: tab === t ? 'var(--gold-500)' : 'var(--bg-elevated)',
+                  background: tab === t ? 'var(--gold-500)' : 'var(--surface-2)',
                   color: tab === t ? '#fff' : 'var(--text-secondary)',
                 }}
               >
@@ -345,7 +345,7 @@ export default function AttendancePage() {
         {tab === 'attendance' && (
           <div className="space-y-5">
             {/* Check-in/out card */}
-            <div className="rounded-2xl p-5 border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+            <div className="rounded-2xl p-5 border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Hôm nay</div>
@@ -392,7 +392,7 @@ export default function AttendancePage() {
                 value={period}
                 onChange={e => setPeriod(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border text-sm"
-                style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
               />
               {summary && (
                 <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -408,7 +408,7 @@ export default function AttendancePage() {
             <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}>
+                  <tr style={{ color: 'var(--text-muted)', background: 'var(--surface-2)' }}>
                     <th className="text-left px-4 py-2.5">Ngày</th>
                     <th className="text-left px-4 py-2.5">Vào</th>
                     <th className="text-left px-4 py-2.5">Ra</th>
@@ -462,7 +462,7 @@ export default function AttendancePage() {
             {/* Team summary (leader/admin/accountant) */}
             {canSeeTeam && teamRows.length > 0 && (
               <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)', background: 'var(--bg-elevated)' }}>
+                <div className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}>
                   👥 Bảng công {user.role === 'leader' ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
                 </div>
                 <table className="w-full text-sm">
@@ -503,7 +503,7 @@ export default function AttendancePage() {
                   { label: 'Nghỉ ốm', value: balance.sick_used, color: 'var(--text-primary)' },
                   { label: 'Không lương', value: balance.unpaid_used, color: 'var(--text-primary)' },
                 ].map(c => (
-                  <div key={c.label} className="rounded-2xl p-4 border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+                  <div key={c.label} className="rounded-2xl p-4 border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
                     <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.label}</div>
                     <div className="text-xl font-bold" style={{ color: c.color }}>{c.value}</div>
                   </div>
@@ -522,7 +522,7 @@ export default function AttendancePage() {
             >+ Xin nghỉ phép</button>
 
             {showLeaveForm && (
-              <div className="rounded-2xl p-5 border space-y-3" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+              <div className="rounded-2xl p-5 border space-y-3" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Loại phép</label>
@@ -530,7 +530,7 @@ export default function AttendancePage() {
                       value={leaveForm.leave_type}
                       onChange={e => setLeaveForm(f => ({ ...f, leave_type: e.target.value }))}
                       className="w-full px-3 py-2 rounded-lg border text-sm"
-                      style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                      style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
                     >
                       <option value="annual">Phép năm (có lương)</option>
                       <option value="sick">Nghỉ ốm</option>
@@ -540,12 +540,12 @@ export default function AttendancePage() {
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Từ ngày</label>
                     <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm(f => ({ ...f, start_date: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
+                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
                   </div>
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Đến ngày</label>
                     <input type="date" value={leaveForm.end_date} onChange={e => setLeaveForm(f => ({ ...f, end_date: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
+                      className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
                   </div>
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Tùy chọn</label>
@@ -561,7 +561,7 @@ export default function AttendancePage() {
                   onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border text-sm"
                   rows={2}
-                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                  style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
                 />
                 <button onClick={submitLeave} disabled={busy} className="px-4 py-2 rounded-xl font-semibold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
                   Gửi đơn
@@ -573,7 +573,7 @@ export default function AttendancePage() {
             <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}>
+                  <tr style={{ color: 'var(--text-muted)', background: 'var(--surface-2)' }}>
                     <th className="text-left px-4 py-2.5">Loại</th>
                     <th className="text-left px-4 py-2.5">Từ</th>
                     <th className="text-left px-4 py-2.5">Đến</th>
@@ -613,7 +613,7 @@ export default function AttendancePage() {
               </div>
             )}
             {payslips.map(p => (
-              <div key={p.id} className="rounded-2xl p-5 border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}>
+              <div key={p.id} className="rounded-2xl p-5 border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
                 <div className="flex flex-wrap justify-between items-center mb-3">
                   <div className="font-bold" style={{ color: 'var(--text-primary)' }}>Kỳ {monthLabelVN(p.period)}</div>
                   <div className="text-lg font-bold" style={{ color: 'var(--gold-500)' }}>{fmtMoney(p.net_salary)}</div>

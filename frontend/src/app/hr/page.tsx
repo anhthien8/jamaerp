@@ -516,12 +516,12 @@ export default function HRPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">Leads cần chuyển giao</span>
                   <span className="text-xs px-2 py-0.5 rounded-lg font-medium" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
-                    {resignPreview.lead_count} leads
+                    {resignPreview.lead_count ?? 0} leads
                   </span>
                 </div>
-                {resignPreview.leads.length > 0 ? (
+                {(resignPreview.leads ?? []).length > 0 ? (
                   <div className="max-h-32 overflow-y-auto rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                    {resignPreview.leads.map(lead => (
+                    {(resignPreview.leads ?? []).map(lead => (
                       <div key={lead.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
                         <span className="text-[var(--text-primary)] truncate">{lead.name}</span>
                         <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{labelOf(LEAD_STAGE_LABELS, lead.stage)}</span>
@@ -538,12 +538,12 @@ export default function HRPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">Tasks cần chuyển giao</span>
                   <span className="text-xs px-2 py-0.5 rounded-lg font-medium" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
-                    {resignPreview.task_count} tasks
+                    {resignPreview.task_count ?? 0} tasks
                   </span>
                 </div>
-                {resignPreview.tasks.length > 0 ? (
+                {(resignPreview.tasks ?? []).length > 0 ? (
                   <div className="max-h-32 overflow-y-auto rounded-xl space-y-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                    {resignPreview.tasks.map(task => (
+                    {(resignPreview.tasks ?? []).map(task => (
                       <div key={task.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
                         <span className="text-[var(--text-primary)] truncate">{task.title}</span>
                         <span className="text-[var(--text-muted)] ml-2 flex-shrink-0">{task.project_name}</span>
