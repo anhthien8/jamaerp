@@ -1,12 +1,12 @@
 {
   "name": "JAMA HOME ERP",
-  "short_name": "JAMA",
+  "short_name": "JAMA HOME",
   "description": "Hệ thống quản lý JAMA HOME — Nội thất cao cấp",
   "lang": "vi",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0D1526",
+  "background_color": "#1C1A15",
   "theme_color": "#C9A96E",
   "scope": "/",
   "icons": [
@@ -20,10 +20,10 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
