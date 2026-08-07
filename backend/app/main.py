@@ -101,7 +101,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"https://frontend-[a-z0-9-]+\.vercel\.app",
+    # + tên miền chính thức crm.jamahome.vn (trỏ CNAME về Vercel — 07/08/2026)
+    allow_origin_regex=r"https://(frontend-[a-z0-9-]+\.vercel\.app|crm\.jamahome\.vn)",
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
