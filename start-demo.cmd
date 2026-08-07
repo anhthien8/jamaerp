@@ -19,9 +19,8 @@ start "JAMA Backend" cmd /k "cd /d %~dp0backend && set PYTHONIOENCODING=utf-8 &&
 REM ── Cho backend khoi dong ──
 timeout /t 6 /nobreak >nul
 
-REM ── Worker (tu dong hoa + backup) ──
-echo  Khoi dong Worker...
-start "JAMA Worker" cmd /k "cd /d %~dp0backend && python -m app.worker"
+REM ── Worker: KHONG con chay rieng — da nhung vao uvicorn qua lifespan ──
+REM (EMBED_WORKER mac dinh True o dev nen backup + job nen chay ngay trong backend)
 
 REM ── Frontend (Next.js dev - port 3001) ──
 echo  Khoi dong Frontend...

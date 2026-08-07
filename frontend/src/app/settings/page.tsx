@@ -310,99 +310,81 @@ function ZaloSection() {
 function BackupSection() {
   const [data, setData] = useState<BackupSettingsResponse | null>(null);
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
-  const [showGdriveSetup, setShowGdriveSetup] = useState(false);
+  // Kiểu thông báo để tô màu đúng theme: xanh thành công / đỏ lỗi / mặc định đang chạy
+  const [msgType, setMsgType] = useState<'info' | 'success' | 'error'>('info');
   const [form, setForm] = useState({
-    backup_enabled: true,
-    backup_hour: 5,
-    backup_retention_days: 180,
-    gdrive_client_id: '',
-    gdrive_client_secret: '',
+    enabled: true,
+    hour: 5,
+    retention_days: 30,
+    telegram_chat_id: '',
   });
 
   const load = useCallback(() => {
     api.getBackupSettings().then(s => {
       setData(s);
-      setForm(f => ({
-        ...f,
-        backup_enabled: s.backup_enabled === 'true',
-        backup_hour: parseInt(s.backup_hour, 10) || 5,
-        backup_retention_days: parseInt(s.backup_retention_days, 10) || 180,
-      }));
+      setForm({
+        enabled: s.enabled,
+        hour: s.hour,
+        retention_days: s.retention_days,
+        telegram_chat_id: s.telegram_chat_id || '',
+      });
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    load();
-    // Sau khi OAuth Google redirect về ?gdrive=connected|error
-    const params = new URLSearchParams(window.location.search);
-    const gdrive = params.get('gdrive');
-    if (gdrive === 'connected') setMessage('✅ Đã kết nối Google Drive thành công');
-    if (gdrive === 'error') setMessage('❌ Kết nối Google Drive thất bại — thử lại');
-    if (gdrive) window.history.replaceState(null, '', '/settings');
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const save = useCallback(async () => {
     setSaving(true);
     setMessage('');
     try {
-      const payload: Record<string, unknown> = {
-        backup_enabled: form.backup_enabled,
-        backup_hour: form.backup_hour,
-        backup_retention_days: form.backup_retention_days,
-      };
-      if (form.gdrive_client_id) payload.gdrive_client_id = form.gdrive_client_id;
-      if (form.gdrive_client_secret) payload.gdrive_client_secret = form.gdrive_client_secret;
-      const updated = await api.updateBackupSettings(payload);
+      const updated = await api.updateBackupSettings({
+        enabled: form.enabled,
+        hour: form.hour,
+        retention_days: form.retention_days,
+        telegram_chat_id: form.telegram_chat_id.trim(),
+      });
       setData(updated);
-      setForm(f => ({ ...f, gdrive_client_secret: '' }));
+      setForm({
+        enabled: updated.enabled,
+        hour: updated.hour,
+        retention_days: updated.retention_days,
+        telegram_chat_id: updated.telegram_chat_id || '',
+      });
       setMessage('✅ Đã lưu cài đặt sao lưu');
+      setMsgType('success');
     } catch (e) {
       setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi lưu cài đặt'}`);
+      setMsgType('error');
     } finally {
       setSaving(false);
     }
   }, [form]);
 
   const backupNow = useCallback(async () => {
+    setRunning(true);
     setMessage('⏳ Đang sao lưu...');
+    setMsgType('info');
     try {
       const res = await api.runBackupNow();
-      if (res.status === 'completed') {
-        setMessage(`✅ Đã sao lưu: ${res.file} (${res.size_mb} MB)${res.gdrive_uploaded ? ' + Google Drive ☁️' : ''}`);
+      if (res.status === 'success') {
+        setMessage(`✅ Đã sao lưu ${res.file_name} (${res.size_mb} MB)${res.sent_telegram ? ' — đã gửi vào nhóm Telegram' : ''}`);
+        setMsgType('success');
+        load(); // cập nhật khối trạng thái "gần nhất"
       } else {
-        setMessage(`⚠️ ${res.reason || res.status}`);
+        setMessage(`❌ ${res.reason}`);
+        setMsgType('error');
       }
-      load();
     } catch (e) {
       setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi sao lưu'}`);
-    }
-  }, [load]);
-
-  const connectGdrive = useCallback(async () => {
-    setMessage('');
-    try {
-      const { auth_url } = await api.getGdriveAuthUrl();
-      window.location.href = auth_url; // sang trang consent của Google
-    } catch (e) {
-      setMessage(`❌ ${e instanceof Error ? e.message : 'Chưa cấu hình Client ID/Secret'}`);
-      setShowGdriveSetup(true);
-    }
-  }, []);
-
-  const disconnectGdrive = useCallback(async () => {
-    try {
-      await api.disconnectGdrive();
-      setMessage('✅ Đã ngắt kết nối Google Drive');
-      load();
-    } catch (e) {
-      setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi'}`);
+      setMsgType('error');
+    } finally {
+      setRunning(false);
     }
   }, [load]);
 
   if (!data) return null;
-
-  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
 
   const toggle = (checked: boolean, onChange: (v: boolean) => void) => (
     <button
@@ -415,119 +397,111 @@ function BackupSection() {
     </button>
   );
 
+  // Màu chữ thông báo hành động (lưu / sao lưu ngay)
+  const msgColor = msgType === 'success' ? 'var(--success)' : msgType === 'error' ? 'var(--danger)' : 'var(--text-secondary)';
+
+  // Định dạng thời gian giờ VN dạng "dd/MM HH:mm" từ chuỗi ISO
+  const fmtVN = (iso: string | null) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const day = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' });
+      const time = d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false });
+      return `${day} ${time}`;
+    } catch { return iso; }
+  };
+
   return (
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="save" />Sao lưu dữ liệu tự động</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
-        Sao lưu toàn bộ database mỗi sáng, lưu local + Google Drive. Tự xóa bản cũ quá thời gian lưu trữ (tối đa {data.max_retention_days} ngày).
+        Sao lưu toàn bộ database mỗi sáng và gửi file vào nhóm Telegram. Bản local cũ hơn số ngày lưu trữ sẽ tự xóa.
       </p>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm">Sao lưu hàng ngày</p>
-            <p className="text-xs text-[var(--text-muted)]">
-              {data.last_run
-                ? `Lần gần nhất: ${new Date(data.last_run).toLocaleString('vi-VN')} · Đang giữ ${data.local_backup_count} bản local`
-                : 'Chưa chạy lần nào'}
-            </p>
+        {/* Trạng thái lần sao lưu gần nhất — màu theo kết quả thật */}
+        {data.last_status === 'never' ? (
+          <div className="rounded-lg p-3 text-sm border border-white/10 bg-white/5 text-[var(--text-muted)]">
+            Sao lưu gần nhất: Chưa từng chạy
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="text-sm text-[var(--text-secondary)]">lúc</span>
-            <input
-              type="number" min={0} max={23} value={form.backup_hour}
-              onChange={e => setForm(f => ({ ...f, backup_hour: Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0)) }))}
-              className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">giờ sáng</span>
-            {toggle(form.backup_enabled, v => setForm(f => ({ ...f, backup_enabled: v })))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm">Thời gian lưu trữ</p>
-            <p className="text-xs text-[var(--text-muted)]">Bản backup cũ hơn sẽ tự xóa (cả local và Google Drive)</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <input
-              type="number" min={1} max={data.max_retention_days} value={form.backup_retention_days}
-              onChange={e => setForm(f => ({ ...f, backup_retention_days: Math.max(1, Math.min(data.max_retention_days, parseInt(e.target.value, 10) || 1)) }))}
-              className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">ngày (max {data.max_retention_days})</span>
-          </div>
-        </div>
-
-        <div className="pt-3 border-t border-white/5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm">☁️ Google Drive</p>
-              <p className="text-xs text-[var(--text-muted)]">
-                {data.gdrive_connected
-                  ? `Đã kết nối${data.gdrive_account_email ? `: ${data.gdrive_account_email}` : ''} — backup tự upload vào thư mục JAMA-CRM-Backups`
-                  : 'Chưa kết nối — backup chỉ lưu local'}
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              {data.gdrive_connected ? (
-                <button onClick={disconnectGdrive} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
-                  Ngắt kết nối
-                </button>
-              ) : (
-                <button onClick={connectGdrive} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
-                  🔗 Kết nối Google Drive
-                </button>
-              )}
-            </div>
-          </div>
-
-          {!data.gdrive_connected && (
-            <button
-              onClick={() => setShowGdriveSetup(s => !s)}
-              className="mt-2 text-xs text-[var(--text-muted)] underline"
-            >
-              {showGdriveSetup ? 'Ẩn cấu hình OAuth' : 'Cấu hình OAuth Client (làm 1 lần)'}
-            </button>
-          )}
-
-          {showGdriveSetup && !data.gdrive_connected && (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs text-[var(--text-muted)]">
-                Tạo OAuth Client tại console.cloud.google.com → APIs &amp; Services → Credentials → Create OAuth client ID (Web application).
-                Thêm Redirect URI: <span className="font-mono text-[var(--text-secondary)]">[API_BASE_URL]/api/v1/backup/gdrive/callback</span>
-              </p>
-              <input
-                type="text" value={form.gdrive_client_id}
-                onChange={e => setForm(f => ({ ...f, gdrive_client_id: e.target.value.trim() }))}
-                placeholder={data.gdrive_client_id_set ? 'Client ID (đã lưu — nhập để thay đổi)' : 'Google OAuth Client ID'}
-                className={`${inputCls} font-mono text-xs`}
-              />
-              <input
-                type="password" value={form.gdrive_client_secret}
-                onChange={e => setForm(f => ({ ...f, gdrive_client_secret: e.target.value.trim() }))}
-                placeholder="Google OAuth Client Secret"
-                className={inputCls}
-              />
-              <p className="text-xs text-[var(--text-muted)]">Bấm <b>Lưu cài đặt</b> rồi bấm <b>🔗 Kết nối Google Drive</b>.</p>
-            </div>
-          )}
-        </div>
-
-        {data.local_backups.length > 0 && (
-          <div className="pt-3 border-t border-white/5">
-            <p className="text-sm mb-2">🗂️ Bản sao lưu gần nhất</p>
-            <div className="space-y-1 max-h-36 overflow-y-auto">
-              {data.local_backups.map(b => (
-                <div key={b.name} className="flex justify-between text-xs text-[var(--text-muted)] font-mono">
-                  <span>{b.name}</span>
-                  <span>{(b.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
-                </div>
-              ))}
-            </div>
+        ) : (
+          <div
+            className="rounded-lg p-3 text-sm border"
+            style={{
+              color: data.last_status === 'success' ? 'var(--success)' : 'var(--danger)',
+              borderColor: data.last_status === 'success' ? 'var(--success)' : 'var(--danger)',
+              background: data.last_status === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)',
+            }}
+          >
+            Sao lưu gần nhất: {fmtVN(data.last_run_at)} — {data.last_status === 'success'
+              ? `✅ Thành công${data.last_size_mb != null ? ` (${data.last_size_mb} MB)` : ''}`
+              : `❌ ${data.last_detail || 'Thất bại'}`}
           </div>
         )}
 
+        {/* Bật/tắt sao lưu hằng ngày + chọn giờ */}
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Sao lưu hàng ngày</p>
+            <p className="text-xs text-[var(--text-muted)]">Chạy tự động mỗi ngày vào giờ đã chọn</p>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-sm text-[var(--text-secondary)]">lúc</span>
+            <select
+              value={form.hour}
+              onChange={e => setForm(f => ({ ...f, hour: parseInt(e.target.value, 10) }))}
+              className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+              ))}
+            </select>
+            <span className="text-sm text-[var(--text-secondary)]">giờ VN</span>
+            {toggle(form.enabled, v => setForm(f => ({ ...f, enabled: v })))}
+          </div>
+        </div>
+
+        {/* Số ngày giữ bản local */}
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Thời gian giữ bản local</p>
+            <p className="text-xs text-[var(--text-muted)]">Bản backup cũ hơn sẽ tự xóa khỏi máy chủ (1–180 ngày)</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <input
+              type="number" min={1} max={180} value={form.retention_days}
+              onChange={e => setForm(f => ({ ...f, retention_days: Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)) }))}
+              className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+            />
+            <span className="text-sm text-[var(--text-secondary)]">ngày</span>
+          </div>
+        </div>
+
+        {/* Nhóm Telegram nhận file backup */}
+        <div className="pt-3 border-t border-white/5">
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div>
+              <p className="text-sm flex items-center gap-2"><LineIcon name="send" />Chat ID nhóm Telegram nhận backup</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {data.telegram_configured
+                  ? 'Đã cấu hình — file backup sẽ được gửi vào nhóm này sau mỗi lần sao lưu'
+                  : 'Chưa cấu hình — backup chỉ lưu local, chưa gửi Telegram'}
+              </p>
+            </div>
+          </div>
+          <input
+            type="text"
+            value={form.telegram_chat_id}
+            onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value.trim() }))}
+            placeholder="-1001234567890 (gõ /id trong nhóm để lấy)"
+            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
+          />
+          <p className="text-xs text-[var(--text-muted)] mt-2">
+            Tạo nhóm Telegram riêng tư, thêm bot làm admin, gõ <code className="px-1 rounded bg-white/10">/id</code> để lấy Chat ID. File backup chứa toàn bộ dữ liệu — chỉ thêm người thật sự cần vào nhóm.
+          </p>
+        </div>
+
+        {/* Nút hành động */}
         <div className="flex items-center gap-2 pt-2 border-t border-white/5 flex-wrap">
           <button
             onClick={save}
@@ -538,11 +512,12 @@ function BackupSection() {
           </button>
           <button
             onClick={backupNow}
-            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+            disabled={running}
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 disabled:opacity-50"
           >
-            💾 Sao lưu ngay
+            {running ? '⏳ Đang sao lưu...' : '💾 Sao lưu ngay'}
           </button>
-          {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
+          {message && <span className="text-xs" style={{ color: msgColor }}>{message}</span>}
         </div>
       </div>
     </div>

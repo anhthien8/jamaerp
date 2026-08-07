@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     TIMEZONE: str = "Asia/Ho_Chi_Minh"
 
+    # Worker nhúng: chạy job nền (backup + tự động hóa) NGAY trong tiến trình
+    # uvicorn qua lifespan. Railway prod chỉ chạy uvicorn (start.sh) — không có
+    # tiến trình worker riêng — nên PHẢI bật để job định kỳ sống trên prod.
+    # Compose/VPS đã có service `worker` riêng → đặt EMBED_WORKER=false để
+    # chống chạy đôi (double-run).
+    EMBED_WORKER: bool = True
+
     # Database — SQLite by default for easy local dev
     # Production: set DATABASE_URL to Postgres (Railway cấp dạng postgres://,
     # được chuẩn hóa sang postgresql+asyncpg:// bên dưới)

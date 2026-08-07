@@ -1,30 +1,25 @@
-"""Backup API — admin bật/tắt sao lưu 5h sáng, retention ≤180 ngày, Google Drive OAuth."""
+"""Backup API — admin bật/tắt sao lưu tự động, retention ≤180 ngày, gửi qua Telegram."""
 
-import json
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.services.backup_service import (
     MAX_RETENTION_DAYS,
-    build_gdrive_auth_url,
     get_backup_settings,
     get_setting,
-    handle_gdrive_callback,
-    list_local_backups,
+    has_telegram_token,
     run_backup,
     set_setting,
 )
 
 router = APIRouter(prefix="/backup", tags=["backup"])
-settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _require_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -34,33 +29,37 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 class BackupSettingsUpdate(BaseModel):
-    backup_enabled: bool | None = None
-    backup_hour: int | None = None
-    backup_retention_days: int | None = None
-    backup_gdrive_enabled: bool | None = None
-    gdrive_client_id: str | None = None
-    gdrive_client_secret: str | None = None
+    enabled: bool | None = None
+    hour: int | None = None
+    retention_days: int | None = None
+    telegram_chat_id: str | None = None  # "" để gỡ nhóm nhận backup
 
 
 async def _settings_response(db: AsyncSession) -> dict:
+    """Trả về cấu hình sao lưu theo hợp đồng API (kiểu dữ liệu đã chuẩn hóa)."""
     cfg = await get_backup_settings(db)
-    last_status_raw = await get_setting(db, "backup_last_status")
-    try:
-        last_status = json.loads(last_status_raw) if last_status_raw else None
-    except json.JSONDecodeError:
-        last_status = None
+    chat_id = cfg.get("backup_telegram_chat_id", "")
 
-    backups = list_local_backups()
+    last_status = await get_setting(db, "backup_last_status") or "never"
+    last_run_at = await get_setting(db, "backup_last_run_at") or None
+    last_detail = await get_setting(db, "backup_last_detail")
+
+    last_size_raw = await get_setting(db, "backup_last_size_mb")
+    try:
+        last_size_mb: float | None = float(last_size_raw) if last_size_raw else None
+    except ValueError:
+        last_size_mb = None
+
     return {
-        **cfg,
-        "max_retention_days": MAX_RETENTION_DAYS,
-        "gdrive_connected": bool(await get_setting(db, "gdrive_refresh_token")),
-        "gdrive_account_email": await get_setting(db, "gdrive_account_email"),
-        "gdrive_client_id_set": bool(await get_setting(db, "gdrive_client_id")),
-        "last_run": await get_setting(db, "backup_last_run"),
+        "enabled": cfg["backup_enabled"] == "true",
+        "hour": int(cfg["backup_hour"]),
+        "retention_days": int(cfg["backup_retention_days"]),
+        "telegram_chat_id": chat_id,
+        "telegram_configured": bool(chat_id) and has_telegram_token(),
+        "last_run_at": last_run_at,
         "last_status": last_status,
-        "local_backup_count": len(backups),
-        "local_backups": backups[:10],  # 10 bản gần nhất
+        "last_detail": last_detail,
+        "last_size_mb": last_size_mb,
     }
 
 
@@ -78,27 +77,30 @@ async def update_backup_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(_require_admin),
 ):
-    updates = payload.model_dump(exclude_none=True)
+    updates = payload.model_dump(exclude_unset=True)
     if not updates:
-        raise HTTPException(status_code=400, detail="No settings provided")
+        raise HTTPException(status_code=400, detail="Không có thay đổi nào được gửi lên")
 
-    for key, value in updates.items():
-        if isinstance(value, bool):
-            str_value = "true" if value else "false"
-        elif key == "backup_hour":
-            if not (0 <= int(value) <= 23):
-                raise HTTPException(status_code=400, detail="backup_hour must be 0-23")
-            str_value = str(value)
-        elif key == "backup_retention_days":
-            if not (1 <= int(value) <= MAX_RETENTION_DAYS):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"backup_retention_days must be 1-{MAX_RETENTION_DAYS}",
-                )
-            str_value = str(value)
-        else:  # gdrive_client_id / gdrive_client_secret
-            str_value = str(value).strip()
-        await set_setting(db, key, str_value)
+    if updates.get("enabled") is not None:
+        await set_setting(db, "backup_enabled", "true" if updates["enabled"] else "false")
+
+    if updates.get("hour") is not None:
+        hour = int(updates["hour"])
+        if not (0 <= hour <= 23):
+            raise HTTPException(status_code=400, detail="Giờ chạy phải trong khoảng 0-23")
+        await set_setting(db, "backup_hour", str(hour))
+
+    if updates.get("retention_days") is not None:
+        days = int(updates["retention_days"])
+        if not (1 <= days <= MAX_RETENTION_DAYS):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Số ngày giữ bản sao phải trong khoảng 1-{MAX_RETENTION_DAYS}",
+            )
+        await set_setting(db, "backup_retention_days", str(days))
+
+    if updates.get("telegram_chat_id") is not None:
+        await set_setting(db, "backup_telegram_chat_id", str(updates["telegram_chat_id"]).strip())
 
     await db.commit()
     return await _settings_response(db)
@@ -107,57 +109,25 @@ async def update_backup_settings(
 @router.post("/run")
 async def trigger_backup(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(_require_admin),
+    current_user: User = Depends(_require_admin),
 ):
-    """Sao lưu ngay (test hoặc trước khi update hệ thống)."""
-    return await run_backup(db)
+    """Sao lưu ngay (chạy tay) — trả kết quả THẬT theo hợp đồng API."""
+    result = await run_backup(db)
 
-
-# ---------------------------------------------------------------------------
-# Google Drive OAuth flow
-# ---------------------------------------------------------------------------
-
-@router.get("/gdrive/auth-url")
-async def gdrive_auth_url(
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(_require_admin),
-):
+    # Ghi audit log cho lần chạy tay (best-effort, không chặn kết quả)
     try:
-        url = await build_gdrive_auth_url(db)
+        from app.services.audit import log_action
+
+        await log_action(
+            db,
+            actor=current_user,
+            action="backup_run",
+            entity_type="backup",
+            entity_id=result.get("file_name"),
+            after=result,
+        )
         await db.commit()
-        return {"auth_url": url}
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # audit hỏng không được làm hỏng backup
+        logger.warning("Không ghi được audit log backup_run: %s", exc)
 
-
-@router.get("/gdrive/callback")
-async def gdrive_callback(
-    code: str = Query(""),
-    state: str = Query(""),
-    error: str = Query(""),
-    db: AsyncSession = Depends(get_db),
-):
-    """Google redirect về đây sau khi admin đồng ý — không yêu cầu JWT,
-    bảo vệ bằng state token 1 lần."""
-    frontend = settings.FRONTEND_URL.rstrip("/")
-    if error or not code:
-        return RedirectResponse(f"{frontend}/settings?gdrive=error")
-    try:
-        await handle_gdrive_callback(db, code, state)
-        await db.commit()
-        return RedirectResponse(f"{frontend}/settings?gdrive=connected")
-    except ValueError:
-        await db.rollback()
-        return RedirectResponse(f"{frontend}/settings?gdrive=error")
-
-
-@router.post("/gdrive/disconnect")
-async def gdrive_disconnect(
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(_require_admin),
-):
-    for key in ("gdrive_refresh_token", "gdrive_folder_id", "gdrive_account_email"):
-        await set_setting(db, key, "")
-    await set_setting(db, "backup_gdrive_enabled", "false")
-    await db.commit()
-    return {"status": "disconnected"}
+    return result

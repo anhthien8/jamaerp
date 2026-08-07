@@ -1,26 +1,27 @@
-"""Backup Service — sao lưu database hàng ngày (local + Google Drive OAuth).
+"""Backup Service — sao lưu database hàng ngày và gửi bản sao qua Telegram.
 
-Tính năng (cấu hình bởi admin trong Settings):
+Tính năng (cấu hình bởi admin trong Cài đặt):
 - Bật/tắt sao lưu tự động lúc 5h sáng (giờ VN, chỉnh được)
-- Giữ tối đa 180 ngày backup (local + Drive đều tự dọn bản cũ)
-- Snapshot SQLite an toàn bằng sqlite3 backup API (không hỏng file khi đang ghi)
-- Upload Google Drive qua OAuth 2.0 (authorization code flow, lưu refresh_token)
+- Giữ tối đa 180 ngày backup local (tự dọn bản cũ)
+- PostgreSQL (production): dump bằng pg_dump định dạng custom (-Fc, đã nén)
+- SQLite (dev): snapshot an toàn bằng sqlite3 backup API rồi nén zip
+- Đẩy file backup ra nhóm Telegram (offsite duy nhất) qua Bot API sendDocument
 
-Ghi chú: bản Docker dùng PostgreSQL — backup tự động chỉ hỗ trợ SQLite;
-PostgreSQL dùng pg_dump theo hướng dẫn IT.
+Quyết định dự án: bản sao lưu offsite chỉ dùng Telegram. Google Drive đã gỡ bỏ.
 """
 
 import asyncio
 import json
 import logging
 import os
-import secrets
+import re
 import sqlite3
 import time
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, unquote, urlencode
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select
@@ -33,33 +34,34 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ---------------------------------------------------------------------------
-# Constants & settings keys
+# Hằng số & khóa cấu hình
 # ---------------------------------------------------------------------------
 
 BACKUP_DIR = Path(__file__).resolve().parent.parent.parent / "backups"  # backend/backups/
 MAX_RETENTION_DAYS = 180
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
+_MB = 1024 * 1024
+# Bot API sendDocument giới hạn 50 MB — chừa biên an toàn còn 49 MB.
+MAX_TELEGRAM_MB = 49
+TELEGRAM_TIMEOUT = 120.0  # giây
+
+# Khóa lưu trong bảng system_settings (KISS key-value)
 DEFAULT_BACKUP_SETTINGS: dict[str, str] = {
     "backup_enabled": "true",
-    "backup_hour": "5",                 # 5h sáng VN
-    "backup_retention_days": "180",     # tối đa 180
-    "backup_gdrive_enabled": "false",   # bật sau khi kết nối OAuth
+    "backup_hour": "5",                  # 5h sáng VN
+    "backup_retention_days": "180",      # tối đa 180 ngày
+    "backup_telegram_chat_id": "",       # chat_id nhóm Telegram nhận backup
 }
-
-# Keys lưu riêng (không hiển thị trực tiếp): gdrive_client_id, gdrive_client_secret,
-# gdrive_refresh_token, gdrive_folder_id, gdrive_oauth_state, gdrive_account_email,
-# backup_last_run, backup_last_status
-
-GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-GDRIVE_API = "https://www.googleapis.com/drive/v3"
-GDRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files"
-GDRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-GDRIVE_FOLDER_NAME = "JAMA-CRM-Backups"
+# Khóa kết quả lần chạy gần nhất (ghi cả khi lỗi):
+#   backup_last_run_at   — ISO giờ VN của lần chạy gần nhất
+#   backup_last_status   — "success" | "error" | (chưa có → "never")
+#   backup_last_detail   — mô tả tiếng Việt (thành công hoặc lý do lỗi)
+#   backup_last_size_mb  — dung lượng file (MB) hoặc rỗng
 
 
 # ---------------------------------------------------------------------------
-# Settings helpers (dùng chung bảng system_settings)
+# Helper cấu hình (dùng chung bảng system_settings)
 # ---------------------------------------------------------------------------
 
 async def get_setting(db: AsyncSession, key: str, default: str = "") -> str:
@@ -77,31 +79,141 @@ async def set_setting(db: AsyncSession, key: str, value: str) -> None:
 
 
 async def get_backup_settings(db: AsyncSession) -> dict[str, str]:
+    """Trả về cấu hình sao lưu (dạng chuỗi, theo khóa system_settings).
+
+    Worker và API cùng đọc hàm này; giá trị được kẹp về khoảng hợp lệ để
+    đảm bảo an toàn kể cả khi DB chứa giá trị lỗi.
+    """
     result = await db.execute(
         select(SystemSetting).where(SystemSetting.key.in_(list(DEFAULT_BACKUP_SETTINGS.keys())))
     )
-    stored = {s.key: s.value for s in result.scalars().all() if s.value}
+    stored = {s.key: s.value for s in result.scalars().all() if s.value is not None}
     merged = {**DEFAULT_BACKUP_SETTINGS, **stored}
-    # Clamp retention về tối đa 180 ngày
+
+    # Kẹp retention về 1..180 ngày
     try:
         merged["backup_retention_days"] = str(
             max(1, min(MAX_RETENTION_DAYS, int(merged["backup_retention_days"])))
         )
     except (TypeError, ValueError):
         merged["backup_retention_days"] = str(MAX_RETENTION_DAYS)
+
+    # Kẹp hour về 0..23
+    try:
+        merged["backup_hour"] = str(max(0, min(23, int(merged["backup_hour"]))))
+    except (TypeError, ValueError):
+        merged["backup_hour"] = "5"
+
     return merged
 
 
+def has_telegram_token() -> bool:
+    """TELEGRAM_BOT_TOKEN đã được cấu hình trên máy chủ hay chưa."""
+    return bool(settings.TELEGRAM_BOT_TOKEN)
+
+
 # ---------------------------------------------------------------------------
-# 1. Local backup — SQLite snapshot → zip
+# Chuyển đổi URL PostgreSQL: SQLAlchemy/asyncpg → libpq (pg_dump)
 # ---------------------------------------------------------------------------
 
+# asyncpg dùng ?ssl=<mode>; libpq (pg_dump) dùng ?sslmode=<mode>.
+# Một số giá trị boolean của asyncpg cần ánh xạ sang tên sslmode của libpq.
+_SSL_VALUE_MAP = {
+    "true": "require",
+    "1": "require",
+    "on": "require",
+    "false": "disable",
+    "0": "disable",
+    "off": "disable",
+}
+
+
+def _is_postgres() -> bool:
+    return "postgres" in settings.DATABASE_URL
+
+
+def _pg_libpq_url(async_url: str) -> str:
+    """Chuyển 'postgresql+asyncpg://...?ssl=require' → 'postgresql://...?sslmode=require'.
+
+    - Bỏ phần '+asyncpg' (hoặc driver bất kỳ) khỏi scheme, chuẩn hóa 'postgres' → 'postgresql'.
+    - Đổi query param 'ssl' (asyncpg) sang 'sslmode' (libpq); ánh xạ true/false → require/disable.
+    - Giữ nguyên phần userinfo (user:pass@host) để không phá mật khẩu đã mã hóa sẵn.
+    """
+    if "://" in async_url:
+        scheme, rest = async_url.split("://", 1)
+    else:
+        scheme, rest = "postgresql", async_url
+
+    scheme = scheme.split("+", 1)[0]  # postgresql+asyncpg → postgresql
+    if scheme == "postgres":
+        scheme = "postgresql"
+
+    if "?" in rest:
+        base, query = rest.split("?", 1)
+    else:
+        base, query = rest, ""
+
+    if query:
+        out_pairs: list[tuple[str, str]] = []
+        for key, value in parse_qsl(query, keep_blank_values=True):
+            if key == "ssl":
+                out_pairs.append(("sslmode", _SSL_VALUE_MAP.get(value.lower(), value)))
+            elif key == "sslmode":
+                out_pairs.append(("sslmode", value))
+            else:
+                out_pairs.append((key, value))
+        query = urlencode(out_pairs)
+
+    url = f"{scheme}://{base}"
+    if query:
+        url = f"{url}?{query}"
+    return url
+
+
+def _password_from_url(url: str) -> str:
+    """Trích mật khẩu trong userinfo (user:pass@) để lọc khỏi log lỗi. '' nếu không có."""
+    m = re.search(r"://[^:/@]+:([^@]+)@", url)
+    return m.group(1) if m else ""
+
+
+def _mask_url(url: str) -> str:
+    """Che mật khẩu trong URL: postgresql://user:secret@host → postgresql://user:***@host."""
+    return re.sub(r"(://[^:/@]+:)[^@]*(@)", r"\1***\2", url)
+
+
+def _strip_password_from_url(url: str) -> str:
+    """Bỏ HẲN mật khẩu khỏi URL (user@host) — URL này được phép nằm trên argv."""
+    return re.sub(r"(://[^:/@]+):[^@]*(@)", r"\1\2", url)
+
+
+def _clean_pg_error(stderr: bytes | str, raw_url: str) -> str:
+    """Rút gọn stderr của pg_dump, ĐẢM BẢO không để lộ mật khẩu DB."""
+    text = stderr.decode("utf-8", errors="replace") if isinstance(stderr, bytes) else str(stderr)
+    text = " ".join(text.split()).strip()
+    # Che mật khẩu nếu lỡ xuất hiện trong stderr hoặc URL bị echo ra.
+    pwd = _password_from_url(raw_url)
+    if pwd:
+        text = text.replace(pwd, "***")
+    text = text.replace(raw_url, _mask_url(raw_url))
+    if not text:
+        return "không có thông tin chi tiết"
+    return text[:300]
+
+
+# ---------------------------------------------------------------------------
+# Tạo file backup (PostgreSQL: pg_dump · SQLite: snapshot zip)
+# ---------------------------------------------------------------------------
+
+class BackupError(Exception):
+    """Lỗi nghiệp vụ khi tạo/gửi backup — thông điệp tiếng Việt cho admin."""
+
+
 def _sqlite_db_path() -> Path | None:
-    """Resolve SQLite file path from DATABASE_URL, or None when not SQLite."""
+    """Đường dẫn file SQLite từ DATABASE_URL, hoặc None nếu không phải SQLite."""
     url = settings.DATABASE_URL
     if "sqlite" not in url:
         return None
-    # sqlite+aiosqlite:///./jama.db  → ./jama.db (relative to backend/)
+    # sqlite+aiosqlite:///./jama.db → ./jama.db (tương đối so với backend/)
     raw = url.split("///")[-1]
     p = Path(raw)
     if not p.is_absolute():
@@ -110,7 +222,7 @@ def _sqlite_db_path() -> Path | None:
 
 
 def _snapshot_sqlite_to_zip(db_path: Path, out_zip: Path) -> None:
-    """Consistent SQLite snapshot (sqlite3 backup API) → zip file. Blocking."""
+    """Snapshot SQLite nhất quán (sqlite3 backup API) → file zip. Blocking."""
     tmp_db = out_zip.with_suffix(".tmp.db")
     src = sqlite3.connect(str(db_path))
     try:
@@ -141,279 +253,247 @@ def _snapshot_sqlite_to_zip(db_path: Path, out_zip: Path) -> None:
         tmp_db.unlink(missing_ok=True)
 
 
+async def _pg_dump_to_file(out_file: Path) -> None:
+    """Chạy pg_dump định dạng custom (-Fc, đã nén) ra out_file.
+
+    Raise BackupError (không lộ mật khẩu) nếu pg_dump thất bại.
+    """
+    libpq_url = _pg_libpq_url(settings.DATABASE_URL)
+    # Mật khẩu KHÔNG được nằm trên argv (lộ qua /proc/<pid>/cmdline, ps trong container)
+    # → truyền qua env PGPASSWORD; URL trên argv đã bỏ hẳn mật khẩu.
+    password = unquote(_password_from_url(libpq_url))
+    env = {**os.environ, "PGPASSWORD": password} if password else None
+    proc = await asyncio.create_subprocess_exec(
+        "pg_dump",
+        "-Fc",
+        "--no-owner",
+        "--no-privileges",
+        "-f",
+        str(out_file),
+        _strip_password_from_url(libpq_url),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        out_file.unlink(missing_ok=True)
+        detail = _clean_pg_error(stderr, settings.DATABASE_URL)
+        raise BackupError(f"pg_dump lỗi (mã {proc.returncode}): {detail}")
+
+
+async def _create_backup_file(now_vn: datetime) -> tuple[Path, str, float]:
+    """Tạo file backup. Trả về (đường_dẫn, loại_db, dung_lượng_MB).
+
+    Loại DB: "PostgreSQL" hoặc "SQLite". Raise BackupError nếu không tạo được.
+    """
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = now_vn.strftime("%Y%m%d-%H%M%S")
+
+    if _is_postgres():
+        out_file = BACKUP_DIR / f"jama-crm-{stamp}.dump"
+        await _pg_dump_to_file(out_file)
+        db_kind = "PostgreSQL"
+    else:
+        db_path = _sqlite_db_path()
+        if db_path is None or not db_path.exists():
+            raise BackupError(
+                f"Không tìm thấy file database SQLite: {db_path.name if db_path else '(không rõ)'}"
+            )
+        out_file = BACKUP_DIR / f"jama_backup_{stamp}.zip"
+        # sqlite ops blocking → chạy trong thread riêng
+        await asyncio.to_thread(_snapshot_sqlite_to_zip, db_path, out_file)
+        db_kind = "SQLite"
+
+    size_mb = round(out_file.stat().st_size / _MB, 2)
+    return out_file, db_kind, size_mb
+
+
+# ---------------------------------------------------------------------------
+# Gửi file qua Telegram Bot API
+# ---------------------------------------------------------------------------
+
+async def _telegram_send_document(chat_id: str, file_path: Path, caption: str) -> None:
+    """Gửi file backup tới nhóm Telegram qua sendDocument (multipart).
+
+    Raise BackupError nếu Bot API trả lỗi.
+    """
+    url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
+    data = {"chat_id": chat_id, "caption": caption}
+    async with httpx.AsyncClient(timeout=TELEGRAM_TIMEOUT) as client:
+        with file_path.open("rb") as fh:
+            files = {"document": (file_path.name, fh, "application/octet-stream")}
+            resp = await client.post(url, data=data, files=files)
+
+    if resp.status_code != 200:
+        raise BackupError(f"Telegram trả HTTP {resp.status_code}")
+    try:
+        body = resp.json()
+    except ValueError:
+        raise BackupError("Telegram trả phản hồi không hợp lệ")
+    if not body.get("ok"):
+        raise BackupError(f"Telegram từ chối tệp: {body.get('description', 'không rõ lý do')}")
+
+
+# ---------------------------------------------------------------------------
+# Dọn file local quá hạn & liệt kê backup
+# ---------------------------------------------------------------------------
+
+_BACKUP_GLOBS = ("jama_backup_*.zip", "jama-crm-*.dump")
+
+
 def _cleanup_local(retention_days: int) -> int:
-    """Delete local backups older than retention. Returns number deleted."""
+    """Xóa các file backup local cũ hơn retention. Trả về số file đã xóa."""
     if not BACKUP_DIR.exists():
         return 0
     cutoff = time.time() - retention_days * 86400
     deleted = 0
-    for f in BACKUP_DIR.glob("jama_backup_*.zip"):
-        try:
-            if f.stat().st_mtime < cutoff:
-                f.unlink()
-                deleted += 1
-        except OSError as exc:
-            logger.warning("Cannot delete old backup %s: %s", f, exc)
+    for pattern in _BACKUP_GLOBS:
+        for f in BACKUP_DIR.glob(pattern):
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    deleted += 1
+            except OSError as exc:
+                logger.warning("Không xóa được backup cũ %s: %s", f, exc)
     return deleted
 
 
 def list_local_backups() -> list[dict]:
-    """List local backup files (newest first)."""
+    """Liệt kê file backup local (mới nhất trước)."""
     if not BACKUP_DIR.exists():
         return []
-    items = []
-    for f in sorted(BACKUP_DIR.glob("jama_backup_*.zip"), reverse=True):
-        st = f.stat()
-        items.append(
-            {
-                "name": f.name,
-                "size_bytes": st.st_size,
-                "created_at": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
-            }
-        )
+    items: list[dict] = []
+    for pattern in _BACKUP_GLOBS:
+        for f in BACKUP_DIR.glob(pattern):
+            st = f.stat()
+            items.append(
+                {
+                    "name": f.name,
+                    "size_bytes": st.st_size,
+                    "created_at": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
+                }
+            )
+    items.sort(key=lambda i: i["created_at"], reverse=True)
     return items
 
 
 # ---------------------------------------------------------------------------
-# 2. Google Drive OAuth helpers
+# Ghi kết quả lần chạy gần nhất
 # ---------------------------------------------------------------------------
 
-def _redirect_uri() -> str:
-    return f"{settings.API_BASE_URL.rstrip('/')}/api/v1/backup/gdrive/callback"
+async def _write_last(
+    db: AsyncSession,
+    now_vn: datetime,
+    status: str,
+    detail: str,
+    size_mb: float | None,
+) -> None:
+    """Ghi backup_last_* vào system_settings (gọi cả khi thành công lẫn lỗi)."""
+    await set_setting(db, "backup_last_run_at", now_vn.isoformat())
+    await set_setting(db, "backup_last_status", status)
+    await set_setting(db, "backup_last_detail", detail)
+    await set_setting(db, "backup_last_size_mb", "" if size_mb is None else str(size_mb))
 
 
-async def build_gdrive_auth_url(db: AsyncSession) -> str:
-    """Build Google consent URL. Requires client_id/secret already saved."""
-    client_id = await get_setting(db, "gdrive_client_id")
-    if not client_id:
-        raise ValueError("Chưa cấu hình Google OAuth Client ID")
-
-    state = secrets.token_urlsafe(24)
-    await set_setting(db, "gdrive_oauth_state", state)
-
-    params = {
-        "client_id": client_id,
-        "redirect_uri": _redirect_uri(),
-        "response_type": "code",
-        "scope": GDRIVE_SCOPE,
-        "access_type": "offline",
-        "prompt": "consent",
-        "state": state,
-    }
-    return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
-
-
-async def handle_gdrive_callback(db: AsyncSession, code: str, state: str) -> dict:
-    """Exchange authorization code → refresh token, store it."""
-    saved_state = await get_setting(db, "gdrive_oauth_state")
-    if not saved_state or state != saved_state:
-        raise ValueError("OAuth state không khớp — thử kết nối lại")
-    await set_setting(db, "gdrive_oauth_state", "")
-
-    client_id = await get_setting(db, "gdrive_client_id")
-    client_secret = await get_setting(db, "gdrive_client_secret")
-
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        resp = await client.post(
-            GOOGLE_TOKEN_URL,
-            data={
-                "code": code,
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "redirect_uri": _redirect_uri(),
-                "grant_type": "authorization_code",
-            },
-        )
-        if resp.status_code != 200:
-            raise ValueError(f"Đổi token thất bại: {resp.text[:200]}")
-        tokens = resp.json()
-
-    refresh_token = tokens.get("refresh_token", "")
-    if not refresh_token:
-        raise ValueError("Google không trả refresh_token — hãy Revoke quyền cũ rồi kết nối lại")
-
-    await set_setting(db, "gdrive_refresh_token", refresh_token)
-    await set_setting(db, "backup_gdrive_enabled", "true")
-
-    # Lấy email tài khoản (hiển thị cho admin biết đang kết nối acc nào)
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            about = await client.get(
-                f"{GDRIVE_API}/about",
-                params={"fields": "user(emailAddress)"},
-                headers={"Authorization": f"Bearer {tokens['access_token']}"},
-            )
-            email = about.json().get("user", {}).get("emailAddress", "")
-            if email:
-                await set_setting(db, "gdrive_account_email", email)
-    except Exception:
-        pass
-
-    return {"status": "connected"}
-
-
-async def _gdrive_access_token(db: AsyncSession) -> str | None:
-    """Refresh token → short-lived access token."""
-    refresh_token = await get_setting(db, "gdrive_refresh_token")
-    client_id = await get_setting(db, "gdrive_client_id")
-    client_secret = await get_setting(db, "gdrive_client_secret")
-    if not (refresh_token and client_id and client_secret):
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(
-                GOOGLE_TOKEN_URL,
-                data={
-                    "refresh_token": refresh_token,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "grant_type": "refresh_token",
-                },
-            )
-            if resp.status_code == 200:
-                return resp.json().get("access_token")
-            logger.warning("GDrive token refresh failed: %s", resp.text[:200])
-    except Exception as exc:
-        logger.warning("GDrive token refresh error: %s", exc)
-    return None
-
-
-async def _gdrive_ensure_folder(db: AsyncSession, token: str) -> str | None:
-    """Get or create the backup folder on Drive, cache folder_id."""
-    folder_id = await get_setting(db, "gdrive_folder_id")
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        if folder_id:
-            check = await client.get(f"{GDRIVE_API}/files/{folder_id}", headers=headers, params={"fields": "id,trashed"})
-            if check.status_code == 200 and not check.json().get("trashed"):
-                return folder_id
-        resp = await client.post(
-            f"{GDRIVE_API}/files",
-            headers=headers,
-            json={"name": GDRIVE_FOLDER_NAME, "mimeType": "application/vnd.google-apps.folder"},
-        )
-        if resp.status_code == 200:
-            folder_id = resp.json()["id"]
-            await set_setting(db, "gdrive_folder_id", folder_id)
-            return folder_id
-    logger.warning("Cannot ensure GDrive folder")
-    return None
-
-
-async def _gdrive_upload(db: AsyncSession, file_path: Path) -> bool:
-    """Upload one backup file to Drive (multipart)."""
-    token = await _gdrive_access_token(db)
-    if not token:
-        return False
-    folder_id = await _gdrive_ensure_folder(db, token)
-    if not folder_id:
-        return False
-
-    metadata = json.dumps({"name": file_path.name, "parents": [folder_id]})
-    files = {
-        "metadata": ("metadata", metadata, "application/json; charset=UTF-8"),
-        "file": (file_path.name, file_path.read_bytes(), "application/zip"),
-    }
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                GDRIVE_UPLOAD_API,
-                params={"uploadType": "multipart", "fields": "id"},
-                headers={"Authorization": f"Bearer {token}"},
-                files=files,
-            )
-            if resp.status_code == 200:
-                return True
-            logger.warning("GDrive upload failed: %s", resp.text[:200])
-    except Exception as exc:
-        logger.warning("GDrive upload error: %s", exc)
-    return False
-
-
-async def _gdrive_cleanup(db: AsyncSession, retention_days: int) -> int:
-    """Delete Drive backups older than retention. Returns number deleted."""
-    token = await _gdrive_access_token(db)
-    if not token:
-        return 0
-    folder_id = await get_setting(db, "gdrive_folder_id")
-    if not folder_id:
-        return 0
-
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).strftime("%Y-%m-%dT%H:%M:%S")
-    deleted = 0
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(
-                f"{GDRIVE_API}/files",
-                headers={"Authorization": f"Bearer {token}"},
-                params={
-                    "q": f"'{folder_id}' in parents and createdTime < '{cutoff}' and trashed = false",
-                    "fields": "files(id,name)",
-                    "pageSize": 100,
-                },
-            )
-            for f in resp.json().get("files", []):
-                d = await client.delete(
-                    f"{GDRIVE_API}/files/{f['id']}",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-                if d.status_code in (200, 204):
-                    deleted += 1
-    except Exception as exc:
-        logger.warning("GDrive cleanup error: %s", exc)
-    return deleted
+async def _finish_error(
+    db: AsyncSession,
+    now_vn: datetime,
+    reason: str,
+    *,
+    size_mb: float | None = None,
+) -> dict:
+    """Ghi trạng thái lỗi rồi trả về payload chuẩn theo hợp đồng API."""
+    await _write_last(db, now_vn, "error", reason, size_mb)
+    await db.commit()
+    logger.warning("Sao lưu lỗi: %s", reason)
+    return {"status": "error", "reason": reason}
 
 
 # ---------------------------------------------------------------------------
-# 3. Main entry — run full backup
+# Entry point — chạy toàn bộ quy trình sao lưu
 # ---------------------------------------------------------------------------
 
 async def run_backup(db: AsyncSession) -> dict:
-    """Create local backup, upload to Drive (if connected), apply retention."""
+    """Tạo file backup, gửi qua Telegram, dọn bản cũ theo retention.
+
+    Trả về (theo hợp đồng API):
+      - Thành công: {status, size_mb, duration_s, file_name, sent_telegram: True}
+      - Lỗi:        {status: "error", reason: "<tiếng Việt>"}
+    Kết quả luôn được ghi vào backup_last_* (kể cả khi lỗi).
+    """
     cfg = await get_backup_settings(db)
     retention = int(cfg["backup_retention_days"])
+    chat_id = (cfg.get("backup_telegram_chat_id") or "").strip()
+    now_vn = datetime.now(VN_TZ)
+    started = time.monotonic()
 
-    db_path = _sqlite_db_path()
-    if db_path is None:
-        result = {"status": "skipped", "reason": "DATABASE_URL không phải SQLite — dùng pg_dump cho PostgreSQL"}
-        await set_setting(db, "backup_last_status", json.dumps(result, ensure_ascii=False))
-        return result
-    if not db_path.exists():
-        result = {"status": "failed", "reason": f"Không tìm thấy file database: {db_path.name}"}
-        await set_setting(db, "backup_last_status", json.dumps(result, ensure_ascii=False))
-        return result
+    # 1) Tạo file backup (pg_dump hoặc snapshot SQLite)
+    try:
+        file_path, db_kind, size_mb = await _create_backup_file(now_vn)
+    except BackupError as exc:
+        return await _finish_error(db, now_vn, str(exc))
+    except Exception as exc:  # lỗi ngoài dự kiến — không để crash worker
+        logger.exception("Lỗi bất ngờ khi tạo file backup")
+        return await _finish_error(db, now_vn, f"Lỗi tạo file backup: {exc}")
 
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
-    out_zip = BACKUP_DIR / f"jama_backup_{stamp}.zip"
+    # 2) Dọn bản cũ theo retention (file mới vừa tạo luôn được giữ)
+    await asyncio.to_thread(_cleanup_local, retention)
 
-    # Snapshot (blocking sqlite ops trong thread riêng)
-    await asyncio.to_thread(_snapshot_sqlite_to_zip, db_path, out_zip)
-    size_mb = round(out_zip.stat().st_size / (1024 * 1024), 2)
+    # 3) Kiểm tra điều kiện gửi Telegram
+    if not chat_id:
+        return await _finish_error(
+            db,
+            now_vn,
+            "Chưa cấu hình nhóm Telegram nhận backup — vào Cài đặt dán Chat ID",
+            size_mb=size_mb,
+        )
+    if not has_telegram_token():
+        return await _finish_error(
+            db,
+            now_vn,
+            "Máy chủ chưa cấu hình TELEGRAM_BOT_TOKEN — liên hệ IT để bổ sung",
+            size_mb=size_mb,
+        )
+    if size_mb > MAX_TELEGRAM_MB:
+        return await _finish_error(
+            db,
+            now_vn,
+            f"File backup {size_mb} MB vượt giới hạn {MAX_TELEGRAM_MB} MB của Telegram — "
+            "hãy giảm số ngày giữ bản sao (retention) hoặc liên hệ IT để sao lưu thủ công. "
+            "File vẫn được lưu trên máy chủ.",
+            size_mb=size_mb,
+        )
 
-    # Google Drive upload
-    gdrive_uploaded = False
-    if cfg.get("backup_gdrive_enabled") == "true":
-        gdrive_uploaded = await _gdrive_upload(db, out_zip)
+    # 4) Gửi file qua Telegram
+    caption = (
+        f"🗄 Sao lưu JAMA CRM · {now_vn.strftime('%d/%m/%Y %H:%M')} · "
+        f"{db_kind} · {size_mb} MB"
+    )
+    try:
+        await _telegram_send_document(chat_id, file_path, caption)
+    except BackupError as exc:
+        return await _finish_error(db, now_vn, str(exc), size_mb=size_mb)
+    except Exception as exc:
+        logger.exception("Lỗi bất ngờ khi gửi Telegram")
+        # Che token bot nếu lỡ xuất hiện trong thông điệp ngoại lệ (URL Bot API chứa token)
+        msg = str(exc)
+        if settings.TELEGRAM_BOT_TOKEN:
+            msg = msg.replace(settings.TELEGRAM_BOT_TOKEN, "***")
+        return await _finish_error(
+            db, now_vn, f"Gửi Telegram thất bại: {type(exc).__name__}: {msg[:200]}", size_mb=size_mb
+        )
 
-    # Retention cleanup
-    local_deleted = await asyncio.to_thread(_cleanup_local, retention)
-    gdrive_deleted = 0
-    if cfg.get("backup_gdrive_enabled") == "true":
-        gdrive_deleted = await _gdrive_cleanup(db, retention)
-
-    result = {
-        "status": "completed",
-        "file": out_zip.name,
-        "size_mb": size_mb,
-        "gdrive_uploaded": gdrive_uploaded,
-        "local_deleted": local_deleted,
-        "gdrive_deleted": gdrive_deleted,
-        "retention_days": retention,
-        "at": datetime.now(timezone.utc).isoformat(),
-    }
-    await set_setting(db, "backup_last_run", result["at"])
-    await set_setting(db, "backup_last_status", json.dumps(result, ensure_ascii=False))
+    # 5) Thành công
+    duration_s = round(time.monotonic() - started, 2)
+    detail = f"Đã gửi {file_path.name} ({size_mb} MB) tới Telegram"
+    await _write_last(db, now_vn, "success", detail, size_mb)
     await db.commit()
-    logger.info("Backup completed: %s (%.2f MB, gdrive=%s)", out_zip.name, size_mb, gdrive_uploaded)
-    return result
+    logger.info("Sao lưu thành công: %s (%.2f MB, %s)", file_path.name, size_mb, db_kind)
+    return {
+        "status": "success",
+        "size_mb": size_mb,
+        "duration_s": duration_s,
+        "file_name": file_path.name,
+        "sent_telegram": True,
+    }

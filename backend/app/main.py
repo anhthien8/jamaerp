@@ -85,7 +85,33 @@ async def lifespan(app: FastAPI):
 
         print(f"[OK] {settings.APP_NAME} started (dev)")
 
+    # ── Worker nhúng: chạy backup + job nền ngay trong tiến trình uvicorn ──
+    # Railway prod chỉ chạy uvicorn (start.sh) → không có tiến trình worker
+    # riêng → nhúng vòng lặp job nền vào lifespan để job định kỳ sống trên prod.
+    # Chống chạy đôi: compose/VPS đặt EMBED_WORKER=false (đã có service worker
+    # riêng); test đặt APP_ENV=test (không kích hoạt job nền trong pytest).
+    worker_started = False
+    if settings.EMBED_WORKER and settings.APP_ENV != "test":
+        try:
+            from app.worker import start_embedded
+            await start_embedded()
+            worker_started = True
+            print("[OK] Worker nhúng đã chạy (backup + job nền)")
+        except Exception as e:
+            # Worker lỗi khi khởi động KHÔNG được giết app — chỉ log cảnh báo.
+            print(f"[WARN] Không khởi động được worker nhúng: {e}")
+
     yield
+
+    # Shutdown: dừng worker nhúng trước khi thoát (nếu đã chạy).
+    if worker_started:
+        try:
+            from app.worker import stop_embedded
+            await stop_embedded()
+            print("[STOP] Worker nhúng đã dừng")
+        except Exception as e:
+            print(f"[WARN] Lỗi khi dừng worker nhúng: {e}")
+
     print(f"[STOP] {settings.APP_NAME} stopped")
 
 

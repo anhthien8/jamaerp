@@ -36,6 +36,10 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      # Compose đã có service `worker` riêng bên dưới → tắt worker nhúng trong
+      # uvicorn để chống chạy đôi (double-run) job nền.
+      EMBED_WORKER: "false"
     depends_on:
       postgres:
         condition: service_healthy

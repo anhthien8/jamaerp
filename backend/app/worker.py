@@ -121,14 +121,19 @@ class BackgroundWorker:
         logger.info("Enqueued task %s [%s] (priority=%s)", task_id, name, priority.name)
         return worker_task
 
-    async def start(self) -> None:
-        """Main entry point. Blocks until shutdown signal is received."""
+    async def start(self, install_signal_handlers: bool = True) -> None:
+        """Main entry point. Blocks until shutdown signal is received.
+
+        ``install_signal_handlers``: đặt False khi nhúng vào uvicorn (lifespan)
+        — uvicorn đã tự quản SIGTERM/SIGINT, không để worker ghi đè handler.
+        """
         self.running = True
         self._shutdown_event = asyncio.Event()
         self._start_time = time.time()
 
         logger.info("Background worker starting up...")
-        self._install_signal_handlers()
+        if install_signal_handlers:
+            self._install_signal_handlers()
 
         # Run all loops concurrently until shutdown
         await asyncio.gather(
@@ -242,11 +247,17 @@ class BackgroundWorker:
                 backup_hour = await _get_backup_hour()
                 if backup_hour is not None and vn_now.hour >= backup_hour:
                     self._last_backup_date = today_str
-                    self.enqueue_task(
-                        "daily_backup",
-                        process_backup,
-                        priority=TaskPriority.HIGH,
-                    )
+                    # _last_backup_date chỉ nằm trong RAM — redeploy sau giờ hẹn sẽ
+                    # kích hoạt lại. Đối chiếu system_settings để không gửi trùng
+                    # file backup (chứa toàn bộ dữ liệu) nhiều lần một ngày.
+                    if await _backup_ran_today(today_str):
+                        logger.info("Bỏ qua backup: hôm nay đã có bản sao lưu thành công")
+                    else:
+                        self.enqueue_task(
+                            "daily_backup",
+                            process_backup,
+                            priority=TaskPriority.HIGH,
+                        )
 
             # BOD report at configured hour (default 08:00 VN)
             if self._last_bod_report_date != today_str:
@@ -447,8 +458,32 @@ async def _get_backup_hour() -> Optional[int]:
         return 5
 
 
+async def _backup_ran_today(today_str: str) -> bool:
+    """Đã có bản sao lưu THÀNH CÔNG hôm nay chưa (bền qua restart/redeploy)."""
+    try:
+        from sqlalchemy import select
+
+        from app.database import async_session
+        from app.models.notification import SystemSetting
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(SystemSetting).where(
+                    SystemSetting.key.in_(["backup_last_run_at", "backup_last_status"])
+                )
+            )
+            vals = {s.key: (s.value or "") for s in result.scalars().all()}
+        return (
+            vals.get("backup_last_status") == "success"
+            and vals.get("backup_last_run_at", "")[:10] == today_str
+        )
+    except Exception as exc:
+        logger.warning("Không đọc được trạng thái backup gần nhất: %s", exc)
+        return False
+
+
 async def process_backup() -> dict[str, Any]:
-    """Run daily database backup (local + Google Drive) with retention."""
+    """Run daily database backup (local + gửi nhóm Telegram) with retention."""
     logger.info("Starting daily backup...")
     try:
         from app.database import async_session
@@ -685,6 +720,63 @@ async def start() -> None:
     """Convenience entry point -- used by ``python -m app.worker``."""
     worker = get_worker()
     await worker.start()
+
+
+# ======================================================================
+# Nhúng worker vào lifespan của FastAPI (Railway prod)
+# ======================================================================
+# Trên Railway chỉ có tiến trình uvicorn — không có service worker riêng như
+# docker-compose/VPS — nên vòng lặp job nền được nhúng thẳng vào lifespan.
+# Standalone "python -m app.worker" (compose/VPS) vẫn dùng start() phía trên.
+
+# Task đang chạy vòng lặp worker khi nhúng trong uvicorn (None nếu chưa chạy).
+_embedded_task: Optional[asyncio.Task] = None
+
+
+async def _run_embedded_worker() -> None:
+    """Bọc vòng lặp worker khi nhúng: nuốt lỗi để KHÔNG giết app.
+
+    Ngoại lệ trong job nền đã được từng loop bắt riêng; đây là lớp chắn cuối —
+    nếu chính vòng lặp chết bất ngờ thì chỉ log, không để lan ra lifespan.
+    """
+    worker = get_worker()
+    try:
+        # Không cài signal handler: uvicorn đã lo SIGTERM/SIGINT.
+        await worker.start(install_signal_handlers=False)
+    except asyncio.CancelledError:
+        # Bị hủy khi shutdown — để stop_embedded() await và nuốt êm.
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Worker nhúng gặp lỗi và dừng: %s", exc)
+
+
+async def start_embedded() -> None:
+    """Khởi động worker ở chế độ nhúng (gọi từ lifespan sau khi seed xong).
+
+    Tạo asyncio task chạy nền, KHÔNG chặn quá trình startup của app.
+    """
+    global _embedded_task
+    if _embedded_task is not None and not _embedded_task.done():
+        # Đã chạy rồi — tránh tạo trùng task.
+        return
+    _embedded_task = asyncio.create_task(_run_embedded_worker())
+
+
+async def stop_embedded() -> None:
+    """Dừng êm worker nhúng khi app shutdown: báo dừng → cancel → await."""
+    global _embedded_task
+    worker = get_worker()
+    await worker.stop()
+    if _embedded_task is not None:
+        _embedded_task.cancel()
+        try:
+            await _embedded_task
+        except asyncio.CancelledError:
+            pass  # Hủy êm — đúng như mong đợi khi shutdown.
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Worker nhúng dừng kèm lỗi (đã bỏ qua): %s", exc)
+        finally:
+            _embedded_task = None
 
 
 # ======================================================================

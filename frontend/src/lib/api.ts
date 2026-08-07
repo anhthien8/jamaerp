@@ -763,6 +763,26 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path === '/ai-settings/test') return { status: 'ok', model: 'demo-model', reply: 'Xin chào từ Chế độ Tập luyện' } as T;
 
+  // ── Sao lưu (demo) ── GET trả dữ liệu mẫu để trang không chết ở Chế độ Tập luyện.
+  // POST /backup/run và PUT /backup/settings KHÔNG có resolver → rơi vào honest-error (không giả lập thành công).
+  if (path === '/backup/settings' && method === 'GET') {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    // Lần chạy gần nhất: hôm nay lúc 05:00 giờ VN (ISO có offset +07:00)
+    const lastRunAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T05:00:00+07:00`;
+    return {
+      enabled: true,
+      hour: 5,
+      retention_days: 30,
+      telegram_chat_id: '-1001234567890',
+      telegram_configured: true,
+      last_run_at: lastRunAt,
+      last_status: 'success',
+      last_detail: 'Đã gửi vào nhóm Telegram',
+      last_size_mb: 2.4,
+    } as T;
+  }
+
   // ── Zalo Listener (demo) ──
   if (path === '/zalo/session') return { status: 'logged_out', qr_image: null, account_name: null, error_msg: null, ingest_online: false, last_seen: null } as T;
   if (path === '/zalo/groups') return { items: [] } as T;
@@ -1491,30 +1511,24 @@ class ApiClient {
     );
   }
 
-  // === Backup (admin only) ===
+  // === Sao lưu (chỉ admin) — backup toàn bộ dữ liệu, gửi file vào nhóm Telegram ===
   async getBackupSettings() {
     return this.request<BackupSettingsResponse>('/backup/settings');
   }
   async updateBackupSettings(data: Partial<{
-    backup_enabled: boolean;
-    backup_hour: number;
-    backup_retention_days: number;
-    backup_gdrive_enabled: boolean;
-    gdrive_client_id: string;
-    gdrive_client_secret: string;
+    enabled: boolean;
+    hour: number;             // 0-23 (giờ VN)
+    retention_days: number;   // 1-180 (số ngày giữ bản local)
+    telegram_chat_id: string; // "" để gỡ nhóm nhận backup
   }>) {
     return this.request<BackupSettingsResponse>('/backup/settings', { method: 'PUT', body: data });
   }
   async runBackupNow() {
-    return this.request<{ status: string; file?: string; size_mb?: number; gdrive_uploaded?: boolean; reason?: string }>(
-      '/backup/run', { method: 'POST' }
-    );
-  }
-  async getGdriveAuthUrl() {
-    return this.request<{ auth_url: string }>('/backup/gdrive/auth-url');
-  }
-  async disconnectGdrive() {
-    return this.request<{ status: string }>('/backup/gdrive/disconnect', { method: 'POST' });
+    // Kết quả THẬT: thành công kèm dung lượng/thời gian, hoặc lỗi kèm lý do tiếng Việt.
+    return this.request<
+      | { status: 'success'; size_mb: number; duration_s: number; file_name: string; sent_telegram: boolean }
+      | { status: 'error'; reason: string }
+    >('/backup/run', { method: 'POST' });
   }
 
   // === Instant Quote (báo giá sơ bộ tức thì) ===
@@ -2135,18 +2149,15 @@ export interface PriceItemDTO {
 }
 
 export interface BackupSettingsResponse {
-  backup_enabled: string;
-  backup_hour: string;
-  backup_retention_days: string;
-  backup_gdrive_enabled: string;
-  max_retention_days: number;
-  gdrive_connected: boolean;
-  gdrive_account_email: string;
-  gdrive_client_id_set: boolean;
-  last_run: string;
-  last_status: { status: string; file?: string; size_mb?: number; gdrive_uploaded?: boolean; reason?: string } | null;
-  local_backup_count: number;
-  local_backups: { name: string; size_bytes: number; created_at: string }[];
+  enabled: boolean;
+  hour: number;                 // giờ sao lưu hằng ngày (0-23, giờ VN)
+  retention_days: number;       // số ngày giữ bản local
+  telegram_chat_id: string;     // Chat ID nhóm Telegram nhận backup ("" nếu chưa đặt)
+  telegram_configured: boolean; // đã đặt chat_id VÀ có TELEGRAM_BOT_TOKEN
+  last_run_at: string | null;   // ISO giờ VN, null nếu chưa từng chạy
+  last_status: 'success' | 'error' | 'never';
+  last_detail: string;          // mô tả kết quả lần gần nhất
+  last_size_mb: number | null;  // dung lượng bản backup gần nhất
 }
 
 export interface AISettingsResponse {

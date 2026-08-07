@@ -1,5 +1,15 @@
 """Shared test fixtures — async SQLite DB, test client, seeded data."""
 
+import os
+
+# Test: KHÔNG khởi động worker nhúng (job nền). Đặt TRƯỚC mọi import `app.*`
+# để get_settings() (lru_cache) đọc đúng cờ ngay lần đầu. Hai lớp chặn:
+#   - APP_ENV=test  → lifespan gate `APP_ENV != "test"` chặn worker.
+#   - EMBED_WORKER=false → chặn thẳng cờ nhúng worker.
+# Tránh job định kỳ (backup/automation) chạy trong pytest gây treo.
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("EMBED_WORKER", "false")
+
 import uuid
 from datetime import datetime, timezone
 

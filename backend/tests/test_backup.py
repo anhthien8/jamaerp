@@ -1,8 +1,10 @@
-"""Tests for Backup — settings, retention clamp, local cleanup, RBAC, run flow."""
+"""Tests Backup — cấu hình, kẹp retention, dọn file local, RBAC, hợp đồng API mới.
+
+Logic run_backup (pg_dump / Telegram) nằm ở test_backup_service.py.
+"""
 
 import time
 import zipfile
-from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
@@ -19,7 +21,7 @@ from app.services.backup_service import (
 from tests.conftest import auth_header
 
 
-# ── Settings ─────────────────────────────────────────────────────────────
+# ── Cấu hình (service) ───────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 class TestBackupSettings:
@@ -28,6 +30,7 @@ class TestBackupSettings:
         assert cfg["backup_enabled"] == "true"
         assert cfg["backup_hour"] == "5"
         assert cfg["backup_retention_days"] == "180"
+        assert cfg["backup_telegram_chat_id"] == ""
 
     async def test_retention_clamped_to_max(self, db_session):
         await set_setting(db_session, "backup_retention_days", "9999")
@@ -44,12 +47,16 @@ class TestBackupSettings:
         cfg = await get_backup_settings(db_session)
         assert cfg["backup_retention_days"] == str(MAX_RETENTION_DAYS)
 
+    async def test_hour_clamped(self, db_session):
+        await set_setting(db_session, "backup_hour", "99")
+        cfg = await get_backup_settings(db_session)
+        assert cfg["backup_hour"] == "23"
 
-# ── Snapshot & cleanup (filesystem, temp dir) ────────────────────────────
+
+# ── Snapshot & dọn file (filesystem, thư mục tạm) ────────────────────────
 
 class TestSnapshotAndCleanup:
     def test_snapshot_creates_valid_zip(self, tmp_path):
-        # Create a tiny sqlite db
         import sqlite3
 
         src = tmp_path / "test.db"
@@ -67,40 +74,42 @@ class TestSnapshotAndCleanup:
             names = zf.namelist()
             assert "jama.db" in names
             assert "metadata.json" in names
-        # Temp db must be cleaned up
         assert not out.with_suffix(".tmp.db").exists()
 
-    def test_cleanup_deletes_only_old_files(self, tmp_path, monkeypatch):
+    def test_cleanup_deletes_old_zip_and_dump(self, tmp_path, monkeypatch):
+        import os
+
         monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path)
 
-        old = tmp_path / "jama_backup_old.zip"
-        new = tmp_path / "jama_backup_new.zip"
+        old_zip = tmp_path / "jama_backup_old.zip"
+        old_dump = tmp_path / "jama-crm-old.dump"      # dọn cả file pg_dump
+        new_zip = tmp_path / "jama_backup_new.zip"
         other = tmp_path / "keep-me.txt"
-        for f in (old, new, other):
+        for f in (old_zip, old_dump, new_zip, other):
             f.write_bytes(b"data")
 
-        # Make `old` look 200 days old
         old_time = time.time() - 200 * 86400
-        import os
-        os.utime(old, (old_time, old_time))
+        os.utime(old_zip, (old_time, old_time))
+        os.utime(old_dump, (old_time, old_time))
 
         deleted = _cleanup_local(retention_days=180)
-        assert deleted == 1
-        assert not old.exists()
-        assert new.exists()
-        assert other.exists()  # non-backup files untouched
+        assert deleted == 2
+        assert not old_zip.exists()
+        assert not old_dump.exists()
+        assert new_zip.exists()
+        assert other.exists()  # file không phải backup — giữ nguyên
 
     def test_list_local_backups(self, tmp_path, monkeypatch):
         monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path)
         (tmp_path / "jama_backup_a.zip").write_bytes(b"aaa")
-        (tmp_path / "jama_backup_b.zip").write_bytes(b"bbbbb")
+        (tmp_path / "jama-crm-b.dump").write_bytes(b"bbbbb")
 
         items = list_local_backups()
         assert len(items) == 2
         assert all("name" in i and "size_bytes" in i for i in items)
 
 
-# ── API RBAC & validation ────────────────────────────────────────────────
+# ── API: RBAC + hợp đồng settings/run ────────────────────────────────────
 
 @pytest.mark.asyncio
 class TestBackupAPI:
@@ -108,9 +117,14 @@ class TestBackupAPI:
         resp = await client.get("/api/v1/backup/settings", headers=auth_header(admin_user))
         assert resp.status_code == 200
         body = resp.json()
-        assert body["backup_hour"] == "5"
-        assert body["max_retention_days"] == MAX_RETENTION_DAYS
-        assert body["gdrive_connected"] is False
+        assert body["enabled"] is True
+        assert body["hour"] == 5
+        assert body["retention_days"] == 180
+        assert body["telegram_chat_id"] == ""
+        assert body["telegram_configured"] is False   # chưa có chat_id
+        assert body["last_status"] == "never"
+        assert body["last_run_at"] is None
+        assert body["last_size_mb"] is None
 
     async def test_settings_blocks_non_admin(self, client: AsyncClient, sales_user, accountant_user):
         for user in (sales_user, accountant_user):
@@ -120,19 +134,39 @@ class TestBackupAPI:
     async def test_update_settings(self, client: AsyncClient, admin_user):
         resp = await client.put(
             "/api/v1/backup/settings",
-            json={"backup_enabled": False, "backup_hour": 4, "backup_retention_days": 90},
+            json={
+                "enabled": False,
+                "hour": 4,
+                "retention_days": 90,
+                "telegram_chat_id": "-1001234567890",
+            },
             headers=auth_header(admin_user),
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["backup_enabled"] == "false"
-        assert body["backup_hour"] == "4"
-        assert body["backup_retention_days"] == "90"
+        assert body["enabled"] is False
+        assert body["hour"] == 4
+        assert body["retention_days"] == 90
+        assert body["telegram_chat_id"] == "-1001234567890"
+
+    async def test_update_chat_id_can_be_cleared(self, client: AsyncClient, admin_user):
+        await client.put(
+            "/api/v1/backup/settings",
+            json={"telegram_chat_id": "-100999"},
+            headers=auth_header(admin_user),
+        )
+        resp = await client.put(
+            "/api/v1/backup/settings",
+            json={"telegram_chat_id": ""},
+            headers=auth_header(admin_user),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["telegram_chat_id"] == ""
 
     async def test_update_rejects_retention_over_max(self, client: AsyncClient, admin_user):
         resp = await client.put(
             "/api/v1/backup/settings",
-            json={"backup_retention_days": 181},
+            json={"retention_days": 181},
             headers=auth_header(admin_user),
         )
         assert resp.status_code == 400
@@ -140,46 +174,22 @@ class TestBackupAPI:
     async def test_update_rejects_bad_hour(self, client: AsyncClient, admin_user):
         resp = await client.put(
             "/api/v1/backup/settings",
-            json={"backup_hour": 25},
+            json={"hour": 25},
             headers=auth_header(admin_user),
         )
         assert resp.status_code == 400
 
-    async def test_auth_url_requires_client_id(self, client: AsyncClient, admin_user):
-        resp = await client.get("/api/v1/backup/gdrive/auth-url", headers=auth_header(admin_user))
-        assert resp.status_code == 400  # chưa cấu hình client id
-
-    async def test_auth_url_after_client_configured(self, client: AsyncClient, admin_user):
-        await client.put(
-            "/api/v1/backup/settings",
-            json={"gdrive_client_id": "test-client-id.apps.googleusercontent.com", "gdrive_client_secret": "sec"},
-            headers=auth_header(admin_user),
-        )
-        resp = await client.get("/api/v1/backup/gdrive/auth-url", headers=auth_header(admin_user))
-        assert resp.status_code == 200
-        url = resp.json()["auth_url"]
-        assert "accounts.google.com" in url
-        assert "test-client-id" in url
-        assert "drive.file" in url
-
-    async def test_callback_rejects_bad_state(self, client: AsyncClient):
-        # Callback không cần JWT nhưng state sai → redirect error
+    async def test_gdrive_endpoints_removed(self, client: AsyncClient, admin_user):
+        # Các endpoint Google Drive đã bị gỡ hoàn toàn → 404/405
         resp = await client.get(
-            "/api/v1/backup/gdrive/callback",
-            params={"code": "x", "state": "wrong-state"},
-            follow_redirects=False,
+            "/api/v1/backup/gdrive/auth-url", headers=auth_header(admin_user)
         )
-        assert resp.status_code in (302, 307)
-        assert "gdrive=error" in resp.headers["location"]
+        assert resp.status_code in (404, 405)
 
-    async def test_disconnect(self, client: AsyncClient, admin_user):
-        resp = await client.post("/api/v1/backup/gdrive/disconnect", headers=auth_header(admin_user))
-        assert resp.status_code == 200
-        settings_resp = await client.get("/api/v1/backup/settings", headers=auth_header(admin_user))
-        assert settings_resp.json()["gdrive_connected"] is False
-
-    async def test_run_backup_via_api(self, client: AsyncClient, admin_user, tmp_path, monkeypatch):
-        # Point backup dir + db path to temp files
+    async def test_run_backup_no_telegram_returns_error(
+        self, client: AsyncClient, admin_user, tmp_path, monkeypatch
+    ):
+        """Chưa cấu hình chat_id → status error THẬT (không phải 'skipped' giả)."""
         import sqlite3
 
         src = tmp_path / "jama.db"
@@ -190,14 +200,18 @@ class TestBackupAPI:
 
         monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
         monkeypatch.setattr(backup_service, "_sqlite_db_path", lambda: src)
+        monkeypatch.setattr(
+            backup_service.settings, "DATABASE_URL", "sqlite+aiosqlite:///./jama.db"
+        )
 
         resp = await client.post("/api/v1/backup/run", headers=auth_header(admin_user))
         assert resp.status_code == 200
         body = resp.json()
-        assert body["status"] == "completed"
-        assert body["file"].startswith("jama_backup_")
-        assert body["gdrive_uploaded"] is False  # chưa kết nối Drive
-        assert (tmp_path / "backups" / body["file"]).exists()
+        assert body["status"] == "error"
+        assert "Telegram" in body["reason"]
+        # File backup vẫn được tạo local dù chưa gửi được
+        files = list((tmp_path / "backups").glob("jama_backup_*.zip"))
+        assert len(files) == 1
 
     async def test_run_backup_blocks_non_admin(self, client: AsyncClient, sales_user):
         resp = await client.post("/api/v1/backup/run", headers=auth_header(sales_user))

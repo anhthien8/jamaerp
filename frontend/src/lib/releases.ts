@@ -15,6 +15,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '07/08/2026',
+    title: 'Sao lưu dữ liệu tự động hằng ngày + nhắc việc tự động chính thức hoạt động',
+    tag: 'RELEASE',
+    news: [
+      'Toàn bộ dữ liệu CRM được sao lưu tự động 5h sáng mỗi ngày, file sao lưu gửi về nhóm Telegram riêng của ban quản trị — an tâm không mất dữ liệu.',
+      'Bộ nhắc việc tự động chính thức chạy trên hệ thống thật: nhắc thanh toán hợp đồng, báo cáo BOD buổi sáng, tự chốt chấm công cuối ngày, chăm sóc khách hàng định kỳ.',
+      'Cài đặt (admin) có mục Sao lưu mới: đặt giờ sao lưu, xem lần sao lưu gần nhất thành công hay lỗi, nút "Sao lưu ngay".',
+    ],
+    fixes: [
+      'Nút "Sao lưu ngay" báo kết quả thật (thành công/lỗi kèm lý do) — trước đây trên hệ thống thật nó lặng lẽ bỏ qua.',
+      'Gỡ hoàn toàn sao lưu Google Drive theo quyết định chuyển toàn bộ về Telegram.',
+    ],
+    test: [
+      'Admin: vào Cài đặt → Sao lưu, dán Chat ID nhóm backup, bấm "Sao lưu ngay" và kiểm tra file về nhóm Telegram.',
+    ],
+  },
+  {
     date: '06/08/2026',
     title: 'Tổng duyệt trước ra mắt chính thức — sạch lỗi toàn hệ thống',
     tag: 'RELEASE',
