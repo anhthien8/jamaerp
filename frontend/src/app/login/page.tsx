@@ -5,6 +5,10 @@ import { useAuth, type AppMode } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 
+// Tạm ẩn Chế độ Tập luyện trên trang đăng nhập (yêu cầu 07/08/2026 khi công bố toàn công ty).
+// Cần mở lại cho đào tạo nhân sự mới: đổi thành true.
+const SHOW_DEMO_MODE = false;
+
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', role: 'Admin' },
   { email: 'ceo@jamahome.vn', role: 'CEO' },
@@ -59,6 +63,11 @@ export default function LoginPage() {
   // Read persisted mode after mount (avoids SSR localStorage error)
   useEffect(() => {
     const stored = localStorage.getItem('jama_mode');
+    if (stored === 'demo' && !SHOW_DEMO_MODE) {
+      // Chế độ Tập luyện đang ẩn — ép về Làm việc kể cả khi máy còn lưu demo
+      localStorage.setItem('jama_mode', 'work');
+      return;
+    }
     if (stored === 'demo' || stored === 'work') {
       setSelectedMode(stored);
     }
@@ -122,7 +131,8 @@ export default function LoginPage() {
             <p className="text-[var(--text-secondary)] mt-1">Hệ thống Quản lý ERP</p>
           </div>
 
-          {/* Mode Selector */}
+          {/* Mode Selector — ẩn khi SHOW_DEMO_MODE=false */}
+          {SHOW_DEMO_MODE && (
           <div className="mb-6">
             <div
               className="flex rounded-xl p-1 gap-1"
@@ -161,11 +171,12 @@ export default function LoginPage() {
                 : 'Kết nối đến hệ thống thực — dữ liệu thật'}
             </p>
           </div>
+          )}
 
           {/* Work mode info */}
           {selectedMode === 'work' && (
             <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs text-center">
-              Chế độ Làm việc — đăng nhập bằng tên ngắn (vd <span className="font-mono font-semibold">admin</span>) hoặc email đầy đủ. Chưa có tài khoản? Quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button>.
+              Đăng nhập bằng tên ngắn (vd <span className="font-mono font-semibold">admin</span>) hoặc email đầy đủ.{SHOW_DEMO_MODE && <> Chưa có tài khoản? Quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button>.</>}
             </div>
           )}
 
