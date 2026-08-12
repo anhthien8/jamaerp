@@ -138,7 +138,8 @@
 }
 
 /* === ☀️ Chế độ Ngoài trời (spec 08 §2.2) — bảng màu "JAMA luxury sáng" ===
-   Học ngôn ngữ Masterise (đồng bộ /web-demo): nền NGÀ ẤM thay trắng-xám lạnh,
+   Học ngôn ngữ Masterise (theo 2 bản thiết kế thử trang chủ, đã gỡ 12/08/2026 —
+   xem lại ở commit trước nếu cần): nền NGÀ ẤM thay trắng-xám lạnh,
    chữ THAN ấm thay xám xanh, điểm nhấn ĐỒNG thay vàng olive, viền chỉ + bóng ấm.
    Ràng buộc giữ nguyên: tương phản cao để giám sát/PM đọc được ngoài nắng HCM
    (chữ chính ≈ #1C1A15 trên ngà #F6F3EC — đậm hơn cả bản cũ). */
