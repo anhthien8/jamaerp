@@ -80,7 +80,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewProjects: true, canViewContracts: true, canViewQuotations: true, canCreateQuotations: true, canViewInventory: false,
     canViewReports: true, canViewPnL: false,
     canCreateProjects: false, canCreateContracts: true, canCreateTasks: false, canEditTasks: false,
-    canViewAttendance: true, canViewKPI: false, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
+    // canViewKPI bật 12/08/2026 (chủ dự án chốt): KPI vốn đã được ghim vào menu chính của
+    // sale (ROLE_ESSENTIALS) mà quyền lại tắt ⇒ bấm vào là bị đá về Tổng quan.
+    // Kèm theo: sale thấy thẻ Bảng xếp hạng — top 5 hiện tên, còn lại ẩn danh "Nhân viên #n".
+    canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
   },
   accountant: {
     canViewDashboard: true, dashboardType: 'financial',
@@ -280,8 +283,8 @@ export const ALL_PERMISSION_KEYS: Array<{ key: keyof RolePermissions; label: str
   { key: 'canCreateTasks', label: 'Tạo Công việc' },
   { key: 'canEditTasks', label: 'Sửa Công việc' },
   { key: 'canViewAttendance', label: 'Xem Chấm công' },
-  { key: 'canViewKPI', label: 'Xem KPI' },
+  { key: 'canViewKPI', label: 'Xem KPI (kèm Bảng xếp hạng)' },
   { key: 'canViewApprovals', label: 'Xem Phê duyệt' },
-  { key: 'canViewFeedback', label: 'Xem Feedback' },
+  { key: 'canViewFeedback', label: 'Xem Góp ý (đọc + trả lời)' },
   { key: 'canViewSettings', label: 'Xem Cài đặt' },
 ];

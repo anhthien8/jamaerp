@@ -56,7 +56,9 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canViewReports": True, "canViewPnL": False,
         "canCreateProjects": False, "canCreateContracts": True,
         "canCreateTasks": False, "canEditTasks": False,
-        "canViewAttendance": True, "canViewKPI": False,
+        # canViewKPI bật 12/08/2026 (chủ dự án chốt) — phải khớp roles.ts, nếu lệch thì
+        # trang Phân quyền hiện một đằng mà nhân viên trải nghiệm một nẻo.
+        "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
     },
     "accountant": {
@@ -64,7 +66,9 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canViewLeads": False, "leadsScope": "none",
         "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
         "canViewHR": True, "canManageUsers": True,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": False,
+        # Kế toán XEM được Báo giá nhưng không tạo — bản này trước đây ghi False,
+        # lệch với roles.ts (bản thật sự điều khiển giao diện). Sửa 12/08/2026.
+        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
         "canCreateQuotations": False, "canViewInventory": True,
         "canViewReports": True, "canViewPnL": True,
         "canCreateProjects": False, "canCreateContracts": True,

@@ -16,6 +16,25 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '12/08/2026',
+    title: 'Nhân viên Sale xem được KPI của mình',
+    tag: 'RELEASE',
+    news: [
+      'Nhân viên Sale mở được trang KPI: thẻ "Cá nhân" xem điểm, chỉ số và cảnh báo rủi ro của chính mình; thẻ "Bảng xếp hạng" xem mình đang đứng thứ mấy trong tháng.',
+      'Bảng xếp hạng hiện tên 5 người dẫn đầu và dòng của chính người đang xem; những dòng còn lại chỉ ghi "Nhân viên #thứ tự" — không ai thấy tên kèm điểm của người ngoài top 5.',
+    ],
+    fixes: [
+      'Mục "KPI" vốn đã được ghim sẵn trên thanh bên của Nhân viên Sale nhưng bấm vào là bị đá về Tổng quan — link chết từ đầu. Nay bấm vào mở đúng trang.',
+      'Ngược lại, Kế toán không được xem KPI mà vẫn thấy mục "KPI" trong menu; nay mục này ẩn đi thay vì để bấm rồi bị đá ra.',
+      'Bảng ở trang Phân quyền trước đây ghi Kế toán KHÔNG xem được Báo giá, trong khi thực tế xem được. Nay bảng ghi đúng thực tế.',
+    ],
+    test: [
+      'Một bạn Sale: vào KPI → xác nhận thẻ "Cá nhân" có điểm, và thẻ "Bảng xếp hạng" có dòng của mình.',
+      'Cũng bạn đó: xác nhận KHÔNG có thẻ "Đội nhóm" (thẻ đó dành cho trưởng phòng và điều phối KD).',
+      'Kế toán: xem thanh bên, xác nhận mục "KPI" đã biến mất.',
+    ],
+  },
+  {
+    date: '12/08/2026',
     title: 'Điều phối KD xem được KPI đội và Góp ý',
     tag: 'RELEASE',
     news: [

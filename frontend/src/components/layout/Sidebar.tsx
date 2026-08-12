@@ -51,7 +51,9 @@ const ALL_ITEMS = [
   { href: '/suppliers', label: 'Nhà cung cấp', icon: Icon.inventory, perm: 'canViewInventory' },
   { href: '/accounting', label: 'Kế toán', icon: Icon.accounting, perm: 'canViewAccounting' },
   { href: '/hr', label: 'Nhân sự', icon: Icon.hr, perm: 'canViewHR' },
-  { href: '/kpi', label: 'KPI', icon: Icon.kpi },
+  // Trước 12/08/2026 mục này KHÔNG gán quyền nào ⇒ Kế toán (canViewKPI tắt) thấy menu
+  // rồi bấm vào bị trang đá về Tổng quan. Gán quyền cho menu khớp với chốt của trang.
+  { href: '/kpi', label: 'KPI', icon: Icon.kpi, perm: 'canViewKPI' },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
