@@ -304,7 +304,9 @@ function LeadsContent() {
     try {
       const all = extractItems(await api.getUsers({ page_size: '200' }));
       const candidates = all
-        .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader'))
+        // Ứng viên nhận lead: role KD hệ thống HOẶC bất kỳ ai thuộc bộ phận Kinh doanh
+        // (gồm vai trò tùy chỉnh như admin_cskh — backend không giới hạn role người nhận)
+        .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader' || u.department === 'SALES'))
         .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
       setAssignableUsers(candidates);
       usersLoaded.current = true;
