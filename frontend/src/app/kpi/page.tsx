@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
-import { api } from '@/lib/api';
+import { api, laLoiThieuQuyen } from '@/lib/api';
 import { monthLabelVN } from '@/lib/labels';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
@@ -92,12 +92,19 @@ export default function KpiPage() {
     if (!user) return;
     setBusy(true);
     setKpiError(null);
+    // Tách 403 khỏi lỗi hệ thống: vai trò tùy chỉnh (VD Điều phối KD) chưa được backend
+    // cho xem KPI đội, trước đây chỉ hiện "Không thể tải dữ liệu KPI" nên nhìn như CRM hỏng.
+    const bao = (e: unknown) => setKpiError(
+      laLoiThieuQuyen(e)
+        ? 'Tài khoản của bạn chưa được cấp quyền xem mục này. Liên hệ quản trị nếu cần.'
+        : 'Không thể tải dữ liệu KPI — vui lòng thử lại.'
+    );
     if (tab === 'me') {
-      api.getKpiMe(period).then(setMyKpi).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
+      api.getKpiMe(period).then(setMyKpi).catch(bao).finally(() => setBusy(false));
     } else if (tab === 'team' && isLeaderOrAbove) {
-      api.getKpiTeam(period).then((d: any) => setTeamData(d.members || [])).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
+      api.getKpiTeam(period).then((d: any) => setTeamData(d.members || [])).catch(bao).finally(() => setBusy(false));
     } else if (tab === 'leaderboard') {
-      api.getKpiLeaderboard(period).then((d: any) => setLeaderboard(d.leaderboard || [])).catch(() => setKpiError('Không thể tải dữ liệu KPI')).finally(() => setBusy(false));
+      api.getKpiLeaderboard(period).then((d: any) => setLeaderboard(d.leaderboard || [])).catch(bao).finally(() => setBusy(false));
     }
   }, [tab, period, user]);
 

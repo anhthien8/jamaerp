@@ -17,13 +17,19 @@ const BASE = process.argv[2] || 'https://crm.jamahome.vn';
 // Mật khẩu lấy từ biến môi trường nếu có (vd QC_PASS_ADMIN), không thì dùng mật khẩu seed.
 const pw = (key, fallback) => process.env[`QC_PASS_${key.toUpperCase()}`] || fallback;
 
+// Danh sách vai trò CÓ THẬT trên bản chạy (đối chiếu GET /users ngày 12/08/2026).
+// Bản cũ liệt kê 'executive' và 'sales' — trên prod KHÔNG có vai trò executive
+// (ceo@jamahome.vn thực chất là admin) và sales@jamahome.vn là data_entry, nên script
+// báo LOGIN_FAIL oan và bỏ sót hẳn admin_cskh (3 người, nhóm dùng nhiều nhất).
 const ROLES = [
-  { key: 'admin',      user: 'admin',      pass: pw('admin', 'admin123'),      pages: ['/', '/leads', '/projects', '/pl', '/attendance', '/approvals', '/settings', '/users', '/permissions', '/hr', '/customers', '/contracts', '/quotations', '/inventory', '/suppliers', '/accounting', '/finance', '/kpi', '/reports', '/feedback', '/changelog'] },
-  { key: 'executive',  user: 'ceo',        pass: pw('ceo', 'ceo123'),          pages: ['/', '/pl', '/reports', '/kpi', '/feedback', '/projects', '/contracts', '/settings'] },
-  { key: 'leader',     user: 'leader',     pass: pw('leader', 'leader123'),    pages: ['/', '/leads', '/projects', '/attendance', '/approvals', '/hr', '/accounting', '/reports', '/kpi', '/settings', '/customers', '/contracts', '/quotations'] },
-  { key: 'sales',      user: 'sales',      pass: pw('sales', 'sales123'),      pages: ['/', '/leads', '/projects', '/attendance', '/approvals', '/accounting', '/reports', '/quotations', '/quote-tool', '/settings', '/customers', '/contracts'] },
-  { key: 'accountant', user: 'accountant', pass: pw('accountant', 'account123'), pages: ['/', '/accounting', '/finance', '/pl', '/hr', '/attendance', '/approvals', '/inventory', '/suppliers', '/reports', '/settings', '/contracts', '/quotations', '/customers'] },
-  { key: 'supervisor', user: 'supervisor', pass: pw('supervisor', 'super123'), pages: ['/', '/projects', '/inventory', '/quotations', '/attendance', '/approvals', '/kpi', '/reports', '/settings', '/contracts', '/customers'] },
+  { key: 'admin',      user: 'admin@jamahome.vn',      pass: pw('admin', 'admin123'),        pages: ['/', '/leads', '/projects', '/pl', '/attendance', '/approvals', '/settings', '/users', '/permissions', '/hr', '/customers', '/contracts', '/quotations', '/inventory', '/suppliers', '/accounting', '/finance', '/kpi', '/reports', '/feedback', '/changelog'] },
+  { key: 'leader',     user: 'leader@jamahome.vn',     pass: pw('leader', 'leader123'),      pages: ['/', '/leads', '/projects', '/attendance', '/approvals', '/hr', '/accounting', '/reports', '/kpi', '/settings', '/customers', '/contracts', '/quotations'] },
+  { key: 'data_entry', user: 'sales@jamahome.vn',      pass: pw('sales', 'sales123'),        pages: ['/', '/leads', '/projects', '/attendance', '/approvals', '/accounting', '/reports', '/quotations', '/quote-tool', '/settings', '/customers', '/contracts'] },
+  { key: 'accountant', user: 'accountant@jamahome.vn', pass: pw('accountant', 'account123'), pages: ['/', '/accounting', '/finance', '/pl', '/hr', '/attendance', '/approvals', '/inventory', '/suppliers', '/reports', '/settings', '/contracts', '/quotations', '/customers'] },
+  { key: 'supervisor', user: 'supervisor@jamahome.vn', pass: pw('supervisor', 'super123'),   pages: ['/', '/projects', '/inventory', '/quotations', '/attendance', '/approvals', '/kpi', '/reports', '/settings', '/contracts', '/customers'] },
+  // Điều phối KD (vai trò tùy chỉnh, bộ phận SALES). Mật khẩu do người dùng tự đổi nên KHÔNG
+  // có mặc định — không đặt QC_PASS_CSKH thì bỏ qua hẳn, tránh báo LOGIN_FAIL giả.
+  { key: 'admin_cskh', user: 'ngochanh@jamahome.vn',   pass: process.env.QC_PASS_CSKH || '', pages: ['/', '/leads', '/customers', '/quotations', '/quote-tool', '/reports', '/kpi', '/feedback', '/settings'] },
 ];
 
 // Chữ trên nút = thao tác THAY ĐỔI dữ liệu → không bao giờ bấm thử.
@@ -78,7 +84,7 @@ async function qcRole(role) {
     await page.waitForTimeout(1800);
     await dismissOverlays(page);
     let s = await page.evaluate(() => ({
-      boundary: document.body.innerText.includes('Có lỗi xảy ra'),
+      boundary: !!document.querySelector('[data-error-boundary]'),
       // Thẻ lỗi tải dữ liệu của các trang (không phải error boundary)
       loadError: /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
       detail: (document.querySelector('.font-mono.break-all') || {}).textContent || null,
@@ -92,7 +98,7 @@ async function qcRole(role) {
         interacted = true;
         await page.waitForTimeout(1200);
         s = await page.evaluate(() => ({
-          boundary: document.body.innerText.includes('Có lỗi xảy ra'),
+          boundary: !!document.querySelector('[data-error-boundary]'),
           loadError: /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
           detail: (document.querySelector('.font-mono.break-all') || {}).textContent || null,
         }));
@@ -111,6 +117,10 @@ async function qcRole(role) {
 }
 
 for (const role of ROLES) {
+  if (!role.pass) {
+    console.log(`=== QC ${role.key} === BỎ QUA (chưa đặt mật khẩu — xuất QC_PASS_CSKH để quét vai trò này)`);
+    continue;
+  }
   console.log(`=== QC ${role.key} ===`);
   await qcRole(role);
   const rr = results.filter(r => r.role === role.key);

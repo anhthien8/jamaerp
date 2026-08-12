@@ -94,6 +94,17 @@ class TaskCreate(BaseModel):
 class TaskStatusUpdate(BaseModel):
     status: str
 
+
+class TaskAssignUpdate(BaseModel):
+    """Body của PUT .../assign — phải khai báo assigned_to.
+
+    Trước 12/08/2026 endpoint này dùng TaskStatusUpdate (chỉ có `status`), nên
+    Pydantic loại bỏ `assigned_to` do FE gửi mà không báo lỗi: API trả 200, giao
+    diện hiện "Đã giao việc cho X" nhưng task vẫn chưa có người làm.
+    """
+    assigned_to: str
+    status: str | None = None
+
 class TaskFileUpdate(BaseModel):
     final_file_url: str | None = None
     version_label: str | None = None
@@ -599,7 +610,7 @@ async def update_task_status(
 async def assign_task(
     project_id: str,
     task_id: str,
-    data: TaskStatusUpdate,
+    data: TaskAssignUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -608,22 +619,27 @@ async def assign_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    # The body should contain assigned_to
-    assigned_to = getattr(data, 'assigned_to', None) or (data.model_dump().get('assigned_to'))
-    if assigned_to:
-        task.assigned_to = assigned_to
-        await db.flush()
-        # Create notification for the assigned user
-        from app.models.notification import Notification
-        notif = Notification(
-            user_id=assigned_to,
-            type="system",
-            title="Bạn được giao task mới",
-            body=f"Task: {task.title}",
-            link="/projects",
-        )
-        db.add(notif)
-        await db.flush()
+
+    # Người nhận phải có thật — trước đây gán ID rác vẫn trả 200 rồi tạo thông báo mồ côi.
+    assignee = (await db.execute(select(User).where(User.id == data.assigned_to))).scalar_one_or_none()
+    if assignee is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhân sự được giao việc")
+
+    task.assigned_to = assignee.id
+    if data.status:
+        task.status = data.status
+    await db.flush()
+
+    from app.models.notification import Notification
+    notif = Notification(
+        user_id=assignee.id,
+        type="system",
+        title="Bạn được giao task mới",
+        body=f"Task: {task.title}",
+        link="/projects",
+    )
+    db.add(notif)
+    await db.flush()
     return TaskResponse.model_validate(task)
 
 

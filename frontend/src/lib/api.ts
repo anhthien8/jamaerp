@@ -442,11 +442,11 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
 
   // ── Suppliers (demo) ──
   const _demoSuppliers: Array<Record<string, unknown>> = [
-    { id: 'demo-sup-1', name: 'Gỗ Phước An', contact_person: 'Anh Nam', phone: '0901234567', email: 'nam@phuocan.vn', address: 'Bình Dương', category: 'wood', notes: 'NCC gỗ tự nhiên, giao hàng 3-5 ngày', is_active: true, quote_count: 12, created_at: '2026-01-15', updated_at: '2026-07-10' },
-    { id: 'demo-sup-2', name: 'Đá Hoàn Cầu', contact_person: 'Chị Hoa', phone: '0912345678', email: 'hoa@hoancu.vn', address: 'Bình Định', category: 'stone', notes: 'Đá granite, marble', is_active: true, quote_count: 8, created_at: '2026-02-20', updated_at: '2026-07-05' },
-    { id: 'demo-sup-3', name: 'Sơn Nippon', contact_person: 'Anh Tuấn', phone: '0923456789', email: 'tuan@nippon.vn', address: 'TP.HCM', category: 'paint', notes: 'Sơn nội thất, ngoại thất', is_active: true, quote_count: 15, created_at: '2026-01-10', updated_at: '2026-07-12' },
-    { id: 'demo-sup-4', name: 'Điện Quang', contact_person: 'Chị Mai', phone: '0934567890', email: 'mai@dienquang.vn', address: 'TP.HCM', category: 'electrical', notes: 'Thiết bị điện dân dụng', is_active: true, quote_count: 6, created_at: '2026-03-01', updated_at: '2026-06-28' },
-    { id: 'demo-sup-5', name: 'Nội Thất Hòa Phát', contact_person: 'Anh Dũng', phone: '0945678901', email: 'dung@hoaphat.vn', address: 'Hà Nội', category: 'furniture', notes: 'Nội thất văn gia đình', is_active: true, quote_count: 10, created_at: '2026-02-01', updated_at: '2026-07-08' },
+    { id: 'demo-sup-1', name: 'Gỗ Phước An', contact_name: 'Anh Nam', phone: '0901234567', email: 'nam@phuocan.vn', address: 'Bình Dương', category: 'wood', notes: 'NCC gỗ tự nhiên, giao hàng 3-5 ngày', is_active: true, quote_count: 12, created_at: '2026-01-15', updated_at: '2026-07-10' },
+    { id: 'demo-sup-2', name: 'Đá Hoàn Cầu', contact_name: 'Chị Hoa', phone: '0912345678', email: 'hoa@hoancu.vn', address: 'Bình Định', category: 'stone', notes: 'Đá granite, marble', is_active: true, quote_count: 8, created_at: '2026-02-20', updated_at: '2026-07-05' },
+    { id: 'demo-sup-3', name: 'Sơn Nippon', contact_name: 'Anh Tuấn', phone: '0923456789', email: 'tuan@nippon.vn', address: 'TP.HCM', category: 'paint', notes: 'Sơn nội thất, ngoại thất', is_active: true, quote_count: 15, created_at: '2026-01-10', updated_at: '2026-07-12' },
+    { id: 'demo-sup-4', name: 'Điện Quang', contact_name: 'Chị Mai', phone: '0934567890', email: 'mai@dienquang.vn', address: 'TP.HCM', category: 'electrical', notes: 'Thiết bị điện dân dụng', is_active: true, quote_count: 6, created_at: '2026-03-01', updated_at: '2026-06-28' },
+    { id: 'demo-sup-5', name: 'Nội Thất Hòa Phát', contact_name: 'Anh Dũng', phone: '0945678901', email: 'dung@hoaphat.vn', address: 'Hà Nội', category: 'furniture', notes: 'Nội thất văn gia đình', is_active: true, quote_count: 10, created_at: '2026-02-01', updated_at: '2026-07-08' },
   ];
   const _demoSupplierQuotes: Array<Record<string, unknown>> = [
     { id: 'demo-sq-1', supplier_id: 'demo-sup-1', supplier_name: 'Gỗ Phước An', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 850000, min_quantity: 5, lead_time_days: 5, notes: 'Gỗ đã xử lý chống ẩm', valid_from: '2026-07-01', valid_until: '2026-09-30', created_at: '2026-07-01' },
@@ -458,7 +458,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path === '/suppliers') {
     let list = [..._demoSuppliers];
     const q = (params?.search || params?.q || '').toLowerCase();
-    if (q) list = list.filter(s => `${s.name} ${s.contact_person || ''}`.toLowerCase().includes(q));
+    if (q) list = list.filter(s => `${s.name} ${s.contact_name || ''}`.toLowerCase().includes(q));
     if (params?.category && params.category !== 'all') list = list.filter(s => s.category === params.category);
     return toPaginated(list as unknown as Supplier[], params) as T;
   }
@@ -836,6 +836,24 @@ interface ApiOptions {
   params?: Record<string, string>;
 }
 
+/** Lỗi từ máy chủ, có kèm mã HTTP.
+ *
+ *  Trước 12/08/2026 mọi lỗi đều là Error trơn nên màn hình không phân biệt được
+ *  "chưa được cấp quyền" (403) với "máy chủ đang lỗi" (500) — người dùng thấy chung
+ *  một câu "Không thể tải dữ liệu" rồi tưởng hệ thống sập.
+ */
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/** true nếu lỗi là do thiếu quyền (403), không phải sự cố hệ thống. */
+export function laLoiThieuQuyen(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 403;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -888,7 +906,7 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `HTTP ${res.status}`);
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
 
     return res.json();
@@ -1187,12 +1205,50 @@ class ApiClient {
   async addSupplierQuote(supplierId: string, data: Partial<SupplierQuote>) {
     return this.request<SupplierQuote>(`/suppliers/${supplierId}/quotes`, { method: 'POST', body: data });
   }
-  async comparePrices(materialName: string) {
-    return this.request<PriceComparison>('/suppliers/compare', { params: { material_name: materialName } });
+  /** So sánh giá 1 vật tư giữa các NCC.
+   *
+   * Backend là POST /suppliers/compare, nhận {materials: [...]} và trả
+   * {comparisons: [{material_name, best_price, quotes:[...]}]}. Trước 12/08/2026 hàm này
+   * gọi GET kèm query → luôn 405, nút "So sánh" trong trang NCC không bao giờ chạy.
+   * Phần rẻ nhất / trung bình / xu hướng do FE tự tính từ danh sách báo giá.
+   * (params giữ lại để trình giải lập Chế độ Tập luyện vẫn nhận ra đường dẫn.)
+   */
+  async comparePrices(materialName: string): Promise<PriceComparison> {
+    const res = await this.request<{ comparisons?: RawComparison[] }>('/suppliers/compare', {
+      method: 'POST',
+      body: { materials: [materialName] },
+      params: { material_name: materialName },
+    });
+    // Trình giải lập Chế độ Tập luyện trả thẳng shape cũ — nhận cả hai.
+    if (res && !('comparisons' in res)) return res as unknown as PriceComparison;
+    const raw = res?.comparisons?.[0];
+    const quotes = raw?.quotes ?? [];
+    const prices = quotes.map(q => q.unit_price);
+    const cheapest = prices.length ? Math.min(...prices) : 0;
+    const avg = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
+    return {
+      material_name: raw?.material_name || materialName,
+      unit: quotes[0]?.unit || '',
+      cheapest_price: cheapest,
+      avg_price: avg,
+      quotes: quotes.map(q => ({
+        supplier_id: q.supplier_id,
+        supplier_name: q.supplier_name,
+        unit_price: q.unit_price,
+        min_quantity: q.min_quantity ?? undefined,
+        lead_time_days: q.lead_time_days ?? undefined,
+        quote_date: q.quote_date,
+        is_cheapest: q.unit_price === cheapest,
+        // Backend chưa trả xu hướng giá — để 'stable' thay vì bịa mũi tên tăng/giảm.
+        price_trend: 'stable' as const,
+      })),
+    };
   }
   async getPriceHistory(materialName: string) {
-    return this.request<Array<{ date: string; supplier_name: string; unit_price: number }>>(
-      '/suppliers/price-history', { params: { material_name: materialName } }
+    // Backend: GET /suppliers/price-history/{material_name:path} — tên vật tư nằm trên
+    // đường dẫn, không phải query. Gọi sai kiểu cũ luôn ra 404.
+    return this.request<{ material_name: string; history: Array<{ supplier_name: string; unit_price: number; quote_date: string }> }>(
+      `/suppliers/price-history/${encodeURIComponent(materialName)}`
     );
   }
 
@@ -2321,10 +2377,15 @@ export interface ZaloSignalInfo {
 export interface Supplier {
   id: string;
   name: string;
-  contact_person?: string;
+  /** Tên người liên hệ. Backend gọi là contact_name; FE từng gửi contact_person nên
+   *  Pydantic lặng lẽ bỏ trường này khi tạo NCC (nhập xong là mất). Sửa 12/08/2026. */
+  contact_name?: string;
   phone?: string;
+  zalo?: string;
   email?: string;
   address?: string;
+  region?: string;
+  rating?: number;
   category: string; // wood | stone | metal | paint | electrical | plumbing | furniture | glass | general
   notes?: string;
   is_active: boolean;
@@ -2344,9 +2405,27 @@ export interface SupplierQuote {
   min_quantity?: number;
   lead_time_days?: number;
   notes?: string;
-  valid_from: string;
-  valid_until?: string;
-  created_at: string;
+  /** Ngày báo giá. Bảng supplier_quotes KHÔNG có valid_from/valid_until —
+   *  FE cũ hiện "HL đến ..." từ trường không tồn tại nên không bao giờ ra chữ. */
+  quote_date: string;
+}
+
+/** Đúng shape thô backend trả về ở POST /suppliers/compare (trước khi FE tính thêm). */
+export interface RawComparison {
+  material_name: string;
+  quote_count: number;
+  best_supplier_id: string | null;
+  best_supplier_name: string | null;
+  best_price: number | null;
+  quotes: Array<{
+    supplier_id: string;
+    supplier_name: string;
+    unit_price: number;
+    unit: string;
+    min_quantity?: number | null;
+    lead_time_days?: number | null;
+    quote_date: string;
+  }>;
 }
 
 export interface PriceComparison {
@@ -2358,7 +2437,7 @@ export interface PriceComparison {
     unit_price: number;
     min_quantity?: number;
     lead_time_days?: number;
-    valid_until?: string;
+    quote_date?: string;
     is_cheapest: boolean;
     price_trend: 'up' | 'down' | 'stable';
   }>;
@@ -2389,6 +2468,31 @@ export interface PaginatedResponse<T> {
 export function extractItems<T>(response: T[] | PaginatedResponse<T>): T[] {
   if (Array.isArray(response)) return response;
   return (response as PaginatedResponse<T>).items ?? [];
+}
+
+/** Tải HẾT các trang của một danh sách phân trang.
+ *
+ * Các trang Leads / Dự án / Khách hàng gọi API đúng một lần rồi lọc-sắp xếp phía trình
+ * duyệt. Backend mặc định trả 50 bản ghi/trang, nên khi công ty vượt 50 lead thì phần dư
+ * biến mất KHÔNG một lời báo, và mọi bộ lọc chỉ chạy trên 50 cái đầu — số liệu sai mà
+ * nhìn vẫn bình thường. Hàm này lấy đủ mọi trang (200 bản/lượt, trần của backend).
+ *
+ * Có chốt chặn 50 trang (~10.000 bản ghi) để một API lỗi không kéo trình duyệt gọi vô tận.
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (params: Record<string, string>) => Promise<T[] | PaginatedResponse<T>>,
+  params: Record<string, string> = {},
+  pageSize = 200,
+): Promise<T[]> {
+  const first = await fetchPage({ ...params, page: '1', page_size: String(pageSize) });
+  if (Array.isArray(first)) return first;
+  const items = [...(first.items ?? [])];
+  const totalPages = Math.min(first.total_pages ?? 1, 50);
+  for (let p = 2; p <= totalPages; p++) {
+    const next = await fetchPage({ ...params, page: String(p), page_size: String(pageSize) });
+    items.push(...extractItems(next));
+  }
+  return items;
 }
 
 // Export singleton instance

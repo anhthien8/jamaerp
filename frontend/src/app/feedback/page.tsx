@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, FeedbackItem } from '@/lib/api';
+import { api, FeedbackItem, laLoiThieuQuyen } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 
@@ -44,7 +44,12 @@ export default function FeedbackPage() {
       const data = await api.getFeedback(params);
       setItems(data.items || []);
       setTotal(data.total || 0);
-    } catch { toast('Không thể tải danh sách góp ý', 'error'); }
+    } catch (e) {
+      // 403 = chưa được cấp quyền, khác hẳn "hệ thống lỗi" — nói rõ để đỡ báo nhầm sự cố.
+      toast(laLoiThieuQuyen(e)
+        ? 'Tài khoản của bạn chưa được cấp quyền xem góp ý toàn công ty.'
+        : 'Không thể tải danh sách góp ý', 'error');
+    }
   }, [page, statusFilter, categoryFilter, toast]);
 
   useEffect(() => { loadFeedback(); }, [loadFeedback]);

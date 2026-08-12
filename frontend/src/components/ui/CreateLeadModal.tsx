@@ -69,7 +69,7 @@ const SEGMENT_OPTIONS = [
   { value: 'townhouse', label: 'Nhà phố' },
   { value: 'apartment', label: 'Căn hộ' },
   { value: 'shophouse', label: 'Shophouse' },
-  { value: 'office', label: 'Office' },
+  { value: 'office', label: 'Văn phòng' },
 ];
 
 const PLAN_TYPE_OPTIONS = [

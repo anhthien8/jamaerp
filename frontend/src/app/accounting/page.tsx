@@ -57,26 +57,38 @@ export default function AccountingPage() {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
+  // Chỉ Giám đốc + Kế toán được xem bảng lương; các vai trò khác gọi /payroll sẽ bị 403.
+  // Trước 12/08/2026 lời gọi này nằm chung Promise.all nên 403 làm hỏng CẢ trang kế toán
+  // (Trưởng nhóm và Nhập liệu chỉ thấy "Không thể tải dữ liệu kế toán").
+  const canSeePayroll = !!user && getPermissions(user.role as UserRole).canViewPayroll;
+
   const fetchData = useCallback(async () => {
     setLoadingData(true);
-    try {
-      const [s, tResult, cResult, pResult] = await Promise.all([
-        api.getAccountingSummary(),
-        api.getTransactions(),
-        api.getCommissions(),
-        api.getPayroll(),
-      ]);
-      setSummary(s);
-      setTransactions(extractItems(tResult));
-      setCommissions(extractItems(cResult));
-      setPayroll(extractItems(pResult));
-    } catch (e) {
-      console.warn('Accounting API error:', e);
-      setError('Không thể tải dữ liệu kế toán. Vui lòng thử lại.');
-    } finally {
-      setLoadingData(false);
+    setError(null);
+    // allSettled: một mục hỏng thì chỉ mục đó trống, phần còn lại vẫn hiện.
+    const [sRes, tRes, cRes, pRes] = await Promise.allSettled([
+      api.getAccountingSummary(),
+      api.getTransactions(),
+      api.getCommissions(),
+      canSeePayroll ? api.getPayroll() : Promise.resolve([]),
+    ]);
+    if (sRes.status === 'fulfilled') setSummary(sRes.value);
+    if (tRes.status === 'fulfilled') setTransactions(extractItems(tRes.value));
+    if (cRes.status === 'fulfilled') setCommissions(extractItems(cRes.value));
+    if (pRes.status === 'fulfilled') setPayroll(extractItems(pRes.value));
+
+    const hong = [
+      sRes.status === 'rejected' && 'tổng quan',
+      tRes.status === 'rejected' && 'giao dịch',
+      cRes.status === 'rejected' && 'hoa hồng',
+      pRes.status === 'rejected' && 'bảng lương',
+    ].filter(Boolean) as string[];
+    if (hong.length) {
+      console.warn('Accounting API error:', { sRes, tRes, cRes, pRes });
+      setError(`Chưa tải được: ${hong.join(', ')}. Phần đang trống là do lỗi tải, không phải bằng 0.`);
     }
-  }, []);
+    setLoadingData(false);
+  }, [canSeePayroll]);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchData);
@@ -162,20 +174,6 @@ export default function AccountingPage() {
   };
 
   if (loading || !user) return null;
-  if (error) {
-    return (
-      <Sidebar>
-        <div className="p-6 flex items-center justify-center min-h-[60vh]">
-          <div className="glass-card p-8 text-center max-w-md">
-            <span className="text-4xl block mb-4">⚠️</span>
-            <p className="text-[var(--text-primary)] mb-2">{error}</p>
-            <button onClick={() => { setError(null); fetchData(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
-          </div>
-        </div>
-      </Sidebar>
-    );
-  }
-
 
   const perms = getPermissions(user.role as UserRole);
   if (!perms.canViewAccounting) return <AccessDenied />;
@@ -253,6 +251,19 @@ export default function AccountingPage() {
             <p className="text-sm text-[var(--text-secondary)] mt-1">Quản lý thu chi, hoa hồng, lương</p>
           </div>
         </div>
+
+        {/* Cảnh báo cục bộ: chỉ báo phần nào chưa tải được, KHÔNG che cả trang như trước. */}
+        {error && (
+          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center justify-between gap-4">
+            <span>⚠️ {error}</span>
+            <button
+              onClick={() => { setError(null); void fetchData(); }}
+              className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/15 transition-colors"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {/* Tab Bar */}
         <div className="flex gap-1 mb-6 p-1 rounded-xl overflow-x-auto" style={{ background: 'var(--surface-2)' }}>
@@ -435,7 +446,7 @@ export default function AccountingPage() {
                       </button>
                     )}
 
-                    {/* Export CSV */}
+                    {/* Xuất bảng tính */}
                     <button
                       onClick={() => {
                         const filtered = transactions
@@ -471,7 +482,7 @@ export default function AccountingPage() {
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                     >
-                      📥 Export CSV
+                      📥 Xuất bảng tính
                     </button>
                   </div>
 

@@ -105,7 +105,7 @@ export const PROPERTY_CLASS_LABELS: Record<string, { label: string; color: strin
 
 export const SEGMENT_LABELS: Record<string, string> = {
   villa: 'Biệt thự', townhouse: 'Nhà phố', apartment: 'Căn hộ',
-  shophouse: 'Shophouse', office: 'Office',
+  shophouse: 'Shophouse', office: 'Văn phòng',
 };
 
 export const PLAN_TYPE_LABELS: Record<string, { label: string; color: string }> = {

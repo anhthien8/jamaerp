@@ -136,8 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // API unavailable — fallback to demo (chỉ khi đúng mật khẩu demo)
     }
 
-    // Demo fallback if API unavailable
-    const demoUser = DEMO_USERS[email.toLowerCase()];
+    // Lối rơi về Chế độ Tập luyện — CHỈ chạy khi cờ SHOW_DEMO_MODE còn bật.
+    // Nó bắt MỌI lỗi của api.login, kể cả 401 sai mật khẩu, nên khi cờ đã tắt mà vẫn
+    // để chạy thì gõ nhầm mật khẩu vẫn "đăng nhập thành công" rồi hiện số liệu mẫu như
+    // số thật. Mã bên dưới giữ nguyên ở trạng thái ngủ theo quyết định 12/08/2026.
+    const demoUser = SHOW_DEMO_MODE ? DEMO_USERS[email.toLowerCase()] : undefined;
     if (demoUser && password === DEMO_PASSWORD) {
       setUser(demoUser);
       setModeState('demo');

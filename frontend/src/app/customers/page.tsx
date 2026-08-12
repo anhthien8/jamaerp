@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
-import { api, Customer, extractItems } from '@/lib/api';
+import { api, Customer, fetchAllPages } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -116,8 +116,8 @@ export default function CustomersPage() {
       const params: Record<string, string> = {};
       if (typeFilter !== 'all') params.type = typeFilter;
       if (search.trim()) params.search = search.trim();
-      const result = await api.getCustomers(params);
-      const data = extractItems(result);
+      // Lấy đủ mọi trang — lọc/sắp xếp chạy phía trình duyệt (xem fetchAllPages).
+      const data = await fetchAllPages(p => api.getCustomers(p), params);
       setCustomers(data);
       setSelected(prev => (prev ? data.find(c => c.id === prev.id) || prev : prev));
     } catch (e) {

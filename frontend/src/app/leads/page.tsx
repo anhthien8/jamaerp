@@ -13,7 +13,7 @@ import {
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
-import { api, Lead, Activity, User, extractItems } from '@/lib/api';
+import { api, Lead, Activity, User, fetchAllPages } from '@/lib/api';
 import { getPermissions, canAssignLeads, isSalesCoordinator, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -198,7 +198,9 @@ function LeadsContent() {
       const params: Record<string, string> = {};
       if (filterSource !== 'all') params.source = filterSource;
       if (filterPriority !== 'all') params.priority = filterPriority;
-      const allLeads = extractItems(await api.getLeads(params)).map(lead => ({
+      // Lấy đủ mọi trang: trang này lọc/sắp xếp phía trình duyệt nên chỉ nhận 50 lead
+      // đầu là ra kết quả sai mà không ai biết (xem chú thích fetchAllPages).
+      const allLeads = (await fetchAllPages(p => api.getLeads(p), params)).map(lead => ({
         ...lead,
         tags: typeof lead.tags === 'string' ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })() : lead.tags || [],
       }));
@@ -485,9 +487,9 @@ function LeadsContent() {
           <span className="text-xs text-[var(--text-muted)] ml-2 mr-1">Sắp xếp:</span>
           <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="newest">Mới nhất</option>
-            <option value="budget">Budget cao → thấp</option>
-            <option value="deal_value">Deal value cao → thấp</option>
-            <option value="ai_score">AI Score cao → thấp</option>
+            <option value="budget">Ngân sách cao → thấp</option>
+            <option value="deal_value">Giá trị hợp đồng cao → thấp</option>
+            <option value="ai_score">Điểm AI cao → thấp</option>
           </select>
           {activeFilterLabels.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 ml-2">
@@ -940,7 +942,7 @@ function LeadsContent() {
                     <p className="text-sm font-semibold mt-1 text-[#C9A96E]">{formatCurrency(selectedLead.estimated_budget)}</p>
                   </div>
                   <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-xs text-[var(--text-muted)]">Deal Value</p>
+                    <p className="text-xs text-[var(--text-muted)]">Giá trị hợp đồng</p>
                     <p className="text-sm font-bold mt-1 text-[#10B981]">{formatDealValue(selectedLead.deal_value)}</p>
                   </div>
                 </div>

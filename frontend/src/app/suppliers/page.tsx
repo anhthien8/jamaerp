@@ -30,8 +30,16 @@ export default function SuppliersPage() {
   const [compareData, setCompareData] = useState<PriceComparison | null>(null);
   const [compareMaterial, setCompareMaterial] = useState('');
 
+  // Cả trang trước 12/08/2026 dùng `catch { /* ignore */ }`: NCC không tải được thì hiện
+  // "Chưa có nhà cung cấp", thêm NCC thất bại thì bảng chỉ đóng lại im lặng. Nay mọi lỗi
+  // đều hiện chữ, và các nút lưu bị khoá trong lúc gửi để không tạo trùng khi bấm đúp.
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const loi = (e: unknown, mac: string) => (e instanceof Error && e.message ? e.message : mac);
+
   // Form states
-  const [form, setForm] = useState({ name: '', contact_person: '', phone: '', email: '', address: '', category: 'general', notes: '' });
+  const [form, setForm] = useState({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '' });
   const [quoteForm, setQuoteForm] = useState({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
 
   const loadSuppliers = useCallback(async () => {
@@ -42,7 +50,11 @@ export default function SuppliersPage() {
       if (categoryFilter !== 'all') params.category = categoryFilter;
       const res = await api.getSuppliers(params);
       setSuppliers(Array.isArray(res) ? res : res.items);
-    } catch { /* ignore */ }
+      setError(null);
+    } catch (e) {
+      setSuppliers([]);
+      setError(loi(e, 'Chưa tải được danh sách nhà cung cấp.'));
+    }
     setLoading(false);
   }, [search, categoryFilter]);
 
@@ -53,7 +65,10 @@ export default function SuppliersPage() {
     try {
       const data = await api.getSupplierQuotes(supplierId);
       setQuotes(Array.isArray(data) ? data : []);
-    } catch { setQuotes([]); }
+    } catch (e) {
+      setQuotes([]);
+      setError(loi(e, 'Chưa tải được báo giá của nhà cung cấp này.'));
+    }
     setQuotesLoading(false);
   };
 
@@ -63,31 +78,50 @@ export default function SuppliersPage() {
   };
 
   const handleCreateSupplier = async () => {
+    if (saving) return;
+    if (!form.name.trim()) { setError('Vui lòng nhập tên nhà cung cấp.'); return; }
+    setSaving(true);
     try {
       await api.createSupplier(form);
       setShowAddModal(false);
-      setForm({ name: '', contact_person: '', phone: '', email: '', address: '', category: 'general', notes: '' });
+      setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '' });
+      setError(null);
       loadSuppliers();
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(loi(e, 'Không thêm được nhà cung cấp.'));
+    }
+    setSaving(false);
   };
 
   const handleAddQuote = async () => {
-    if (!selectedSupplier) return;
+    if (!selectedSupplier || saving) return;
+    if (!quoteForm.material_name.trim()) { setError('Vui lòng nhập tên vật tư.'); return; }
+    setSaving(true);
     try {
-      await api.addSupplierQuote(selectedSupplier.id, { ...quoteForm, valid_from: new Date().toISOString().slice(0, 10) });
+      // Không gửi valid_from: bảng supplier_quotes không có cột này, backend tự đặt quote_date.
+      await api.addSupplierQuote(selectedSupplier.id, quoteForm);
       setShowQuoteModal(false);
       setQuoteForm({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
+      setError(null);
       loadQuotes(selectedSupplier.id);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(loi(e, 'Không thêm được báo giá.'));
+    }
+    setSaving(false);
   };
 
   const handleCompare = async () => {
-    if (!compareMaterial.trim()) return;
+    if (!compareMaterial.trim() || comparing) return;
+    setComparing(true);
     try {
       const data = await api.comparePrices(compareMaterial);
       setCompareData(data);
       setShowCompare(true);
-    } catch { /* ignore */ }
+      setError(null);
+    } catch (e) {
+      setError(loi(e, 'Không so sánh được giá vật tư này.'));
+    }
+    setComparing(false);
   };
 
   const fmt = (n: number) => n.toLocaleString('vi-VN');
@@ -108,6 +142,17 @@ export default function SuppliersPage() {
           + Thêm nhà cung cấp
         </button>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-xl text-sm flex items-center justify-between gap-4"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => { setError(null); loadSuppliers(); }} className="shrink-0 px-3 py-1.5 rounded-lg"
+            style={{ border: '1px solid rgba(239,68,68,0.3)' }}>
+            Thử lại
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -149,10 +194,11 @@ export default function SuppliersPage() {
         />
         <button
           onClick={handleCompare}
-          className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+          disabled={comparing}
+          className="px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
           style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)', border: '1px solid rgba(201,169,110,0.3)' }}
         >
-          So sánh giá
+          {comparing ? 'Đang so sánh...' : 'So sánh giá'}
         </button>
       </div>
 
@@ -189,9 +235,9 @@ export default function SuppliersPage() {
                         {CATEGORY_LABELS[s.category] || s.category}
                       </span>
                     </div>
-                    {s.contact_person && (
+                    {s.contact_name && (
                       <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                        {s.contact_person}{s.phone ? ` · ${s.phone}` : ''}
+                        {s.contact_name}{s.phone ? ` · ${s.phone}` : ''}
                       </p>
                     )}
                   </div>
@@ -223,7 +269,7 @@ export default function SuppliersPage() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {selectedSupplier.contact_person && <div><span style={{ color: 'var(--text-muted)' }}>Liên hệ:</span> {selectedSupplier.contact_person}</div>}
+                  {selectedSupplier.contact_name && <div><span style={{ color: 'var(--text-muted)' }}>Liên hệ:</span> {selectedSupplier.contact_name}</div>}
                   {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span> {selectedSupplier.phone}</div>}
                   {selectedSupplier.email && <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {selectedSupplier.email}</div>}
                   {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Địa chỉ:</span> {selectedSupplier.address}</div>}
@@ -256,8 +302,12 @@ export default function SuppliersPage() {
                         </div>
                         <div className="text-right flex-shrink-0 ml-3">
                           <p className="text-sm font-bold" style={{ color: 'var(--gold-400)' }}>{fmt(q.unit_price)}đ</p>
-                          {q.valid_until && (
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>HL đến {q.valid_until}</p>
+                          {/* Trước đây hiện "HL đến {valid_until}" — cột đó không tồn tại nên
+                              dòng này không bao giờ ra chữ. Bảng giá chỉ có ngày báo giá. */}
+                          {q.quote_date && (
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              Báo giá {new Date(q.quote_date).toLocaleDateString('vi-VN')}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -307,7 +357,7 @@ export default function SuppliersPage() {
             <div className="grid grid-cols-2 gap-3">
               {([
                 { key: 'name', label: 'Tên NCC', required: true },
-                { key: 'contact_person', label: 'Người liên hệ', required: false },
+                { key: 'contact_name', label: 'Người liên hệ', required: false },
                 { key: 'phone', label: 'Điện thoại', required: false },
                 { key: 'email', label: 'Email', required: false },
                 { key: 'address', label: 'Địa chỉ', required: false },
@@ -352,11 +402,11 @@ export default function SuppliersPage() {
               <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Hủy</button>
               <button
                 onClick={handleCreateSupplier}
-                disabled={!form.name.trim()}
+                disabled={!form.name.trim() || saving}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ background: 'var(--gold-500)', color: '#000' }}
               >
-                Thêm
+                {saving ? 'Đang lưu...' : 'Thêm'}
               </button>
             </div>
           </div>
@@ -441,11 +491,11 @@ export default function SuppliersPage() {
               <button onClick={() => setShowQuoteModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Hủy</button>
               <button
                 onClick={handleAddQuote}
-                disabled={!quoteForm.material_name.trim() || quoteForm.unit_price <= 0}
+                disabled={!quoteForm.material_name.trim() || quoteForm.unit_price <= 0 || saving}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ background: 'var(--gold-500)', color: '#000' }}
               >
-                Thêm báo giá
+                {saving ? 'Đang lưu...' : 'Thêm báo giá'}
               </button>
             </div>
           </div>

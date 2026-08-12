@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, extractItems } from '@/lib/api';
+import { api, fetchAllPages } from '@/lib/api';
 
 interface SearchItem {
   id: string;
@@ -66,9 +66,11 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
+    // Ô tìm kiếm nhanh lọc phía trình duyệt, nên phải nạp ĐỦ danh sách. Trước 12/08/2026
+    // chỉ lấy 100 lead + 100 dự án đầu: quá mốc đó là gõ đúng tên vẫn ra "Không tìm thấy".
     Promise.all([
-      api.getLeads({ page_size: '100' }).then(r => extractItems(r)).catch(() => []),
-      api.getProjects({ page_size: '100' }).then(r => extractItems(r)).catch(() => []),
+      fetchAllPages(p => api.getLeads(p)).catch(() => []),
+      fetchAllPages(p => api.getProjects(p)).catch(() => []),
     ]).then(([leads, projects]) => {
       const items: SearchItem[] = [
         ...(leads as unknown as Array<Record<string, unknown>>).map(l => ({

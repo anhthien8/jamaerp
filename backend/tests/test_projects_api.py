@@ -105,3 +105,74 @@ class TestTaskStatusAndProgress:
         task = task_q.scalar_one()
         assert task.title == "Lap bang tien do"
         assert task.project_id == project.id
+
+
+@pytest.mark.asyncio
+class TestTaskAssign:
+    """PUT /projects/{pid}/tasks/{tid}/assign — chống lỗi 'báo thành công giả'.
+
+    Trước 12/08/2026 endpoint dùng TaskStatusUpdate (chỉ có `status`) nên Pydantic
+    lặng lẽ bỏ `assigned_to`; API trả 200, giao diện hiện "Đã giao việc cho X",
+    còn task thì vẫn chưa có người làm.
+    """
+
+    async def test_assign_task_persists_assignee_and_notifies(
+        self, client: AsyncClient, admin_user, sales_user, project: Project, db_session: AsyncSession
+    ):
+        from app.models.notification import Notification
+
+        task_q = await db_session.execute(
+            select(Task).where(Task.project_id == project.id).limit(1)
+        )
+        task = task_q.scalars().first()
+
+        resp = await client.put(
+            f"/api/v1/projects/{project.id}/tasks/{task.id}/assign",
+            json={"status": "not_started", "assigned_to": sales_user.id},
+            headers=auth_header(admin_user),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["assigned_to"] == sales_user.id
+
+        await db_session.refresh(task)
+        assert task.assigned_to == sales_user.id
+
+        notif_q = await db_session.execute(
+            select(Notification).where(Notification.user_id == sales_user.id)
+        )
+        assert notif_q.scalars().first() is not None
+
+    async def test_assign_task_rejects_missing_assignee_field(
+        self, client: AsyncClient, admin_user, project: Project, db_session: AsyncSession
+    ):
+        """Thiếu assigned_to phải 422 chứ không được im lặng trả 200."""
+        task_q = await db_session.execute(
+            select(Task).where(Task.project_id == project.id).limit(1)
+        )
+        task = task_q.scalars().first()
+
+        resp = await client.put(
+            f"/api/v1/projects/{project.id}/tasks/{task.id}/assign",
+            json={"status": "not_started"},
+            headers=auth_header(admin_user),
+        )
+        assert resp.status_code == 422
+
+    async def test_assign_task_rejects_unknown_user(
+        self, client: AsyncClient, admin_user, project: Project, db_session: AsyncSession
+    ):
+        """ID nhân sự không tồn tại phải 404 chứ không gán bừa."""
+        task_q = await db_session.execute(
+            select(Task).where(Task.project_id == project.id).limit(1)
+        )
+        task = task_q.scalars().first()
+
+        resp = await client.put(
+            f"/api/v1/projects/{project.id}/tasks/{task.id}/assign",
+            json={"assigned_to": _uid()},
+            headers=auth_header(admin_user),
+        )
+        assert resp.status_code == 404
+
+        await db_session.refresh(task)
+        assert task.assigned_to != "nguoi-khong-ton-tai"

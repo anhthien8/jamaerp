@@ -33,7 +33,10 @@ export default class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
+        // data-error-boundary: dấu để script QC nhận ra màn hình sập THẬT. Trước đây script
+        // dò chữ "Có lỗi xảy ra" trong toàn trang, nên trang Bản tin (có câu đó trong nhật ký
+        // phát hành) bị báo CRASH oan.
+        <div data-error-boundary="true" className="min-h-screen flex items-center justify-center bg-[#0A0F1C]">
           <div className="max-w-md mx-4 text-center p-8 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'rgba(239,68,68,0.15)' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -16,6 +16,9 @@ export default function ReportsPage() {
   const [dashboard, setDashboard] = useState<DashboardExecutive | null>(null);
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  // Trước 12/08/2026 hai lời gọi bên dưới .catch(() => null) rồi thẻ hiện "Không có dữ liệu":
+  // API sập mà người xem tưởng công ty không có số. Nay lỗi được giữ lại và nói rõ.
+  const [failed, setFailed] = useState<string[]>([]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -23,12 +26,18 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (user) {
-      Promise.all([
-        api.getExecutiveDashboard().catch(() => null),
-        api.getAccountingSummary().catch(() => null),
+      Promise.allSettled([
+        api.getExecutiveDashboard(),
+        api.getAccountingSummary(),
       ]).then(([d, s]) => {
-        setDashboard(d);
-        setSummary(s);
+        if (d.status === 'fulfilled') setDashboard(d.value);
+        if (s.status === 'fulfilled') setSummary(s.value);
+        const hong = [
+          d.status === 'rejected' && 'điều hành',
+          s.status === 'rejected' && 'thu chi',
+        ].filter(Boolean) as string[];
+        if (hong.length) console.warn('Reports API error:', { d, s });
+        setFailed(hong);
       }).finally(() => setLoadingData(false));
     }
   }, [user]);
@@ -43,6 +52,18 @@ export default function ReportsPage() {
     <Sidebar>
       <div className="p-6 animate-in">
         <h1 className="text-2xl font-bold mb-6">Báo cáo</h1>
+
+        {failed.length > 0 && (
+          <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center justify-between gap-4">
+            <span>⚠️ Chưa tải được số liệu {failed.join(' và ')} — các ô ghi &quot;chưa tải được&quot; là do lỗi, không phải công ty không có số.</span>
+            <button
+              onClick={() => window.location.reload()}
+              className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/15 transition-colors"
+            >
+              Tải lại
+            </button>
+          </div>
+        )}
 
         {loadingData ? (
           <div className="flex items-center justify-center py-20 text-[var(--text-muted)]">
@@ -78,7 +99,7 @@ export default function ReportsPage() {
                   )}
                 </>
               ) : (
-                <p className="text-sm text-[var(--text-muted)]">Không có dữ liệu</p>
+                <p className="text-sm text-red-300/80">Chưa tải được số liệu — bấm Tải lại ở đầu trang.</p>
               )}
             </div>
 
@@ -131,7 +152,7 @@ export default function ReportsPage() {
                   )}
                 </>
               ) : (
-                <p className="text-sm text-[var(--text-muted)]">Không có dữ liệu</p>
+                <p className="text-sm text-red-300/80">Chưa tải được số liệu — bấm Tải lại ở đầu trang.</p>
               )}
             </div>
 
@@ -206,7 +227,7 @@ export default function ReportsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[var(--text-muted)]">Không có dữ liệu</p>
+                <p className="text-sm text-red-300/80">Chưa tải được số liệu — bấm Tải lại ở đầu trang.</p>
               )}
             </div>
           </div>

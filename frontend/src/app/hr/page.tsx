@@ -536,9 +536,9 @@ export default function HRPage() {
               {/* Tasks section */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-[var(--text-primary)]">Tasks cần chuyển giao</span>
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Công việc cần chuyển giao</span>
                   <span className="text-xs px-2 py-0.5 rounded-lg font-medium" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
-                    {resignPreview.task_count ?? 0} tasks
+                    {resignPreview.task_count ?? 0} việc
                   </span>
                 </div>
                 {(resignPreview.tasks ?? []).length > 0 ? (

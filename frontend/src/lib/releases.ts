@@ -16,6 +16,30 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '12/08/2026',
+    title: 'Soát toàn bộ CRM trước khi mở rộng — danh sách hiện đủ, báo lỗi nói thật',
+    tag: 'RELEASE',
+    news: [
+      'Danh sách Lead, Dự án, Khách hàng giờ nạp ĐỦ mọi bản ghi. Trước đây hệ thống chỉ lấy 50 dòng đầu rồi mới lọc/sắp xếp, nên khi công ty vượt 50 lead thì phần dư biến mất không một lời báo — bộ lọc và con số thống kê đều tính thiếu mà nhìn vẫn bình thường.',
+      'Ô tìm kiếm nhanh (Ctrl+K) cũng tìm trên toàn bộ lead và dự án thay vì 100 cái đầu.',
+      'Trang Nhà cung cấp dùng được đầy đủ: nút "So sánh giá" chạy thật (trước đây bấm không ra gì), thẻ báo giá hiện đúng ngày báo giá, bảng so sánh có lại dấu tiếng Việt.',
+      'Các nút Lưu / Thêm / So sánh bị khoá trong lúc đang gửi — bấm đúp không còn tạo bản ghi trùng.',
+    ],
+    fixes: [
+      'Trang Kế toán không còn trắng cả trang với Trưởng nhóm và Nhập liệu. Nguyên nhân: hệ thống gọi luôn bảng lương (mục chỉ Giám đốc + Kế toán được xem) rồi lấy lỗi đó chặn cả trang.',
+      'Trang Báo cáo hết cảnh hiện "Không có dữ liệu" khi thực chất máy chủ đang lỗi — nguy hiểm vì nhìn như công ty không có số. Nay báo rõ phần nào chưa tải được và có nút Tải lại.',
+      'Thông báo lỗi phân biệt rõ "tài khoản chưa được cấp quyền" với "hệ thống đang lỗi" — hết cảnh báo nhầm sự cố khi thật ra chỉ là thiếu quyền.',
+      'Thêm nhà cung cấp mới không còn mất tên người liên hệ sau khi lưu.',
+      'Gỡ hẳn nút gạt "Tập luyện ↔ Làm việc" trên thanh bên — nút vẫn hiện dù chế độ đã nghỉ, bấm nhầm là rơi sang dữ liệu MẪU.',
+      'Dịch nốt chữ tiếng Anh còn sót: Deal Value → Giá trị hợp đồng, Budget → Ngân sách, AI Score → Điểm AI, Export CSV → Xuất bảng tính, Office → Văn phòng, Upload → Tải lên, Tasks → Công việc.',
+    ],
+    test: [
+      'Cả nhà: mở Lead / Dự án / Khách hàng, kiểm tra số ở góc danh sách khớp với thực tế (không dừng ở 50).',
+      'Trưởng nhóm + Nhập liệu: mở trang Kế toán, xác nhận trang lên bình thường (mục Bảng lương trống là đúng — không được cấp quyền).',
+      'Mua hàng/admin: vào Nhà cung cấp → chọn 1 vật tư → bấm "So sánh giá", xác nhận ra bảng so sánh.',
+    ],
+  },
+  {
+    date: '12/08/2026',
     title: 'Sửa nút "+" tạo vai trò bị che & trang Dự án báo lỗi',
     tag: 'HOTFIX',
     fixes: [

@@ -112,9 +112,21 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Chế độ Tập luyện đã nghỉ hẳn 12/08/2026 → KHÔNG còn dữ liệu mẫu để rơi về.
+            Banner cũ ghi "Đang hiển thị demo data" khiến người dùng tưởng số 0 là số giả
+            và bỏ qua sự cố thật. Nay nói thẳng là chưa tải được và cho tải lại. */}
         {error && (
-          <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">
-            ⚠️ Chưa kết nối API backend: {error}. Đang hiển thị demo data.
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start justify-between gap-4">
+            <span>
+              ⚠️ Chưa tải được số liệu bảng điều khiển — các ô bên dưới đang trống, không phải bằng 0.
+              <span className="block mt-1 opacity-70 font-mono text-xs break-all">{error}</span>
+            </span>
+            <button
+              onClick={() => window.location.reload()}
+              className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/15 transition-colors"
+            >
+              Tải lại
+            </button>
           </div>
         )}
 

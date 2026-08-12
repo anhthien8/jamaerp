@@ -283,7 +283,9 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Mode Toggle Badge */}
+      {/* Nút gạt Tập luyện ↔ Làm việc — ẩn hẳn khi Chế độ Tập luyện đã nghỉ (12/08/2026).
+          Trước đây nút vẫn hiện dù cờ đã tắt, bấm vào là rơi sang dữ liệu mẫu. */}
+      {SHOW_DEMO_MODE && (
       <div className="px-3 mb-3">
         <button
           onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
@@ -302,6 +304,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           </svg>
         </button>
       </div>
+      )}
 
       {/* User */}
       <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>

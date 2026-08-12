@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
@@ -187,7 +187,8 @@ export default function ProjectsPage() {
     try {
       const params: Record<string, string> = {};
       if (filterStatus !== 'all') params.status = filterStatus;
-      const data = extractItems(await api.getProjects(params));
+      // Lấy đủ mọi trang — lọc/sắp xếp chạy phía trình duyệt (xem fetchAllPages).
+      const data = await fetchAllPages(p => api.getProjects(p), params);
       setProjects(data);
     } catch (e) {
       console.warn('Projects API error:', e);

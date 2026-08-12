@@ -554,7 +554,7 @@ export default function ContractsPage() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Xác nhận thanh toán</h3>
-              <p className="text-sm text-[var(--text-muted)] mb-4">Upload hình sao kê ngân hàng để làm bằng chứng (không bắt buộc)</p>
+              <p className="text-sm text-[var(--text-muted)] mb-4">Tải lên hình sao kê ngân hàng để làm bằng chứng (không bắt buộc)</p>
 
               {/* File upload */}
               <div
