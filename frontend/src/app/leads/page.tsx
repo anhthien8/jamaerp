@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, extractItems } from '@/lib/api';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { getPermissions, canAssignLeads, isSalesCoordinator, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
   townhouse: 'Nhà phố', apartment: 'Căn hộ', villa: 'Biệt thự',
@@ -149,8 +149,8 @@ function LeadsContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const perms = getPermissions((user?.role || 'data_entry') as UserRole);
-  // Chỉ admin/leader được gắn/đổi người phụ trách (khớp RBAC backend POST /leads/{id}/assign).
-  const canAssign = user?.role === 'admin' || user?.role === 'leader';
+  // Admin/leader/điều phối KD (CSKH) được gắn/đổi người phụ trách — khớp can_assign_leads() backend.
+  const canAssign = canAssignLeads(user);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
@@ -202,11 +202,14 @@ function LeadsContent() {
         ...lead,
         tags: typeof lead.tags === 'string' ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })() : lead.tags || [],
       }));
-      // Apply role-based scope filtering
+      // Apply role-based scope filtering.
+      // Điều phối KD (CSKH — vai trò tùy chỉnh bộ phận KD) phải thấy TẤT CẢ để phân chia,
+      // dù leadsScope của vai trò custom fallback về 'own' của data_entry.
+      const scope = isSalesCoordinator(user?.role, user?.department) ? 'all' : perms.leadsScope;
       let filtered = allLeads;
-      if (perms.leadsScope === 'own') {
+      if (scope === 'own') {
         filtered = allLeads.filter(l => l.assigned_to === user?.id);
-      } else if (perms.leadsScope === 'team') {
+      } else if (scope === 'team') {
         filtered = allLeads.filter(l => l.team_id === user?.team_id || !l.assigned_to);
       }
       // Apply client-side filters for region and property_class
@@ -224,7 +227,7 @@ function LeadsContent() {
     } finally {
       setLoadingLeads(false);
     }
-  }, [filterSource, filterPriority, filterRegion, filterPropertyClass, perms.leadsScope, user?.id, user?.team_id]);
+  }, [filterSource, filterPriority, filterRegion, filterPropertyClass, perms.leadsScope, user?.id, user?.team_id, user?.role, user?.department]);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchLeads);
@@ -297,18 +300,12 @@ function LeadsContent() {
     }
   };
 
-  // Nạp ứng viên phụ trách 1 lần rồi cache: users đang hoạt động, role KD (data_entry/leader), sort theo tên.
+  // Nạp ứng viên phụ trách 1 lần rồi cache (bộ lọc dùng chung nằm ở api.getAssignableSales).
   const loadAssignableUsers = useCallback(async () => {
     if (usersLoaded.current) return;
     setLoadingUsers(true);
     try {
-      const all = extractItems(await api.getUsers({ page_size: '200' }));
-      const candidates = all
-        // Ứng viên nhận lead: role KD hệ thống HOẶC bất kỳ ai thuộc bộ phận Kinh doanh
-        // (gồm vai trò tùy chỉnh như admin_cskh — backend không giới hạn role người nhận)
-        .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader' || u.department === 'SALES'))
-        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
-      setAssignableUsers(candidates);
+      setAssignableUsers(await api.getAssignableSales());
       usersLoaded.current = true;
     } catch (e) {
       toast(`Lỗi tải danh sách nhân viên: ${e instanceof Error ? e.message : 'Không rõ'}`, 'error');
@@ -1128,7 +1125,7 @@ function LeadsContent() {
       )}
 
       {/* Create Lead Modal */}
-      <CreateLeadModal isOpen={createOpen} onClose={() => { setCreateOpen(false); fetchLeads(); }} />
+      <CreateLeadModal isOpen={createOpen} onClose={() => { setCreateOpen(false); fetchLeads(); }} canAssign={canAssign} />
     </Sidebar>
   );
 }

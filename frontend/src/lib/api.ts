@@ -1200,6 +1200,18 @@ class ApiClient {
   async getUsers(params?: Record<string, string>) {
     return this.request<PaginatedResponse<User>>('/users', { params });
   }
+  /**
+   * Ứng viên nhận lead: nhân viên đang hoạt động thuộc lực lượng KD —
+   * data_entry, leader, hoặc bộ phận Kinh doanh (gồm vai trò tùy chỉnh như Admin CSKH).
+   * Dùng chung cho nút "Đổi" phụ trách và ô "Gắn nhân viên KD" khi tạo lead.
+   */
+  async getAssignableSales(): Promise<User[]> {
+    const res = await this.getUsers({ page_size: '200' });
+    const items: User[] = Array.isArray(res) ? res : (res?.items ?? []);
+    return items
+      .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader' || u.department === 'SALES'))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
+  }
   async getTeams() {
     return this.request<Team[]>('/users/teams');
   }

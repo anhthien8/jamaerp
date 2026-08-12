@@ -5,6 +5,24 @@
 
 export type UserRole = 'admin' | 'leader' | 'data_entry' | 'accountant' | 'executive' | 'supervisor';
 
+// 6 vai trò hệ thống — mọi role khác là vai trò tùy chỉnh (tạo trong Phân quyền)
+export const SYSTEM_ROLES: string[] = ['admin', 'leader', 'data_entry', 'accountant', 'executive', 'supervisor'];
+
+/**
+ * Điều phối KD: vai trò tùy chỉnh thuộc bộ phận Kinh doanh (vd: Admin CSKH).
+ * Nhóm này nhập lead từ marketing rồi phân chia cho nhân viên KD.
+ * PHẢI khớp is_sales_coordinator() trong backend/app/middleware/rbac.py.
+ */
+export function isSalesCoordinator(role?: string, department?: string): boolean {
+  return !!role && !SYSTEM_ROLES.includes(role) && (department || '').toUpperCase() === 'SALES';
+}
+
+/** Ai được gắn/đổi nhân viên KD phụ trách lead — khớp can_assign_leads() backend. */
+export function canAssignLeads(user?: { role?: string; department?: string } | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || user.role === 'leader' || isSalesCoordinator(user.role, user.department);
+}
+
 export interface RolePermissions {
   canViewDashboard: boolean;
   dashboardType: 'executive' | 'team' | 'personal' | 'financial';

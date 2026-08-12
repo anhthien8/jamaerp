@@ -15,6 +15,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '12/08/2026',
+    title: 'Chia data lead cho team Kinh doanh — gắn sale ngay khi tạo lead',
+    tag: 'RELEASE',
+    news: [
+      'Form "Tạo Lead mới" có ô "Gắn nhân viên KD phụ trách" — nhập lead từ marketing là giao thẳng cho sale, không cần vào chi tiết lead đổi lại (theo phản hồi team KD). Bỏ trống thì người tạo tự phụ trách như cũ.',
+      'Team CSKH (vai trò tùy chỉnh thuộc bộ phận Kinh doanh) chính thức là điều phối data: thấy toàn bộ lead, đủ số điện thoại, được gắn/đổi người phụ trách — không còn cảnh chỉ admin mới giao được lead.',
+      'Ai được giao lead sẽ nhận thông báo trong app (chuông 🔔) kèm link mở thẳng lead đó.',
+      'Chia data đúng người: tài khoản nhân viên KD chỉ thấy lead được giao cho mình — cả bảng kanban, danh sách lẫn số liệu pipeline.',
+    ],
+    fixes: [
+      'Vai trò tùy chỉnh KHÔNG thuộc bộ phận Kinh doanh (nếu sau này tạo) chỉ còn thấy lead của chính mình thay vì thấy tất cả — vá lỗ hổng phân quyền dữ liệu.',
+    ],
+    test: [
+      'CSKH: tạo lead mới → chọn tên sale ở ô "Gắn nhân viên KD phụ trách" → hỏi bạn sale đó xem có nhận được thông báo + thấy lead trong bảng của mình không.',
+      'Sale: đăng nhập và xác nhận chỉ thấy lead của mình, không thấy lead của người khác.',
+    ],
+  },
+  {
     date: '07/08/2026',
     title: 'Sao lưu dữ liệu tự động hằng ngày + nhắc việc tự động chính thức hoạt động',
     tag: 'RELEASE',

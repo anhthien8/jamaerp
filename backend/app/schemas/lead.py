@@ -29,6 +29,9 @@ class LeadCreate(BaseModel):
     deal_value: float | None = None
     priority: str = "medium"
     notes: str | None = None
+    # Gắn nhân viên KD phụ trách ngay khi tạo (chỉ admin/leader/điều phối KD);
+    # bỏ trống = người tạo tự phụ trách như trước.
+    assigned_to: str | None = None
 
 
 class LeadUpdate(BaseModel):

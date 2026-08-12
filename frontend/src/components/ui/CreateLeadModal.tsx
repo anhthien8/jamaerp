@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
-import { api } from '@/lib/api';
+import { api, User } from '@/lib/api';
 import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 
@@ -92,7 +92,7 @@ export interface CreateLeadInitialData {
   confidence?: number;
 }
 
-export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOpen: boolean; onClose: () => void; initialData?: CreateLeadInitialData | null }) {
+export default function CreateLeadModal({ isOpen, onClose, initialData, canAssign }: { isOpen: boolean; onClose: () => void; initialData?: CreateLeadInitialData | null; canAssign?: boolean }) {
   const buildInitial = (): CreateLeadForm => {
     if (!initialData) return INITIAL;
     return {
@@ -118,6 +118,17 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
   const [errors, setErrors] = useState<Partial<Record<keyof CreateLeadForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // ── Gắn nhân viên KD phụ trách ngay khi tạo (feedback team KD 12/08/2026) ──
+  // Chỉ admin/leader/điều phối KD (canAssign); bỏ trống = người tạo tự phụ trách.
+  const [assignedTo, setAssignedTo] = useState('');
+  const [salesUsers, setSalesUsers] = useState<User[]>([]);
+  useEffect(() => {
+    if (!isOpen || !canAssign || salesUsers.length > 0) return;
+    api.getAssignableSales()
+      .then(setSalesUsers)
+      .catch(() => toast('Lỗi tải danh sách nhân viên KD', 'error'));
+  }, [isOpen, canAssign, salesUsers.length, toast]);
 
   const set = (key: keyof CreateLeadForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [key]: e.target.value }));
@@ -169,9 +180,17 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
         plan_type: form.plan_type as 'online' | 'offline' | 'survey' | 'none' | undefined,
         tags: form.tags.length > 0 ? form.tags : undefined,
         deal_value: computedDealValue > 0 ? computedDealValue : undefined,
+        assigned_to: assignedTo || undefined,
       });
-      toast(`Đã tạo Lead "${form.name}" thành công!`, 'success');
+      const assignedName = assignedTo ? salesUsers.find(u => u.id === assignedTo)?.full_name : '';
+      toast(
+        assignedName
+          ? `Đã tạo Lead "${form.name}" và giao cho ${assignedName}!`
+          : `Đã tạo Lead "${form.name}" thành công!`,
+        'success',
+      );
       setForm(INITIAL);
+      setAssignedTo('');
       setErrors({});
       onClose();
     } catch (e) {
@@ -184,6 +203,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
   // Reset toàn bộ form + lỗi về mặc định khi đóng, để lần mở sau luôn sạch.
   const handleClose = () => {
     setForm(buildInitial());
+    setAssignedTo('');
     setErrors({});
     setSubmitting(false);
     onClose();
@@ -255,6 +275,18 @@ export default function CreateLeadModal({ isOpen, onClose, initialData }: { isOp
               </select>
             </Field>
           </div>
+
+          {/* Gắn nhân viên KD phụ trách — chỉ admin/leader/điều phối KD (CSKH) thấy ô này */}
+          {canAssign && (
+            <Field label="Gắn nhân viên KD phụ trách">
+              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className="input" data-qc="assign-on-create">
+                <option value="">— Tôi tự phụ trách —</option>
+                {salesUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.full_name}</option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           {/* ── NEW: Lark CRM Fields ── */}
 

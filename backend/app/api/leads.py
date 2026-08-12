@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.middleware.rbac import can_view_lead, can_modify_lead
+from app.middleware.rbac import can_view_lead, can_modify_lead, can_assign_leads, is_sales_coordinator, SYSTEM_ROLES
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
 from app.models.customer import Customer
@@ -58,6 +58,9 @@ def _mask_phone(phone: str | None, current_user=None, lead: Lead | None = None) 
         if lead and lead.assigned_to == current_user.id:
             return phone
         return phone[:3] + "***" if len(phone) >= 3 else "***"
+    # Điều phối KD (CSKH): chính họ nhập SĐT từ marketing và gọi tư vấn — thấy đủ
+    if is_sales_coordinator(current_user):
+        return phone
     # All other roles: always masked
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 
@@ -108,13 +111,17 @@ async def list_leads(
         .outerjoin(Team, Lead.team_id == Team.id)
     )
 
-    # RBAC filter
+    # RBAC filter — "tài khoản tên nào, chỉ xem tên đó" (feedback team KD 12/08/2026):
+    # sale thấy lead của mình; điều phối KD (CSKH) thấy tất cả để phân chia;
+    # vai trò tùy chỉnh NGOÀI bộ phận KD cũng chỉ thấy lead được gắn cho mình.
     if current_user.role == "data_entry":
         q = q.where(Lead.assigned_to == current_user.id)
     elif current_user.role == "leader":
         q = q.where(Lead.team_id == current_user.team_id)
     elif current_user.role in ("accountant", "executive", "supervisor"):
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
+    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
+        q = q.where(Lead.assigned_to == current_user.id)
 
     if stage:
         q = q.where(Lead.stage == stage)
@@ -175,6 +182,8 @@ async def pipeline_stats(
         q = q.where(Lead.assigned_to == current_user.id)
     elif current_user.role == "leader":
         q = q.where(Lead.team_id == current_user.team_id)
+    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
+        q = q.where(Lead.assigned_to == current_user.id)
     q = q.group_by(Lead.stage)
 
     result = await db.execute(q)
@@ -222,6 +231,8 @@ async def pipeline_kanban(
             q = q.where(Lead.assigned_to == current_user.id)
         elif current_user.role == "leader":
             q = q.where(Lead.team_id == current_user.team_id)
+        elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
+            q = q.where(Lead.assigned_to == current_user.id)
 
         result = await db.execute(q)
         rows = result.all()
@@ -368,6 +379,17 @@ async def create_lead(
     current_user: User = Depends(get_current_user),
 ):
     """Create new lead."""
+    # Gắn nhân viên KD ngay khi tạo (feedback team KD 12/08/2026: "thêm lead => Gắn Sale").
+    # Không chọn ai → người tạo tự phụ trách như trước.
+    assignee = current_user
+    if data.assigned_to and data.assigned_to != current_user.id:
+        if not can_assign_leads(current_user):
+            raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được gắn nhân viên phụ trách")
+        target = await db.execute(select(User).where(User.id == data.assigned_to))
+        assignee = target.scalar_one_or_none()
+        if not assignee or not assignee.is_active:
+            raise HTTPException(status_code=404, detail="Nhân viên được gắn không tồn tại hoặc đã nghỉ")
+
     lead = Lead(
         name=data.name, phone=data.phone, email=data.email,
         contact_person=data.contact_person, address=data.address,
@@ -380,7 +402,7 @@ async def create_lead(
         region=data.region, segment=data.segment,
         plan_type=data.plan_type, tags=data.tags, deal_value=data.deal_value,
         priority=data.priority, notes=data.notes,
-        assigned_to=current_user.id, team_id=current_user.team_id,
+        assigned_to=assignee.id, team_id=assignee.team_id,
     )
     db.add(lead)
     await db.flush()
@@ -390,9 +412,22 @@ async def create_lead(
         lead_id=lead.id, user_id=current_user.id,
         type="note", content=f"Tạo lead mới: {lead.name} — {lead.phone}",
     ))
+    if assignee.id != current_user.id:
+        db.add(Activity(
+            lead_id=lead.id, user_id=current_user.id,
+            type="assignment", content=f"Phân công cho {assignee.full_name}",
+        ))
+        db.add(Notification(
+            user_id=assignee.id,
+            type="lead_assigned",
+            title="Bạn được giao lead mới",
+            body=f"{current_user.full_name} giao lead \"{lead.name}\" cho bạn",
+            link=f"/leads?id={lead.id}",
+            ref_id=lead.id,
+        ))
     await db.flush()
 
-    return _lead_response(lead, current_user.full_name, None, 1, current_user)
+    return _lead_response(lead, assignee.full_name, None, 1, current_user)
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)
@@ -628,8 +663,8 @@ async def assign_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(status_code=403, detail="Chỉ admin hoặc leader được phân công lead")
+    if not can_assign_leads(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được phân công lead")
 
     # Get target user
     target = await db.execute(select(User).where(User.id == data.user_id))
@@ -649,6 +684,15 @@ async def assign_lead(
         lead_id=lead.id, user_id=current_user.id,
         type="assignment", content=content,
     ))
+    if target_user.id != current_user.id:
+        db.add(Notification(
+            user_id=target_user.id,
+            type="lead_assigned",
+            title="Bạn được giao lead mới",
+            body=f"{current_user.full_name} giao lead \"{lead.name}\" cho bạn",
+            link=f"/leads?id={lead.id}",
+            ref_id=lead.id,
+        ))
     await db.flush()
 
     return _lead_response(lead, target_user.full_name, None, 0, current_user)
@@ -752,9 +796,9 @@ async def bulk_assign_leads(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Bulk assign leads to a user (admin/leader only)."""
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(status_code=403, detail="Chỉ admin/leader được giao lead hàng loạt")
+    """Bulk assign leads to a user (admin/leader/điều phối KD)."""
+    if not can_assign_leads(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được giao lead hàng loạt")
     result = await db.execute(
         select(Lead).where(Lead.id.in_(data.lead_ids))
     )
