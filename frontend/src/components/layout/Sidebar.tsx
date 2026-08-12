@@ -55,7 +55,9 @@ const ALL_ITEMS = [
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
-  { href: '/feedback', label: 'Góp ý', icon: Icon.reports, perm: 'canViewReports' },
+  // Trước 12/08/2026 mục này gán nhầm quyền 'canViewReports' — trưởng phòng, sale, kế toán,
+  // giám sát đều thấy "Góp ý" trong menu, bấm vào thì trang tự đá về Tổng quan (link chết).
+  { href: '/feedback', label: 'Góp ý', icon: Icon.reports, perm: 'canViewFeedback' },
   { href: '/permissions', label: 'Phân quyền', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/users', label: 'Tài khoản', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/changelog', label: 'Có gì mới', icon: Icon.bell },

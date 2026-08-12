@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { getPermissions, isSalesCoordinator, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, laLoiThieuQuyen } from '@/lib/api';
 import { monthLabelVN } from '@/lib/labels';
@@ -81,7 +81,11 @@ export default function KpiPage() {
   const [busy, setBusy] = useState(false);
   const [kpiError, setKpiError] = useState<string | null>(null);
 
-  const isLeaderOrAbove = user && ['admin', 'leader', 'executive'].includes(user.role);
+  // Ai thấy tab "Đội nhóm" — PHẢI khớp chốt chặn GET /kpi/team ở backend, nếu không
+  // là hoặc giấu tab của người có quyền, hoặc mở tab rồi để họ ăn 403.
+  const isLeaderOrAbove = !!user && (
+    ['admin', 'leader', 'executive'].includes(user.role) || isSalesCoordinator(user.role, user.department)
+  );
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');

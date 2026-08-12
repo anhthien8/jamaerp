@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import is_sales_coordinator
 from app.models.user import User
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.services.kpi_engine import compute_kpi, snapshot_all, get_leaderboard, detect_burnout
@@ -78,8 +79,10 @@ async def get_team_kpi(
 ):
     period = period or _current_period()
 
-    if current_user.role not in ("admin", "leader", "executive"):
-        raise HTTPException(403, "Chỉ admin/leader/executive xem KPI team")
+    # Điều phối KD (Admin CSKH) được xem KPI toàn đội — chủ dự án chốt 12/08/2026:
+    # họ chia data cho sale nên phải nhìn được ai đang tải nặng, ai đang hụt số.
+    if current_user.role not in ("admin", "leader", "executive") and not is_sales_coordinator(current_user):
+        raise HTTPException(403, "Chỉ admin/trưởng phòng/ban quản trị/điều phối KD xem KPI đội")
 
     q = (
         select(KpiSnapshot, User.full_name, User.team_id)

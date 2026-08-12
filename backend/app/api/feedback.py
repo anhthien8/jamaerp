@@ -9,10 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import is_sales_coordinator
 from app.models.user import User
 from app.models.feedback import Feedback
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
+
+
+def _co_quyen_gop_y(user: User) -> bool:
+    """Ai được đọc + trả lời góp ý toàn công ty.
+
+    Điều phối KD (Admin CSKH) được thêm 12/08/2026 theo quyết định chủ dự án:
+    họ là đầu mối tiếp nhận phản ánh của nhân viên KD nên phải xem và trả lời được,
+    khớp với quyền `canViewFeedback` mà vai trò này đã bật sẵn ở ma trận Phân quyền.
+    """
+    return user.role in ("admin", "executive") or is_sales_coordinator(user)
 
 
 class TelegramFeedbackCreate(BaseModel):
@@ -70,8 +81,8 @@ async def list_all_feedback(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("admin", "executive"):
-        raise HTTPException(status_code=403, detail="Chỉ admin/executive xem feedback")
+    if not _co_quyen_gop_y(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/ban quản trị/điều phối KD xem góp ý")
 
     q = (
         select(Feedback, User.full_name.label("user_name"))
@@ -143,8 +154,8 @@ async def update_feedback(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("admin", "executive"):
-        raise HTTPException(status_code=403, detail="Chỉ admin/executive quản lý feedback")
+    if not _co_quyen_gop_y(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/ban quản trị/điều phối KD quản lý góp ý")
 
     result = await db.execute(select(Feedback).where(Feedback.id == feedback_id))
     fb = result.scalar_one_or_none()

@@ -16,6 +16,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '12/08/2026',
+    title: 'Điều phối KD xem được KPI đội và Góp ý',
+    tag: 'RELEASE',
+    news: [
+      'Điều phối KD (Admin CSKH) mở được thẻ "Đội nhóm" trong trang KPI — thấy điểm và chỉ số của cả đội Kinh doanh, để biết ai đang tải nặng và ai đang hụt số trước khi chia data tiếp.',
+      'Điều phối KD vào được trang Góp ý: đọc phản ánh của nhân viên, đổi trạng thái và trả lời ngay (câu trả lời vẫn tự bắn về Telegram của người gửi như cũ).',
+    ],
+    fixes: [
+      'Hai trang trên trước đây hiện ra rồi báo "chưa được cấp quyền" — giao diện đã mở nhưng máy chủ vẫn chặn. Nay hai bên khớp nhau.',
+      'Mục "Góp ý" trên thanh bên trước đây hiện với Trưởng phòng, Nhân viên Sale, Kế toán và Giám sát, nhưng bấm vào là bị đá về Tổng quan. Nay chỉ hiện với người thật sự được xem.',
+    ],
+    test: [
+      'Chị Ngọc Hạnh / Mỹ Liên / Ngọc Bích: vào KPI → chọn thẻ "Đội nhóm", xác nhận có danh sách nhân viên và điểm.',
+      'Cũng 3 chị: vào Góp ý, mở 1 phản ánh, đổi trạng thái sang "Đang xem xét" và gửi thử một câu trả lời.',
+      'Trưởng phòng / Sale / Kế toán: xem thanh bên, xác nhận mục "Góp ý" đã biến mất (đúng quyền).',
+    ],
+  },
+  {
+    date: '12/08/2026',
     title: 'Soát toàn bộ CRM trước khi mở rộng — danh sách hiện đủ, báo lỗi nói thật',
     tag: 'RELEASE',
     news: [
