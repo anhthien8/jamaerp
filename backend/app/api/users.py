@@ -300,6 +300,17 @@ async def get_role_permissions(
             "overrides": overrides,
         }
 
+    # Vai trò tùy chỉnh: đưa vào ma trận như vai trò hệ thống (quyền nằm ngay
+    # trong định nghĩa role — không có defaults/overrides riêng)
+    for r in await _load_custom_roles(db):
+        roles_data[r["role_key"]] = {
+            "permissions": r.get("permissions", {}),
+            "overrides": None,
+            "custom": True,
+            "role_name": r.get("role_name", r["role_key"]),
+            "department": r.get("department"),
+        }
+
     return {"roles": roles_data}
 
 
@@ -319,7 +330,29 @@ async def set_role_permissions(
         raise HTTPException(status_code=403, detail="Chỉ admin mới được thay đổi phân quyền vai trò")
 
     if role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+        # Vai trò tùy chỉnh: quyền nằm NGAY trong định nghĩa (system_settings.custom_roles)
+        customs = await _load_custom_roles(db)
+        target = next((r for r in customs if r["role_key"] == role), None)
+        if target is None:
+            raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+        custom_perms = data.get("permissions", {})
+        if custom_perms:
+            target["permissions"] = {**target.get("permissions", {}), **custom_perms}
+            setting = await db.get(SystemSetting, "custom_roles")
+            if setting:
+                setting.value = json.dumps(customs, ensure_ascii=False)
+                setting.updated_at = datetime.now(timezone.utc)
+                await db.flush()
+        await log_action(
+            db, actor=current_user, action="custom_role.update_permissions",
+            entity_type="custom_role", entity_id=role,
+            after={"permissions": custom_perms or None},
+        )
+        return {
+            "role": role,
+            "permissions": target.get("permissions"),
+            "message": "Đã cập nhật phân quyền vai trò tùy chỉnh",
+        }
 
     perms = data.get("permissions", {})
     setting_key = f"role_permissions_{role}"
@@ -524,7 +557,19 @@ async def get_user_permissions(
         except (json.JSONDecodeError, TypeError):
             custom = None
 
-    combined = _get_combined_permissions(user.role, custom)
+    if user.role in _ROLE_PERMISSION_DEFAULTS:
+        combined = _get_combined_permissions(user.role, custom)
+    else:
+        # Vai trò tùy chỉnh: defaults là quyền trong định nghĩa role —
+        # KHÔNG được rơi về data_entry (sai phân quyền)
+        customs = await _load_custom_roles(db)
+        target = next((r for r in customs if r["role_key"] == user.role), None)
+        if target:
+            combined = dict(target.get("permissions", {}))
+            if custom:
+                combined.update(custom)
+        else:
+            combined = _get_combined_permissions(user.role, custom)
 
     return {
         "user_id": user.id,

@@ -96,6 +96,38 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
   },
 };
 
+// ── Vai trò tùy chỉnh (admin tạo ở trang Tài khoản, backend lưu system_settings) ──
+// Cache module-level để getPermissions/getRoleLabel (sync) tra được sau khi tải.
+// Không tải thì user vai trò custom bị fallback quyền data_entry — SAI phân quyền.
+let _customRoles: Record<string, { role_name: string; permissions: Record<string, boolean | string> }> = {};
+
+/** Tải vai trò tùy chỉnh từ backend. Trả về true nếu có ít nhất 1 vai trò. */
+export async function loadCustomRoles(): Promise<boolean> {
+  try {
+    if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return false;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
+    if (!token) return false;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const res = await fetch(`${baseUrl}/users/roles/custom`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    _customRoles = {};
+    for (const r of data.roles || []) {
+      _customRoles[r.role_key] = { role_name: r.role_name, permissions: r.permissions || {} };
+    }
+    return Object.keys(_customRoles).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Cache vai trò tùy chỉnh hiện có (đã tải qua loadCustomRoles). */
+export function getCustomRoleCache(): Record<string, { role_name: string; permissions: Record<string, boolean | string> }> {
+  return _customRoles;
+}
+
 export function getRoleLabel(role: UserRole): string {
   const labels: Record<UserRole, string> = {
     admin: 'Giám đốc',
@@ -105,7 +137,7 @@ export function getRoleLabel(role: UserRole): string {
     executive: 'Ban Quản Trị',
     supervisor: 'Giám sát',
   };
-  return labels[role] || role;
+  return labels[role] || _customRoles[role]?.role_name || role;
 }
 
 // ── Role-level permission overrides (loaded from API) ───────────────────
@@ -178,7 +210,11 @@ export function getRoleOverrides(): Partial<Record<UserRole, Partial<RolePermiss
 }
 
 export function getPermissions(role: UserRole): RolePermissions {
-  const base = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.data_entry;
+  // Vai trò custom: quyền lấy từ định nghĩa đã lưu (phủ lên khung data_entry
+  // để không thiếu key) — KHÔNG được rơi thẳng về data_entry như trước.
+  const custom = _customRoles[role as string];
+  const base = ROLE_PERMISSIONS[role]
+    || (custom ? ({ ...ROLE_PERMISSIONS.data_entry, ...custom.permissions } as RolePermissions) : ROLE_PERMISSIONS.data_entry);
   const overrides = _roleOverrides[role];
   if (overrides && Object.keys(overrides).length > 0) {
     return { ...base, ...overrides } as RolePermissions;

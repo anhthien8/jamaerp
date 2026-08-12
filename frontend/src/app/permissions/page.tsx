@@ -5,9 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import { UserRole, getRoleLabel, getRoleOverrides, loadRolePermissions, saveRolePermissions } from '@/lib/roles';
+import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 
 const ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'supervisor', 'accountant'];
+
+// Vai trò tùy chỉnh (admin tạo ở trang Tài khoản) — hiển thị thành cột riêng
+interface CustomRoleInfo {
+  role_key: string;
+  role_name: string;
+  permissions: Record<string, boolean>;
+}
 
 interface Feature {
   key: string;
@@ -37,7 +45,7 @@ const FEATURES: Feature[] = [
   { key: 'canManageUsers', label: 'Tài khoản' },
 ];
 
-type PermissionMatrix = Partial<Record<UserRole, Record<string, boolean>>>;
+type PermissionMatrix = Record<string, Record<string, boolean>>;
 
 // Hardcoded defaults (mirrors backend _ROLE_PERMISSION_DEFAULTS)
 const DEFAULTS: Record<string, Record<string, boolean>> = {
@@ -55,9 +63,14 @@ export default function PermissionsPage() {
   const { toast } = useToast();
 
   const [overrides, setOverrides] = useState<PermissionMatrix>({});
+  const [customRoles, setCustomRoles] = useState<CustomRoleInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  const allRoleKeys: string[] = [...ROLES, ...customRoles.map(r => r.role_key)];
+  const findCustom = (role: string) => customRoles.find(r => r.role_key === role);
+  const roleLabelOf = (role: string) => findCustom(role)?.role_name || getRoleLabel(role as UserRole);
 
   // Redirect if not admin
   useEffect(() => {
@@ -70,15 +83,26 @@ export default function PermissionsPage() {
   const loadPermissions = useCallback(async () => {
     setLoading(true);
     await loadRolePermissions();
+    // Vai trò tùy chỉnh: lấy danh sách + quyền đã lưu để hiển thị cột riêng
+    try {
+      const cr = await api.getCustomRoles();
+      setCustomRoles((cr.roles || []).map(r => ({
+        role_key: r.role_key,
+        role_name: r.role_name,
+        permissions: (r.permissions || {}) as Record<string, boolean>,
+      })));
+    } catch {
+      setCustomRoles([]);
+    }
     const ov = getRoleOverrides();
     // Convert Partial<RolePermissions> to Record<string, boolean> for local state
     const normalized: PermissionMatrix = {};
     for (const [role, perms] of Object.entries(ov)) {
       if (perms) {
-        normalized[role as UserRole] = {};
+        normalized[role] = {};
         for (const [k, v] of Object.entries(perms)) {
           if (typeof v === 'boolean') {
-            normalized[role as UserRole]![k] = v;
+            normalized[role][k] = v;
           }
         }
       }
@@ -94,37 +118,56 @@ export default function PermissionsPage() {
     }
   }, [user, loadPermissions]);
 
-  // Check if a permission is on for a role (defaults + overrides)
-  const isPermOn = (role: UserRole, key: string): boolean => {
+  // Check if a permission is on for a role (defaults + overrides).
+  // Vai trò tùy chỉnh: "defaults" chính là quyền lưu trong định nghĩa role.
+  const isPermOn = (role: string, key: string): boolean => {
     const override = overrides[role]?.[key];
     if (override !== undefined) return override;
+    const custom = findCustom(role);
+    if (custom) return Boolean(custom.permissions[key]);
     return DEFAULTS[role]?.[key] ?? false;
   };
 
-  const handleToggle = (role: UserRole, featureKey: string) => {
+  const handleToggle = (role: string, featureKey: string) => {
     if (featureKey === '__skip__') return;
     const current = isPermOn(role, featureKey);
     const newOverrides = { ...overrides };
     if (!newOverrides[role]) newOverrides[role] = {};
-    newOverrides[role]![featureKey] = !current;
+    newOverrides[role][featureKey] = !current;
     setOverrides(newOverrides);
     setHasChanges(true);
   };
 
-  const handleSaveRole = async (role: UserRole, skipReset = false) => {
+  const handleSaveRole = async (role: string, skipReset = false) => {
     setSaving(role);
     try {
       const roleOverrides = overrides[role] || {};
-      // Only send keys that differ from defaults
-      const relevantOverrides: Record<string, boolean> = {};
-      for (const f of FEATURES) {
-        if (f.key === '__skip__') continue;
-        if (roleOverrides[f.key] !== undefined) {
-          relevantOverrides[f.key] = roleOverrides[f.key]!;
+      const isCustom = Boolean(findCustom(role));
+      const payload: Record<string, boolean> = {};
+      if (isCustom) {
+        // Vai trò tùy chỉnh: gửi TRỌN bộ quyền hiện tại (backend ghi đè vào định nghĩa role)
+        for (const f of FEATURES) {
+          if (f.key === '__skip__') continue;
+          payload[f.key] = isPermOn(role, f.key);
+        }
+      } else {
+        // Vai trò hệ thống: chỉ gửi khác biệt so với mặc định (overrides)
+        for (const f of FEATURES) {
+          if (f.key === '__skip__') continue;
+          if (roleOverrides[f.key] !== undefined) {
+            payload[f.key] = roleOverrides[f.key];
+          }
         }
       }
-      await saveRolePermissions(role, relevantOverrides);
-      toast(`Đã lưu phân quyền vai trò ${getRoleLabel(role)}`, 'success');
+      await saveRolePermissions(role as UserRole, payload);
+      if (isCustom) {
+        // Đồng bộ state local để cột custom hiển thị đúng sau khi lưu
+        setCustomRoles(prev => prev.map(r => r.role_key === role
+          ? { ...r, permissions: { ...r.permissions, ...payload } }
+          : r));
+        setOverrides(prev => { const next = { ...prev }; delete next[role]; return next; });
+      }
+      toast(`Đã lưu phân quyền vai trò ${roleLabelOf(role)}`, 'success');
       if (!skipReset) setHasChanges(false);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Lưu thất bại', 'error');
@@ -134,13 +177,13 @@ export default function PermissionsPage() {
   };
 
   const handleSaveAll = async () => {
-    for (const role of ROLES) {
+    for (const role of allRoleKeys) {
       await handleSaveRole(role, true); // pass true to skip individual hasChanges reset
     }
     setHasChanges(false);
   };
 
-  const handleResetRole = (role: UserRole) => {
+  const handleResetRole = (role: string) => {
     const newOverrides = { ...overrides };
     delete newOverrides[role];
     setOverrides(newOverrides);
@@ -219,25 +262,35 @@ export default function PermissionsPage() {
                     >
                       Tính năng
                     </th>
-                    {ROLES.map(role => (
+                    {allRoleKeys.map(role => (
                       <th
                         key={role}
                         className="text-center px-3 py-3 font-semibold"
                         style={{ color: 'var(--text-primary)', minWidth: 100 }}
                       >
                         <div className="flex flex-fill items-center gap-1">
-                          <span>{getRoleLabel(role)}</span>
-                          <button
-                            onClick={() => handleResetRole(role)}
-                            className="text-[10px] px-2 py-0.5 rounded-lg opacity-50 hover:opacity-100 transition-opacity"
-                            style={{
-                              background: 'var(--surface-2)',
-                              color: 'var(--text-muted)',
-                            }}
-                            title="Reset về mặc định"
-                          >
-                            Reset
-                          </button>
+                          <span>{roleLabelOf(role)}</span>
+                          {findCustom(role) ? (
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded-lg"
+                              style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E' }}
+                              title="Vai trò tùy chỉnh — tạo ở trang Tài khoản"
+                            >
+                              tùy chỉnh
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleResetRole(role)}
+                              className="text-[10px] px-2 py-0.5 rounded-lg opacity-50 hover:opacity-100 transition-opacity"
+                              style={{
+                                background: 'var(--surface-2)',
+                                color: 'var(--text-muted)',
+                              }}
+                              title="Reset về mặc định"
+                            >
+                              Reset
+                            </button>
+                          )}
                         </div>
                       </th>
                     ))}
@@ -271,7 +324,7 @@ export default function PermissionsPage() {
                           )}
                         </span>
                       </td>
-                      {ROLES.map(role => (
+                      {allRoleKeys.map(role => (
                         <td key={role} className="text-center px-3 py-2.5">
                           {feature.key === '__skip__' ? (
                             <span className="text-xs" style={{ color: 'var(--text-disabled)' }}>-</span>
@@ -285,7 +338,7 @@ export default function PermissionsPage() {
                                   ? 'linear-gradient(135deg, #C9A96E, #B8944F)'
                                   : 'transparent',
                               }}
-                              title={`${getRoleLabel(role)}: ${feature.label} = ${isPermOn(role, feature.key) ? 'Bật' : 'Tắt'}`}
+                              title={`${roleLabelOf(role)}: ${feature.label} = ${isPermOn(role, feature.key) ? 'Bật' : 'Tắt'}`}
                             >
                               {isPermOn(role, feature.key) && (
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">

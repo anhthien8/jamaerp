@@ -26,6 +26,7 @@ export const RELEASES: Release[] = [
       'Chế độ Tập luyện tạm ẩn khỏi trang đăng nhập — toàn công ty vào thẳng dữ liệu thật; sẽ mở lại khi tổ chức đào tạo nhân sự mới.',
     ],
     fixes: [
+      'Vai trò tùy chỉnh (tạo ở trang Tài khoản) giờ hiện đầy đủ trong trang Phân quyền để xem/sửa quyền — trước đây tạo xong là "biến mất". Nhân sự mang vai trò tùy chỉnh cũng nhận ĐÚNG bộ quyền đã cấu hình thay vì quyền mặc định.',
       'Nút "Sao lưu ngay" báo kết quả thật (thành công/lỗi kèm lý do) — trước đây trên hệ thống thật nó lặng lẽ bỏ qua.',
       'Gỡ hoàn toàn sao lưu Google Drive theo quyết định chuyển toàn bộ về Telegram.',
     ],

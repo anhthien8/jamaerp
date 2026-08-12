@@ -10,7 +10,7 @@ import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
-import { getPermissions, getRoleLabel, UserRole } from '@/lib/roles';
+import { getPermissions, getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -130,6 +130,13 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     const main = ROLE_MAIN_ROUTE[user.role];
     if (main && main !== pathname) router.prefetch(main);
   }, [user, pathname, router]);
+
+  // Vai trò tùy chỉnh: tải định nghĩa quyền rồi render lại menu — thiếu bước này
+  // user vai trò custom bị gate theo quyền data_entry (sai phân quyền).
+  const [, bumpCustomRoles] = useState(0);
+  useEffect(() => {
+    loadCustomRoles().then(has => { if (has) bumpCustomRoles(t => t + 1); });
+  }, []);
 
   // KISS: Split nav into essential items (always visible) + extra items (expandable)
   const perms = user ? getPermissions(user.role as UserRole) : null;
