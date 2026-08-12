@@ -2,7 +2,7 @@
 // Chạy: node scripts/repro-supervisor.mjs [baseUrl]
 import { chromium } from 'playwright';
 
-const BASE = process.argv[2] || 'https://frontend-jet-two-86.vercel.app';
+const BASE = process.argv[2] || 'https://crm.jamahome.vn';
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
