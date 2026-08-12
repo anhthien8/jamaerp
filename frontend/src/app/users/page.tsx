@@ -416,9 +416,9 @@ export default function UsersPage() {
                       const custom = customRoles.find(r => r.role_key === newRole);
                       const dept = builtInDept[newRole] || custom?.department || form.department;
                       setForm({ ...form, role: newRole, department: dept });
-                    }} className="flex-1 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                    }} className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
                       {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
-                      {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Vai trò tùy chỉnh ──</option>}
+                      {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Tùy chỉnh ──</option>}
                       {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
                     </select>
                     {isAdmin && (
@@ -430,7 +430,7 @@ export default function UsersPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bộ phận</label>
-                  <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                  <select data-qc="dept-select" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{labelOf(DEPARTMENT_LABELS, d)}</option>)}
                   </select>
                 </div>

@@ -76,6 +76,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void Promise.resolve().then(() => {
+      // Chế độ Tập luyện đã ẩn toàn công ty (SHOW_DEMO_MODE=false ở /login). Phiên demo
+      // còn lưu trên máy sẽ restore thẳng vào app và hiện DỮ LIỆU MẪU như thật (che cả
+      // lỗi API) — gặp là xóa sạch, bắt đăng nhập lại. Gỡ khối này nếu mở lại Tập luyện.
+      if (localStorage.getItem('jama_demo') === 'true') {
+        localStorage.removeItem('jama_demo');
+        localStorage.removeItem('jama_user');
+        localStorage.removeItem('jama_token');
+        localStorage.setItem('jama_mode', 'work');
+        setLoading(false);
+        return;
+      }
+
       // Read persisted mode
       const storedMode = localStorage.getItem('jama_mode') as AppMode | null;
       if (storedMode === 'demo' || storedMode === 'work') {

@@ -1218,7 +1218,7 @@ export default function ProjectsPage() {
                                   {/* Đảm nhận button — hiện khi task chưa có người phụ trách */}
                                   {!task.assigned_to && (
                                     <select
-                                      className="text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
+                                      className="min-w-0 text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
                                       style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
                                       title="Đảm nhận / Giao việc"
                                       value=""
@@ -1252,7 +1252,7 @@ export default function ProjectsPage() {
                                       {users.find(u => u.id === task.assigned_to)?.full_name?.split(' ').pop() || '✓'}
                                     </span>
                                   )}
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                                  <svg className="flex-shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                                 </div>
                               );
                             })}

@@ -890,7 +890,7 @@ function LeadsContent() {
                             value={selectedLead.assigned_to || ''}
                             disabled={assigning || loadingUsers}
                             onChange={e => handleAssign(e.target.value)}
-                            className="text-xs px-2 py-1 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none max-w-[180px] disabled:opacity-50"
+                            className="min-w-0 text-xs px-2 py-1 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none max-w-[180px] disabled:opacity-50"
                           >
                             <option value="" disabled>{loadingUsers ? 'Đang tải...' : '— Chọn nhân viên —'}</option>
                             {/* Người phụ trách hiện tại ngoài danh sách ứng viên (inactive/role khác) — giữ option ẩn để select không trống */}
@@ -904,7 +904,7 @@ function LeadsContent() {
                           <button
                             onClick={() => setAssignOpen(false)}
                             disabled={assigning}
-                            className="text-[11px] px-2 py-1 rounded-lg text-[var(--text-muted)] hover:bg-white/10 transition-all disabled:opacity-50"
+                            className="flex-shrink-0 text-[11px] px-2 py-1 rounded-lg text-[var(--text-muted)] hover:bg-white/10 transition-all disabled:opacity-50"
                           >
                             {assigning ? 'Đang lưu...' : 'Hủy'}
                           </button>

@@ -16,6 +16,20 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '12/08/2026',
+    title: 'Sửa nút "+" tạo vai trò bị che & trang Dự án báo lỗi',
+    tag: 'HOTFIX',
+    fixes: [
+      'Nút "+" (tạo vai trò mới) cạnh ô Vai trò trong form Tạo tài khoản đã hiện lại — từ hôm tạo vai trò tùy chỉnh đầu tiên, ô Vai trò bị giãn quá khổ và đẩy nút "+" nấp sau ô Bộ phận nên nhìn như mất hẳn (cảm ơn Nghĩa planning đã báo).',
+      'Trang Dự án báo "Không thể tải dữ liệu — vui lòng thử lại" đã hết. Nguyên nhân: cơ sở dữ liệu trên máy chủ thật thiếu vài cột được thêm hồi cuối tháng 7 nên máy chủ lỗi mỗi lần đọc dự án. Kéo theo trang này cũng hoạt động lại: chi tiết dự án, dự án theo phòng ban ở Trang chủ, dự án liên kết trong chi tiết khách hàng, và Lãi lỗ theo dự án.',
+      'Máy nào còn lưu phiên "Chế độ Tập luyện" cũ sẽ tự đăng xuất về màn hình đăng nhập thật — tránh cảnh nhìn thấy dữ liệu MẪU mà tưởng dữ liệu công ty.',
+    ],
+    test: [
+      'Nghĩa/admin: vào Tài khoản → "+ Tạo tài khoản" → kiểm tra nút "+" nhỏ màu vàng nằm ngay cạnh ô Vai trò, bấm vào mở được bảng tạo vai trò mới.',
+      'Cả nhà: mở trang Dự án, xác nhận danh sách/bảng kanban lên bình thường, không còn thẻ báo lỗi.',
+    ],
+  },
+  {
+    date: '12/08/2026',
     title: 'Chia data lead cho team Kinh doanh — gắn sale ngay khi tạo lead',
     tag: 'RELEASE',
     news: [
