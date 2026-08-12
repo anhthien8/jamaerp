@@ -8,7 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.models.ai_memory import AGENT_LEAD_SCORING, SCOPE_LEAD, SOURCE_LLM, SOURCE_RULE
 from app.models.lead import Activity, Lead
+from app.services import ai_memory
 from app.services.llm_config import llm_available, llm_complete
 
 logger = logging.getLogger(__name__)
@@ -262,11 +264,24 @@ async def score_lead_agent(lead_id: str, db: AsyncSession) -> dict:
     )
     activities = list(act_result.scalars().all())
 
+    lead_context = _build_lead_context(lead, activities)
+    input_hash = ai_memory.bam_dau_vao(lead_context)
+
+    # Bộ nhớ: chấm lại đúng lead với đúng dữ liệu cũ thì dùng lại bản trước, khỏi gọi LLM.
+    # Đầu vào có kèm số ngày kể từ lần liên hệ cuối nên sang ngày mới là băm đổi ⇒ tự chấm lại.
+    ban_cu = await ai_memory.tim_ban_cu(db, AGENT_LEAD_SCORING, input_hash)
+    if ban_cu is not None:
+        cu = ai_memory.doc_output(ban_cu)
+        if "score" in cu:
+            lead.ai_score = float(cu["score"])
+            lead.ai_notes = json.dumps(cu, ensure_ascii=False)
+            await db.commit()
+            logger.info("Lead %s dùng lại điểm %s từ bộ nhớ (%s)", lead_id, cu["score"], ban_cu.id)
+            return cu
+
     # Attempt LLM scoring
     if await llm_available():
         try:
-            lead_context = _build_lead_context(lead, activities)
-
             response = await llm_complete(
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -306,6 +321,16 @@ async def score_lead_agent(lead_id: str, db: AsyncSession) -> dict:
             # Persist score to DB
             lead.ai_score = float(score)
             lead.ai_notes = json.dumps(result_data, ensure_ascii=False)
+            await ai_memory.ghi_lai(
+                db,
+                agent=AGENT_LEAD_SCORING,
+                scope_type=SCOPE_LEAD,
+                scope_id=str(lead.id),
+                input_hash=input_hash,
+                output=result_data,
+                source=SOURCE_LLM,
+                model_used=ai_memory.ten_model(response),
+            )
             await db.commit()
 
             logger.info("Lead %s scored %d via LLM", lead_id, score)
@@ -320,6 +345,15 @@ async def score_lead_agent(lead_id: str, db: AsyncSession) -> dict:
     # Persist score to DB
     lead.ai_score = float(result_data["score"])
     lead.ai_notes = json.dumps(result_data, ensure_ascii=False)
+    await ai_memory.ghi_lai(
+        db,
+        agent=AGENT_LEAD_SCORING,
+        scope_type=SCOPE_LEAD,
+        scope_id=str(lead.id),
+        input_hash=input_hash,
+        output=result_data,
+        source=SOURCE_RULE,
+    )
     await db.commit()
 
     logger.info("Lead %s scored %d via rule-based fallback", lead_id, result_data["score"])

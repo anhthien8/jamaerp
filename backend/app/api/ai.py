@@ -1,14 +1,27 @@
-"""AI API — rule-based lead parsing, action suggestions, scoring."""
+"""AI API — parse lead, gợi ý hành động (Sales Co-Pilot), chấm điểm."""
 
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.sales_copilot import (
+    SO_GOI_Y_NHO_LAI,
+    suggest_action as copilot_suggest_action,
+    tom_luoc_ban_ghi,
+)
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import can_modify_lead, can_view_lead
+from app.models.ai_memory import (
+    AGENT_SALES_COPILOT,
+    OUTCOMES,
+    SCOPE_LEAD,
+    AiRun,
+)
 from app.models.user import User
 from app.models.lead import Lead
+from app.services import ai_memory
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -123,73 +136,83 @@ async def parse_lead(
     }
 
 
+async def _lay_lead_xem_duoc(lead_id: str, db: AsyncSession, current_user: User) -> Lead:
+    lead = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not can_view_lead(current_user, lead):
+        raise HTTPException(status_code=403, detail="Bạn không xem được lead này")
+    return lead
+
+
 @router.post("/suggest-action")
 async def suggest_action(
     lead_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Suggest next action for a lead based on rules."""
-    result = await db.execute(select(Lead).where(Lead.id == lead_id))
-    lead = result.scalar_one_or_none()
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    """Gợi ý việc nên làm tiếp với lead này.
 
-    # Rule-based suggestions
-    suggestions = []
+    Đi qua Sales Co-Pilot: có LLM thì dùng LLM, không thì bộ luật. Cả hai đường
+    đều được ghi vào bộ nhớ (`ai_runs`) và đều bỏ qua những gợi ý sale đã phản hồi.
+    """
+    await _lay_lead_xem_duoc(lead_id, db, current_user)
+    return await copilot_suggest_action(lead_id, current_user.id, db)
 
-    # Not assigned
-    if not lead.assigned_to:
-        suggestions.append({
-            "action": "assign",
-            "reason": "Lead chưa được phân công cho nhân viên nào",
-            "priority": "high",
-            "message_template": None,
-        })
 
-    # No contact yet
-    if not lead.last_contacted_at:
-        suggestions.append({
-            "action": "call",
-            "reason": "Chưa liên hệ khách hàng lần nào",
-            "priority": "high",
-            "message_template": f"Chào anh/chị {lead.name}, em là nhân viên tư vấn JAMA HOME. Em gọi để trao đổi về nhu cầu thiết kế nội thất ạ.",
-        })
+@router.get("/suggestions/{lead_id}")
+async def lich_su_goi_y(
+    lead_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(SO_GOI_Y_NHO_LAI, ge=1, le=50),
+):
+    """Các gợi ý Co-Pilot đã đưa cho lead này, mới nhất trước."""
+    await _lay_lead_xem_duoc(lead_id, db, current_user)
+    lich_su = await ai_memory.nho_lai(
+        db,
+        agent=AGENT_SALES_COPILOT,
+        scope_type=SCOPE_LEAD,
+        scope_id=str(lead_id),
+        limit=limit,
+    )
+    return {"items": [tom_luoc_ban_ghi(b) for b in lich_su], "total": len(lich_su)}
 
-    # High budget
-    if lead.estimated_budget and lead.estimated_budget >= 1_000_000_000:
-        suggestions.append({
-            "action": "escalate",
-            "reason": f"Ngân sách cao ({lead.estimated_budget/1_000_000:.0f} triệu), cần ưu tiên chăm sóc",
-            "priority": "urgent",
-            "message_template": None,
-        })
 
-    # Stage-based
-    stage_actions = {
-        "new": {"action": "call", "reason": "Lead mới, cần gọi tư vấn ngay"},
-        "interested": {"action": "survey", "reason": "KH quan tâm, hẹn khảo sát hiện trạng"},
-        "survey_scheduled": {"action": "meeting", "reason": "Chuẩn bị hồ sơ khảo sát & thiết kế"},
-        "potential": {"action": "proposal", "reason": "Gửi báo giá & phương án thiết kế"},
-    }
-    if lead.stage in stage_actions:
-        sa = stage_actions[lead.stage]
-        suggestions.append({
-            "action": sa["action"],
-            "reason": sa["reason"],
-            "priority": "medium",
-            "message_template": None,
-        })
+@router.post("/suggestions/{run_id}/outcome")
+async def ghi_nhan_ket_qua(
+    run_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sale bấm "Đã làm" / "Bỏ qua" trên một gợi ý.
 
-    if not suggestions:
-        suggestions.append({
-            "action": "note",
-            "reason": "Cập nhật tình trạng lead",
-            "priority": "low",
-            "message_template": None,
-        })
+    Đây là mấu chốt của bộ nhớ: có phản hồi thì vòng sau Co-Pilot mới biết đường
+    đề xuất việc khác thay vì nhắc lại đúng câu cũ.
+    """
+    outcome = (data.get("outcome") or "").strip().lower()
+    if outcome not in OUTCOMES:
+        raise HTTPException(
+            status_code=400, detail=f"Kết quả phải là một trong: {', '.join(OUTCOMES)}"
+        )
 
-    return suggestions[0]  # Return top suggestion
+    ban = await db.get(AiRun, run_id)
+    if ban is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy gợi ý này")
+
+    # Gợi ý gắn với lead nào thì phải có quyền sửa lead đó mới được ghi nhận
+    if ban.scope_type == SCOPE_LEAD and ban.scope_id:
+        lead = (await db.execute(select(Lead).where(Lead.id == ban.scope_id))).scalar_one_or_none()
+        if lead is not None and not can_modify_lead(current_user, lead):
+            raise HTTPException(status_code=403, detail="Bạn không sửa được lead này")
+
+    note = data.get("note")
+    ban = await ai_memory.danh_dau_ket_qua(
+        db, run_id=run_id, outcome=outcome, user_id=current_user.id,
+        note=note.strip() if isinstance(note, str) and note.strip() else None,
+    )
+    return tom_luoc_ban_ghi(ban)
 
 
 @router.post("/score-lead")

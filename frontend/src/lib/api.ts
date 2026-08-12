@@ -1105,6 +1105,19 @@ class ApiClient {
     });
   }
 
+  async getSuggestionHistory(leadId: string) {
+    return this.request<{ items: AISuggestionHistory[]; total: number }>(
+      `/ai/suggestions/${leadId}`
+    );
+  }
+
+  async markSuggestionOutcome(runId: string, outcome: 'done' | 'skipped', note?: string) {
+    return this.request<AISuggestionHistory>(`/ai/suggestions/${runId}/outcome`, {
+      method: 'POST',
+      body: { outcome, note },
+    });
+  }
+
   // === ERP: Customers ===
   async getCustomers(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Customer>>('/customers', { params });
@@ -1941,6 +1954,23 @@ export interface AISuggestion {
   reason: string;
   priority: string;
   message_template?: string;
+  /** Mã bản ghi trong bộ nhớ AI — gửi kèm khi bấm "Đã làm" / "Bỏ qua" */
+  run_id?: string | null;
+  /** 'llm' = do AI viết, 'rule' = do bộ luật sinh */
+  source?: string;
+  lich_su?: AISuggestionHistory[];
+}
+
+export interface AISuggestionHistory {
+  run_id: string;
+  action?: string;
+  reason?: string;
+  priority?: string;
+  source: string;
+  outcome?: string | null; // done | skipped | null
+  outcome_note?: string | null;
+  outcome_at?: string | null;
+  created_at?: string | null;
 }
 
 // === ERP Types ===

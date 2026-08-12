@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '12/08/2026',
+    title: 'Trợ lý AI biết nhớ — gợi ý việc cần làm với từng khách',
+    tag: 'RELEASE',
+    news: [
+      'Thẻ khách hàng (Lead) có thêm ô "Gợi ý AI": bấm "Xin gợi ý" là hệ thống đề xuất việc nên làm tiếp với khách này, kèm lý do và mẫu tin nhắn để gửi luôn.',
+      'Mỗi gợi ý có 2 nút "Đã làm" / "Bỏ qua". Bấm xong, lần sau hệ thống sẽ đề xuất việc KHÁC chứ không nhắc lại đúng câu vừa rồi.',
+      'Ngay dưới ô gợi ý là danh sách các gợi ý đã đưa trước đó cùng phản hồi của mình — mở thẻ khách ra là biết đã làm tới đâu.',
+      'Mỗi gợi ý ghi rõ do "AI viết" hay "theo bộ luật", để không ai nhầm câu máy tự suy ra là câu AI phân tích.',
+    ],
+    fixes: [
+      'Trước đây mọi phần AI (chấm điểm khách, nhận định kinh doanh, gợi ý hành động) đều chạy lại từ con số 0 mỗi lần — không nhớ gì cả. Nay kết quả được lưu lại, hỏi lại đúng câu cũ trong ngày thì lấy bản đã có, không tốn thêm lượt gọi AI.',
+      'Điểm AI của khách hàng và nhận định trong báo cáo BOD nay có lịch sử, xem lại được thay vì bị ghi đè mất.',
+    ],
+    test: [
+      'Một bạn Sale: mở 1 thẻ khách bất kỳ → bấm "Xin gợi ý" → đọc gợi ý → bấm "Đã làm".',
+      'Cũng bạn đó: bấm "Xin gợi ý" lần nữa, xác nhận gợi ý mới KHÁC gợi ý vừa bấm "Đã làm".',
+      'Đóng thẻ khách rồi mở lại: xác nhận phần "Đã gợi ý trước đó" còn ghi lại việc đã làm.',
+    ],
+  },
+  {
+    date: '12/08/2026',
     title: 'Nhân viên Sale xem được KPI của mình',
     tag: 'RELEASE',
     news: [

@@ -18,6 +18,7 @@ from app.models.approval import ApprovalRequest
 from app.models.leave import LeaveBalance, LeaveRequest
 from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
+from app.models.ai_memory import AiRun
 
 __all__ = [
     "User", "Team",
@@ -35,4 +36,5 @@ __all__ = [
     "LeaveBalance", "LeaveRequest",
     "KpiSnapshot", "CoachingNote", "ReviewCycle",
     "ZaloSession", "ZaloGroup", "ZaloMessage", "ZaloSignal",
+    "AiRun",
 ]

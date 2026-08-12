@@ -13,7 +13,7 @@ import {
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
-import { api, Lead, Activity, User, fetchAllPages } from '@/lib/api';
+import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
 import { getPermissions, canAssignLeads, isSalesCoordinator, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -186,6 +186,13 @@ function LeadsContent() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const usersLoaded = useRef(false);
+  // ── Gợi ý AI (Sales Co-Pilot) ──
+  // Chỉ gọi khi sale bấm nút: mỗi lượt là một lượt LLM, mở thẻ lead mà tự chạy thì
+  // vừa tốn quota vừa nhiễu. Lịch sử thì tải sẵn vì chỉ là một truy vấn bảng.
+  const [goiY, setGoiY] = useState<AISuggestion | null>(null);
+  const [lichSuGoiY, setLichSuGoiY] = useState<AISuggestionHistory[]>([]);
+  const [dangXinGoiY, setDangXinGoiY] = useState(false);
+  const [dangGhiNhan, setDangGhiNhan] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -242,6 +249,8 @@ function LeadsContent() {
     setNewNoteLink('');
     setAssignOpen(false);
     setActivities([]);
+    setGoiY(null);
+    setLichSuGoiY([]);
     setLoadingActivities(true);
     try {
       const acts = await api.getActivities(lead.id);
@@ -251,6 +260,13 @@ function LeadsContent() {
     } finally {
       setLoadingActivities(false);
     }
+    // Lịch sử gợi ý hỏng thì thôi, không được kéo cả thẻ lead chết theo
+    try {
+      const ls = await api.getSuggestionHistory(lead.id);
+      setLichSuGoiY(ls.items || []);
+    } catch {
+      setLichSuGoiY([]);
+    }
   };
 
   // Đóng thẻ lead: reset luôn ô ghi chú để lần mở sau không dính nội dung cũ.
@@ -259,7 +275,42 @@ function LeadsContent() {
     setNewNote('');
     setNewNoteLink('');
     setAssignOpen(false);
+    setGoiY(null);
+    setLichSuGoiY([]);
   }, []);
+
+  // Xin Co-Pilot một gợi ý mới. Backend tự đọc lại các gợi ý cũ + phản hồi của sale
+  // nên không lặp lại việc đã làm/đã bỏ qua.
+  const xinGoiY = async () => {
+    if (!selectedLead || dangXinGoiY) return;
+    setDangXinGoiY(true);
+    try {
+      const res = await api.suggestAction(selectedLead.id);
+      setGoiY(res);
+      if (res.lich_su) setLichSuGoiY(res.lich_su);
+    } catch {
+      toast('Không lấy được gợi ý', 'error');
+    } finally {
+      setDangXinGoiY(false);
+    }
+  };
+
+  // Sale bấm "Đã làm" / "Bỏ qua" — đây chính là thứ nuôi bộ nhớ cho lượt sau.
+  const ghiNhanGoiY = async (outcome: 'done' | 'skipped') => {
+    if (!goiY?.run_id || dangGhiNhan) return;
+    setDangGhiNhan(true);
+    try {
+      await api.markSuggestionOutcome(goiY.run_id, outcome);
+      const ls = await api.getSuggestionHistory(selectedLead!.id);
+      setLichSuGoiY(ls.items || []);
+      setGoiY(null);
+      toast(outcome === 'done' ? 'Đã ghi nhận: đã làm' : 'Đã ghi nhận: bỏ qua', 'success');
+    } catch {
+      toast('Lỗi khi ghi nhận', 'error');
+    } finally {
+      setDangGhiNhan(false);
+    }
+  };
 
   const handleAddNote = async () => {
     if (!selectedLead || !newNote.trim()) return;
@@ -982,6 +1033,95 @@ function LeadsContent() {
                   <p className="text-sm text-[var(--text-secondary)]">{selectedLead.notes}</p>
                 </div>
               )}
+
+              {/* ── Gợi ý AI (Sales Co-Pilot) ── */}
+              {/* Có bộ nhớ: gợi ý nào sale đã "Đã làm"/"Bỏ qua" thì lượt sau không nhắc lại */}
+              <div className="glass-card p-4">
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                    🤖 Gợi ý AI
+                  </h3>
+                  <button
+                    onClick={xinGoiY}
+                    disabled={dangXinGoiY}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-40 transition-all min-h-[36px]"
+                  >
+                    {dangXinGoiY ? 'Đang nghĩ...' : goiY ? 'Xin gợi ý khác' : 'Xin gợi ý'}
+                  </button>
+                </div>
+
+                {goiY ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                        style={{
+                          background: `${PRIORITY_LABELS[goiY.priority]?.color || 'var(--info)'}20`,
+                          color: PRIORITY_LABELS[goiY.priority]?.color || 'var(--info)',
+                        }}
+                      >
+                        {PRIORITY_LABELS[goiY.priority]?.label || goiY.priority}
+                      </span>
+                      {/* Nói thẳng bản này do đâu ra, khỏi ai tưởng bộ luật là AI */}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-[var(--text-muted)] border border-white/10">
+                        {goiY.source === 'llm' ? 'AI viết' : 'Theo bộ luật'}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-white">{goiY.action}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{goiY.reason}</p>
+                    {goiY.message_template && (
+                      <div className="p-3 rounded-lg text-xs text-[var(--text-secondary)] whitespace-pre-wrap" style={{ background: 'var(--surface-2)' }}>
+                        <p className="text-[10px] text-[var(--text-muted)] mb-1">💬 Mẫu tin nhắn:</p>
+                        {goiY.message_template}
+                      </div>
+                    )}
+                    {goiY.run_id && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => ghiNhanGoiY('done')}
+                          disabled={dangGhiNhan}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-[#10B981]/15 text-[#10B981] hover:bg-[#10B981]/25 disabled:opacity-40 transition-all min-h-[36px]"
+                        >
+                          ✅ Đã làm
+                        </button>
+                        <button
+                          onClick={() => ghiNhanGoiY('skipped')}
+                          disabled={dangGhiNhan}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-40 transition-all min-h-[36px]"
+                        >
+                          ⏭️ Bỏ qua
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Bấm “Xin gợi ý” để Co-Pilot đề xuất việc nên làm tiếp với khách này.
+                  </p>
+                )}
+
+                {lichSuGoiY.length > 0 && (
+                  <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">
+                      Đã gợi ý trước đó ({lichSuGoiY.length})
+                    </p>
+                    {lichSuGoiY.map(ls => (
+                      <div key={ls.run_id} className="flex items-start gap-2 text-xs">
+                        <span className="flex-shrink-0">
+                          {ls.outcome === 'done' ? '✅' : ls.outcome === 'skipped' ? '⏭️' : '⏳'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-[var(--text-secondary)]">{ls.action}</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">
+                            {ls.outcome === 'done' ? 'Đã làm' : ls.outcome === 'skipped' ? 'Bỏ qua' : 'Chưa phản hồi'}
+                            {ls.created_at && ` · ${new Date(ls.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Activity Timeline */}
               <div className="glass-card p-4">

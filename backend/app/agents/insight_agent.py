@@ -12,6 +12,8 @@ from sqlalchemy import select, func, case, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.models.ai_memory import AGENT_INSIGHT, SCOPE_GLOBAL, SOURCE_LLM, SOURCE_RULE
+from app.services import ai_memory
 from app.services.llm_config import llm_available, llm_complete
 from app.models.lead import Lead, Activity
 from app.models.project import Project
@@ -81,14 +83,49 @@ async def generate_insights(db: AsyncSession, period_days: int = 7) -> dict:
     # ---- gather all metrics ----
     metrics = await _gather_metrics(db, now, period_start, prev_period_start)
 
+    # ---- bộ nhớ: cùng số liệu thì dùng lại nhận định cũ ----
+    # Báo cáo BOD mở nhiều lần trong ngày mà số liệu chưa đổi thì không việc gì phải
+    # đốt thêm một lượt quota free tier để nhận về đúng đoạn văn vừa sinh ra.
+    scope_id = f"{period_days}d"
+    input_hash = ai_memory.bam_dau_vao({"metrics": metrics, "period_days": period_days})
+    ban_cu = await ai_memory.tim_ban_cu(db, AGENT_INSIGHT, input_hash)
+    if ban_cu is not None:
+        cu = ai_memory.doc_output(ban_cu)
+        if cu.get("summary"):
+            logger.info("Insight dùng lại bản %s trong bộ nhớ", ban_cu.id)
+            return cu
+
     # ---- try LLM, fall back to rules ----
     if await llm_available():
         try:
-            return await _llm_insights(metrics, period_days)
+            ket_qua, model_used = await _llm_insights(metrics, period_days)
+            await ai_memory.ghi_lai(
+                db,
+                agent=AGENT_INSIGHT,
+                scope_type=SCOPE_GLOBAL,
+                scope_id=scope_id,
+                input_hash=input_hash,
+                output=ket_qua,
+                source=SOURCE_LLM,
+                model_used=model_used,
+                commit=True,
+            )
+            return ket_qua
         except Exception:
             logger.warning("LLM insight generation failed, falling back to rules", exc_info=True)
 
-    return _rule_based_insights(metrics, period_days)
+    ket_qua = _rule_based_insights(metrics, period_days)
+    await ai_memory.ghi_lai(
+        db,
+        agent=AGENT_INSIGHT,
+        scope_type=SCOPE_GLOBAL,
+        scope_id=scope_id,
+        input_hash=input_hash,
+        output=ket_qua,
+        source=SOURCE_RULE,
+        commit=True,
+    )
+    return ket_qua
 
 
 # ---------------------------------------------------------------------------
@@ -344,8 +381,8 @@ async def _gather_metrics(
 # LLM-powered insights
 # ---------------------------------------------------------------------------
 
-async def _llm_insights(metrics: dict, period_days: int) -> dict:
-    """Send metrics to LLM for narrative insight generation."""
+async def _llm_insights(metrics: dict, period_days: int) -> tuple[dict, str | None]:
+    """Send metrics to LLM. Trả kèm tên model đã trả lời (có thể là model dự phòng)."""
     period_label = _period_label(period_days)
 
     user_msg = (
@@ -365,7 +402,7 @@ async def _llm_insights(metrics: dict, period_days: int) -> dict:
 
     content = response.choices[0].message.content
     result = json.loads(content)
-    return _validate_output(result, metrics, period_days)
+    return _validate_output(result, metrics, period_days), ai_memory.ten_model(response)
 
 
 # ---------------------------------------------------------------------------
