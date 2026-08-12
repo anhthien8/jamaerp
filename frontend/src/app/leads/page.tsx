@@ -13,7 +13,7 @@ import {
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
-import { api, Lead, Activity, extractItems } from '@/lib/api';
+import { api, Lead, Activity, User, extractItems } from '@/lib/api';
 import { getPermissions, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -149,6 +149,8 @@ function LeadsContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const perms = getPermissions((user?.role || 'data_entry') as UserRole);
+  // Chỉ admin/leader được gắn/đổi người phụ trách (khớp RBAC backend POST /leads/{id}/assign).
+  const canAssign = user?.role === 'admin' || user?.role === 'leader';
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
@@ -178,6 +180,12 @@ function LeadsContent() {
   // Khóa chống double-click / double-drop khi đang gọi API đổi stage:
   // vào "Deal đã thắng" (signed_design) mà bắn 2 lần sẽ tạo TRÙNG Khách hàng + Dự án.
   const stageBusy = useRef(false);
+  // ── Gắn/đổi nhân viên kinh doanh phụ trách (admin + leader; backend chặn 403 role khác) ──
+  const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const usersLoaded = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -227,6 +235,7 @@ function LeadsContent() {
     // Ô ghi chú luôn sạch khi mở thẻ mới (tránh sót nội dung của lead trước).
     setNewNote('');
     setNewNoteLink('');
+    setAssignOpen(false);
     setActivities([]);
     setLoadingActivities(true);
     try {
@@ -244,6 +253,7 @@ function LeadsContent() {
     setSelectedLead(null);
     setNewNote('');
     setNewNoteLink('');
+    setAssignOpen(false);
   }, []);
 
   const handleAddNote = async () => {
@@ -284,6 +294,56 @@ function LeadsContent() {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     } finally {
       stageBusy.current = false;
+    }
+  };
+
+  // Nạp ứng viên phụ trách 1 lần rồi cache: users đang hoạt động, role KD (data_entry/leader), sort theo tên.
+  const loadAssignableUsers = useCallback(async () => {
+    if (usersLoaded.current) return;
+    setLoadingUsers(true);
+    try {
+      const all = extractItems(await api.getUsers({ page_size: '200' }));
+      const candidates = all
+        .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader'))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
+      setAssignableUsers(candidates);
+      usersLoaded.current = true;
+    } catch (e) {
+      toast(`Lỗi tải danh sách nhân viên: ${e instanceof Error ? e.message : 'Không rõ'}`, 'error');
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [toast]);
+
+  const openAssign = () => {
+    setAssignOpen(true);
+    void loadAssignableUsers();
+  };
+
+  // Giao/đổi người phụ trách: gọi API rồi cập nhật selectedLead + danh sách/kanban tại chỗ.
+  const handleAssign = async (userId: string) => {
+    if (!selectedLead || !userId || userId === selectedLead.assigned_to || assigning) return;
+    const leadId = selectedLead.id;
+    setAssigning(true);
+    try {
+      const updated = await api.assignLead(leadId, userId);
+      const picked = assignableUsers.find(u => u.id === userId);
+      const newName = updated.assigned_user_name || picked?.full_name || '';
+      const newTeam = updated.team_id ?? picked?.team_id;
+      const applyPatch = (l: Lead): Lead => ({
+        ...l,
+        assigned_to: userId,
+        assigned_user_name: newName || l.assigned_user_name,
+        ...(newTeam !== undefined ? { team_id: newTeam } : {}),
+      });
+      setSelectedLead(prev => (prev && prev.id === leadId ? applyPatch(prev) : prev));
+      setLeads(prev => prev.map(l => (l.id === leadId ? applyPatch(l) : l)));
+      setAssignOpen(false);
+      toast(`Đã giao lead cho ${newName || 'nhân viên'}`, 'success');
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không thể giao lead'}`, 'error');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -813,12 +873,54 @@ function LeadsContent() {
                       <span className="text-[var(--text-secondary)]">Khu vực: {selectedLead.region}</span>
                     </div>
                   )}
-                  {selectedLead.assigned_user_name && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[var(--text-muted)]">👤</span>
-                      <span className="text-[var(--text-secondary)]">Phụ trách: {selectedLead.assigned_user_name}</span>
-                    </div>
-                  )}
+                  {/* Phụ trách — LUÔN hiển thị; admin/leader gắn/đổi nhân viên KD ngay tại đây */}
+                  <div className="flex items-center gap-2 flex-wrap sm:col-span-2">
+                    <span className="text-[var(--text-muted)]">👤</span>
+                    <span className="text-[var(--text-secondary)]">
+                      Phụ trách:{' '}
+                      {selectedLead.assigned_user_name ? (
+                        <span className="text-white font-medium">{selectedLead.assigned_user_name}</span>
+                      ) : (
+                        <span style={{ color: '#F59E0B' }}>Chưa phân công</span>
+                      )}
+                    </span>
+                    {canAssign && (
+                      assignOpen ? (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={selectedLead.assigned_to || ''}
+                            disabled={assigning || loadingUsers}
+                            onChange={e => handleAssign(e.target.value)}
+                            className="text-xs px-2 py-1 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none max-w-[180px] disabled:opacity-50"
+                          >
+                            <option value="" disabled>{loadingUsers ? 'Đang tải...' : '— Chọn nhân viên —'}</option>
+                            {/* Người phụ trách hiện tại ngoài danh sách ứng viên (inactive/role khác) — giữ option ẩn để select không trống */}
+                            {selectedLead.assigned_to && !assignableUsers.some(u => u.id === selectedLead.assigned_to) && (
+                              <option value={selectedLead.assigned_to} hidden>{selectedLead.assigned_user_name || 'Người hiện tại'}</option>
+                            )}
+                            {assignableUsers.map(u => (
+                              <option key={u.id} value={u.id}>{u.full_name}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setAssignOpen(false)}
+                            disabled={assigning}
+                            className="text-[11px] px-2 py-1 rounded-lg text-[var(--text-muted)] hover:bg-white/10 transition-all disabled:opacity-50"
+                          >
+                            {assigning ? 'Đang lưu...' : 'Hủy'}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={openAssign}
+                          className="text-[11px] px-2 py-1 rounded-lg font-medium transition-all hover:opacity-80"
+                          style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
+                        >
+                          ✏️ Đổi
+                        </button>
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -119,10 +119,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
       return lead as T;
     }
   }
-  if (path.match(/^\/leads\/[^/]+\/assign$/) && method === 'PUT') {
+  if (path.match(/^\/leads\/[^/]+\/assign$/) && method === 'POST') {
     const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
     if (lead) {
-      const uid = (options?.body as Record<string, string>)?.assigned_to;
+      const uid = (options?.body as Record<string, string>)?.user_id;
       const u = d.DEMO_USERS.find(x => x.id === uid);
       if (u) { lead.assigned_to = u.id; lead.assigned_user_name = u.full_name; }
       return lead as T;
