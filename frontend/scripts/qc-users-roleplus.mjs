@@ -41,6 +41,7 @@ ok(
   `Admin: nút + KHÔNG bị select Bộ phận che (+right=${plusBox ? Math.round(plusBox.x + plusBox.width) : '?'} ≤ deptLeft=${deptBox ? Math.round(deptBox.x) : '?'})`,
   !!plusBox && !!deptBox && plusBox.x + plusBox.width <= deptBox.x + 1
 );
+await page.screenshot({ path: 'H:/tmp/qc-roleplus-form.png' });
 
 // Click thật — Playwright fail nếu element bị element khác hứng pointer
 let clicked = false;

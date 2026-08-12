@@ -4,10 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth, type AppMode } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-
-// Tạm ẩn Chế độ Tập luyện trên trang đăng nhập (yêu cầu 07/08/2026 khi công bố toàn công ty).
-// Cần mở lại cho đào tạo nhân sự mới: đổi thành true.
-const SHOW_DEMO_MODE = false;
+import { SHOW_DEMO_MODE } from '@/lib/features';
 
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', role: 'Admin' },

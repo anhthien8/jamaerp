@@ -11,6 +11,7 @@ import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getPermissions, getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
+import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -411,9 +412,11 @@ export default function Sidebar({ children }: { children: ReactNode }) {
               <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
             </div>
-            <button onClick={() => setMode('demo')} className="text-[10px] px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors font-medium">
-              ← Demo
-            </button>
+            {SHOW_DEMO_MODE && (
+              <button onClick={() => setMode('demo')} className="text-[10px] px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors font-medium">
+                ← Demo
+              </button>
+            )}
           </div>
         )}
         {children}

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
 import { getEffectivePermissions, RolePermissions, UserRole } from '@/lib/roles';
+import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // Demo mode — single shared password for all accounts (training/offline only)
 const DEMO_PASSWORD = 'demo123';
@@ -76,10 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void Promise.resolve().then(() => {
-      // Chế độ Tập luyện đã ẩn toàn công ty (SHOW_DEMO_MODE=false ở /login). Phiên demo
-      // còn lưu trên máy sẽ restore thẳng vào app và hiện DỮ LIỆU MẪU như thật (che cả
-      // lỗi API) — gặp là xóa sạch, bắt đăng nhập lại. Gỡ khối này nếu mở lại Tập luyện.
-      if (localStorage.getItem('jama_demo') === 'true') {
+      // Chế độ Tập luyện đang tắt: phiên demo còn lưu trên máy sẽ restore thẳng vào app
+      // và hiện DỮ LIỆU MẪU như thật (che cả lỗi API) — gặp là xóa sạch, bắt đăng nhập lại.
+      if (!SHOW_DEMO_MODE && localStorage.getItem('jama_demo') === 'true') {
         localStorage.removeItem('jama_demo');
         localStorage.removeItem('jama_user');
         localStorage.removeItem('jama_token');
