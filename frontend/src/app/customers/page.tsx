@@ -158,6 +158,11 @@ export default function CustomersPage() {
   const perms = getPermissions(user.role as UserRole);
   if (!perms?.canViewProjects) return <AccessDenied />;
 
+  // Backend require_customer_write: admin / kế toán / trưởng nhóm / nhập liệu. Giám sát và
+  // các vai trò tùy chỉnh (VD Điều phối KD) xem được nhưng KHÔNG sửa được — trước 12/08/2026
+  // vẫn thấy nút "+ Thêm khách hàng" rồi nhập xong mới ăn 403.
+  const canEditCustomers = ['admin', 'accountant', 'leader', 'data_entry'].includes(user.role);
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -209,12 +214,14 @@ export default function CustomersPage() {
               {customers.length} hồ sơ khách hàng · quản lý liên hệ, pháp nhân và ghi chú nội bộ
             </p>
           </div>
-          <button
-            onClick={openCreate}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-semibold hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 shadow-lg shadow-[#C9A96E]/10"
-          >
-            + Thêm khách hàng
-          </button>
+          {canEditCustomers && (
+            <button
+              onClick={openCreate}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-semibold hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 shadow-lg shadow-[#C9A96E]/10"
+            >
+              + Thêm khách hàng
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row gap-3">
@@ -249,9 +256,11 @@ export default function CustomersPage() {
               <span className="text-4xl block mb-3">👥</span>
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Chưa có khách hàng</h3>
               <p className="text-sm text-[var(--text-muted)] mb-4">Khách hàng sẽ xuất hiện khi lead ký hợp đồng</p>
-              <button onClick={openCreate} className="px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all">
-                + Thêm khách hàng
-              </button>
+              {canEditCustomers && (
+                <button onClick={openCreate} className="px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all">
+                  + Thêm khách hàng
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -282,11 +291,13 @@ export default function CustomersPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
-                        Sửa
-                      </button>
-                    </div>
+                    {canEditCustomers && (
+                      <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                          Sửa
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -326,9 +337,11 @@ export default function CustomersPage() {
                       <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.email || '—'}</td>
                       <td className="px-5 py-3.5 text-[var(--text-secondary)] max-w-[220px] truncate">{c.address || '—'}</td>
                       <td className="px-5 py-3.5 text-right">
-                        <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
-                          Sửa
-                        </button>
+                        {canEditCustomers && (
+                          <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                            Sửa
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -436,7 +449,9 @@ export default function CustomersPage() {
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setSelected(null)} className="px-3 py-2 rounded-xl text-sm bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 transition-all">Đóng</button>
-                <button onClick={() => openEdit(selected)} className="px-3 py-2 rounded-xl text-sm bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all">Sửa hồ sơ</button>
+                {canEditCustomers && (
+                  <button onClick={() => openEdit(selected)} className="px-3 py-2 rounded-xl text-sm bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all">Sửa hồ sơ</button>
+                )}
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api, type Supplier, type SupplierQuote, type PriceComparison } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import PriceComparisonTable from '@/components/ui/PriceComparison';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -17,6 +18,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function SuppliersPage() {
+  // Backend chỉ cho admin + supervisor (mua hàng) thêm/sửa NCC (require_supplier_write).
+  // Kế toán vẫn vào được trang này để tra giá, nên trước 12/08/2026 họ thấy nút "Thêm nhà
+  // cung cấp" rồi nhập cả bảng xong mới ăn 403. Ẩn nút cho đúng quyền thật.
+  const { user } = useAuth();
+  const canEditSuppliers = user?.role === 'admin' || user?.role === 'supervisor';
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -134,13 +140,15 @@ export default function SuppliersPage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Nhà cung cấp</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Quản lý nhà cung cấp và bảng giá</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: 'var(--gold-500)', color: '#000' }}
-        >
-          + Thêm nhà cung cấp
-        </button>
+        {canEditSuppliers && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'var(--gold-500)', color: '#000' }}
+          >
+            + Thêm nhà cung cấp
+          </button>
+        )}
       </div>
 
       {error && (
@@ -260,13 +268,15 @@ export default function SuppliersPage() {
               <div className="p-5 rounded-xl" style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)' }}>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{selectedSupplier.name}</h2>
-                  <button
-                    onClick={() => setShowQuoteModal(true)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                    style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}
-                  >
-                    + Thêm báo giá
-                  </button>
+                  {canEditSuppliers && (
+                    <button
+                      onClick={() => setShowQuoteModal(true)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}
+                    >
+                      + Thêm báo giá
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                   {selectedSupplier.contact_name && <div><span style={{ color: 'var(--text-muted)' }}>Liên hệ:</span> {selectedSupplier.contact_name}</div>}

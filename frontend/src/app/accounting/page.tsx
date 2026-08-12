@@ -34,7 +34,6 @@ export default function AccountingPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
   const [periodFilter, setPeriodFilter] = useState('all');
 
   // Create Transaction modal state
@@ -61,6 +60,9 @@ export default function AccountingPage() {
   // Trước 12/08/2026 lời gọi này nằm chung Promise.all nên 403 làm hỏng CẢ trang kế toán
   // (Trưởng nhóm và Nhập liệu chỉ thấy "Không thể tải dữ liệu kế toán").
   const canSeePayroll = !!user && getPermissions(user.role as UserRole).canViewPayroll;
+  // Ghi sổ (tạo/sửa giao dịch) — backend accounting.py chỉ cho admin + kế toán.
+  // Trưởng nhóm và Nhập liệu xem được sổ nhưng không sửa, nên ẩn nút cho khỏi ăn 403.
+  const canEditAccounting = user?.role === 'admin' || user?.role === 'accountant';
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
@@ -101,10 +103,22 @@ export default function AccountingPage() {
     return Number(digits).toLocaleString('vi-VN');
   };
 
-  const openTxForm = async () => {
+  /** Mở bảng Giao dịch. Truyền `tx` để SỬA, bỏ trống để TẠO MỚI.
+   *
+   *  Trước 12/08/2026 nút "Sửa" chỉ bật một biến `formOpen` không nối với gì —
+   *  bấm vào là không có chuyện gì xảy ra, kế toán tưởng máy treo.
+   */
+  const openTxForm = async (tx?: Transaction) => {
     const today = new Date().toISOString().slice(0, 10);
-    setTxForm({ type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '', user_id: '' });
-    setTxAmountDisplay('');
+    setEditingTx(tx ?? null);
+    setTxForm(tx
+      ? {
+          type: tx.type, category: tx.category, description: tx.description,
+          amount: String(tx.amount), date: (tx.date || today).slice(0, 10),
+          project_id: tx.project_id || '', user_id: tx.related_user_id || '',
+        }
+      : { type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '', user_id: '' });
+    setTxAmountDisplay(tx ? Number(tx.amount).toLocaleString('vi-VN') : '');
     setShowTxForm(true);
     // Load active projects + danh sách nhân viên (cho giao dịch Lương/Hoa hồng)
     try {
@@ -146,28 +160,39 @@ export default function AccountingPage() {
         ? { cls: 'bg-sky-500/15 text-sky-400', label: 'Đã duyệt' }
         : { cls: 'bg-amber-500/15 text-amber-400', label: 'Chờ duyệt' };
 
+  /** Lấy câu báo lỗi của máy chủ nếu có (VD "Không có quyền..."), không thì dùng câu mặc định. */
+  const loiThaoTac = (e: unknown, macDinh: string) =>
+    e instanceof Error && e.message ? e.message : macDinh;
+
   const handleCreateTransaction = async () => {
     if (!txForm.description.trim() || !txForm.amount || Number(txForm.amount) <= 0) {
       toast('Vui lòng nhập đầy đủ mô tả và số tiền', 'error');
       return;
     }
     setSavingTx(true);
+    const payload = {
+      type: txForm.type,
+      category: txForm.category,
+      description: txForm.description.trim(),
+      amount: Number(txForm.amount),
+      date: txForm.date,
+      project_id: txForm.project_id || undefined,
+      user_id: txForm.user_id || undefined,
+    };
     try {
-      const created = await api.createTransaction({
-        type: txForm.type,
-        category: txForm.category,
-        description: txForm.description.trim(),
-        amount: Number(txForm.amount),
-        date: txForm.date,
-        project_id: txForm.project_id || undefined,
-        user_id: txForm.user_id || undefined,
-      });
-      setTransactions(prev => [created, ...prev]);
+      if (editingTx) {
+        const updated = await api.updateTransaction(editingTx.id, payload);
+        setTransactions(prev => prev.map(t => (t.id === editingTx.id ? updated : t)));
+      } else {
+        const created = await api.createTransaction(payload);
+        setTransactions(prev => [created, ...prev]);
+      }
       setShowTxForm(false);
-      toast('Tạo giao dịch thành công', 'success');
+      setEditingTx(null);
+      toast(editingTx ? 'Cập nhật giao dịch thành công' : 'Tạo giao dịch thành công', 'success');
       fetchData();
-    } catch {
-      toast('Lỗi khi tạo giao dịch', 'error');
+    } catch (e) {
+      toast(loiThaoTac(e, editingTx ? 'Lỗi khi cập nhật giao dịch' : 'Lỗi khi tạo giao dịch'), 'error');
     } finally {
       setSavingTx(false);
     }
@@ -435,10 +460,10 @@ export default function AccountingPage() {
                       </button>
                     </div>
 
-                    {/* Create Transaction */}
-                    {perms?.canViewAccounting && (
+                    {/* Create Transaction — backend chỉ cho admin/kế toán ghi sổ */}
+                    {canEditAccounting && (
                       <button
-                        onClick={openTxForm}
+                        onClick={() => openTxForm()}
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                         style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
                       >
@@ -626,10 +651,12 @@ export default function AccountingPage() {
                                 </td>
                                 <td className="p-3 text-right">
                                   <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => { setEditingTx(tx); setFormOpen(true); }}
-                                      className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
-                                      Sửa
-                                    </button>
+                                    {canEditAccounting && (
+                                      <button onClick={() => openTxForm(tx)}
+                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                        Sửa
+                                      </button>
+                                    )}
                                     {user?.role === 'admin' && (
                                       <button onClick={async () => {
                                         if (!confirm('Xóa giao dịch này?')) return;

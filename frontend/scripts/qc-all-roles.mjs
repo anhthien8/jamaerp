@@ -83,12 +83,16 @@ async function qcRole(role) {
     await page.goto(`${BASE}${p}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(1800);
     await dismissOverlays(page);
-    let s = await page.evaluate(() => ({
+    // Trang Bản tin ĐĂNG LẠI nguyên văn các câu lỗi đã sửa ("Không thể tải dữ liệu — vui lòng
+    // thử lại"), nên dò chữ trong body sẽ báo LOAD_ERROR oan. Trang này không gọi API nào,
+    // mọi sự cố thật của nó sẽ lộ qua CRASH hoặc API_FAIL.
+    const boQuaDoChu = p === '/changelog';
+    let s = await page.evaluate((boQua) => ({
       boundary: !!document.querySelector('[data-error-boundary]'),
       // Thẻ lỗi tải dữ liệu của các trang (không phải error boundary)
-      loadError: /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
+      loadError: !boQua && /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
       detail: (document.querySelector('.font-mono.break-all') || {}).textContent || null,
-    }));
+    }), boQuaDoChu);
     let interacted = false;
     if (!s.boundary) {
       const el = page.locator('main [class*="cursor-pointer"], main tbody tr').first();
@@ -97,11 +101,11 @@ async function qcRole(role) {
         await el.click({ timeout: 2000 }).catch(() => {});
         interacted = true;
         await page.waitForTimeout(1200);
-        s = await page.evaluate(() => ({
+        s = await page.evaluate((boQua) => ({
           boundary: !!document.querySelector('[data-error-boundary]'),
-          loadError: /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
+          loadError: !boQua && /Không thể tải|Vui lòng thử lại|Đã xảy ra lỗi/.test(document.body.innerText),
           detail: (document.querySelector('.font-mono.break-all') || {}).textContent || null,
-        }));
+        }), boQuaDoChu);
         await page.keyboard.press('Escape').catch(() => {});
         // Nhiều modal của app không bắt Escape — click backdrop góc cho chắc.
         if (await page.locator('.fixed.inset-0.z-50').first().isVisible({ timeout: 500 }).catch(() => false)) {
