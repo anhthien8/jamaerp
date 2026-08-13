@@ -9,100 +9,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user, hash_password
+# _ROLE_PERMISSION_DEFAULTS đã dời sang middleware/permissions.py (lõi quyền backend).
+# Import lại tại đây để test đồng bộ 3 bản ma trận (test_ma_tran_phan_quyen_dong_bo.py)
+# vẫn `from app.api.users import _ROLE_PERMISSION_DEFAULTS` được như cũ.
+from app.middleware.permissions import (  # noqa: F401 — re-export có chủ đích
+    _ROLE_PERMISSION_DEFAULTS,
+    quyen_hieu_luc,
+    xoa_cache_quyen,
+)
 from app.models.user import User, Team
 from app.models.notification import SystemSetting
 from app.schemas.user import UserCreate, UserUpdate, CustomRoleCreate, VALID_ROLES
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-# ── Role permission defaults (mirrors frontend/src/lib/roles.ts) ───────────
-# Keys = all fields in RolePermissions interface
-_ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
-    "admin": {
-        "canViewDashboard": True, "dashboardType": "executive",
-        "canViewLeads": True, "leadsScope": "all",
-        "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
-        "canViewHR": True, "canManageUsers": True,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
-        "canCreateQuotations": True, "canViewInventory": True,
-        "canViewReports": True, "canViewPnL": True,
-        "canCreateProjects": True, "canCreateContracts": True,
-        "canCreateTasks": True, "canEditTasks": True,
-        "canViewAttendance": True, "canViewKPI": True,
-        "canViewApprovals": True, "canViewFeedback": True, "canViewSettings": True,
-    },
-    "leader": {
-        "canViewDashboard": True, "dashboardType": "team",
-        "canViewLeads": True, "leadsScope": "team",
-        "canViewAccounting": True, "canViewPayroll": False, "canViewCommissionOthers": False,
-        "canViewHR": True, "canManageUsers": False,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
-        "canCreateQuotations": True, "canViewInventory": False,
-        "canViewReports": True, "canViewPnL": False,
-        "canCreateProjects": True, "canCreateContracts": True,
-        "canCreateTasks": True, "canEditTasks": True,
-        "canViewAttendance": True, "canViewKPI": True,
-        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
-    },
-    "data_entry": {
-        "canViewDashboard": True, "dashboardType": "personal",
-        "canViewLeads": True, "leadsScope": "own",
-        "canViewAccounting": True, "canViewPayroll": False, "canViewCommissionOthers": False,
-        "canViewHR": False, "canManageUsers": False,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
-        "canCreateQuotations": True, "canViewInventory": False,
-        "canViewReports": True, "canViewPnL": False,
-        "canCreateProjects": False, "canCreateContracts": True,
-        "canCreateTasks": False, "canEditTasks": False,
-        # canViewKPI bật 12/08/2026 (chủ dự án chốt) — phải khớp roles.ts, nếu lệch thì
-        # trang Phân quyền hiện một đằng mà nhân viên trải nghiệm một nẻo.
-        "canViewAttendance": True, "canViewKPI": True,
-        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
-    },
-    "accountant": {
-        "canViewDashboard": True, "dashboardType": "financial",
-        "canViewLeads": False, "leadsScope": "none",
-        "canViewAccounting": True, "canViewPayroll": True, "canViewCommissionOthers": True,
-        "canViewHR": True, "canManageUsers": True,
-        # Kế toán XEM được Báo giá nhưng không tạo — bản này trước đây ghi False,
-        # lệch với roles.ts (bản thật sự điều khiển giao diện). Sửa 12/08/2026.
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
-        "canCreateQuotations": False, "canViewInventory": True,
-        "canViewReports": True, "canViewPnL": True,
-        "canCreateProjects": False, "canCreateContracts": True,
-        "canCreateTasks": False, "canEditTasks": False,
-        "canViewAttendance": True, "canViewKPI": False,
-        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
-    },
-    "executive": {
-        "canViewDashboard": True, "dashboardType": "executive",
-        "canViewLeads": False, "leadsScope": "none",
-        "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
-        "canViewHR": False, "canManageUsers": False,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": False,
-        "canCreateQuotations": False, "canViewInventory": False,
-        "canViewReports": True, "canViewPnL": True,
-        "canCreateProjects": True, "canCreateContracts": False,
-        "canCreateTasks": False, "canEditTasks": False,
-        "canViewAttendance": False, "canViewKPI": True,
-        "canViewApprovals": False, "canViewFeedback": True, "canViewSettings": True,
-    },
-    "supervisor": {
-        "canViewDashboard": True, "dashboardType": "team",
-        "canViewLeads": False, "leadsScope": "none",
-        "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
-        "canViewHR": False, "canManageUsers": False,
-        "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
-        "canCreateQuotations": True, "canViewInventory": True,
-        "canViewReports": True, "canViewPnL": False,
-        "canCreateProjects": True, "canCreateContracts": True,
-        "canCreateTasks": True, "canEditTasks": True,
-        "canViewAttendance": True, "canViewKPI": True,
-        "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
-    },
-}
 
 
 def _get_combined_permissions(role: str, custom: dict | None) -> dict:
@@ -255,6 +175,7 @@ async def create_custom_role(
         db.add(SystemSetting(key="custom_roles", value=value))
 
     await db.flush()
+    xoa_cache_quyen()
 
     await log_action(
         db, actor=current_user, action="custom_role.create",
@@ -266,6 +187,22 @@ async def create_custom_role(
 
 
 # ── Role-level permissions (matrix admin) ────────────────────────────────
+
+@router.get("/permissions/me")
+async def get_my_permissions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Quyền có hiệu lực của CHÍNH người đang đăng nhập — mở cho mọi người.
+
+    Trước đây chỉ admin đọc được /permissions/roles, nên người thường không bao
+    giờ thấy override sếp đặt trên trang Phân quyền — menu của họ vẽ theo mặc định
+    viết cứng trong roles.ts. Endpoint này cho FE vẽ menu đúng với quyền backend
+    đang thực thi (một nguồn sự thật).
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    return {"role": current_user.role, "permissions": perms}
+
 
 @router.get("/permissions/roles")
 async def get_role_permissions(
@@ -347,6 +284,7 @@ async def set_role_permissions(
                 setting.value = json.dumps(customs, ensure_ascii=False)
                 setting.updated_at = datetime.now(timezone.utc)
                 await db.flush()
+            xoa_cache_quyen()
         await log_action(
             db, actor=current_user, action="custom_role.update_permissions",
             entity_type="custom_role", entity_id=role,
@@ -375,6 +313,7 @@ async def set_role_permissions(
             await db.delete(setting)
 
     await db.flush()
+    xoa_cache_quyen()
 
     await log_action(
         db, actor=current_user, action="role_permissions.update",

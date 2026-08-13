@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -54,10 +54,19 @@ def decode_token(token: str) -> dict:
 
 
 async def get_current_user(
+    response: Response,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """FastAPI dependency — extract and validate current user from JWT."""
+    """FastAPI dependency — extract and validate current user from JWT.
+
+    Phiên trượt (13/08/2026): token sống 12 tiếng, nhưng người ĐANG dùng app thì
+    không được để rớt phiên giữa chừng (trước đây làm tới tiếng 13 là mọi trang
+    báo lỗi, phải đăng nhập lại). Khi token đã qua NỬA đời (còn < 6 tiếng), mỗi
+    lời gọi API sẽ kèm token mới trong header ``X-Phien-Moi`` — frontend tự lưu
+    đè, phiên cứ thế trượt dài theo giờ làm việc. Ai bỏ máy > 12 tiếng thì token
+    hết hạn tự nhiên như cũ (không gia hạn được nữa vì 401 từ decode_token).
+    """
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
     if not user_id:
@@ -68,5 +77,16 @@ async def get_current_user(
 
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc bị vô hiệu")
+
+    exp = payload.get("exp")
+    if isinstance(exp, (int, float)):
+        con_lai = exp - datetime.now(timezone.utc).timestamp()
+        nua_doi = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60 / 2
+        if 0 < con_lai < nua_doi:
+            # Ký theo role/department HIỆN TẠI trong DB (không chép từ token cũ) —
+            # đổi vai trò giữa phiên thì lần gia hạn kế tiếp mang đúng vai trò mới.
+            response.headers["X-Phien-Moi"] = create_access_token(
+                str(user.id), user.role, user.department
+            )
 
     return user

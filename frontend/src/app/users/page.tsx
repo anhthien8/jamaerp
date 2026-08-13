@@ -16,8 +16,11 @@ interface CustomRole {
   permissions: Record<string, boolean>;
 }
 
-const BUILTIN_ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'accountant', 'supervisor'];
-const DEPARTMENTS = ['EXEC', 'SALES', 'OPS', 'ACCT'];
+// 'executive' bị bỏ khỏi dropdown từ 13/08/2026 — không ai mang vai trò này (backend
+// vẫn nhận để tương thích tài khoản cũ nếu có). DESIGN/PURCHASING thêm cùng đợt
+// 4 vai trò phòng ban (Thiết kế, Thu mua) để gán đúng phòng cho nhân sự mới.
+const BUILTIN_ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'accountant', 'supervisor'];
+const DEPARTMENTS = ['EXEC', 'SALES', 'DESIGN', 'OPS', 'PURCHASING', 'ACCT'];
 
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-red-500/15 text-red-400 border-red-500/25',

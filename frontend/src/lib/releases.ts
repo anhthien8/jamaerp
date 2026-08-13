@@ -16,6 +16,27 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '13/08/2026',
+    title: 'Phân quyền có hiệu lực thật + 4 vai trò theo phòng ban + phiên tự gia hạn',
+    tag: 'RELEASE',
+    news: [
+      'Trang Phân quyền nay có hiệu lực THẬT: tắt một ô quyền là máy chủ chặn luôn, không chỉ ẩn nút trên màn hình. Ai bị chặn sẽ thấy thông báo rõ ràng "Bạn chưa được cấp quyền «…»" kèm hướng dẫn nhờ quản trị viên mở.',
+      'Thêm 4 vai trò dựng sẵn cho các phòng: Quản lý dự án, Thiết kế, Giám sát thi công, Thu mua — gán cho nhân sự mới là vào đúng việc của phòng mình, không thấy số liệu tài chính. Quản trị viên vẫn chỉnh được từng ô quyền trên trang Phân quyền như vai trò tự tạo.',
+      'Đang làm việc thì phiên tự gia hạn: dùng app liên tục sẽ không bao giờ bị văng giữa chừng nữa. Chỉ khi bỏ máy quá 12 tiếng liền mới phải đăng nhập lại.',
+    ],
+    fixes: [
+      'Trước đây ai đăng nhập cũng gọi được số liệu tài chính (sổ giao dịch, chi phí, cơ cấu hoa hồng, danh bạ nhà cung cấp kèm giá mua) nếu biết đường dẫn — nay máy chủ chặn đúng theo bảng Phân quyền.',
+      'Danh sách hoa hồng: trước đây máy chủ gửi hoa hồng của TẤT CẢ mọi người về máy rồi mới ẩn trên màn hình; nay ai chưa được cấp quyền "Xem hoa hồng người khác" thì máy chủ chỉ trả về đúng phần của người đó.',
+      'LƯU Ý cho Trưởng nhóm và Nhân viên Sale: hai vai trò này không còn thấy tab "Tổng quan" và "Sổ giao dịch" trong trang Kế toán (vào thẳng tab Hoa hồng), và Trưởng nhóm chỉ thấy hoa hồng của chính mình. Nếu công việc cần xem, nhờ quản trị viên mở quyền "Xem Lợi nhuận (P&L)" / "Xem hoa hồng người khác" trên trang Phân quyền.',
+      'Vai trò "Giám đốc" không dùng từ lâu đã được gỡ khỏi các danh sách chọn cho gọn (tài khoản cũ nếu có vẫn hoạt động bình thường).',
+    ],
+    test: [
+      'Quản trị viên: vào Phân quyền, thấy 4 cột vai trò mới (Quản lý dự án, Thiết kế, Giám sát thi công, Thu mua) bên cạnh các vai trò cũ.',
+      'Trưởng nhóm: mở trang Kế toán → xác nhận vào thẳng tab Hoa hồng và danh sách chỉ có tên mình.',
+      'Bất kỳ ai: làm việc liên tục qua giờ thứ 7-8 trong ngày → xác nhận KHÔNG bị văng ra trang đăng nhập giữa chừng.',
+    ],
+  },
+  {
+    date: '13/08/2026',
     title: 'Hết cảnh "Không thể tải dữ liệu" — nay báo đúng là phiên đã hết hạn',
     tag: 'RELEASE',
     news: [

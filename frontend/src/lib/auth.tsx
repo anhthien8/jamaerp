@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
-import { getEffectivePermissions, RolePermissions, UserRole } from '@/lib/roles';
+import { getEffectivePermissions, loadMyPermissions, RolePermissions, UserRole } from '@/lib/roles';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // Demo mode — single shared password for all accounts (training/offline only)
@@ -81,15 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setModeState] = useState<AppMode>('work');
+  // Quyền do backend tính (GET /users/permissions/me) — nguồn sự thật duy nhất.
+  // null = chưa tải xong / demo / mất mạng → dùng bản tính cục bộ bên dưới.
+  const [serverPerms, setServerPerms] = useState<RolePermissions | null>(null);
 
   // Derive isDemo from mode for backward compatibility
   const isDemo = mode === 'demo';
 
-  // Effective permissions: role defaults merged with per-user custom overrides
+  // Effective permissions: ưu tiên bản backend (nơi thật sự chặn API — từ 13/08/2026
+  // ma trận Phân quyền có hiệu lực thật trên máy chủ); rơi về bản tính cục bộ
+  // (mặc định vai trò + override cá nhân) khi chưa có.
   const effectivePermissions = useMemo(() => {
     if (!user) return getEffectivePermissions('data_entry');
-    return getEffectivePermissions(user.role as UserRole, user.custom_permissions);
-  }, [user]);
+    const local = getEffectivePermissions(user.role as UserRole, user.custom_permissions);
+    return serverPerms ? ({ ...local, ...serverPerms } as RolePermissions) : local;
+  }, [user, serverPerms]);
 
   useEffect(() => {
     void Promise.resolve().then(() => {
@@ -124,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (stored) {
         try {
           setUser(JSON.parse(stored));
+          // Tải quyền backend nền — không chặn màn hình (menu tạm vẽ theo bản cục bộ)
+          void loadMyPermissions().then((p) => { if (p) setServerPerms(p); });
         } catch {}
       }
       setLoading(false);
@@ -157,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.login(email, password);
       setUser(data.user);
+      void loadMyPermissions().then((p) => { if (p) setServerPerms(p); });
       return;
     } catch {
       // API unavailable — fallback to demo (chỉ khi đúng mật khẩu demo)
@@ -184,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.logout();
     localStorage.removeItem('jama_demo');
     setUser(null);
+    setServerPerms(null);
     window.location.href = '/login';
   }, []);
 
@@ -192,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Switch to demo mode: auto-login with admin demo account
       const adminUser = DEMO_USERS['admin@jamahome.vn'];
       setUser(adminUser);
+      setServerPerms(null); // demo dùng ma trận cục bộ, không dính quyền backend
       setModeState('demo');
       localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');

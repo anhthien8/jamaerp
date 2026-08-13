@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import yeu_cau
 from app.models.user import User
 from app.models.commission_structure import CommissionStructure
 
@@ -36,7 +37,9 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 @router.get("")
-async def list_structures(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+# Tỷ lệ hoa hồng theo phòng ban là dữ liệu tài chính nhạy cảm — trước 13/08/2026
+# chỉ cần đăng nhập là đọc được. Cùng cửa P&L với chi phí.
+async def list_structures(db: AsyncSession = Depends(get_db), current_user: User = Depends(yeu_cau("canViewPnL"))):
     result = await db.execute(select(CommissionStructure).order_by(CommissionStructure.department))
     structures = result.scalars().all()
     return [

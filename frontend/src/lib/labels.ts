@@ -53,6 +53,7 @@ export const DEPARTMENT_LABELS: Record<string, string> = {
   DESIGN: 'Thiết kế',
   ACCT: 'Kế toán',
   OPS: 'Vận hành',
+  PURCHASING: 'Thu mua', // team seed JMH-TM + vai trò thu_mua dùng key này
   HR: 'Nhân sự',
   sales: 'Kinh doanh',
   design: 'Thiết kế',

@@ -931,6 +931,14 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     });
 
+    // Phiên trượt (13/08/2026): token qua nửa đời (12h → còn < 6h) thì backend kèm
+    // token mới trong header X-Phien-Moi — lưu đè để phiên tự dài ra theo giờ làm.
+    // Chỉ lưu khi đang dùng token phiên (không phải token truyền tay qua options).
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && !token && typeof window !== 'undefined' && !isDemoMode()) {
+      localStorage.setItem('jama_token', tokenMoi);
+    }
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
       if (res.status === 401) xuLyHetPhien(endpoint);

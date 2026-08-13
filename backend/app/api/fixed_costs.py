@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import yeu_cau
 from app.models.user import User
 from app.models.fixed_cost import FixedCost
 
@@ -37,7 +38,8 @@ def _require_finance(current_user: User = Depends(get_current_user)) -> User:
 async def list_fixed_costs(
     month: str = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Định phí là dữ liệu P&L — trước 13/08/2026 chỉ cần đăng nhập là đọc được.
+    current_user: User = Depends(yeu_cau("canViewPnL")),
 ):
     q = select(FixedCost).order_by(FixedCost.category)
     if month:

@@ -626,3 +626,127 @@ async def seed_database(db: AsyncSession):
     await db.flush()
 
     print("[OK] Seed complete: 8 users, 5 teams, 9 leads, 5 projects, 5 customers, 3 contracts, 4 quotations, 10 materials, 6 salary grades, 5 commission structures, 4 fixed costs")
+
+
+# ── Vai trò theo phòng ban (GĐ3 — 13/08/2026) ───────────────────────────────
+# 4 vai trò tùy chỉnh dựng sẵn cho các phòng chưa có vai trò riêng: PM, Thiết kế,
+# Giám sát thi công, Thu mua. Lưu vào system_settings.custom_roles — CÙNG chỗ với
+# vai trò admin tự tạo trên trang Phân quyền, nên admin sửa/tắt quyền thoải mái.
+# Nguyên tắc quyền: đủ để LÀM VIỆC (dự án, việc, chấm công, KPI, phê duyệt),
+# KHÔNG đụng tài chính (accounting/P&L/lương/hoa hồng người khác) và leads.
+_VAI_TRO_PHONG_BAN: list[dict] = [
+    {
+        "role_key": "quan_ly_du_an",
+        "role_name": "Quản lý dự án",
+        "department": "OPS",
+        "permissions": {
+            "canViewDashboard": True, "dashboardType": "team",
+            "canViewLeads": False, "leadsScope": "none",
+            "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+            "canViewHR": False, "canManageUsers": False,
+            "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+            "canCreateQuotations": True, "canViewInventory": True,
+            "canViewReports": True, "canViewPnL": False,
+            "canCreateProjects": True, "canCreateContracts": True,
+            "canCreateTasks": True, "canEditTasks": True,
+            "canViewAttendance": True, "canViewKPI": True,
+            "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        },
+    },
+    {
+        "role_key": "thiet_ke",
+        "role_name": "Thiết kế",
+        "department": "DESIGN",
+        "permissions": {
+            "canViewDashboard": True, "dashboardType": "personal",
+            "canViewLeads": False, "leadsScope": "none",
+            "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+            "canViewHR": False, "canManageUsers": False,
+            # Xem báo giá để nắm phạm vi việc đã bán — nhưng không tạo/sửa giá.
+            "canViewProjects": True, "canViewContracts": False, "canViewQuotations": True,
+            "canCreateQuotations": False, "canViewInventory": False,
+            "canViewReports": False, "canViewPnL": False,
+            "canCreateProjects": False, "canCreateContracts": False,
+            "canCreateTasks": True, "canEditTasks": True,
+            "canViewAttendance": True, "canViewKPI": True,
+            "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        },
+    },
+    {
+        "role_key": "giam_sat_thi_cong",
+        "role_name": "Giám sát thi công",
+        "department": "OPS",
+        "permissions": {
+            "canViewDashboard": True, "dashboardType": "personal",
+            "canViewLeads": False, "leadsScope": "none",
+            "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+            "canViewHR": False, "canManageUsers": False,
+            "canViewProjects": True, "canViewContracts": False, "canViewQuotations": False,
+            "canCreateQuotations": False, "canViewInventory": True,
+            "canViewReports": False, "canViewPnL": False,
+            "canCreateProjects": False, "canCreateContracts": False,
+            "canCreateTasks": True, "canEditTasks": True,
+            "canViewAttendance": True, "canViewKPI": True,
+            "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        },
+    },
+    {
+        "role_key": "thu_mua",
+        "role_name": "Thu mua",
+        "department": "PURCHASING",
+        "permissions": {
+            "canViewDashboard": True, "dashboardType": "personal",
+            "canViewLeads": False, "leadsScope": "none",
+            "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+            "canViewHR": False, "canManageUsers": False,
+            # Kho + NCC + so giá là cửa chính của Thu mua (canViewInventory).
+            "canViewProjects": True, "canViewContracts": False, "canViewQuotations": False,
+            "canCreateQuotations": False, "canViewInventory": True,
+            "canViewReports": False, "canViewPnL": False,
+            "canCreateProjects": False, "canCreateContracts": False,
+            "canCreateTasks": False, "canEditTasks": True,
+            "canViewAttendance": True, "canViewKPI": True,
+            # Phê duyệt = nơi gửi đề xuất vật tư/mua hàng.
+            "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        },
+    },
+]
+
+
+async def seed_vai_tro_phong_ban(db: AsyncSession):
+    """Bổ sung 4 vai trò phòng ban vào system_settings.custom_roles (idempotent).
+
+    - Chỉ THÊM vai trò còn thiếu (so theo role_key) — TUYỆT ĐỐI không ghi đè
+      vai trò đã có, vì admin có thể đã chỉnh quyền trên trang Phân quyền.
+    - Chạy mỗi lần khởi động (khác seed_database vốn chỉ chạy khi DB trống),
+      nên bản CRM đang chạy thật trên prod cũng tự có 4 vai trò sau lần deploy này.
+    """
+    import copy
+    import json
+
+    from app.middleware.permissions import xoa_cache_quyen
+    from app.models.notification import SystemSetting
+
+    setting = await db.get(SystemSetting, "custom_roles")
+    try:
+        hien_co = json.loads(setting.value) if setting else []
+        if not isinstance(hien_co, list):
+            hien_co = []
+    except (json.JSONDecodeError, TypeError):
+        hien_co = []
+
+    da_co = {r.get("role_key") for r in hien_co if isinstance(r, dict)}
+    them = [copy.deepcopy(r) for r in _VAI_TRO_PHONG_BAN if r["role_key"] not in da_co]
+    if not them:
+        return  # Đủ 4 vai trò rồi — không đụng gì
+
+    hien_co.extend(them)
+    value = json.dumps(hien_co, ensure_ascii=False)
+    if setting:
+        setting.value = value
+        setting.updated_at = datetime.now(timezone.utc)
+    else:
+        db.add(SystemSetting(key="custom_roles", value=value))
+    await db.flush()
+    xoa_cache_quyen()  # cache quyền 60s — xóa để vai trò mới hiệu lực ngay
+    print(f"[SEED] Vai trò phòng ban: thêm {', '.join(r['role_key'] for r in them)}")

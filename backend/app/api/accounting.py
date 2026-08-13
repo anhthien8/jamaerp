@@ -8,12 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import quyen_hieu_luc, yeu_cau
 from app.models.user import User
 from app.models.payroll import Transaction, Commission, Payroll
 from app.schemas.accounting import (
     TransactionCreate, TransactionUpdate, CommissionCreate, CommissionStatusUpdate,
 )
-from app.cache import cache, cached
+from app.cache import cache
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
@@ -23,13 +24,14 @@ async def list_transactions(
     type: str | None = None,
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Sổ giao dịch chứa cả dòng Lương/Hoa hồng kèm tên người nhận — đây là dữ liệu
+    # P&L, gác theo ô «Xem Lợi nhuận (P&L)» trên trang Phân quyền. Trước 13/08/2026
+    # gác bằng danh sách role viết cứng (có cả data_entry) nên sale đọc được lương người khác.
+    current_user: User = Depends(yeu_cau("canViewPnL")),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
     """List transactions."""
-    if current_user.role not in ("admin", "accountant", "leader", "data_entry"):
-        raise HTTPException(status_code=403, detail="Không có quyền xem giao dịch tài chính")
     q = select(Transaction).order_by(Transaction.date.desc())
     if type:
         q = q.where(Transaction.type == type)
@@ -70,11 +72,15 @@ async def list_transactions(
     }
 
 
-@cached(ttl=300, prefix="accounting")
+# Lưu ý: bản cũ có @cached đặt TRÊN @router.get — decorator áp từ dưới lên nên
+# router đã đăng ký hàm gốc, cache không bao giờ chạy cho request thật. Gỡ luôn
+# cho khỏi tưởng nhầm là có cache.
 @router.get("/summary")
 async def accounting_summary(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Tổng thu/chi/lãi ròng toàn công ty = P&L. Trước 13/08/2026 KHÔNG có gác —
+    # ai đăng nhập cũng gọi được.
+    current_user: User = Depends(yeu_cau("canViewPnL")),
 ):
     """Financial summary."""
     income = (await db.execute(
@@ -118,11 +124,24 @@ async def list_commissions(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """List commissions."""
+    # Trước 13/08/2026 endpoint này KHÔNG có gác — mọi người đăng nhập đều thấy
+    # hoa hồng của TẤT CẢ nhân viên kèm tên. Nay: cần «Xem Kế toán», và nếu chưa
+    # được cấp «Xem hoa hồng người khác» thì máy chủ chỉ trả hoa hồng của chính mình
+    # (bản cũ chỉ lọc trên giao diện — F12 là thấy hết).
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canViewAccounting"):
+        raise HTTPException(
+            status_code=403,
+            detail="Bạn chưa được cấp quyền «Xem Kế toán». "
+                   "Nếu công việc cần, nhờ quản trị viên mở quyền này trên trang Phân quyền.",
+        )
     q = (
         select(Commission, User.full_name)
         .outerjoin(User, Commission.user_id == User.id)
         .order_by(Commission.created_at.desc())
     )
+    if not perms.get("canViewCommissionOthers"):
+        q = q.where(Commission.user_id == current_user.id)
     if period:
         q = q.where(Commission.period == period)
 
@@ -156,13 +175,13 @@ async def list_commissions(
 async def list_payroll(
     period: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Gác theo ô «Xem Lương» thay cho danh sách role viết cứng — mặc định vẫn
+    # chỉ admin + kế toán, nhưng nay sếp bật/tắt được ngay trên trang Phân quyền.
+    current_user: User = Depends(yeu_cau("canViewPayroll")),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """List payroll entries — admin/accountant only."""
-    if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập bảng lương")
+    """List payroll entries."""
     q = (
         select(Payroll, User.full_name)
         .outerjoin(User, Payroll.user_id == User.id)
@@ -349,7 +368,9 @@ async def export_transactions_csv(
     type: str | None = None,
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Trước 13/08/2026 KHÔNG có gác — ai đăng nhập cũng tải được toàn bộ sổ
+    # giao dịch (kèm dòng lương) ra CSV. Cùng cửa với danh sách giao dịch.
+    current_user: User = Depends(yeu_cau("canViewPnL")),
 ):
     """Export transactions as CSV."""
     from app.models.payroll import Transaction

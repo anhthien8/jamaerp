@@ -7,14 +7,13 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS, ROLE_LABELS } from '@/lib/labels';
-import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 
 type Tab = 'overview' | 'transactions' | 'commissions' | 'payroll';
 
 export default function AccountingPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -59,7 +58,12 @@ export default function AccountingPage() {
   // Chỉ Giám đốc + Kế toán được xem bảng lương; các vai trò khác gọi /payroll sẽ bị 403.
   // Trước 12/08/2026 lời gọi này nằm chung Promise.all nên 403 làm hỏng CẢ trang kế toán
   // (Trưởng nhóm và Nhập liệu chỉ thấy "Không thể tải dữ liệu kế toán").
-  const canSeePayroll = !!user && getPermissions(user.role as UserRole).canViewPayroll;
+  // Từ 13/08/2026 dùng effectivePermissions (đã trộn quyền backend trả về) thay vì
+  // ma trận cục bộ — trang hiển thị đúng những gì máy chủ thật sự cho phép.
+  const canSeePayroll = !!user && effectivePermissions.canViewPayroll;
+  // Tổng quan + sổ giao dịch nằm sau cửa «Xem Lợi nhuận (P&L)» — backend chặn thật,
+  // nên vai trò không có quyền thì khỏi gọi (đỡ ăn 403) và ẩn luôn 2 tab tương ứng.
+  const canSeePnL = !!user && effectivePermissions.canViewPnL;
   // Ghi sổ (tạo/sửa giao dịch) — backend accounting.py chỉ cho admin + kế toán.
   // Trưởng nhóm và Nhập liệu xem được sổ nhưng không sửa, nên ẩn nút cho khỏi ăn 403.
   const canEditAccounting = user?.role === 'admin' || user?.role === 'accountant';
@@ -69,8 +73,8 @@ export default function AccountingPage() {
     setError(null);
     // allSettled: một mục hỏng thì chỉ mục đó trống, phần còn lại vẫn hiện.
     const [sRes, tRes, cRes, pRes] = await Promise.allSettled([
-      api.getAccountingSummary(),
-      api.getTransactions(),
+      canSeePnL ? api.getAccountingSummary() : Promise.resolve(null),
+      canSeePnL ? api.getTransactions() : Promise.resolve([]),
       api.getCommissions(),
       canSeePayroll ? api.getPayroll() : Promise.resolve([]),
     ]);
@@ -90,11 +94,19 @@ export default function AccountingPage() {
       setError(`Chưa tải được: ${hong.join(', ')}. Phần đang trống là do lỗi tải, không phải bằng 0.`);
     }
     setLoadingData(false);
-  }, [canSeePayroll]);
+  }, [canSeePayroll, canSeePnL]);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchData);
   }, [user, fetchData]);
+
+  // Quyền backend về sau (tải nền) có thể tắt P&L khi đang đứng ở tab bị ẩn — nhảy
+  // sang tab Hoa hồng thay vì để người dùng kẹt trên tab trống không bấm lại được.
+  useEffect(() => {
+    if (user && !canSeePnL && (tab === 'overview' || tab === 'transactions')) {
+      setTab('commissions');
+    }
+  }, [user, canSeePnL, tab]);
 
   // Format number with thousand separators for VND display
   const formatAmountInput = (raw: string) => {
@@ -200,7 +212,7 @@ export default function AccountingPage() {
 
   if (loading || !user) return null;
 
-  const perms = getPermissions(user.role as UserRole);
+  const perms = effectivePermissions;
   if (!perms.canViewAccounting) return <AccessDenied />;
 
   const ALL_TABS: { key: Tab; label: string; icon: string }[] = [
@@ -212,6 +224,7 @@ export default function AccountingPage() {
 
   // Filter tabs based on role permissions
   const TABS = ALL_TABS.filter(t => {
+    if ((t.key === 'overview' || t.key === 'transactions') && !perms.canViewPnL) return false;
     if (t.key === 'payroll' && !perms.canViewPayroll) return false;
     return true;
   });

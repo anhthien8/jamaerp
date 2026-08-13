@@ -202,6 +202,33 @@ export async function loadRolePermissions(): Promise<void> {
   }
 }
 
+/**
+ * Tải quyền hiệu lực của CHÍNH người đang đăng nhập từ backend
+ * (GET /users/permissions/me — mở cho mọi người, thêm 13/08/2026).
+ *
+ * Backend mới là nơi thật sự chặn API; menu vẽ theo bản này thì cái gì thấy được
+ * là gọi được. Trước đây người thường không đọc nổi /permissions/roles (chỉ admin)
+ * nên override sếp đặt trên trang Phân quyền không bao giờ tới được menu của họ.
+ * Trả null khi demo / mất mạng — bên gọi tự rơi về bản tính cục bộ.
+ */
+export async function loadMyPermissions(): Promise<RolePermissions | null> {
+  try {
+    if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
+    if (!token) return null;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const res = await fetch(`${baseUrl}/users/permissions/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.permissions) return data.permissions as RolePermissions;
+  } catch {
+    // Silently ignore — defaults will be used
+  }
+  return null;
+}
+
 /** Save role-level permission overrides for a specific role. */
 export async function saveRolePermissions(role: UserRole, permissions: Record<string, boolean>): Promise<void> {
   // Demo mode: save to localStorage

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import yeu_cau
 from app.models.user import User
 from app.models.variable_cost import VariableCost
 
@@ -40,7 +41,8 @@ async def list_variable_costs(
     month: str = None,
     project_id: str = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Biến phí là dữ liệu P&L — trước 13/08/2026 chỉ cần đăng nhập là đọc được.
+    current_user: User = Depends(yeu_cau("canViewPnL")),
 ):
     q = select(VariableCost).order_by(VariableCost.category)
     if month:

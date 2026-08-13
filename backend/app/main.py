@@ -39,10 +39,14 @@ async def lifespan(app: FastAPI):
         # Production: start.sh/db_upgrade.py handles migrations before uvicorn starts.
         # Seed only if DB is empty (first boot) — seed_database is a no-op if users exist.
         from app.database import async_session
-        from app.seed import seed_database
+        from app.seed import seed_database, seed_vai_tro_phong_ban
         async with async_session() as db:
             try:
                 await seed_database(db)
+                # Chạy MỌI lần boot (idempotent) — DB prod có sẵn user nên
+                # seed_database ở trên là no-op, riêng 4 vai trò phòng ban
+                # (GĐ3) vẫn phải được bổ sung nếu còn thiếu.
+                await seed_vai_tro_phong_ban(db)
                 await db.commit()
             except Exception as e:
                 print(f"[WARN] Seed error: {e}")
@@ -74,10 +78,11 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
 
         from app.database import async_session
-        from app.seed import seed_database
+        from app.seed import seed_database, seed_vai_tro_phong_ban
         async with async_session() as db:
             try:
                 await seed_database(db)
+                await seed_vai_tro_phong_ban(db)  # idempotent — thêm 4 vai trò phòng ban nếu thiếu
                 await db.commit()
             except Exception as e:
                 print(f"[WARN] Seed error: {e}")
@@ -132,6 +137,9 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    # Phiên trượt: header gia hạn token phải được expose thì fetch() phía
+    # frontend (khác origin) mới đọc được — thiếu dòng này là gia hạn câm lặng.
+    expose_headers=["X-Phien-Moi"],
 )
 
 

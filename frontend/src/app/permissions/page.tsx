@@ -8,7 +8,9 @@ import { UserRole, getRoleLabel, getRoleOverrides, loadRolePermissions, saveRole
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 
-const ROLES: UserRole[] = ['admin', 'executive', 'leader', 'data_entry', 'supervisor', 'accountant'];
+// 'executive' bị bỏ khỏi cột hiển thị từ 13/08/2026 — không ai mang vai trò này,
+// để cột thừa chỉ gây rối. Vẫn còn trong DEFAULTS bên dưới (tương thích dữ liệu cũ).
+const ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'supervisor', 'accountant'];
 
 // Vai trò tùy chỉnh (admin tạo ở trang Tài khoản) — hiển thị thành cột riêng
 interface CustomRoleInfo {

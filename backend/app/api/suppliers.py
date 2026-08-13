@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import yeu_cau
 from app.models.user import User
 from app.models.supplier import Supplier, SupplierQuote, PriceComparison
 from app.schemas.supplier import (
@@ -48,7 +49,9 @@ async def list_suppliers(
     region: str | None = None,
     is_active: bool | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Danh bạ NCC + giá mua vào là bí mật kinh doanh — gác theo ô «Xem Kho»
+    # (trang NCC nằm trong mảng kho/thu mua). Trước 13/08/2026 chỉ cần đăng nhập.
+    current_user: User = Depends(yeu_cau("canViewInventory")),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
@@ -100,7 +103,7 @@ async def create_supplier(
 async def get_supplier(
     supplier_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(yeu_cau("canViewInventory")),
 ):
     """Get supplier detail."""
     result = await db.execute(select(Supplier).where(Supplier.id == supplier_id))
@@ -139,7 +142,7 @@ async def update_supplier(
 async def list_supplier_quotes(
     supplier_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(yeu_cau("canViewInventory")),
 ):
     """List all price quotes for a supplier."""
     # Verify supplier exists
@@ -188,7 +191,8 @@ async def create_supplier_quote(
 async def compare_prices(
     data: CompareRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # POST nhưng thuần đọc (so giá, không ghi gì) — cùng cửa «Xem Kho».
+    current_user: User = Depends(yeu_cau("canViewInventory")),
 ):
     """Compare prices across suppliers for a list of materials."""
     results = []
@@ -249,7 +253,7 @@ async def compare_prices(
 async def price_history(
     material_name: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(yeu_cau("canViewInventory")),
 ):
     """Get price history for a material across all suppliers."""
     q = (
