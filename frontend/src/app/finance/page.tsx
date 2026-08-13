@@ -24,15 +24,23 @@ export default function FinancePage() {
   const [commissions, setCommissions] = useState<CommissionStructure[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('2026-06');
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [projectsList, setProjectsList] = useState<Array<{id: string, name: string}>>([]);
+
+  // /salary-grades backend gác CHẶT HƠN canViewPnL (chỉ admin/kế toán) — executive
+  // gọi là 403 làm vỡ cả Promise.all. Gọi API + hiện tab «Bậc lương» theo đúng cổng đó.
+  const canViewSalary = user ? getPermissions(user.role as UserRole).canViewPayroll : false;
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (!loading && user) {
       const perms = getPermissions(user.role as UserRole);
-      if (!perms.canViewAccounting) router.push('/');
+      // Khớp với cổng backend: 4 API trang này gọi đều gác canViewPnL (hoặc chặt hơn).
+      // Trước 13/08/2026 gác canViewAccounting ⇒ trưởng phòng/sale vào được trang
+      // nhưng API trả toàn 403, rơi về số demo tưởng là thật.
+      if (!perms.canViewPnL) router.push('/');
     }
   }, [user, loading, router]);
 
@@ -47,7 +55,7 @@ export default function FinancePage() {
       } else {
         try {
           const [sg, fc, vc, cs] = await Promise.all([
-            api.getSalaryGrades(),
+            canViewSalary ? api.getSalaryGrades() : Promise.resolve([] as SalaryGrade[]),
             api.getFixedCosts(selectedMonth),
             api.getVariableCosts(selectedMonth),
             api.getCommissionStructures(),
@@ -56,11 +64,15 @@ export default function FinancePage() {
           setFixedCosts(fc);
           setVariableCosts(vc);
           setCommissions(cs);
+          setLoadError('');
         } catch {
-          setSalaryGrades(DEMO_SALARY_GRADES);
-          setFixedCosts(DEMO_FIXED_COSTS);
-          setVariableCosts(DEMO_VARIABLE_COSTS);
-          setCommissions(DEMO_COMMISSIONS);
+          // TUYỆT ĐỐI không rơi về MOCK ở chế độ Làm việc — người dùng sẽ nhìn
+          // số bịa tưởng là thật (audit 13/08). Hiện lỗi rõ ràng, bảng để trống.
+          setSalaryGrades([]);
+          setFixedCosts([]);
+          setVariableCosts([]);
+          setCommissions([]);
+          setLoadError('Không tải được số liệu tài chính từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
         }
         try {
           const pResult = await api.getProjects();
@@ -71,9 +83,14 @@ export default function FinancePage() {
     } finally {
       setLoadingData(false);
     }
-  }, [isDemo, selectedMonth]);
+  }, [isDemo, selectedMonth, canViewSalary]);
 
   useEffect(() => { if (user) void Promise.resolve().then(loadData); }, [user, loadData]);
+
+  // Không có quyền bậc lương thì tab mặc định rơi về Chi phí cố định
+  useEffect(() => {
+    if (user && !canViewSalary && tab === 'salary-grades') setTab('fixed-costs');
+  }, [user, canViewSalary, tab]);
 
   if (loading) return <Sidebar><div className="p-6"><div className="skeleton h-8 w-64 rounded-xl" /></div></Sidebar>;
   if (!user) return null;
@@ -81,7 +98,7 @@ export default function FinancePage() {
   const projectMap = projectsList.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {} as Record<string, string>);
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'salary-grades', label: 'Bậc lương', icon: '💰' },
+    ...(canViewSalary ? [{ key: 'salary-grades' as Tab, label: 'Bậc lương', icon: '💰' }] : []),
     { key: 'fixed-costs', label: 'Chi phí cố định', icon: '🏢' },
     { key: 'variable-costs', label: 'Chi phí biến phí', icon: '📊' },
     { key: 'commissions', label: 'Cơ cấu hoa hồng', icon: '🎁' },
@@ -101,6 +118,12 @@ export default function FinancePage() {
           </div>
           {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>🎯 TẬP LUYỆN</span>}
         </div>
+
+        {loadError && (
+          <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
+            ⚠️ {loadError}
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

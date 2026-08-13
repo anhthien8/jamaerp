@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '13/08/2026',
+    title: 'Dọn sạch dữ liệu mẫu — CRM từ nay 100% là số thật',
+    tag: 'RELEASE',
+    news: [
+      'Đã xóa toàn bộ dữ liệu MẪU dùng để dựng hệ thống (các dự án "Chị Mai", "Anh Tuấn"…, khách hàng, báo giá, hợp đồng, sổ giao dịch TX-001→012, kho vật tư VT-001→010 và 4 chi phí cố định tháng 6). Từ giờ mọi con số trong CRM đều là dữ liệu thật của công ty — thấy gì tin nấy.',
+      'Ghi chú công việc trong Dự án nay đính kèm được NHIỀU ảnh một lúc: chọn bao nhiêu ảnh thì lưu đủ bấy nhiêu (trước đây chọn 3 ảnh chỉ lưu được 1 mà không báo gì).',
+      'Hai thẻ cảnh báo "Lead quá hạn liên hệ" và "Việc quá hạn" ở Tổng quan nay đếm số THẬT từ máy chủ theo đúng phạm vi của bạn — trước đây một thẻ hiện số 4 cố định, một thẻ luôn hiện 0.',
+    ],
+    fixes: [
+      'Trang Tài chính và trang Kho: khi máy chủ trục trặc, trước đây màn hình âm thầm hiện bảng lương/chi phí/tồn kho MẪU trông y như thật — nay hiện thông báo lỗi rõ ràng và để trống bảng, không bao giờ đưa số giả.',
+      'Menu "Tài chính" nay chỉ hiện với người có quyền Xem Lợi nhuận (P&L) — trước đây Trưởng nhóm/Sale thấy menu nhưng vào chỉ gặp lỗi.',
+      'Ô "Upload file thiết kế / tài liệu" trong công việc: trước đây chọn file PDF/DWG/SKP trông như đã đính kèm nhưng thực tế KHÔNG lưu — nay ô này nhận ảnh (lưu thật vào ghi chú), còn tài liệu nặng thì hướng dẫn gửi vào nhóm Telegram dự án rồi dán link vào ô «Lưu File», đúng quy trình công ty.',
+    ],
+    test: [
+      'Bất kỳ ai: mở Dự án / Khách hàng / Kế toán — xác nhận KHÔNG còn thấy "Chị Mai", "Anh Tuấn", TX-001… Danh sách trống là ĐÚNG (chưa nhập dự án thật), không phải lỗi.',
+      'Thợ/PM: vào một công việc, đính 3 ảnh + ghi chú, bấm «Đăng cập nhật» → xác nhận đủ 3 ảnh xuất hiện trong dòng hoạt động.',
+      'Kế toán: vào trang Kho — kho hiện đang TRỐNG là đúng (vật tư mẫu đã xóa); nhập vật tư thật để bắt đầu theo dõi tồn kho.',
+    ],
+  },
+  {
+    date: '13/08/2026',
     title: 'Phân quyền có hiệu lực thật + 4 vai trò theo phòng ban + phiên tự gia hạn',
     tag: 'RELEASE',
     news: [

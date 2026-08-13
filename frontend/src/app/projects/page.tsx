@@ -159,9 +159,6 @@ export default function ProjectsPage() {
   const [projectQuotations, setProjectQuotations] = useState<Quotation[]>([]);
   const [loadingLinkedDocs, setLoadingLinkedDocs] = useState(false);
 
-  // File upload state (designers)
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-
   // Material request state (PMs)
   const [showMaterialRequest, setShowMaterialRequest] = useState(false);
   const [materialRequestForm, setMaterialRequestForm] = useState({ material_id: '', quantity: '', note: '' });
@@ -172,10 +169,43 @@ export default function ProjectsPage() {
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const kanbanAutoScrolled = useRef(false);
 
+  // Đọc ảnh thành base64 rồi xếp vào hàng chờ ghi chú (đường media THẬT về backend)
+  const addImagesToMedia = (files: File[]) => {
+    const validFiles = files.filter(f => {
+      if (f.size > 5 * 1024 * 1024) { toast(`${f.name}: tối đa 5MB`, 'error'); return false; }
+      return true;
+    });
+    if (validFiles.length === 0) return;
+    let loaded = 0;
+    const results: string[] = [];
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        results.push(reader.result as string);
+        loaded++;
+        if (loaded === validFiles.length) {
+          setNewActivityMedia(prev => [...prev, ...results]);
+          toast(`Đã chọn ${results.length} ảnh — bấm «Đăng cập nhật» để lưu`, 'success');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Dropzone trước 13/08/2026 chỉ setState — bytes không bao giờ rời trình duyệt
+  // nhưng UI vẫn liệt kê file như đã tải lên. Nay: ảnh đi đường media thật; tài liệu
+  // nặng (PDF/DWG/SKP) theo quyết định dự án lưu ở nhóm Telegram, dán link vào ô Lưu File.
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setUploadedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const all = Array.from(files);
+    const images = all.filter(f => f.type.startsWith('image/'));
+    const docs = all.filter(f => !f.type.startsWith('image/'));
+    if (docs.length > 0) {
+      toast(`CRM chỉ nhận ảnh. Tài liệu (${docs.map(d => d.name).join(', ')}): gửi vào nhóm Telegram dự án rồi dán link vào ô Lưu File.`, 'error');
     }
+    if (images.length > 0) addImagesToMedia(images);
+    e.target.value = '';
   };
 
   useEffect(() => {
@@ -264,7 +294,7 @@ export default function ProjectsPage() {
   const openTaskDetail = async (task: ProjectTask) => {
     setSelectedTask(task);
     setTaskFileUrl(task.final_file_url || '');
-    setUploadedFiles([]);
+    setNewActivityMedia([]);
     setTaskActivities([]);
     setLoadingActivities(true);
     try {
@@ -339,23 +369,42 @@ export default function ProjectsPage() {
   };
 
   const handleAddTaskActivity = async () => {
-    if (!selectedTask || !newActivityContent.trim()) return;
+    // Cho phép gửi khi CHỈ còn ảnh (không nội dung) — là trường hợp thử lại
+    // sau khi gửi được một phần: nội dung đã nằm trong ghi chú đầu rồi.
+    if (!selectedTask || (!newActivityContent.trim() && newActivityMedia.length === 0)) return;
+    const content = newActivityContent.trim();
+    // Backend nhận 1 media_url mỗi ghi chú → gửi tuần tự MỖI ẢNH một ghi chú,
+    // ghi chú đầu mang nội dung. Trước 13/08/2026 chỉ ảnh [0] được gửi,
+    // các ảnh sau lặng lẽ biến mất dù UI đếm đủ.
+    const media: (string | undefined)[] = newActivityMedia.length > 0 ? newActivityMedia : [undefined];
+    const created: TaskActivity[] = [];
     try {
-      // Append uploaded file info to content
-      let content = newActivityContent.trim();
-      if (uploadedFiles.length > 0) {
-        const fileInfo = uploadedFiles.map(f => `[File: ${f.name} (${(f.size / 1024).toFixed(0)} KB)]`).join(' ');
-        content = `${content}\n\nĐính kèm: ${fileInfo}`;
+      for (let i = 0; i < media.length; i++) {
+        const caption = `📷 Ảnh ${i + 1}/${media.length}` + (content ? ' (kèm ghi chú trên)' : '');
+        const body = i === 0 && content ? content : caption;
+        created.push(await api.createTaskActivity(selectedTask.id, body, media[i]));
       }
-      // Use first photo as media_url (API supports single URL)
-      const act = await api.createTaskActivity(selectedTask.id, content, newActivityMedia[0] || undefined);
-      setTaskActivities(prev => [act, ...prev]);
+      setTaskActivities(prev => [...created.slice().reverse(), ...prev]);
       setNewActivityContent('');
       setNewActivityMedia([]);
-      setUploadedFiles([]);
-      toast('Thêm ghi chú thành công', 'success');
+      toast(
+        media[0]
+          ? (content ? `Đã lưu ghi chú + ${media.length} ảnh` : `Đã lưu ${media.length} ảnh`)
+          : 'Thêm ghi chú thành công',
+        'success',
+      );
     } catch {
-      toast('Lỗi khi thêm ghi chú', 'error');
+      if (created.length > 0) {
+        // Gửi được một phần: hiện phần đã lưu, giữ lại các ảnh chưa gửi để thử lại.
+        // Nội dung đã đăng cùng ghi chú đầu → PHẢI xóa, không thì bấm thử lại
+        // sẽ đăng lặp nguyên văn ghi chú một lần nữa.
+        setTaskActivities(prev => [...created.slice().reverse(), ...prev]);
+        setNewActivityMedia(prev => prev.slice(created.length));
+        setNewActivityContent('');
+        toast(`Đã lưu ${created.length}/${media.length} — các ảnh còn lại chưa gửi được, bấm Đăng cập nhật để thử lại`, 'error');
+      } else {
+        toast('Lỗi khi thêm ghi chú', 'error');
+      }
     }
   };
 
@@ -398,24 +447,7 @@ export default function ProjectsPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const validFiles = Array.from(files).filter(f => {
-      if (f.size > 5 * 1024 * 1024) { toast(`${f.name}: tối đa 5MB`, 'error'); return false; }
-      return true;
-    });
-    let loaded = 0;
-    const results: string[] = [];
-    validFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        results.push(reader.result as string);
-        loaded++;
-        if (loaded === validFiles.length) {
-          setNewActivityMedia(prev => [...prev, ...results]);
-          toast(`Đã chọn ${results.length} ảnh`, 'success');
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    addImagesToMedia(Array.from(files));
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -1372,27 +1404,20 @@ export default function ProjectsPage() {
                 )}
               </div>
 
-              {/* File Upload Zone */}
+              {/* File Upload Zone — chỉ nhận ảnh (đi đường media thật vào ghi chú).
+                  Tài liệu nặng lưu ở nhóm Telegram dự án, dán link vào ô Lưu File phía trên. */}
               <div className="mt-4 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
-                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Upload file thiết kế / tài liệu</p>
+                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Thêm ảnh vào ghi chú bên dưới</p>
                 <input
                   type="file"
                   multiple
-                  accept="image/*,.pdf,.doc,.docx,.dwg,.skp"
+                  accept="image/*"
                   onChange={handleFileUpload}
                   className="w-full text-xs text-[var(--text-muted)]"
                 />
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {uploadedFiles.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                        <span>📄</span>
-                        <span>{f.name}</span>
-                        <span className="text-[var(--text-muted)]">({(f.size / 1024).toFixed(0)} KB)</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-[10px] text-[var(--text-muted)] mt-2">
+                  Tài liệu PDF/DWG/SKP: gửi vào nhóm Telegram dự án rồi dán link vào ô «Lưu File» phía trên — CRM không lưu file nặng.
+                </p>
               </div>
 
               {/* Note and Media Attachment form */}
@@ -1451,7 +1476,7 @@ export default function ProjectsPage() {
                     )}
                     <button
                       onClick={handleAddTaskActivity}
-                      disabled={!newActivityContent.trim()}
+                      disabled={!newActivityContent.trim() && newActivityMedia.length === 0}
                       className="text-xs px-3 py-1.5 rounded-xl font-medium bg-white text-black hover:opacity-90 disabled:opacity-50"
                     >
                       Đăng cập nhật

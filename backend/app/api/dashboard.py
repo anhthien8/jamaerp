@@ -3,7 +3,7 @@
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -11,7 +11,7 @@ from app.middleware.auth import get_current_user
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity
 from app.api.leads import STAGE_LABELS
-from app.models.project import Project
+from app.models.project import Project, Task
 from app.cache import cache, cached
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -97,6 +97,14 @@ async def executive_dashboard(
         )
     )).scalar() or 0
 
+    # Việc quá hạn toàn công ty — trước 13/08/2026 FE hiển thị số 0 cứng cho thẻ này
+    overdue_tasks = (await db.execute(
+        select(func.count(Task.id)).where(
+            Task.due_date < now,
+            Task.status.notin_(["done", "completed"]),
+        )
+    )).scalar() or 0
+
     return {
         "total_leads": total,
         "total_leads_month": total_month,
@@ -108,6 +116,7 @@ async def executive_dashboard(
         "avg_project_progress": round(avg_progress, 1),
         "sla_compliance": round(100 - (overdue / total * 100) if total > 0 else 100, 1),
         "overdue_leads": overdue,
+        "overdue_tasks": overdue_tasks,
         "stage_funnel": stage_funnel,
         "team_performance": team_perf,
         "monthly_trend": [],
@@ -208,6 +217,19 @@ async def personal_dashboard(
                 "href": "/projects",
             })
 
+    # Việc quá hạn của chính user: task giao cho mình hoặc trong dự án mình phụ trách
+    # (FE thẻ «Việc quá hạn» — trước 13/08/2026 hiển thị 0 cứng)
+    overdue_task_conds = [TaskModel.assigned_to == current_user.id]
+    if proj_ids:
+        overdue_task_conds.append(TaskModel.project_id.in_(proj_ids))
+    overdue_tasks_count = (await db.execute(
+        select(sql_func.count(TaskModel.id)).where(
+            or_(*overdue_task_conds),
+            TaskModel.due_date < now,
+            TaskModel.status.notin_(["done", "completed"]),
+        )
+    )).scalar() or 0
+
     # 3. Pending material requests (for PMs)
     from app.api.telegram_workflow import MaterialRequest as MatReq
     mat_q = select(MatReq).where(
@@ -237,6 +259,10 @@ async def personal_dashboard(
             "new_leads": new_leads_count,
         },
         "pipeline_value": pipeline_value,
+        # Số cho 2 thẻ cảnh báo trên Tổng quan — phạm vi CHÍNH CHỦ (lead được giao,
+        # việc của mình), khớp với những gì user bấm vào sẽ thấy
+        "overdue_leads": len(overdue),
+        "overdue_tasks": overdue_tasks_count,
         "priorities": priorities[:10],
         "ai_suggestions": [],
     }

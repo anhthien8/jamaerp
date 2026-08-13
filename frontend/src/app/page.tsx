@@ -279,10 +279,13 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pipeline Funnel + Team Performance (admin/leader only) */}
-        {!isFinancial && !isPersonal && !isExecRole && (
+        {/* Pipeline Funnel + Team Performance — chỉ hiện khi backend THẬT SỰ trả
+            field: leader/supervisor nhận personal dashboard KHÔNG có stage_funnel/
+            team_performance, không gate thì hai bảng toàn số 0 bịa (audit 13/08) */}
+        {!isFinancial && !isPersonal && !isExecRole && (data?.stage_funnel || data?.team_performance) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pipeline Funnel */}
+            {data?.stage_funnel && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">📊 Phễu quy trình</h2>
               <div className="space-y-3">
@@ -307,8 +310,10 @@ export default function DashboardPage() {
                 })}
               </div>
             </div>
+            )}
 
             {/* Team Performance */}
+            {data?.team_performance && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🏆 Hiệu suất Đội</h2>
               <div className="space-y-3">
@@ -336,6 +341,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
         )}
 
@@ -514,19 +520,22 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold mb-3">⚠️ Cảnh báo</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <AlertCard
-                count={data?.overdue_leads ?? 4}
+                count={data?.overdue_leads ?? 0}
                 label="Lead quá hạn liên hệ"
                 color="#EF4444"
                 onClick={() => router.push('/leads?filter=overdue')}
               />
+              {/* personal dashboard không có stage_funnel → ẩn thẻ thay vì hiện 0 bịa */}
+              {data?.stage_funnel && (
+                <AlertCard
+                  count={data.stage_funnel['lost'] ?? 0}
+                  label="Lead mất trong tháng"
+                  color="#F59E0B"
+                  onClick={() => router.push('/leads?stage=lost')}
+                />
+              )}
               <AlertCard
-                count={data?.stage_funnel?.['lost'] ?? 0}
-                label="Lead mất trong tháng"
-                color="#F59E0B"
-                onClick={() => router.push('/leads?stage=lost')}
-              />
-              <AlertCard
-                count={0}
+                count={data?.overdue_tasks ?? 0}
                 label="Việc quá hạn"
                 color="var(--stage-new)"
                 onClick={() => router.push('/projects')}
@@ -535,10 +544,13 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Executive: Financial Analytics + Growth Metrics */}
-        {isExecRole && (
+        {/* Executive: Financial Analytics + Growth Metrics
+            Chỉ hiện khi backend THẬT SỰ trả các field này — trước 13/08/2026 API
+            chưa trả mà panel vẫn vẽ thanh 100% cho «0 ₫» trông như số thật */}
+        {isExecRole && (data?.financial_summary || data?.growth_metrics) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Financial Analytics */}
+            {data?.financial_summary && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">📊 Phân tích Tài chính</h2>
               <div className="space-y-3">
@@ -567,8 +579,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Growth Metrics */}
+            {data?.growth_metrics && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🚀 Chỉ số Tăng trưởng</h2>
               <div className="space-y-3">
@@ -590,13 +604,15 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
         )}
 
-        {/* Executive: Risk Analysis + Forecast */}
-        {isExecRole && (
+        {/* Executive: Risk Analysis + Forecast — cùng nguyên tắc: không có số thật thì không vẽ */}
+        {isExecRole && (data?.risk_hedging || data?.forecast) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Risk Hedging */}
+            {data?.risk_hedging && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🛡️ Phân tích Rủi ro</h2>
               <div className="space-y-3">
@@ -621,8 +637,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Annual Forecast */}
+            {data?.forecast && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">🔮 Dự báo Doanh thu</h2>
               <div className="space-y-4">
@@ -650,17 +668,20 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+                {data?.financial_summary?.yoy_growth != null && (
                 <div className="mt-4 p-3 rounded-xl bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.2)]">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">📈</span>
                     <div>
-                      <p className="text-sm font-semibold text-[#10B981]">Tăng trưởng: +{data?.financial_summary?.yoy_growth ?? '—'}%</p>
+                      <p className="text-sm font-semibold text-[#10B981]">Tăng trưởng: +{data.financial_summary.yoy_growth}%</p>
                       <p className="text-xs text-[var(--text-muted)]">So với năm 2025 — xu hướng tích cực</p>
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
+            )}
           </div>
         )}
       </div>

@@ -55,7 +55,9 @@ const ALL_ITEMS = [
   // rồi bấm vào bị trang đá về Tổng quan. Gán quyền cho menu khớp với chốt của trang.
   { href: '/kpi', label: 'KPI', icon: Icon.kpi, perm: 'canViewKPI' },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
-  { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewAccounting' },
+  // Trước 13/08/2026 mục này gán 'canViewAccounting' ⇒ trưởng phòng/sale thấy menu
+  // nhưng 4 API trang gọi đều gác canViewPnL → toàn 403. Menu phải khớp cổng backend.
+  { href: '/finance', label: 'Tài chính', icon: Icon.finance, perm: 'canViewPnL' },
   { href: '/reports', label: 'Báo cáo', icon: Icon.reports, perm: 'canViewReports' },
   // Trước 12/08/2026 mục này gán nhầm quyền 'canViewReports' — trưởng phòng, sale, kế toán,
   // giám sát đều thấy "Góp ý" trong menu, bấm vào thì trang tự đá về Tổng quan (link chết).

@@ -1914,6 +1914,8 @@ export interface DashboardExecutive {
   avg_project_progress: number;
   sla_compliance: number;
   overdue_leads: number;
+  /** Việc quá hạn toàn công ty (task quá due_date chưa xong) — backend trả từ 13/08/2026 */
+  overdue_tasks?: number;
   team_performance: Array<{
     team: string;
     total_leads: number;
@@ -1966,6 +1968,9 @@ export interface DashboardPersonal {
   ai_suggestions: Array<Record<string, unknown>>;
   /** Hoa hồng đã duyệt kỳ gần nhất của chính user (backend chưa trả thì FE hiện —) */
   commission_month?: number;
+  /** Lead/việc quá hạn phạm vi chính chủ — backend trả từ 13/08/2026 */
+  overdue_leads?: number;
+  overdue_tasks?: number;
 }
 
 /** Unified dashboard type — all fields optional since exec/personal have different shapes */

@@ -135,6 +135,8 @@ export default function InventoryPage() {
   };
 
   const load = useCallback(async () => {
+    // Bấm «Thử lại» phải quay về màn Đang tải — không để bảng cũ/trống lộ ra khi đang gọi lại API
+    setLoadingData(true);
     // In demo mode, use local demo data directly
     if (isDemo) {
       setMaterials(DEMO_MATERIALS);
@@ -156,11 +158,12 @@ export default function InventoryPage() {
         setPageInfo({ page: 1, total_pages: 1, total: mats.length });
       }
     } catch {
+      // TUYỆT ĐỐI không rơi về DEMO_MATERIALS ở chế độ Làm việc — thu mua sẽ
+      // nhìn tồn kho bịa tưởng là thật (audit 13/08). Hiện lỗi, bảng để trống.
       setError('Không thể tải dữ liệu kho. Vui lòng thử lại.');
-      // Fallback to demo data if API fails
-      setMaterials(DEMO_MATERIALS);
-      setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
-      setPageInfo({ page: 1, total_pages: 1, total: DEMO_MATERIALS.length });
+      setMaterials([]);
+      setLowStock([]);
+      setPageInfo({ page: 1, total_pages: 1, total: 0 });
     } finally {
       setLoadingData(false);
     }
