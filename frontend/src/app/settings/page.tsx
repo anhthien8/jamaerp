@@ -54,6 +54,88 @@ function ChangePasswordSection() {
   );
 }
 
+/** Khóa AI cá nhân (13/08/2026): không bắt buộc — hệ thống đã có khóa Groq chung.
+ *  User thêm khóa riêng thì AI ưu tiên dùng khóa của họ trước (đỡ đốt quota chung). */
+function MyAIKeySection() {
+  const { isDemo } = useAuth();
+  const [keySet, setKeySet] = useState(false);
+  const [masked, setMasked] = useState('');
+  const [newKey, setNewKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    api.getMyLlmKey()
+      .then(r => { setKeySet(r.set); setMasked(r.masked); })
+      .catch(() => setMessage({ text: 'Không tải được trạng thái khóa — thử tải lại trang', ok: false }));
+  }, []);
+
+  const save = async (value: string) => {
+    if (isDemo) {
+      setMessage({ text: '⚠️ Đang ở Chế độ Tập luyện — khóa lưu ở đây không có tác dụng thật. Chuyển sang Làm việc rồi lưu lại nhé.', ok: false });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await api.updateMyLlmKey(value);
+      setKeySet(r.set); setMasked(r.masked); setNewKey('');
+      setMessage({ text: r.set ? '✓ Đã lưu khóa cá nhân — AI sẽ ưu tiên dùng khóa của bạn' : '✓ Đã xóa khóa cá nhân — AI dùng khóa chung của hệ thống', ok: true });
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : 'Lưu khóa thất bại', ok: false });
+    } finally { setBusy(false); }
+  };
+
+  const testKey = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await api.testMyLlmKey();
+      setMessage(r.status === 'ok'
+        ? { text: `✓ Khóa hoạt động — AI trả lời: "${r.reply || ''}"`, ok: true }
+        : { text: `Khóa chưa chạy được: ${r.detail || 'lỗi không rõ'}`, ok: false });
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : 'Kiểm tra thất bại', ok: false });
+    } finally { setBusy(false); }
+  };
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E] font-mono';
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="zap" />Khóa AI cá nhân</h2>
+      <div className="space-y-3">
+        <p className="text-xs text-[var(--text-secondary)]">
+          Không bắt buộc — hệ thống đã có khóa AI chung. Nếu bạn thêm khóa riêng (tạo miễn phí tại{' '}
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-[#C9A96E] hover:underline">console.groq.com</a>),
+          các tính năng AI sẽ <strong>ưu tiên dùng khóa của bạn</strong>; khóa lỗi thì tự quay về khóa chung.
+        </p>
+        {keySet && (
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">Đang dùng: {masked}</span>
+            <div className="flex gap-2">
+              <button onClick={testKey} disabled={busy}
+                className="text-[11px] px-2.5 py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50">
+                Kiểm tra
+              </button>
+              <button onClick={() => save('')} disabled={busy}
+                className="text-[11px] px-2.5 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
+                Xóa khóa
+              </button>
+            </div>
+          </div>
+        )}
+        <input type="password" placeholder={keySet ? 'Dán khóa mới để thay (gsk_...)' : 'Dán khóa Groq của bạn (gsk_...)'}
+          value={newKey} onChange={e => setNewKey(e.target.value)} className={inputCls} autoComplete="off" />
+        <button onClick={() => save(newKey.trim())} disabled={busy || !newKey.trim()}
+          className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          {busy ? 'Đang xử lý...' : 'Lưu khóa'}
+        </button>
+        {message && <p className="text-xs" style={{ color: message.ok ? '#34D399' : '#F87171' }}>{message.text}</p>}
+      </div>
+    </div>
+  );
+}
+
 /** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
 function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
   const { isDemo } = useAuth();
@@ -958,6 +1040,7 @@ export default function SettingsPage() {
             </div>
             <ChangePasswordSection />
             <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
+            <MyAIKeySection />
           </div>
         </div>
 

@@ -72,6 +72,10 @@ class User(Base):
     # Custom overrides take precedence over role defaults
     custom_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Khóa API LLM cá nhân (Groq...) — có thì AI ưu tiên dùng trước key hệ thống.
+    # Không đưa vào UserResponse; API chỉ trả dạng che (gsk_****xxxx).
+    llm_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )

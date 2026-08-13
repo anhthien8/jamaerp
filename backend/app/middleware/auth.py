@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
+from app.services.llm_user_key import current_user_llm_key
 
 settings = get_settings()
 security = HTTPBearer()
@@ -77,6 +78,10 @@ async def get_current_user(
 
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc bị vô hiệu")
+
+    # Khóa LLM cá nhân theo request: AI agents gọi trong request này sẽ ưu tiên
+    # key của chính user (llm_config đọc contextvar, không cần truyền qua tham số)
+    current_user_llm_key.set(user.llm_api_key or "")
 
     exp = payload.get("exp")
     if isinstance(exp, (int, float)):

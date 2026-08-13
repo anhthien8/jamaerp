@@ -762,6 +762,9 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
     } as T;
   }
   if (path === '/ai-settings/test') return { status: 'ok', model: 'demo-model', reply: 'Xin chào từ Chế độ Tập luyện' } as T;
+  // Khóa AI cá nhân: GET trả "chưa đặt" để thẻ hiển thị được; PUT/test không có
+  // resolver → honest-error (không giả lập lưu thành công trong Tập luyện)
+  if (path === '/ai-settings/my-key' && method === 'GET') return { set: false, masked: '' } as T;
 
   // ── Sao lưu (demo) ── GET trả dữ liệu mẫu để trang không chết ở Chế độ Tập luyện.
   // POST /backup/run và PUT /backup/settings KHÔNG có resolver → rơi vào honest-error (không giả lập thành công).
@@ -1625,6 +1628,21 @@ class ApiClient {
   async testAIConnection() {
     return this.request<{ status: string; model?: string; reply?: string; detail?: string }>(
       '/ai-settings/test', { method: 'POST' }
+    );
+  }
+
+  // === Khóa AI cá nhân (mọi vai trò) — có key riêng thì AI ưu tiên dùng trước key hệ thống ===
+  async getMyLlmKey() {
+    return this.request<{ set: boolean; masked: string }>('/ai-settings/my-key');
+  }
+  async updateMyLlmKey(apiKey: string) {
+    return this.request<{ set: boolean; masked: string }>(
+      '/ai-settings/my-key', { method: 'PUT', body: { api_key: apiKey } }
+    );
+  }
+  async testMyLlmKey() {
+    return this.request<{ status: string; model?: string; reply?: string; detail?: string }>(
+      '/ai-settings/my-key/test', { method: 'POST' }
     );
   }
 

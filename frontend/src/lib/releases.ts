@@ -15,6 +15,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '14/08/2026',
+    title: 'Trợ lý AI hoạt động thật + khóa AI cá nhân cho ai muốn dùng riêng',
+    tag: 'RELEASE',
+    news: [
+      'Các tính năng AI (chấm điểm lead, gợi ý Sales Co-Pilot, phân tích – nhận định) nay chạy THẬT trên máy chủ: công ty đã gắn khóa AI chung, không cần ai cài gì thêm.',
+      'Ai muốn dùng khóa AI riêng: vào Cài đặt → thẻ «Khóa AI cá nhân» (mọi vai trò đều có), dán khóa Groq của bạn (tạo miễn phí tại console.groq.com) — từ đó AI ưu tiên chạy bằng khóa của bạn, không tốn hạn mức chung của công ty. Không bắt buộc: bỏ trống thì dùng khóa chung như bình thường.',
+      'Khóa cá nhân lỡ sai hoặc hết hạn mức thì hệ thống tự quay về khóa chung — công việc không bị gián đoạn. Có nút «Kiểm tra» để thử khóa ngay sau khi lưu.',
+    ],
+    fixes: [
+      'Khóa của bạn được giữ kín: mọi màn hình và API chỉ hiện dạng che (gsk_****xxxx), không bao giờ hiện đầy đủ; hệ thống chỉ nhận đúng khóa Groq và không bao giờ gửi khóa của bạn sang dịch vụ AI khác.',
+      'Nút «Kiểm tra kết nối AI» của quản trị viên nay test đúng khóa CHUNG của hệ thống — trước bản này, nếu quản trị viên có khóa riêng thì nút test chạy bằng khóa riêng đó, khóa chung hỏng cũng không phát hiện ra.',
+    ],
+    test: [
+      'Bất kỳ ai: mở một Lead → xác nhận phần chấm điểm / gợi ý Co-Pilot có nội dung AI (không còn im lặng như trước).',
+      'Ai muốn dùng khóa riêng: Cài đặt → «Khóa AI cá nhân» → dán khóa gsk_… → «Lưu khóa» → bấm «Kiểm tra» thấy AI trả lời là xong.',
+      'Quản trị viên: Cài đặt → «Kiểm tra kết nối AI» → xác nhận trả lời "ok" (đây là khóa chung, không phải khóa riêng của bạn).',
+    ],
+  },
+  {
     date: '13/08/2026',
     title: 'Dọn sạch dữ liệu mẫu — CRM từ nay 100% là số thật',
     tag: 'RELEASE',

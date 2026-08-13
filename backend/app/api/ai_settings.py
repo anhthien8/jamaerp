@@ -20,6 +20,7 @@ from app.services.llm_config import (
     invalidate_llm_cache,
     llm_complete,
 )
+from app.services.llm_user_key import current_user_llm_key
 
 router = APIRouter(prefix="/ai-settings", tags=["ai-settings"])
 
@@ -87,13 +88,95 @@ async def update_ai_settings(
     return await _settings_response(db)
 
 
+# ---------------------------------------------------------------------------
+# Khóa AI CÁ NHÂN (13/08/2026) — mọi vai trò đăng nhập đều quản lý key của mình.
+# Có key riêng thì AI ưu tiên dùng trước key hệ thống (xem llm_config).
+# Không bao giờ trả key đầy đủ — chỉ dạng che.
+# ---------------------------------------------------------------------------
+
+
+class MyLlmKeyUpdate(BaseModel):
+    api_key: str = ""  # rỗng = xóa key
+
+
+def _my_key_response(user: User) -> dict:
+    return {
+        "set": bool(user.llm_api_key),
+        "masked": _mask(user.llm_api_key or ""),
+    }
+
+
+@router.get("/my-key")
+async def read_my_llm_key(current_user: User = Depends(get_current_user)):
+    return _my_key_response(current_user)
+
+
+@router.put("/my-key")
+async def update_my_llm_key(
+    payload: MyLlmKeyUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    key = payload.api_key.strip()
+    # Chỉ nhận key Groq — llm_complete cũng chỉ dùng key cá nhân với model groq/,
+    # tránh gửi nhầm key sang provider khác.
+    if key and not key.startswith("gsk_"):
+        raise HTTPException(
+            status_code=400, detail="Chỉ nhận khóa Groq (bắt đầu bằng gsk_)"
+        )
+    if key and len(key) < 12:
+        raise HTTPException(status_code=400, detail="Khóa API không hợp lệ (quá ngắn)")
+    current_user.llm_api_key = key or None
+    await db.commit()
+    return _my_key_response(current_user)
+
+
+@router.post("/my-key/test")
+async def test_my_llm_key(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kiểm tra ĐÚNG key cá nhân (không rơi về key hệ thống như llm_complete)."""
+    if not current_user.llm_api_key:
+        raise HTTPException(status_code=400, detail="Bạn chưa lưu khóa API cá nhân")
+    config = await get_llm_config(db)
+    model = config.get("llm_model", "")
+    if not model.startswith("groq/"):
+        # Key cá nhân là key Groq — model hệ thống đang không phải Groq thì
+        # test bằng model Groq nhanh, không gửi key sang provider khác.
+        model = "groq/llama-3.1-8b-instant"
+    try:
+        from litellm import acompletion
+
+        response = await acompletion(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Bạn là trợ lý JAMA HOME. Trả lời đúng 1 câu ngắn."},
+                {"role": "user", "content": "Khóa cá nhân của tôi hoạt động chứ?"},
+            ],
+            temperature=0.1,
+            max_tokens=50,
+            api_key=current_user.llm_api_key,
+        )
+        return {"status": "ok", "model": getattr(response, "model", model),
+                "reply": response.choices[0].message.content}
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)[:300]}
+
+
 @router.post("/test")
 async def test_ai_connection(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(_require_admin),
 ):
-    """Gửi 1 câu test đến LLM để kiểm tra model + key hoạt động."""
+    """Gửi 1 câu test đến LLM để kiểm tra model + key HỆ THỐNG hoạt động.
+
+    Bỏ key cá nhân của admin khỏi request này: công cụ chẩn đoán phải chạy
+    đúng key chung mà nhân viên không có key riêng (và worker nền) đang dùng —
+    không thì key chung chết mà nút test vẫn báo "ok" bằng key riêng của admin.
+    """
     invalidate_llm_cache()
+    khoa_ca_nhan = current_user_llm_key.set("")
     try:
         response = await llm_complete(
             messages=[
@@ -108,3 +191,5 @@ async def test_ai_connection(
         return {"status": "ok", "model": model_used, "reply": reply}
     except Exception as exc:
         return {"status": "error", "detail": str(exc)[:300]}
+    finally:
+        current_user_llm_key.reset(khoa_ca_nhan)
