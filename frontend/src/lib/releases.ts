@@ -15,6 +15,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '13/08/2026',
+    title: 'Hết cảnh "Không thể tải dữ liệu" — nay báo đúng là phiên đã hết hạn',
+    tag: 'RELEASE',
+    news: [
+      'Phiên đăng nhập kéo dài 12 tiếng thay vì 8 tiếng — đủ trọn một ngày làm việc, không còn bị văng giữa buổi chiều.',
+      'Khi phiên hết hạn, hệ thống tự đưa về trang đăng nhập kèm dòng "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." — biết ngay phải làm gì.',
+    ],
+    fixes: [
+      'Lỗi nhiều bạn báo: mở trang Quy trình (và cả Dự án, Khách hàng, Kho, Kế toán, Nhân sự, KPI) thì hiện "Không thể tải dữ liệu. Vui lòng thử lại.", bấm "Thử lại" bao nhiêu lần cũng vậy. Nguyên nhân KHÔNG phải hỏng dữ liệu: phiên đăng nhập đã hết hạn nhưng màn hình vẫn hiện tên và menu như đang đăng nhập, nên không ai biết chỉ cần đăng nhập lại là xong.',
+      'Nay chỉ cần thoát ra đăng nhập lại một lần là hết — không phải chờ ai sửa.',
+    ],
+    test: [
+      'Bạn nào đang gặp lỗi: bấm Đăng xuất rồi đăng nhập lại, mở trang Quy trình xem đã lên danh sách khách chưa.',
+      'Sáng hôm sau mở máy: nếu bị đưa về trang đăng nhập kèm dòng chữ vàng "Phiên đăng nhập đã hết hạn" thì là đúng, cứ đăng nhập lại bình thường.',
+    ],
+  },
+  {
     date: '12/08/2026',
     title: 'Trợ lý AI biết nhớ — gợi ý việc cần làm với từng khách',
     tag: 'RELEASE',

@@ -52,6 +52,41 @@ class TestJWTTokens:
             decode_token("totally.invalid.token")
         assert exc_info.value.status_code == 401
 
+    def test_token_song_du_mot_ngay_lam_viec(self):
+        # Hạn token phải phủ trọn ngày làm việc. Để 8 tiếng thì người đăng nhập
+        # 8h sáng bị văng giữa buổi chiều — đúng lỗi team KD báo 13/08/2026.
+        # Kiểm mặc định trong mã nguồn (máy chủ thật không đặt biến môi trường này),
+        # không đọc _settings vì file .env dưới máy lập trình có thể ghi đè.
+        from app.config import Settings
+        assert Settings.model_fields["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"].default >= 720
+
+    def test_token_het_han_bi_tu_choi(self):
+        import pytest as _pytest
+        from datetime import datetime, timedelta, timezone
+        from fastapi import HTTPException
+        from jose import jwt
+        het_han = jwt.encode(
+            {"sub": "u1", "role": "admin", "department": "EXEC",
+             "exp": datetime.now(timezone.utc) - timedelta(minutes=1)},
+            _settings.JWT_SECRET_KEY, algorithm=_settings.JWT_ALGORITHM,
+        )
+        with _pytest.raises(HTTPException) as exc_info:
+            decode_token(het_han)
+        assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+class TestPhienHetHan:
+    """Token chết phải trả 401 để giao diện biết đường bắt đăng nhập lại."""
+
+    async def test_leads_tra_401_khi_token_hong(self, client: AsyncClient):
+        resp = await client.get(
+            "/api/v1/leads",
+            headers={"Authorization": "Bearer totally.invalid.token"},
+        )
+        assert resp.status_code == 401
+        assert "hết hạn" in resp.json()["detail"]
+
 
 # ── POST /api/v1/auth/login ───────────────────────────────────────────────
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth, type AppMode } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 
@@ -15,7 +15,7 @@ const DEMO_CREDENTIALS = [
   { email: 'supervisor@jamahome.vn', role: 'Giám sát' },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -56,6 +56,9 @@ export default function LoginPage() {
     } catch (e) { setFpMsg(e instanceof Error ? e.message : 'Đặt lại thất bại'); }
     finally { setFpBusy(false); }
   };
+
+  // Bị đá về đây do phiên hết hạn — nói rõ lý do thay vì để người dùng ngơ ngác
+  const hetHan = useSearchParams().get('het_han') === '1';
 
   // Read persisted mode after mount (avoids SSR localStorage error)
   useEffect(() => {
@@ -214,6 +217,12 @@ export default function LoginPage() {
               />
             </div>
 
+            {hetHan && !error && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+                Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.
+              </div>
+            )}
+
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                 {error}
@@ -318,5 +327,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

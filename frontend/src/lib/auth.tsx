@@ -38,6 +38,22 @@ const DEMO_USERS: Record<string, User> = {
 
 export type AppMode = 'demo' | 'work';
 
+/**
+ * Đọc hạn dùng (exp) ghi sẵn trong token, không cần gọi máy chủ.
+ * Token của CRM sống 12 tiếng; hết hạn thì mọi lời gọi đều trả 401.
+ */
+function tokenConHan(token: string | null): boolean {
+  if (!token) return false;
+  try {
+    const phan = token.split('.')[1];
+    if (!phan) return false;
+    const payload = JSON.parse(atob(phan.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -92,6 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedMode = localStorage.getItem('jama_mode') as AppMode | null;
       if (storedMode === 'demo' || storedMode === 'work') {
         setModeState(storedMode);
+      }
+
+      // Phiên đã hết hạn thì KHÔNG dựng lại người dùng nữa. Trước đây vẫn khôi phục
+      // từ localStorage nên app trông như đang đăng nhập (còn tên, còn menu) trong khi
+      // mọi trang đều báo "Không thể tải dữ liệu" — không ai đoán được là phải đăng nhập lại.
+      if (localStorage.getItem('jama_demo') !== 'true' && !tokenConHan(localStorage.getItem('jama_token'))) {
+        localStorage.removeItem('jama_token');
+        localStorage.removeItem('jama_user');
+        setLoading(false);
+        return;
       }
 
       const stored = localStorage.getItem('jama_user');

@@ -854,6 +854,33 @@ export function laLoiThieuQuyen(e: unknown): boolean {
   return e instanceof ApiError && e.status === 403;
 }
 
+// Endpoint không cần đăng nhập — 401 ở đây nghĩa là "sai mật khẩu / sai mã",
+// KHÔNG phải phiên hết hạn, nên tuyệt đối không được xóa phiên hay chuyển trang.
+const ENDPOINT_CONG_KHAI = ['/auth/login', '/auth/telegram', '/auth/forgot-password', '/auth/reset-password'];
+
+let daXuLyHetPhien = false;
+
+/**
+ * Token hết hạn hoặc không hợp lệ (401) → xóa phiên chết, đưa về trang đăng nhập.
+ *
+ * Trước đây 401 chỉ bị ném ra như một lỗi thường: vỏ ứng dụng vẫn dựng lại từ
+ * localStorage (còn tên, còn menu) trong khi mọi lời gọi đều hỏng, nên người dùng
+ * chỉ thấy "Không thể tải dữ liệu. Vui lòng thử lại." ở mọi trang và bấm "Thử lại"
+ * cũng vô ích vì vẫn gửi đúng cái token đã chết đó.
+ */
+function xuLyHetPhien(endpoint: string) {
+  if (typeof window === 'undefined') return;
+  if (isDemoMode()) return;
+  if (ENDPOINT_CONG_KHAI.some(p => endpoint.startsWith(p))) return;
+  if (daXuLyHetPhien) return;
+  daXuLyHetPhien = true;
+  localStorage.removeItem('jama_token');
+  localStorage.removeItem('jama_user');
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login?het_han=1';
+  }
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -906,6 +933,7 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
+      if (res.status === 401) xuLyHetPhien(endpoint);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
 

@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    # 12 tiếng — phủ trọn một ngày làm việc (7h sáng đến 19h tối).
+    # Để 8 tiếng thì người đăng nhập lúc 8h sáng bị hết phiên ngay giữa buổi chiều.
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
