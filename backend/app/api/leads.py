@@ -9,7 +9,10 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.middleware.rbac import can_view_lead, can_modify_lead, can_assign_leads, is_sales_coordinator, SYSTEM_ROLES
+from app.middleware.rbac import (
+    can_view_lead, can_modify_lead, can_assign_leads, can_assign_lead_to,
+    can_touch_lead_assignment, is_sales_coordinator, is_team_lead, SYSTEM_ROLES,
+)
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
 from app.models.customer import Customer
@@ -48,9 +51,13 @@ def _mask_phone(phone: str | None, current_user=None, lead: Lead | None = None) 
     # Admin always sees full
     if current_user.role == "admin":
         return phone
-    # Leader: full for own team leads, masked for others
-    if current_user.role == "leader":
-        if lead and lead.team_id == current_user.team_id:
+    # Trưởng nhóm (leader hệ thống + sale_leader): đủ SĐT với lead nhóm mình
+    # + lead giao cho CHÍNH mình (chưa xếp đội vẫn phải có số để gọi khách)
+    if is_team_lead(current_user):
+        if lead and (
+            (current_user.team_id is not None and lead.team_id == current_user.team_id)
+            or lead.assigned_to == current_user.id
+        ):
             return phone
         return phone[:3] + "***" if len(phone) >= 3 else "***"
     # Sale (data_entry): full for own leads, masked for others
@@ -112,12 +119,17 @@ async def list_leads(
     )
 
     # RBAC filter — "tài khoản tên nào, chỉ xem tên đó" (feedback team KD 12/08/2026):
-    # sale thấy lead của mình; điều phối KD (CSKH) thấy tất cả để phân chia;
-    # vai trò tùy chỉnh NGOÀI bộ phận KD cũng chỉ thấy lead được gắn cho mình.
+    # sale thấy lead của mình; trưởng nhóm (leader/sale_leader) thấy lead nhóm mình;
+    # điều phối KD (CSKH) thấy tất cả để phân chia; vai trò tùy chỉnh NGOÀI bộ phận KD
+    # cũng chỉ thấy lead được gắn cho mình.
     if current_user.role == "data_entry":
         q = q.where(Lead.assigned_to == current_user.id)
-    elif current_user.role == "leader":
-        q = q.where(Lead.team_id == current_user.team_id)
+    elif is_team_lead(current_user):
+        # Chưa được xếp nhóm: chỉ thấy lead gắn cho chính mình (tránh team_id NULL khớp lead trôi nổi)
+        if current_user.team_id is None:
+            q = q.where(Lead.assigned_to == current_user.id)
+        else:
+            q = q.where(Lead.team_id == current_user.team_id)
     elif current_user.role in ("accountant", "executive", "supervisor"):
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
     elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
@@ -180,8 +192,11 @@ async def pipeline_stats(
     q = select(Lead.stage, func.count(Lead.id), func.sum(Lead.estimated_budget))
     if current_user.role == "data_entry":
         q = q.where(Lead.assigned_to == current_user.id)
-    elif current_user.role == "leader":
-        q = q.where(Lead.team_id == current_user.team_id)
+    elif is_team_lead(current_user):
+        if current_user.team_id is None:
+            q = q.where(Lead.assigned_to == current_user.id)
+        else:
+            q = q.where(Lead.team_id == current_user.team_id)
     elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
         q = q.where(Lead.assigned_to == current_user.id)
     q = q.group_by(Lead.stage)
@@ -229,8 +244,11 @@ async def pipeline_kanban(
         )
         if current_user.role == "data_entry":
             q = q.where(Lead.assigned_to == current_user.id)
-        elif current_user.role == "leader":
-            q = q.where(Lead.team_id == current_user.team_id)
+        elif is_team_lead(current_user):
+            if current_user.team_id is None:
+                q = q.where(Lead.assigned_to == current_user.id)
+            else:
+                q = q.where(Lead.team_id == current_user.team_id)
         elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
             q = q.where(Lead.assigned_to == current_user.id)
 
@@ -254,9 +272,16 @@ async def team_workload(
     current_user: User = Depends(get_current_user),
 ):
     """Team workload distribution — leads per user with pipeline value and overdue count.
-    Admin and leader only."""
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(status_code=403, detail="Chỉ admin/leader được xem phân công workload")
+    Admin, trưởng nhóm (leader/sale_leader) và điều phối KD."""
+    if not (
+        current_user.role == "admin"
+        or is_team_lead(current_user)
+        or is_sales_coordinator(current_user)
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được xem phân công workload")
+    # Trưởng nhóm chưa được xếp nhóm: không có phạm vi để xem
+    if is_team_lead(current_user) and current_user.role != "admin" and current_user.team_id is None:
+        return []
 
     # Overdue = active leads not contacted in >7 days (or never contacted)
     from datetime import timedelta
@@ -293,8 +318,8 @@ async def team_workload(
         .order_by(func.count(Lead.id).desc())
     )
 
-    # RBAC: leader sees only their team
-    if current_user.role == "leader":
+    # RBAC: trưởng nhóm chỉ thấy workload nhóm mình; admin/điều phối KD thấy tất cả
+    if is_team_lead(current_user):
         q = q.where(Lead.team_id == current_user.team_id)
 
     result = await db.execute(q)
@@ -323,8 +348,23 @@ async def export_leads_csv(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Export all leads as CSV."""
-    result = await db.execute(select(Lead).order_by(Lead.created_at.desc()))
+    """Export leads as CSV — cùng phạm vi với danh sách lead của người xuất."""
+    if current_user.role in ("accountant", "executive", "supervisor"):
+        raise HTTPException(status_code=403, detail="Không có quyền xuất dữ liệu lead")
+
+    q = select(Lead).order_by(Lead.created_at.desc())
+    if current_user.role == "data_entry":
+        q = q.where(Lead.assigned_to == current_user.id)
+    elif is_team_lead(current_user):
+        if current_user.team_id is None:
+            q = q.where(Lead.assigned_to == current_user.id)
+        else:
+            q = q.where(Lead.team_id == current_user.team_id)
+    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
+        q = q.where(Lead.assigned_to == current_user.id)
+    # admin + điều phối KD (CSKH): toàn bộ
+
+    result = await db.execute(q)
     leads = result.scalars().all()
 
     output = io.StringIO()
@@ -389,6 +429,9 @@ async def create_lead(
         assignee = target.scalar_one_or_none()
         if not assignee or not assignee.is_active:
             raise HTTPException(status_code=404, detail="Nhân viên được gắn không tồn tại hoặc đã nghỉ")
+        # Trưởng nhóm chỉ được gắn người trong nhóm mình; admin/điều phối KD gắn bất kỳ
+        if not can_assign_lead_to(current_user, assignee):
+            raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được gắn nhân viên trong nhóm mình")
 
     lead = Lead(
         name=data.name, phone=data.phone, email=data.email,
@@ -651,6 +694,116 @@ async def change_stage(
     return _lead_response(lead, current_user=current_user)
 
 
+# ── Bulk operations ──────────────────────────────────────────────────────
+# PHẢI đăng ký TRƯỚC POST /{lead_id}/assign: FastAPI khớp route theo thứ tự
+# đăng ký, để sau thì "/bulk/assign" bị nuốt vào lead_id="bulk" → 404
+# "Lead không tồn tại" (bug ẩn từ khi thêm bulk, test luồng data 14/08 mới lộ).
+
+from pydantic import BaseModel as _BaseModel
+
+
+class BulkAssign(_BaseModel):
+    lead_ids: list[str]
+    user_id: str
+
+
+class BulkStageChange(_BaseModel):
+    lead_ids: list[str]
+    new_stage: str
+
+
+@router.post("/bulk/assign")
+async def bulk_assign_leads(
+    data: BulkAssign,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk assign leads to a user (admin/trưởng nhóm/điều phối KD).
+
+    Cùng luật với phân công lẻ: trưởng nhóm chỉ giao lead thuộc nhóm mình cho
+    người trong nhóm — lead ngoài phạm vi bị bỏ qua (trả về `skipped`).
+    Lead nhận người phụ trách mới thì team_id cũng đi theo người đó.
+    """
+    if not can_assign_leads(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được giao lead hàng loạt")
+
+    target = await db.execute(select(User).where(User.id == data.user_id))
+    target_user = target.scalar_one_or_none()
+    if not target_user or not target_user.is_active:
+        raise HTTPException(status_code=404, detail="Nhân viên nhận lead không tồn tại hoặc đã nghỉ")
+    if not can_assign_lead_to(current_user, target_user):
+        raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được giao lead cho nhân viên trong nhóm mình")
+
+    result = await db.execute(
+        select(Lead).where(Lead.id.in_(data.lead_ids))
+    )
+    leads = result.scalars().all()
+    updated = 0
+    for lead in leads:
+        if not can_touch_lead_assignment(current_user, lead):
+            continue
+        lead.assigned_to = target_user.id
+        lead.team_id = target_user.team_id
+        lead.updated_at = datetime.now(timezone.utc)
+        db.add(Activity(
+            lead_id=lead.id, user_id=current_user.id,
+            type="assignment", content=f"Phân công cho {target_user.full_name} (giao hàng loạt)",
+        ))
+        updated += 1
+    if updated and target_user.id != current_user.id:
+        db.add(Notification(
+            user_id=target_user.id,
+            type="lead_assigned",
+            title="Bạn được giao lead mới",
+            body=f"{current_user.full_name} giao {updated} lead cho bạn",
+            link="/leads",
+            ref_id=None,
+        ))
+    await db.flush()
+    return {"updated": updated, "skipped": len(leads) - updated}
+
+
+@router.post("/bulk/stage")
+async def bulk_change_stage(
+    data: BulkStageChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk change lead stage (admin/trưởng nhóm/điều phối KD).
+
+    Trưởng nhóm chỉ đổi được stage của lead thuộc nhóm mình — ngoài phạm vi bị bỏ qua.
+    """
+    if not (
+        current_user.role == "admin"
+        or is_team_lead(current_user)
+        or is_sales_coordinator(current_user)
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được chuyển stage hàng loạt")
+    if data.new_stage not in LEAD_STAGES:
+        raise HTTPException(status_code=400, detail=f"Giai đoạn không hợp lệ: {data.new_stage}")
+    # signed_design là stage terminal kèm side-effect (tự sinh Khách hàng + Dự án
+    # + 19 task + Hợp đồng ở PUT /{lead_id}/stage) — đổi hàng loạt sẽ bỏ qua toàn
+    # bộ side-effect đó và không chạy bù lại được, nên bắt chuyển từng lead.
+    if data.new_stage == "signed_design":
+        raise HTTPException(
+            status_code=400,
+            detail="«Ký HĐ Thiết kế» phải chuyển từng lead (hệ thống tự tạo Khách hàng + Dự án + Hợp đồng) — không chuyển hàng loạt được",
+        )
+    result = await db.execute(
+        select(Lead).where(Lead.id.in_(data.lead_ids))
+    )
+    leads = result.scalars().all()
+    updated = 0
+    for lead in leads:
+        if not can_modify_lead(current_user, lead):
+            continue
+        lead.stage = data.new_stage
+        lead.updated_at = datetime.now(timezone.utc)
+        updated += 1
+    await db.flush()
+    return {"updated": updated, "skipped": len(leads) - updated}
+
+
 @router.post("/{lead_id}/assign", response_model=LeadResponse)
 async def assign_lead(
     lead_id: str,
@@ -665,12 +818,18 @@ async def assign_lead(
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
     if not can_assign_leads(current_user):
         raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được phân công lead")
+    # Trưởng nhóm chỉ được phân công lead đã thuộc nhóm mình (CSKH giao về nhóm trước)
+    if not can_touch_lead_assignment(current_user, lead):
+        raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được phân công lead thuộc nhóm mình")
 
     # Get target user
     target = await db.execute(select(User).where(User.id == data.user_id))
     target_user = target.scalar_one_or_none()
-    if not target_user:
-        raise HTTPException(status_code=404, detail="User không tồn tại")
+    if not target_user or not target_user.is_active:
+        raise HTTPException(status_code=404, detail="Nhân viên nhận lead không tồn tại hoặc đã nghỉ")
+    # Trưởng nhóm chỉ được giao cho người trong nhóm mình; admin/điều phối KD giao bất kỳ
+    if not can_assign_lead_to(current_user, target_user):
+        raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được giao lead cho nhân viên trong nhóm mình")
 
     lead.assigned_to = data.user_id
     lead.team_id = target_user.team_id
@@ -775,60 +934,6 @@ async def create_activity(
     )
 
 
-# ── Bulk operations ──────────────────────────────────────────────────────
-
-from pydantic import BaseModel as _BaseModel
-
-
-class BulkAssign(_BaseModel):
-    lead_ids: list[str]
-    user_id: str
-
-
-class BulkStageChange(_BaseModel):
-    lead_ids: list[str]
-    new_stage: str
-
-
-@router.post("/bulk/assign")
-async def bulk_assign_leads(
-    data: BulkAssign,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Bulk assign leads to a user (admin/leader/điều phối KD)."""
-    if not can_assign_leads(current_user):
-        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được giao lead hàng loạt")
-    result = await db.execute(
-        select(Lead).where(Lead.id.in_(data.lead_ids))
-    )
-    leads = result.scalars().all()
-    for lead in leads:
-        lead.assigned_to = data.user_id
-        lead.updated_at = datetime.now(timezone.utc)
-    await db.flush()
-    return {"updated": len(leads)}
-
-
-@router.post("/bulk/stage")
-async def bulk_change_stage(
-    data: BulkStageChange,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Bulk change lead stage (admin/leader only)."""
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(status_code=403, detail="Chỉ admin/leader được chuyển stage hàng loạt")
-    if data.new_stage not in LEAD_STAGES:
-        raise HTTPException(status_code=400, detail=f"Giai đoạn không hợp lệ: {data.new_stage}")
-    result = await db.execute(
-        select(Lead).where(Lead.id.in_(data.lead_ids))
-    )
-    leads = result.scalars().all()
-    for lead in leads:
-        lead.stage = data.new_stage
-        lead.updated_at = datetime.now(timezone.utc)
-    await db.flush()
-    return {"updated": len(leads)}
+# (Bulk operations đã dời lên TRƯỚC /{lead_id}/assign — xem chú thích tại đó.)
 
 

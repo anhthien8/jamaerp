@@ -710,6 +710,29 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
         },
     },
+    {
+        # Trưởng nhóm Kinh doanh — role_key là hằng số code-owned (rbac.SALE_LEADER_ROLE):
+        # backend đối xử như leader hệ thống nhưng GIỚI HẠN theo team_id (luồng data
+        # 14/08/2026: CSKH chia về nhóm → trưởng nhóm chia tiếp trong nhóm).
+        # Prod đã có sẵn role này (sếp tạo tay) → seed KHÔNG ghi đè, chỉ đỡ bản cài mới.
+        "role_key": "sale_leader",
+        "role_name": "Trưởng nhóm Kinh doanh",
+        "department": "SALES",
+        "permissions": {
+            "canViewDashboard": True, "dashboardType": "team",
+            "canViewLeads": True, "leadsScope": "team",
+            "canViewAccounting": False, "canViewPayroll": False, "canViewCommissionOthers": False,
+            # Xem Nhân sự = thấy danh sách sale nhóm mình (backend tự cắt phạm vi nhóm).
+            "canViewHR": True, "canManageUsers": False,
+            "canViewProjects": True, "canViewContracts": True, "canViewQuotations": True,
+            "canCreateQuotations": True, "canViewInventory": False,
+            "canViewReports": True, "canViewPnL": False,
+            "canCreateProjects": False, "canCreateContracts": False,
+            "canCreateTasks": True, "canEditTasks": True,
+            "canViewAttendance": True, "canViewKPI": True,
+            "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        },
+    },
 ]
 
 

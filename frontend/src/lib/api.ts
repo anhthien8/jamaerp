@@ -1309,15 +1309,14 @@ class ApiClient {
     return this.request<PaginatedResponse<User>>('/users', { params });
   }
   /**
-   * Ứng viên nhận lead: nhân viên đang hoạt động thuộc lực lượng KD —
-   * data_entry, leader, hoặc bộ phận Kinh doanh (gồm vai trò tùy chỉnh như Admin CSKH).
-   * Dùng chung cho nút "Đổi" phụ trách và ô "Gắn nhân viên KD" khi tạo lead.
+   * Ứng viên nhận lead cho dropdown «Giao data» — GET /users/assignable.
+   * Backend tự cắt phạm vi: admin/điều phối KD thấy toàn lực lượng KD;
+   * trưởng nhóm (leader/sale_leader) chỉ thấy người nhóm mình + chính mình.
+   * Không đòi quyền Nhân sự (khác GET /users) — chỉ trả tên/vai trò/nhóm.
    */
   async getAssignableSales(): Promise<User[]> {
-    const res = await this.getUsers({ page_size: '200' });
-    const items: User[] = Array.isArray(res) ? res : (res?.items ?? []);
-    return items
-      .filter(u => u.is_active && (u.role === 'data_entry' || u.role === 'leader' || u.department === 'SALES'))
+    const items = await this.request<User[]>('/users/assignable');
+    return (Array.isArray(items) ? items : [])
       .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
   }
   async getTeams() {

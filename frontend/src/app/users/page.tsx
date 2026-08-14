@@ -47,7 +47,7 @@ const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: ''
 
 export default function UsersPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions, permsReady } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,8 +89,14 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
-    if (!loading && user && !getPermissions(user.role as UserRole).canManageUsers) router.push('/');
-  }, [user, loading, router]);
+    // Gate theo quyền HIỆU LỰC (backend) và chỉ sau khi quyền đã chốt (permsReady) —
+    // vai trò tùy chỉnh lúc mới vào chỉ có mặc định cục bộ, redirect sớm là đá nhầm.
+    // Trang này mở cho ai có «Quản lý Users» hoặc «Xem Nhân sự» (khớp gate GET /users).
+    if (!loading && permsReady && user
+        && !effectivePermissions.canManageUsers && !effectivePermissions.canViewHR) {
+      router.push('/');
+    }
+  }, [user, loading, permsReady, effectivePermissions, router]);
 
   const loadUsers = useCallback(async () => {
     setLoading2(true);

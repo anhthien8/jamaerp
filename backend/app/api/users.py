@@ -17,9 +17,12 @@ from app.middleware.permissions import (  # noqa: F401 — re-export có chủ �
     quyen_hieu_luc,
     xoa_cache_quyen,
 )
+from app.middleware.rbac import can_assign_leads, is_sales_coordinator, is_team_lead
 from app.models.user import User, Team
 from app.models.notification import SystemSetting
-from app.schemas.user import UserCreate, UserUpdate, CustomRoleCreate, VALID_ROLES
+from app.schemas.user import (
+    UserCreate, UserUpdate, CustomRoleCreate, TeamCreate, TeamUpdate, VALID_ROLES,
+)
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -44,12 +47,22 @@ async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """List all users."""
-    # Only admin, accountant, leader can list users
-    if current_user.role not in ("admin", "accountant", "leader"):
+    """List users — gate theo ma trận phân quyền, không hardcode role.
+
+    Cần «Xem Nhân sự» (canViewHR) hoặc «Quản lý Users» (canManageUsers) trong
+    ma trận hiệu lực. Trưởng nhóm (leader/sale_leader) chỉ thấy nhân sự nhóm
+    mình + chính mình — luồng data 14/08/2026.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not (perms.get("canViewHR") or perms.get("canManageUsers")):
         raise HTTPException(status_code=403, detail="Không có quyền xem danh sách nhân viên")
 
     q = select(User).order_by(User.full_name)
+    if current_user.role != "admin" and is_team_lead(current_user):
+        if current_user.team_id is None:
+            q = q.where(User.id == current_user.id)
+        else:
+            q = q.where((User.team_id == current_user.team_id) | (User.id == current_user.id))
     if role:
         q = q.where(User.role == role)
     if department:
@@ -82,6 +95,40 @@ async def list_users(
     }
 
 
+@router.get("/assignable")
+async def list_assignable_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Danh sách người nhận data lead — cho dropdown «Giao data».
+
+    Mở cho ai được phân chia data (admin/trưởng nhóm/điều phối KD), KHÔNG cần
+    quyền Nhân sự: chỉ trả tên/vai trò/nhóm, không có SĐT hay lương.
+    Phạm vi tự cắt ở backend: admin & điều phối KD thấy toàn bộ nhân sự KD +
+    trưởng nhóm; trưởng nhóm chỉ thấy người nhóm mình + chính mình.
+    """
+    if not can_assign_leads(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được xem danh sách phân công")
+
+    q = select(User).where(User.is_active == True).order_by(User.full_name)  # noqa: E712
+    if current_user.role == "admin" or is_sales_coordinator(current_user):
+        q = q.where((User.department == "SALES") | (User.role.in_(("data_entry", "leader"))))
+    else:  # trưởng nhóm (leader/sale_leader)
+        if current_user.team_id is None:
+            q = q.where(User.id == current_user.id)
+        else:
+            q = q.where((User.team_id == current_user.team_id) | (User.id == current_user.id))
+
+    users = (await db.execute(q)).scalars().all()
+    return [
+        {
+            "id": u.id, "full_name": u.full_name, "role": u.role,
+            "department": u.department, "team_id": u.team_id, "is_active": u.is_active,
+        }
+        for u in users
+    ]
+
+
 @router.get("/teams")
 async def list_teams(
     db: AsyncSession = Depends(get_db),
@@ -97,6 +144,98 @@ async def list_teams(
         }
         for t in teams
     ]
+
+
+@router.post("/teams")
+async def create_team(
+    data: TeamCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tạo đội mới — cần «Quản lý Users» trong ma trận hiệu lực.
+
+    Nếu chỉ định trưởng nhóm (leader_id) thì người đó được tự động chuyển
+    team_id về đội này để phạm vi nhóm có hiệu lực ngay.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền quản lý đội nhóm")
+
+    code = data.code.strip().upper()
+    existing = await db.execute(select(Team).where(Team.code == code))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Mã đội '{code}' đã tồn tại")
+
+    leader = None
+    if data.leader_id:
+        leader = await db.get(User, data.leader_id)
+        if not leader or not leader.is_active:
+            raise HTTPException(status_code=404, detail="Trưởng nhóm được chỉ định không tồn tại hoặc đã nghỉ")
+
+    team = Team(
+        name=data.name.strip(), code=code,
+        department=(data.department or "SALES").strip().upper(),
+        leader_id=data.leader_id,
+    )
+    db.add(team)
+    await db.flush()
+    if leader:
+        leader.team_id = team.id
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="team.create", entity_type="team",
+        entity_id=team.id, note=f"Tạo đội {team.name} ({team.code})",
+    )
+    return {
+        "id": team.id, "name": team.name, "code": team.code,
+        "department": team.department, "leader_id": team.leader_id,
+    }
+
+
+@router.put("/teams/{team_id}")
+async def update_team(
+    team_id: str,
+    data: TeamUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sửa đội (tên/bộ phận/trưởng nhóm) — cần «Quản lý Users».
+
+    Đổi trưởng nhóm thì người mới được tự động chuyển team_id về đội này.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền quản lý đội nhóm")
+
+    team = await db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Đội không tồn tại")
+
+    provided = data.model_dump(exclude_unset=True)
+    if "name" in provided and provided["name"]:
+        team.name = provided["name"].strip()
+    if "department" in provided and provided["department"]:
+        team.department = provided["department"].strip().upper()
+    if "leader_id" in provided:
+        if provided["leader_id"]:
+            leader = await db.get(User, provided["leader_id"])
+            if not leader or not leader.is_active:
+                raise HTTPException(status_code=404, detail="Trưởng nhóm được chỉ định không tồn tại hoặc đã nghỉ")
+            team.leader_id = leader.id
+            leader.team_id = team.id
+        else:
+            team.leader_id = None
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="team.update", entity_type="team",
+        entity_id=team.id, note=f"Cập nhật đội {team.name} ({team.code})",
+    )
+    return {
+        "id": team.id, "name": team.name, "code": team.code,
+        "department": team.department, "leader_id": team.leader_id,
+    }
 
 
 # ── Custom roles (stored in system_settings) ─────────────────────────────
@@ -330,11 +469,29 @@ async def get_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get user detail."""
+    """Get user detail — chính mình, hoặc người có quyền Nhân sự/Quản lý Users.
+
+    Trưởng nhóm (leader/sale_leader) chỉ xem được hồ sơ người trong nhóm mình.
+    Trước đây endpoint này KHÔNG gác — lộ SĐT/bậc lương/quyền cá nhân cho mọi
+    người đăng nhập (vá 14/08/2026).
+    """
+    if current_user.id != user_id:
+        perms = await quyen_hieu_luc(current_user, db)
+        if not (perms.get("canViewHR") or perms.get("canManageUsers")):
+            raise HTTPException(status_code=403, detail="Không có quyền xem hồ sơ nhân viên khác")
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+
+    if (
+        current_user.id != user_id
+        and current_user.role != "admin"
+        and is_team_lead(current_user)
+        and (current_user.team_id is None or user.team_id != current_user.team_id)
+    ):
+        raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ xem được hồ sơ nhân sự nhóm mình")
     return {
         "id": user.id, "full_name": user.full_name, "email": user.email,
         "phone": user.phone, "role": user.role, "department": user.department,
@@ -439,10 +596,29 @@ async def update_user(
     if ("salary_grade_id" in provided or "dependents_count" in provided) and current_user.role not in ("admin", "accountant"):
         raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được gán bậc lương")
 
+    # Đội quyết định phạm vi thấy lead/nhân sự — tự đổi team_id là tự mở rộng quyền.
+    # Chỉ chặn khi giá trị THAY ĐỔI thật (form tự sửa hồ sơ có thể echo giá trị cũ).
+    if (
+        "team_id" in provided
+        and provided["team_id"] != user.team_id
+        and current_user.role not in ("admin", "accountant")
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+
+    # Bộ phận cũng quyết định phạm vi: vai trò tùy chỉnh + department SALES là
+    # điều phối KD (thấy toàn bộ lead, đủ SĐT, export). Tự đổi department của
+    # chính mình = tự leo thang — chặn như team_id (review đối kháng 14/08).
+    if (
+        "department" in provided
+        and provided["department"] != user.department
+        and current_user.role not in ("admin", "accountant")
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển bộ phận nhân sự")
+
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username", "salary_grade_id", "dependents_count"]
     before_sensitive = {
         "role": user.role, "is_active": user.is_active, "team_id": user.team_id,
-        "telegram_user_id": user.telegram_user_id,
+        "department": user.department, "telegram_user_id": user.telegram_user_id,
     }
     for k in allowed:
         if k in provided:

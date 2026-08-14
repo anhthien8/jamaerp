@@ -16,6 +16,30 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '14/08/2026',
+    title: 'Luồng chia data theo nhóm kinh doanh: CSKH → Trưởng nhóm → Sale',
+    tag: 'RELEASE',
+    news: [
+      'Chia data đúng luồng công ty: Admin CSKH nhập data lên hệ thống → chia cho Trưởng nhóm Kinh doanh (hoặc chia thẳng cho sale) → Trưởng nhóm chia tiếp cho sale trong nhóm mình → Sale liên hệ, tư vấn và cập nhật tình trạng chăm sóc.',
+      'Trưởng nhóm Kinh doanh từ nay CHỈ thấy data và nhân sự thuộc nhóm mình — data nhóm khác không hiện, kể cả khi tìm kiếm, xem pipeline hay xuất file.',
+      'Admin CSKH chia data thay trưởng nhóm được ngay: ô «Giao cho» hiện đủ nhân viên kinh doanh + trưởng nhóm toàn công ty mà KHÔNG cần được cấp quyền «Xem Nhân sự» (danh sách chỉ có tên + đội, không lộ SĐT hay lương của ai).',
+      'Quản trị viên quản lý Đội ngay trên hệ thống: tạo/sửa đội, chọn trưởng nhóm — chọn ai làm trưởng nhóm là người đó tự động được kéo về đội đó.',
+    ],
+    fixes: [
+      'Tick «Xem Nhân sự» cho vai trò tự tạo (vd Admin CSKH) nay CÓ hiệu lực thật với danh sách nhân sự — trước đây chỉ tài khoản quản trị mới mở được trang này dù đã tick quyền (đúng phản ánh của bộ phận CSKH).',
+      'Giao data hàng loạt trước nay bấm là báo «Lead không tồn tại» — đã sửa tận gốc, giờ giao được thật và báo rõ bao nhiêu lead được giao / bị bỏ qua vì ngoài phạm vi.',
+      'Trưởng nhóm chưa được xếp đội vẫn mở, sửa và thấy đủ SĐT lead của CHÍNH mình (trước bản này thấy trong danh sách nhưng bấm vào là báo không có quyền).',
+      'Tự đổi Đội hoặc Bộ phận trong hồ sơ cá nhân đã bị chặn — chuyển nhóm/bộ phận là việc của quản trị viên hoặc kế toán, tránh tự mở rộng phạm vi xem data khách.',
+      'Xuất file CSV data khách nay theo đúng phạm vi từng người: trưởng nhóm chỉ xuất được nhóm mình, sale chỉ xuất lead của mình; các vai trò ngoài kinh doanh (kế toán, điều hành, giám sát) không tải được danh bạ khách nữa.',
+      '«Ký HĐ Thiết kế» phải chuyển từng lead một (hệ thống tự tạo Khách hàng + Dự án + Hợp đồng kèm theo) — chặn đổi hàng loạt để không sót dự án nào.',
+    ],
+    test: [
+      'Admin CSKH: mở Data khách → chọn một lead → ô «Giao cho» có đủ danh sách sale + trưởng nhóm để chia, không cần nhờ admin.',
+      'Trưởng nhóm (đã có đội): mở Data khách — chỉ thấy lead nhóm mình; trang Nhân sự chỉ thấy người trong nhóm; ô «Giao cho» chỉ có người nhóm mình.',
+      'Sale: vẫn chỉ thấy lead của mình như trước; nhận lead mới là thấy ngay trong danh sách và cập nhật tình trạng bình thường.',
+    ],
+  },
+  {
+    date: '14/08/2026',
     title: 'Trợ lý AI hoạt động thật + khóa AI cá nhân cho ai muốn dùng riêng',
     tag: 'RELEASE',
     news: [

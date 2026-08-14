@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.middleware.rbac import is_sales_coordinator
+from app.middleware.rbac import is_sales_coordinator, is_team_lead
 from app.models.user import User
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.services.kpi_engine import compute_kpi, snapshot_all, get_leaderboard, detect_burnout
@@ -81,7 +81,11 @@ async def get_team_kpi(
 
     # Điều phối KD (Admin CSKH) được xem KPI toàn đội — chủ dự án chốt 12/08/2026:
     # họ chia data cho sale nên phải nhìn được ai đang tải nặng, ai đang hụt số.
-    if current_user.role not in ("admin", "leader", "executive") and not is_sales_coordinator(current_user):
+    if (
+        current_user.role not in ("admin", "executive")
+        and not is_team_lead(current_user)
+        and not is_sales_coordinator(current_user)
+    ):
         raise HTTPException(403, "Chỉ admin/trưởng phòng/ban quản trị/điều phối KD xem KPI đội")
 
     q = (
@@ -90,8 +94,12 @@ async def get_team_kpi(
         .where(KpiSnapshot.period == period)
     )
 
-    if current_user.role == "leader" and current_user.team_id:
-        q = q.where(User.team_id == current_user.team_id)
+    # Trưởng nhóm (leader/sale_leader): chỉ KPI nhóm mình; chưa có nhóm → chỉ mình
+    if current_user.role != "admin" and is_team_lead(current_user):
+        if current_user.team_id:
+            q = q.where(User.team_id == current_user.team_id)
+        else:
+            q = q.where(User.id == current_user.id)
 
     rows = (await db.execute(q.order_by(KpiSnapshot.score.desc()))).all()
 
@@ -173,13 +181,13 @@ async def create_coaching_note(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(403, "Chỉ leader/admin tạo coaching note")
+    if current_user.role != "admin" and not is_team_lead(current_user):
+        raise HTTPException(403, "Chỉ trưởng nhóm/admin tạo coaching note")
 
-    # Leader can only note for their own team
-    if current_user.role == "leader":
+    # Trưởng nhóm chỉ note cho người trong nhóm mình
+    if current_user.role != "admin":
         target = await db.get(User, body.user_id)
-        if not target or target.team_id != current_user.team_id:
+        if not target or current_user.team_id is None or target.team_id != current_user.team_id:
             raise HTTPException(403, "Nhân viên không thuộc team của bạn")
 
     note = CoachingNote(
@@ -206,9 +214,9 @@ async def list_coaching_notes(
         # Users can only see notes about themselves; leaders see team; admin sees all
         if current_user.role == "admin":
             q = q.where(CoachingNote.user_id == user_id)
-        elif current_user.role == "leader":
+        elif is_team_lead(current_user) and user_id != current_user.id:
             target = await db.get(User, user_id)
-            if target and target.team_id == current_user.team_id:
+            if target and current_user.team_id is not None and target.team_id == current_user.team_id:
                 q = q.where(CoachingNote.user_id == user_id)
             else:
                 raise HTTPException(403, "Không có quyền xem note của nhân viên này")
@@ -220,7 +228,7 @@ async def list_coaching_notes(
         # Default: leader sees own team, admin sees all
         if current_user.role == "admin":
             pass
-        elif current_user.role == "leader":
+        elif is_team_lead(current_user) and current_user.team_id is not None:
             team_users = (await db.execute(
                 select(User.id).where(User.team_id == current_user.team_id)
             )).scalars().all()
@@ -311,8 +319,8 @@ async def submit_leader_review(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(403, "Chỉ leader/admin chấm review")
+    if current_user.role != "admin" and not is_team_lead(current_user):
+        raise HTTPException(403, "Chỉ trưởng nhóm/admin chấm review")
 
     review = await db.get(ReviewCycle, review_id)
     if not review:
@@ -320,10 +328,10 @@ async def submit_leader_review(
     if review.status != "pending_leader":
         raise HTTPException(409, "Review không ở trạng thái chờ leader")
 
-    # Leader scope check
-    if current_user.role == "leader":
+    # Trưởng nhóm chỉ chấm người trong nhóm mình
+    if current_user.role != "admin":
         target = await db.get(User, review.user_id)
-        if not target or target.team_id != current_user.team_id:
+        if not target or current_user.team_id is None or target.team_id != current_user.team_id:
             raise HTTPException(403, "Nhân viên không thuộc team của bạn")
 
     review.leader_json = body.leader_json

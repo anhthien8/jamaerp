@@ -85,6 +85,19 @@ class CustomRoleCreate(BaseModel):
     permissions: dict = Field(default_factory=dict)
 
 
+class TeamCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    code: str = Field(min_length=1, max_length=20)
+    department: str | None = Field(default="SALES", max_length=20)
+    leader_id: str | None = None
+
+
+class TeamUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    department: str | None = Field(default=None, max_length=20)
+    leader_id: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

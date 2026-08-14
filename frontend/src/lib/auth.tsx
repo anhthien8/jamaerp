@@ -64,6 +64,13 @@ interface AuthContextType {
   setMode: (mode: AppMode) => void;
   /** Effective permissions: role defaults merged with per-user custom overrides */
   effectivePermissions: RolePermissions;
+  /**
+   * true = effectivePermissions đã CHỐT (quyền backend tải xong, hoặc xác định
+   * không có gì để tải: demo/chưa đăng nhập/mất mạng). Trang gate theo quyền
+   * PHẢI đợi cờ này trước khi redirect — vai trò tùy chỉnh lúc đầu chỉ có
+   * mặc định data_entry cục bộ, redirect sớm là đá nhầm người có quyền.
+   */
+  permsReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -75,6 +82,7 @@ const AuthContext = createContext<AuthContextType>({
   mode: 'work',
   setMode: () => {},
   effectivePermissions: getEffectivePermissions('data_entry'),
+  permsReady: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -84,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Quyền do backend tính (GET /users/permissions/me) — nguồn sự thật duy nhất.
   // null = chưa tải xong / demo / mất mạng → dùng bản tính cục bộ bên dưới.
   const [serverPerms, setServerPerms] = useState<RolePermissions | null>(null);
+  const [permsReady, setPermsReady] = useState(false);
 
   // Derive isDemo from mode for backward compatibility
   const isDemo = mode === 'demo';
@@ -127,13 +136,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const stored = localStorage.getItem('jama_user');
+      let dangTaiQuyen = false;
       if (stored) {
         try {
           setUser(JSON.parse(stored));
           // Tải quyền backend nền — không chặn màn hình (menu tạm vẽ theo bản cục bộ)
-          void loadMyPermissions().then((p) => { if (p) setServerPerms(p); });
+          dangTaiQuyen = true;
+          void loadMyPermissions()
+            .then((p) => { if (p) setServerPerms(p); })
+            .finally(() => setPermsReady(true));
         } catch {}
       }
+      if (!dangTaiQuyen) setPermsReady(true);
       setLoading(false);
     });
   }, []);
@@ -145,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const demoUser = DEMO_USERS[email.toLowerCase()];
       if (demoUser && password === DEMO_PASSWORD) {
         setUser(demoUser);
+        setPermsReady(true); // demo: ma trận cục bộ là bản chốt
         setModeState('demo');
         localStorage.setItem('jama_mode', 'demo');
         localStorage.setItem('jama_token', 'demo-token');
@@ -165,7 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.login(email, password);
       setUser(data.user);
-      void loadMyPermissions().then((p) => { if (p) setServerPerms(p); });
+      setPermsReady(false);
+      void loadMyPermissions()
+        .then((p) => { if (p) setServerPerms(p); })
+        .finally(() => setPermsReady(true));
       return;
     } catch {
       // API unavailable — fallback to demo (chỉ khi đúng mật khẩu demo)
@@ -203,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const adminUser = DEMO_USERS['admin@jamahome.vn'];
       setUser(adminUser);
       setServerPerms(null); // demo dùng ma trận cục bộ, không dính quyền backend
+      setPermsReady(true);
       setModeState('demo');
       localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');
@@ -220,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions, permsReady }}>
       {children}
     </AuthContext.Provider>
   );

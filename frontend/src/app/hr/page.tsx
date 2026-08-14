@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, User, Team, extractItems } from '@/lib/api';
-import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 
@@ -37,7 +36,7 @@ interface ResignPreviewData {
 }
 
 export default function HRPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions, permsReady } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -63,8 +62,10 @@ export default function HRPage() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
-    if (!loading && user && !getPermissions(user.role as UserRole).canViewHR) router.push('/');
-  }, [user, loading, router]);
+    // Gate theo quyền HIỆU LỰC + đợi permsReady — vai trò tùy chỉnh (sale_leader,
+    // admin_cskh) chỉ có quyền đúng sau khi backend trả /permissions/me.
+    if (!loading && permsReady && user && !effectivePermissions.canViewHR) router.push('/');
+  }, [user, loading, permsReady, effectivePermissions, router]);
 
   const load = useCallback(async () => {
     try {
@@ -179,7 +180,9 @@ export default function HRPage() {
     return diffDays <= 7;
   };
 
-  const permissions = user ? getPermissions(user.role as UserRole) : null;
+  // Quyền hiệu lực (backend + override) — nút Thêm/Sửa nhân sự bám theo ma trận thật,
+  // không phải mặc định tĩnh của vai trò (vai trò tùy chỉnh sẽ sai nếu dùng bản tĩnh).
+  const permissions = user ? effectivePermissions : null;
 
   if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-64 rounded-xl" /></div></Sidebar>;
 

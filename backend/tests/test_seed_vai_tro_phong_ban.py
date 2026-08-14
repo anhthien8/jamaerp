@@ -19,6 +19,9 @@ from app.seed import _VAI_TRO_PHONG_BAN, seed_vai_tro_phong_ban
 from tests.conftest import auth_header
 
 BON_VAI_TRO = {"quan_ly_du_an", "thiet_ke", "giam_sat_thi_cong", "thu_mua"}
+# 14/08/2026: thêm sale_leader (Trưởng nhóm Kinh doanh) — khác 4 vai trò phòng ban:
+# ĐƯỢC xem leads (phạm vi nhóm), vẫn không đụng tài chính.
+VAI_TRO_SEED = BON_VAI_TRO | {"sale_leader"}
 
 
 async def _doc_custom_roles(db_session) -> list[dict]:
@@ -32,15 +35,16 @@ async def test_seed_them_du_4_vai_tro_khi_db_trong(db_session):
     await db_session.commit()
 
     roles = await _doc_custom_roles(db_session)
-    assert {r["role_key"] for r in roles} == BON_VAI_TRO
+    assert {r["role_key"] for r in roles} == VAI_TRO_SEED
     # Mỗi vai trò phải mang ĐỦ 25 khóa quyền — thiếu khóa là resolve fallback sai
     for r in roles:
         assert len(r["permissions"]) == len(_VAI_TRO_PHONG_BAN[0]["permissions"]), r["role_key"]
-    # Nguyên tắc: không vai trò phòng ban nào thấy tài chính / leads
+    # Nguyên tắc: không vai trò seed nào thấy tài chính; riêng leads chỉ
+    # sale_leader được xem (phạm vi nhóm), 4 vai trò phòng ban thì không.
     for r in roles:
         assert r["permissions"]["canViewAccounting"] is False, r["role_key"]
         assert r["permissions"]["canViewPnL"] is False, r["role_key"]
-        assert r["permissions"]["canViewLeads"] is False, r["role_key"]
+        assert r["permissions"]["canViewLeads"] is (r["role_key"] == "sale_leader"), r["role_key"]
 
 
 @pytest.mark.asyncio
@@ -50,7 +54,7 @@ async def test_seed_chay_lai_khong_nhan_doi(db_session):
     await db_session.commit()
 
     roles = await _doc_custom_roles(db_session)
-    assert len(roles) == 4  # không nhân đôi
+    assert len(roles) == len(VAI_TRO_SEED)  # không nhân đôi
 
 
 @pytest.mark.asyncio
@@ -95,7 +99,7 @@ async def test_seed_giu_nguyen_vai_tro_custom_co_san(db_session):
 
     roles = await _doc_custom_roles(db_session)
     keys = {r["role_key"] for r in roles}
-    assert keys == BON_VAI_TRO | {"admin_cskh"}
+    assert keys == VAI_TRO_SEED | {"admin_cskh"}
     cskh = next(r for r in roles if r["role_key"] == "admin_cskh")
     assert cskh["permissions"] == {"canViewDashboard": True, "canViewLeads": True}
 
