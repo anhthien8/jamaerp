@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { api, SalaryGrade, User } from '@/lib/api';
+import { api, SalaryGrade, Team, User } from '@/lib/api';
 import { getPermissions, getEffectivePermissions, getRoleLabel, ALL_PERMISSION_KEYS, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
@@ -41,9 +41,10 @@ interface FormData {
   /** Cấu hình lương — không gán bậc thì payroll sinh 0đ (audit 22/07) */
   salary_grade_id: string;
   dependents_count: string;
+  team_id: string;
 }
 
-const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES', salary_grade_id: '', dependents_count: '0' };
+const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES', salary_grade_id: '', dependents_count: '0', team_id: '' };
 
 export default function UsersPage() {
   const router = useRouter();
@@ -76,9 +77,19 @@ export default function UsersPage() {
   // Per-user permission overrides
   const [customPerms, setCustomPerms] = useState<Record<string, boolean>>({});
   const [customPermsLoaded, setCustomPermsLoaded] = useState(false);
+  // Đội nhóm — tạo/sửa đội, chọn trưởng nhóm, xếp thành viên
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]); // đủ toàn bộ nhân sự cho modal đội (bảng chính phân trang 20)
+  const [teamModal, setTeamModal] = useState<'create' | 'edit' | null>(null);
+  const [teamForm, setTeamForm] = useState({ name: '', code: '', department: 'SALES', leader_id: '' });
+  const [teamMemberIds, setTeamMemberIds] = useState<Set<string>>(new Set());
+  const [teamEditId, setTeamEditId] = useState('');
+  const [teamSaving, setTeamSaving] = useState(false);
+  const [teamError, setTeamError] = useState('');
   const pageSize = 20;
 
   const isAdmin = user?.role === 'admin';
+  const canManageTeams = Boolean(effectivePermissions.canManageUsers);
 
   /** Get display label for built-in or custom roles */
   const getAnyRoleLabel = (roleKey: string): string => {
@@ -122,9 +133,28 @@ export default function UsersPage() {
     api.getCustomRoles().then(res => setCustomRoles(res.roles || [])).catch(() => {});
   }, []);
 
+  // Đội nhóm: danh sách đội cho cột «Đội» (mọi người xem được);
+  // full nhân sự chỉ tải khi có quyền quản lý (cần cho modal xếp thành viên)
+  const loadTeamsData = useCallback(async () => {
+    api.getTeams().then(setTeams).catch(() => {});
+    if (canManageTeams) {
+      api.getUsers({ page_size: '500' }).then(res => {
+        setAllUsers(res.items || []);
+        // Quá trần 1 trang → danh sách tick thành viên thiếu người, lưu sẽ gỡ nhầm
+        if ((res.total ?? 0) > (res.items || []).length) {
+          toast('Hệ thống vượt 500 nhân sự — danh sách xếp đội đang thiếu người, cần nâng cấp trước khi lưu đội', 'error');
+        }
+      }).catch(() => {
+        // Nuốt lỗi im lặng làm modal treo «Đang tải...» vô hạn (review 14/08)
+        toast('Không tải được danh sách nhân sự cho xếp đội — thử tải lại trang', 'error');
+      });
+    }
+  }, [canManageTeams, toast]);
+  useEffect(() => { if (user && permsReady) loadTeamsData(); }, [user, permsReady, loadTeamsData]);
+
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); setCustomPerms({}); setCustomPermsLoaded(false); };
   const openEdit = (u: User) => {
-    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0) });
+    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0), team_id: u.team_id || '' });
     setEditId(u.id); setModal('edit'); setError('');
     // Load salary grades and custom permissions
     api.getSalaryGrades().then(setGrades).catch(() => setGrades([]));
@@ -140,11 +170,13 @@ export default function UsersPage() {
     if (form.password.length < 8) { setError('Mật khẩu tối thiểu 8 ký tự'); return; }
     setSaving(true);
     try {
-      // Tách 2 trường lương (string trong form) — gán bậc lương làm ở bước Sửa sau khi tạo
-      const { salary_grade_id: _sg, dependents_count: _dc, ...createPayload } = form;
+      // Tách 2 trường lương (string trong form) — gán bậc lương làm ở bước Sửa sau khi tạo.
+      // team_id cũng bỏ: xếp đội làm ở khối «Đội nhóm» hoặc bước Sửa (tránh gửi chuỗi rỗng).
+      const { salary_grade_id: _sg, dependents_count: _dc, team_id: _t, ...createPayload } = form;
       await api.createUser({ ...createPayload, is_active: true });
       setModal(null);
       loadUsers();
+      loadTeamsData(); // đồng bộ allUsers — tránh modal đội dùng danh sách cũ gỡ nhầm người mới
     } catch (e: unknown) { setError((e as Error).message || 'Lỗi tạo user'); }
     setSaving(false);
   };
@@ -157,6 +189,7 @@ export default function UsersPage() {
         full_name: form.full_name, phone: form.phone, role: form.role, department: form.department,
         salary_grade_id: form.salary_grade_id || null,
         dependents_count: Number(form.dependents_count) || 0,
+        team_id: form.team_id || null,
       });
       // Save custom permissions if any changes were made
       if (customPermsLoaded && isAdmin) {
@@ -164,6 +197,7 @@ export default function UsersPage() {
       }
       setModal(null);
       loadUsers();
+      loadTeamsData(); // đồng bộ allUsers/teams — sửa hồ sơ có thể đổi đội, sĩ số phải khớp
     } catch (e: unknown) { setError((e as Error).message || 'Lỗi cập nhật'); }
     setSaving(false);
   };
@@ -186,6 +220,7 @@ export default function UsersPage() {
     setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: next } : x));
     try {
       await api.updateUser(u.id, { is_active: next });
+      loadTeamsData(); // người nghỉ/làm lại đổi trạng thái tick trong modal đội
     } catch (e) {
       // Lỗi → hoàn tác + báo bằng toast (trước đây set vào state error nhưng không render → trông như "không bấm được")
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: u.is_active } : x));
@@ -223,6 +258,92 @@ export default function UsersPage() {
     }
     setRoleSaving(false);
   };
+
+  // ===== Đội nhóm =====
+  const openTeamCreate = () => {
+    setTeamForm({ name: '', code: '', department: 'SALES', leader_id: '' });
+    setTeamMemberIds(new Set());
+    setTeamEditId(''); setTeamError(''); setTeamModal('create');
+  };
+  const openTeamEdit = (t: Team) => {
+    setTeamForm({ name: t.name, code: t.code, department: t.department, leader_id: t.leader_id || '' });
+    // Chỉ seed người CÒN LÀM VIỆC — seed cả người nghỉ thì không có checkbox để bỏ tick,
+    // lưu lần nào cũng 400 «người đã nghỉ việc» (review 14/08). Người nghỉ vẫn giữ
+    // nhãn đội phía backend, không bị đụng khi lưu roster.
+    setTeamMemberIds(new Set(allUsers.filter(u => u.team_id === t.id && u.is_active).map(u => u.id)));
+    setTeamEditId(t.id); setTeamError(''); setTeamModal('edit');
+  };
+
+  const handleTeamSave = async () => {
+    if (!teamForm.name.trim()) { setTeamError('Tên đội không được để trống'); return; }
+    if (teamModal === 'create' && !teamForm.code.trim()) { setTeamError('Mã đội không được để trống (VD: SALE-A)'); return; }
+    setTeamSaving(true);
+    try {
+      let teamId = teamEditId;
+      if (teamModal === 'create') {
+        const created = await api.createTeam({
+          name: teamForm.name.trim(),
+          code: teamForm.code.trim().toUpperCase(),
+          department: teamForm.department,
+          leader_id: teamForm.leader_id || null,
+        });
+        teamId = created.id;
+        // Đội đã tạo xong trên server — chuyển modal sang chế độ sửa NGAY để nếu bước
+        // xếp thành viên lỗi, bấm Lưu lại đi đường update (không tạo trùng «Mã đội đã tồn tại»)
+        setTeamEditId(created.id);
+        setTeamModal('edit');
+        loadTeamsData();
+      } else {
+        await api.updateTeam(teamId, {
+          name: teamForm.name.trim(),
+          department: teamForm.department,
+          leader_id: teamForm.leader_id || null,
+        });
+      }
+      // Gửi danh sách ĐẦY ĐỦ thành viên — backend tự giữ trưởng nhóm nếu thiếu
+      await api.setTeamMembers(teamId, Array.from(teamMemberIds));
+      setTeamModal(null);
+      await Promise.all([loadTeamsData(), loadUsers()]);
+      toast('Đã lưu đội nhóm', 'success');
+    } catch (e: unknown) { setTeamError((e as Error).message || 'Lỗi lưu đội nhóm'); }
+    setTeamSaving(false);
+  };
+
+  const handleTeamDelete = async () => {
+    const t = teams.find(x => x.id === teamEditId);
+    // Vừa tạo đội xong mà getTeams chưa kịp về thì đừng câm lặng (phản biện vá 14/08)
+    if (!t) { toast('Danh sách đội chưa tải xong — chờ vài giây rồi thử lại', 'error'); return; }
+    const ok = window.confirm(
+      `Giải tán đội ${t.name}? ${t.member_count ?? 0} thành viên sẽ về «chưa xếp đội», `
+      + 'data đang gắn nhãn đội chỉ mất nhãn (người phụ trách giữ nguyên). Không hoàn tác được.'
+    );
+    if (!ok) return;
+    setTeamSaving(true);
+    try {
+      await api.deleteTeam(teamEditId);
+      setTeamModal(null);
+      await Promise.all([loadTeamsData(), loadUsers()]);
+      toast(`Đã giải tán đội ${t.name}`, 'success');
+    } catch (e: unknown) { setTeamError((e as Error).message || 'Lỗi giải tán đội'); }
+    setTeamSaving(false);
+  };
+
+  // Ứng viên trưởng nhóm: đang hoạt động + vai trò trưởng (leader hệ thống / sale_leader tùy chỉnh);
+  // giữ cả trưởng nhóm hiện tại để select không rơi về rỗng nếu vai trò của họ đã bị đổi
+  const leaderOptions = allUsers.filter(u =>
+    (u.is_active && (u.role === 'leader' || u.role === 'sale_leader')
+      // Đang lãnh đội KHÁC thì ẩn khỏi lựa chọn — backend cũng chặn, tránh chọn xong mới 400
+      && !teams.some(t => t.leader_id === u.id && t.id !== teamEditId))
+    || u.id === teamForm.leader_id
+  );
+  // Danh sách tick thành viên: bỏ admin (không xếp đội), người cùng bộ phận với đội lên trước
+  const memberCandidates = [...allUsers]
+    .filter(u => u.is_active && u.role !== 'admin')
+    .sort((a, b) => {
+      const ad = a.department === teamForm.department ? 0 : 1;
+      const bd = b.department === teamForm.department ? 0 : 1;
+      return ad !== bd ? ad - bd : a.full_name.localeCompare(b.full_name, 'vi');
+    });
 
   if (!user) return null;
 
@@ -262,6 +383,39 @@ export default function UsersPage() {
           </select>
         </div>
 
+        {/* Đội nhóm — trưởng nhóm chỉ thấy & được giao data trong đội mình (luồng chia data 14/08) */}
+        {canManageTeams && (
+          <div className="mb-4 rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--text-primary)]">Đội nhóm</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Chia đội để trưởng nhóm quản thành viên của mình — bấm vào đội để sửa</p>
+              </div>
+              <button onClick={openTeamCreate} className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold text-[var(--gold-500)] bg-[var(--surface-2)] border border-[var(--border-subtle)] hover:bg-[var(--surface-3)] transition-colors">
+                + Tạo đội
+              </button>
+            </div>
+            {teams.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">Chưa có đội nào — bấm «+ Tạo đội» để bắt đầu chia nhóm.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {teams.map(t => (
+                  <button key={t.id} onClick={() => openTeamEdit(t)} className="text-left rounded-xl p-3 bg-[var(--surface-2)] border border-[var(--border-subtle)] hover:border-[var(--gold-500)] transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{t.name}</p>
+                      <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--text-muted)]">{t.code}</span>
+                    </div>
+                    <p className={`text-xs mt-1 truncate ${t.leader_name ? 'text-[var(--text-secondary)]' : 'text-amber-400'}`}>
+                      {t.leader_name ? `Trưởng nhóm: ${t.leader_name}` : 'Chưa có trưởng nhóm'}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{t.member_count ?? 0} thành viên · {labelOf(DEPARTMENT_LABELS, t.department)}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Table */}
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>
           <div className="overflow-x-auto">
@@ -272,15 +426,16 @@ export default function UsersPage() {
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-muted)]">Email</th>
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-muted)]">Vai trò</th>
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-muted)]">Bộ phận</th>
+                  <th className="text-left px-4 py-3 font-medium text-[var(--text-muted)]">Đội</th>
                   <th className="text-center px-4 py-3 font-medium text-[var(--text-muted)]">Trạng thái</th>
                   {isAdmin && <th className="text-right px-4 py-3 font-medium text-[var(--text-muted)]">Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
                 {loading2 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-[var(--text-muted)]">Đang tải...</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-[var(--text-muted)]">Đang tải...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-[var(--text-muted)]">Không tìm thấy tài khoản</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-[var(--text-muted)]">Không tìm thấy tài khoản</td></tr>
                 ) : users.map(u => (
                   <tr key={u.id} className="border-b last:border-0 hover:bg-[var(--surface-2)] transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
                     <td className="px-4 py-3">
@@ -298,6 +453,7 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)]">{labelOf(DEPARTMENT_LABELS, u.department)}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{teams.find(t => t.id === u.team_id)?.name || '—'}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => isAdmin && handleToggleActive(u)}
@@ -357,6 +513,11 @@ export default function UsersPage() {
                   <span className="inline-block px-2 py-0.5 rounded-lg text-xs font-medium border bg-[var(--surface-2)] text-[var(--text-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
                     {labelOf(DEPARTMENT_LABELS, u.department)}
                   </span>
+                  {u.team_id && (
+                    <span className="inline-block px-2 py-0.5 rounded-lg text-xs font-medium border bg-[var(--surface-2)] text-[var(--text-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {teams.find(t => t.id === u.team_id)?.name || 'Đội'}
+                    </span>
+                  )}
                 </div>
                 {isAdmin && (
                   <div className="flex gap-2 mt-3">
@@ -459,6 +620,28 @@ export default function UsersPage() {
                   </div>
                 </div>
               )}
+              {modal === 'edit' && (() => {
+                // Trưởng nhóm không đổi đội tại đây — kéo họ đi sẽ làm đội cũ mồ côi;
+                // muốn chuyển thì đổi trưởng nhóm của đội đó ở khối «Đội nhóm» trước
+                const leadingTeam = teams.find(t => t.leader_id === editId);
+                return (
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Đội nhóm</label>
+                    <select
+                      value={form.team_id}
+                      onChange={e => setForm({ ...form, team_id: e.target.value })}
+                      disabled={Boolean(leadingTeam)}
+                      className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] disabled:opacity-50"
+                    >
+                      <option value="">Chưa xếp đội</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+                    </select>
+                    {leadingTeam && (
+                      <p className="text-[10px] text-amber-400 mt-1">Đang là trưởng nhóm {leadingTeam.name} — muốn chuyển đội, đổi trưởng nhóm của đội đó trước (khối «Đội nhóm»)</p>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Per-user permission overrides (admin only) */}
               {modal === 'edit' && isAdmin && customPermsLoaded && (
                 <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -624,6 +807,100 @@ export default function UsersPage() {
               <button onClick={handleCreateRole} disabled={roleSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
                 {roleSaving ? 'Đang lưu...' : 'Tạo vai trò'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Tạo / Sửa đội nhóm */}
+      {teamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setTeamModal(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md rounded-2xl p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">{teamModal === 'create' ? 'Tạo đội mới' : 'Sửa đội nhóm'}</h2>
+            {teamError && <p className="text-sm text-red-400 mb-3">{teamError}</p>}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Tên đội *</label>
+                  <input value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="VD: Sale Team A" className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{teamModal === 'create' ? 'Mã đội *' : 'Mã đội (không đổi được)'}</label>
+                  <input value={teamForm.code} onChange={e => setTeamForm({ ...teamForm, code: e.target.value.toUpperCase().replace(/\s+/g, '-') })} disabled={teamModal === 'edit'} placeholder="VD: SALE-A" className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)] disabled:opacity-50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bộ phận</label>
+                  <select value={teamForm.department} onChange={e => setTeamForm({ ...teamForm, department: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{labelOf(DEPARTMENT_LABELS, d)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Trưởng nhóm</label>
+                  <select
+                    value={teamForm.leader_id}
+                    onChange={e => {
+                      const lid = e.target.value;
+                      setTeamForm(f => ({ ...f, leader_id: lid }));
+                      // Trưởng nhóm luôn thuộc đội — tick sẵn trong danh sách thành viên
+                      if (lid) setTeamMemberIds(prev => new Set(prev).add(lid));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+                  >
+                    <option value="">— Chưa chọn —</option>
+                    {leaderOptions.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                  </select>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">Chỉ vai trò Trưởng phòng / Trưởng nhóm KD</p>
+                </div>
+              </div>
+              {/* Thành viên */}
+              <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-1">Thành viên ({teamMemberIds.size})</h3>
+                <p className="text-[10px] text-[var(--text-muted)] mb-2">Tick người thuộc đội — người đang ở đội khác sẽ được kéo về đội này khi lưu.</p>
+                <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
+                  {memberCandidates.length === 0 ? (
+                    <p className="text-xs text-[var(--text-muted)] py-2">Đang tải danh sách nhân sự...</p>
+                  ) : memberCandidates.map(u => {
+                    const isLeader = u.id === teamForm.leader_id;
+                    const leadsOther = teams.find(t => t.leader_id === u.id && t.id !== teamEditId);
+                    const otherTeam = !isLeader && u.team_id && u.team_id !== teamEditId ? teams.find(t => t.id === u.team_id) : null;
+                    return (
+                      <label key={u.id} className={`flex items-center gap-2 py-1 px-1.5 rounded-lg text-xs transition-colors ${leadsOther ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-[var(--surface-2)]'}`}>
+                        <input
+                          type="checkbox"
+                          checked={teamMemberIds.has(u.id) || isLeader}
+                          disabled={isLeader || Boolean(leadsOther)}
+                          onChange={() => setTeamMemberIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(u.id)) next.delete(u.id); else next.add(u.id);
+                            return next;
+                          })}
+                          className="w-3.5 h-3.5 rounded accent-emerald-500 flex-shrink-0"
+                        />
+                        <span className="truncate text-[var(--text-primary)]">{u.full_name}</span>
+                        <span className="ml-auto flex-shrink-0 text-[10px] text-[var(--text-muted)]">
+                          {isLeader ? 'Trưởng nhóm' : leadsOther ? `Trưởng nhóm ${leadsOther.name}` : otherTeam ? `đang ở ${otherTeam.name}` : labelOf(DEPARTMENT_LABELS, u.department)}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-5">
+              {teamModal === 'edit' ? (
+                <button onClick={handleTeamDelete} disabled={teamSaving} className="px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50">
+                  Giải tán đội
+                </button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <button onClick={() => setTeamModal(null)} className="px-4 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--surface-2)]">Hủy</button>
+                <button onClick={handleTeamSave} disabled={teamSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+                  {teamSaving ? 'Đang lưu...' : teamModal === 'create' ? 'Tạo đội' : 'Lưu'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

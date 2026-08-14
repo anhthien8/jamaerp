@@ -98,6 +98,11 @@ class TeamUpdate(BaseModel):
     leader_id: str | None = None
 
 
+class TeamMembersUpdate(BaseModel):
+    """Danh sách ĐẦY ĐỦ user_id thuộc đội sau khi lưu — ai không có trong list bị gỡ."""
+    user_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

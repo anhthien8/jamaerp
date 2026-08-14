@@ -16,6 +16,28 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '14/08/2026',
+    title: 'Chia đội kinh doanh ngay trên hệ thống: tạo đội, chọn trưởng nhóm, xếp thành viên',
+    tag: 'RELEASE',
+    news: [
+      'Trang «Quản lý tài khoản» có khối Đội nhóm: quản trị viên tạo/sửa đội, chọn trưởng nhóm và tick danh sách thành viên trong một màn hình — hết cảnh không chia đội được vì thiếu chỗ phân nhóm.',
+      'Trang Nhân sự thêm chế độ xem «Đội nhóm»: nhìn một phát biết đội nào — trưởng nhóm nào — quân số bao nhiêu, ai chưa được xếp đội.',
+      'Giải tán đội làm được ngay trên UI (có xác nhận): thành viên về «chưa xếp đội», data khách chỉ mất nhãn đội — người phụ trách và toàn bộ lịch sử chăm sóc GIỮ NGUYÊN.',
+    ],
+    fixes: [
+      'Trưởng nhóm nghỉ việc không khóa cứng đội: vẫn đổi tên đội, xếp lại thành viên bình thường; người nghỉ giữ nguyên nhãn đội, quay lại làm là đội nguyên vẹn như cũ.',
+      'Chặn kéo trưởng nhóm đang lãnh đội này sang đội khác — kể cả qua sửa hồ sơ nhân sự; muốn chuyển phải đổi trưởng nhóm đội cũ trước, tránh đội «mồ côi» không ai quản.',
+      'Người được cấp quyền «Quản lý Users» (không phải admin/kế toán) không thể tự thêm mình vào đội khác hay tự bổ nhiệm mình làm trưởng nhóm — chặn cả 3 đường: sửa đội, xếp thành viên, tạo đội mới.',
+      'Tạo đội bị lỗi giữa chừng (ví dụ mạng chập chờn ở bước xếp thành viên) không còn dính «Mã đội đã tồn tại» khi bấm Lưu lại.',
+      'Danh sách nhân sự trong màn hình xếp đội tự làm mới sau khi tạo/sửa/khóa tài khoản; lỗi tải sẽ báo rõ thay vì treo «Đang tải...» mãi. Trần danh sách nâng 200 → 500 người.',
+    ],
+    test: [
+      'Quản trị viên: Quản lý tài khoản → khối «Đội nhóm» → «Tạo đội» → đặt tên/mã đội, chọn trưởng nhóm, tick thành viên → Lưu → thấy thẻ đội kèm sĩ số.',
+      'Mọi người: menu Nhân sự → nút «Đội nhóm» → xem sơ đồ đội của công ty.',
+      'Trưởng nhóm: sau khi được xếp đội, mở Data khách — chỉ thấy và chia được data trong nhóm mình.',
+    ],
+  },
+  {
+    date: '14/08/2026',
     title: 'Luồng chia data theo nhóm kinh doanh: CSKH → Trưởng nhóm → Sale',
     tag: 'RELEASE',
     news: [

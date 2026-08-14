@@ -1322,10 +1322,29 @@ class ApiClient {
   async getTeams() {
     return this.request<Team[]>('/users/teams');
   }
+  async createTeam(data: { name: string; code: string; department?: string; leader_id?: string | null }) {
+    return this.request<Team>('/users/teams', { method: 'POST', body: data });
+  }
+  async updateTeam(id: string, data: { name?: string; department?: string; leader_id?: string | null }) {
+    return this.request<Team>(`/users/teams/${id}`, { method: 'PUT', body: data });
+  }
+  /** Danh sách ĐẦY ĐỦ thành viên của đội sau khi lưu — trưởng nhóm luôn được backend giữ lại */
+  async setTeamMembers(id: string, userIds: string[]) {
+    return this.request<{ team_id: string; member_count: number; added: number; removed: number }>(
+      `/users/teams/${id}/members`, { method: 'PUT', body: { user_ids: userIds } }
+    );
+  }
+  /** Giải tán đội — thành viên về «chưa xếp đội», lead chỉ mất nhãn đội. FE phải confirm trước. */
+  async deleteTeam(id: string) {
+    return this.request<{ message: string; members_cleared: number; leads_cleared: number }>(
+      `/users/teams/${id}`, { method: 'DELETE' }
+    );
+  }
   async createUser(data: Partial<User> & { password: string }) {
     return this.request<User>('/users', { method: 'POST', body: data });
   }
-  async updateUser(id: string, data: Partial<User>) {
+  async updateUser(id: string, data: Partial<Omit<User, 'team_id'>> & { team_id?: string | null }) {
+    // team_id chấp nhận null tường minh = gỡ khỏi đội (backend exclude_unset — undefined sẽ bị JSON bỏ qua)
     return this.request<User>(`/users/${id}`, { method: 'PUT', body: data });
   }
 
@@ -2128,7 +2147,10 @@ export interface Team {
   name: string;
   code: string;
   department: string;
-  leader_id?: string;
+  leader_id?: string | null;
+  /** GET /users/teams trả kèm 2 trường này để UI vẽ thẳng, khỏi join tay */
+  leader_name?: string | null;
+  member_count?: number;
   created_at: string;
 }
 

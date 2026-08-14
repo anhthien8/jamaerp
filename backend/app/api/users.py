@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -19,9 +19,11 @@ from app.middleware.permissions import (  # noqa: F401 — re-export có chủ �
 )
 from app.middleware.rbac import can_assign_leads, is_sales_coordinator, is_team_lead
 from app.models.user import User, Team
+from app.models.lead import Lead
 from app.models.notification import SystemSetting
 from app.schemas.user import (
-    UserCreate, UserUpdate, CustomRoleCreate, TeamCreate, TeamUpdate, VALID_ROLES,
+    UserCreate, UserUpdate, CustomRoleCreate, TeamCreate, TeamUpdate,
+    TeamMembersUpdate, VALID_ROLES,
 )
 from app.services.audit import log_action
 
@@ -45,7 +47,7 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=500),
 ):
     """List users — gate theo ma trận phân quyền, không hardcode role.
 
@@ -134,13 +136,31 @@ async def list_teams(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all teams."""
+    """List all teams — kèm tên trưởng nhóm + sĩ số để UI vẽ thẳng, khỏi join tay."""
     result = await db.execute(select(Team).order_by(Team.name))
     teams = result.scalars().all()
+
+    counts: dict[str, int] = dict(
+        (await db.execute(
+            select(User.team_id, func.count())
+            .where(User.team_id.isnot(None), User.is_active == True)  # noqa: E712
+            .group_by(User.team_id)
+        )).all()
+    )
+    leader_ids = [t.leader_id for t in teams if t.leader_id]
+    leader_names: dict[str, str] = {}
+    if leader_ids:
+        leader_names = {
+            u.id: u.full_name
+            for u in (await db.execute(select(User).where(User.id.in_(leader_ids)))).scalars().all()
+        }
+
     return [
         {
             "id": t.id, "name": t.name, "code": t.code,
             "department": t.department, "leader_id": t.leader_id,
+            "leader_name": leader_names.get(t.leader_id) if t.leader_id else None,
+            "member_count": counts.get(t.id, 0),
         }
         for t in teams
     ]
@@ -171,6 +191,14 @@ async def create_team(
         leader = await db.get(User, data.leader_id)
         if not leader or not leader.is_active:
             raise HTTPException(status_code=404, detail="Trưởng nhóm được chỉ định không tồn tại hoặc đã nghỉ")
+        # Không lấy trưởng nhóm đội khác — đội bên kia sẽ mồ côi leader (review 14/08)
+        other = (await db.execute(select(Team).where(Team.leader_id == leader.id))).scalars().first()
+        if other:
+            raise HTTPException(status_code=400, detail=f"{leader.full_name} đang làm trưởng nhóm đội {other.name} — đổi trưởng nhóm đội đó trước")
+        # Tự lập đội lấy mình làm trưởng nhóm = tự chuyển đội — đường vòng qua guard
+        # của update_team/set_team_members, chặn nốt (phản biện vá 14/08)
+        if leader.id == current_user.id and current_user.role not in ("admin", "accountant"):
+            raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
 
     team = Team(
         name=data.name.strip(), code=code,
@@ -218,10 +246,25 @@ async def update_team(
     if "department" in provided and provided["department"]:
         team.department = provided["department"].strip().upper()
     if "leader_id" in provided:
-        if provided["leader_id"]:
+        if provided["leader_id"] == team.leader_id:
+            pass  # giữ nguyên trưởng nhóm (kể cả đã nghỉ) — vẫn cho sửa tên/bộ phận đội
+        elif provided["leader_id"]:
             leader = await db.get(User, provided["leader_id"])
             if not leader or not leader.is_active:
                 raise HTTPException(status_code=404, detail="Trưởng nhóm được chỉ định không tồn tại hoặc đã nghỉ")
+            # Không lấy trưởng nhóm đội khác — đội bên kia sẽ mồ côi leader (review 14/08)
+            other = (await db.execute(
+                select(Team).where(Team.leader_id == leader.id, Team.id != team.id)
+            )).scalars().first()
+            if other:
+                raise HTTPException(status_code=400, detail=f"{leader.full_name} đang làm trưởng nhóm đội {other.name} — đổi trưởng nhóm đội đó trước")
+            # Gán mình làm trưởng nhóm = tự chuyển đội, tự mở rộng phạm vi lead — chặn như update_user
+            if (
+                leader.id == current_user.id
+                and current_user.role not in ("admin", "accountant")
+                and current_user.team_id != team.id
+            ):
+                raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
             team.leader_id = leader.id
             leader.team_id = team.id
         else:
@@ -235,6 +278,131 @@ async def update_team(
     return {
         "id": team.id, "name": team.name, "code": team.code,
         "department": team.department, "leader_id": team.leader_id,
+    }
+
+
+@router.put("/teams/{team_id}/members")
+async def set_team_members(
+    team_id: str,
+    data: TeamMembersUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Xếp thành viên cho đội — nhận danh sách ĐẦY ĐỦ user_ids sau khi lưu.
+
+    Cần «Quản lý Users». Trưởng nhóm của đội luôn được giữ lại (muốn gỡ thì đổi
+    trưởng nhóm trước). Người đang làm trưởng nhóm đội KHÁC không kéo về được —
+    tránh đội bên kia mồ côi leader đứng ngoài đội.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền quản lý đội nhóm")
+
+    team = await db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Đội không tồn tại")
+
+    # Tự thêm mình vào đội khác = tự mở rộng phạm vi lead — chặn như update_user (review 14/08)
+    if (
+        current_user.id in data.user_ids
+        and current_user.role not in ("admin", "accountant")
+        and current_user.team_id != team.id
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+
+    wanted = set(data.user_ids)
+    if team.leader_id:
+        # Chỉ auto-giữ trưởng nhóm còn làm việc — leader đã nghỉ mà auto-add sẽ
+        # dính chốt chặn «người nghỉ việc» ở dưới, khoá cứng cả đội (review 14/08)
+        leader_row = await db.get(User, team.leader_id)
+        if leader_row and leader_row.is_active:
+            wanted.add(team.leader_id)
+        else:
+            wanted.discard(team.leader_id)
+
+    found: dict[str, User] = {}
+    if wanted:
+        rows = (await db.execute(select(User).where(User.id.in_(wanted)))).scalars().all()
+        found = {u.id: u for u in rows}
+        missing = wanted - set(found)
+        if missing:
+            raise HTTPException(status_code=400, detail=f"{len(missing)} nhân sự trong danh sách không tồn tại — tải lại trang rồi thử lại")
+        inactive = [u.full_name for u in found.values() if not u.is_active]
+        if inactive:
+            raise HTTPException(status_code=400, detail=f"Không xếp người đã nghỉ việc vào đội: {', '.join(inactive)}")
+
+        other_teams = (await db.execute(
+            select(Team).where(Team.leader_id.in_(wanted), Team.id != team.id)
+        )).scalars().all()
+        if other_teams:
+            details = ", ".join(f"{found[t.leader_id].full_name} (trưởng nhóm {t.name})" for t in other_teams)
+            raise HTTPException(status_code=400, detail=f"Đang làm trưởng nhóm đội khác — đổi trưởng nhóm đội đó trước: {details}")
+
+    current_members = (await db.execute(select(User).where(User.team_id == team.id))).scalars().all()
+    # Người đã nghỉ GIỮ NGUYÊN nhãn đội: không có checkbox trên FE, gỡ im lặng sẽ làm
+    # leader nghỉ quay lại bị mất đội (drift với teams.leader_id) và thành viên nghỉ
+    # mất nhãn chỉ vì admin đổi tên đội (phản biện vá 14/08)
+    removed = [u for u in current_members if u.id not in wanted and u.is_active]
+    added = [u for u in found.values() if u.team_id != team.id]
+    for u in removed:
+        u.team_id = None
+    for u in found.values():
+        u.team_id = team.id
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="team.set_members", entity_type="team", entity_id=team.id,
+        before={"member_count": len(current_members)},
+        after={
+            "member_count": len(wanted),
+            "added": [u.full_name for u in added],
+            "removed": [u.full_name for u in removed],
+        },
+        note=f"Xếp thành viên đội {team.name} ({team.code})",
+    )
+    return {"team_id": team.id, "member_count": len(wanted), "added": len(added), "removed": len(removed)}
+
+
+@router.delete("/teams/{team_id}")
+async def delete_team(
+    team_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Giải tán đội — cần «Quản lý Users», FE bắt buộc confirm trước khi gọi.
+
+    Thành viên (kể cả trưởng nhóm) về «chưa xếp đội»; data lead đang gắn đội chỉ
+    mất nhãn đội (người phụ trách + toàn bộ lịch sử chăm sóc giữ nguyên).
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền quản lý đội nhóm")
+
+    team = await db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Đội không tồn tại")
+
+    members = (await db.execute(select(User).where(User.team_id == team.id))).scalars().all()
+    lead_count = (await db.execute(
+        select(func.count()).select_from(Lead).where(Lead.team_id == team.id)
+    )).scalar() or 0
+
+    team_name, team_code = team.name, team.code
+    for m in members:
+        m.team_id = None
+    await db.execute(sa_update(Lead).where(Lead.team_id == team.id).values(team_id=None))
+    await db.delete(team)
+    await db.flush()
+
+    await log_action(
+        db, actor=current_user, action="team.delete", entity_type="team", entity_id=team_id,
+        before={"name": team_name, "code": team_code, "member_count": len(members), "lead_count": lead_count},
+        note=f"Giải tán đội {team_name} ({team_code}) — {len(members)} thành viên, {lead_count} data về kho chung",
+    )
+    return {
+        "message": f"Đã giải tán đội {team_name}",
+        "members_cleared": len(members),
+        "leads_cleared": lead_count,
     }
 
 
@@ -604,6 +772,21 @@ async def update_user(
         and current_user.role not in ("admin", "accountant")
     ):
         raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+
+    # Trưởng nhóm đương nhiệm không rời đội qua đường sửa hồ sơ — kể cả admin.
+    # Nếu cho rời, teams.leader_id thành mồ côi: sĩ số sai, phạm vi lead lệch (review 14/08)
+    if "team_id" in provided and provided["team_id"] != user.team_id:
+        # .all() chứ không .first(): dữ liệu bẩn cũ có thể để 1 người lãnh 2 đội —
+        # .first() sẽ che mất đội thứ hai và cho chuyển lọt (phản biện vá 14/08)
+        leading = (await db.execute(
+            select(Team).where(Team.leader_id == user.id)
+        )).scalars().all()
+        blocked = [t for t in leading if provided["team_id"] != t.id]
+        if blocked:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{user.full_name} đang là trưởng nhóm đội {blocked[0].name} — đổi trưởng nhóm đội đó trước rồi mới chuyển đội",
+            )
 
     # Bộ phận cũng quyết định phạm vi: vai trò tùy chỉnh + department SALES là
     # điều phối KD (thấy toàn bộ lead, đủ SĐT, export). Tự đổi department của

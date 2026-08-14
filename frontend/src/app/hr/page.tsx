@@ -15,6 +15,8 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   data_entry: { label: 'Nhân viên Sale', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
   supervisor: { label: 'Giám sát', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
   accountant: { label: 'Kế toán / Nhân sự', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
+  // Vai trò tùy chỉnh seed sẵn cho luồng chia data theo nhóm KD (14/08)
+  sale_leader: { label: 'Trưởng nhóm KD', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
 };
 
 const DEPT_LABELS: Record<string, string> = {
@@ -42,7 +44,7 @@ export default function HRPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'org'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'org' | 'teams'>('list');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
@@ -69,7 +71,8 @@ export default function HRPage() {
 
   const load = useCallback(async () => {
     try {
-      const [uResult, t] = await Promise.all([api.getUsers(), api.getTeams()]);
+      // page_size 500 (trần backend): sơ đồ đội cần ĐỦ nhân sự — phân trang mặc định sẽ thiếu người
+      const [uResult, t] = await Promise.all([api.getUsers({ page_size: '500' }), api.getTeams()]);
       setUsers(extractItems(uResult));
       setTeams(t);
     } catch { toast('Không thể tải nhân sự', 'error'); } finally {
@@ -225,6 +228,16 @@ export default function HRPage() {
             }}
           >
             Phòng ban
+          </button>
+          <button
+            onClick={() => setViewMode('teams')}
+            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{
+              background: viewMode === 'teams' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
+              color: viewMode === 'teams' ? 'var(--gold-400)' : 'var(--text-tertiary)',
+            }}
+          >
+            Đội nhóm
           </button>
           {permissions?.canManageUsers && (
             <button
@@ -399,6 +412,94 @@ export default function HRPage() {
             </tbody>
           </table>
           </div>
+        </div>
+      ) : viewMode === 'teams' ? (
+        /* Sơ đồ đội — trưởng nhóm đứng đầu, thành viên xếp dưới (luồng chia data theo nhóm KD) */
+        <div className="space-y-6">
+          {teams.length === 0 && (
+            <div className="rounded-2xl p-8 text-center text-sm text-[var(--text-muted)]" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+              Chưa có đội nào — tạo đội trong trang «Quản lý tài khoản» (khối Đội nhóm).
+            </div>
+          )}
+          {teams.map(t => {
+            const members = users.filter(u => u.team_id === t.id && u.is_active);
+            const leader = users.find(u => u.id === t.leader_id);
+            const rest = members.filter(u => u.id !== t.leader_id);
+            return (
+              <div key={t.id} className="rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">{t.name}</h3>
+                  <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: 'var(--surface-3)', color: 'var(--text-muted)' }}>
+                    {t.code} • {members.length} người
+                  </span>
+                </div>
+                {leader ? (
+                  <div className="rounded-xl p-4 flex items-center gap-3 mb-3" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.35)' }}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }}>
+                      {leader.full_name?.split(' ').pop()?.charAt(0) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{leader.full_name}</p>
+                      <p className="text-xs text-[var(--gold-400)]">Trưởng nhóm{leader.is_active ? '' : ' (đã nghỉ)'}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-400 mb-3">Chưa có trưởng nhóm — chọn trong «Quản lý tài khoản» → khối Đội nhóm</p>
+                )}
+                {rest.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:ml-6">
+                    {rest.map(u => {
+                      const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                      return (
+                        <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
+                            {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
+                            <p className="text-xs text-[var(--text-muted)]">{role.label}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)] italic sm:ml-6">Chưa có thành viên nào ngoài trưởng nhóm</p>
+                )}
+              </div>
+            );
+          })}
+          {(() => {
+            // Người chưa xếp đội (bỏ Giám đốc — không thuộc đội nào là đúng)
+            const unassigned = users.filter(u => u.is_active && !u.team_id && u.role !== 'admin');
+            if (unassigned.length === 0) return null;
+            return (
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px dashed var(--border-subtle)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <h3 className="text-lg font-bold text-[var(--text-muted)]">Chưa xếp đội</h3>
+                  <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: 'var(--surface-3)', color: 'var(--text-muted)' }}>
+                    {unassigned.length} người
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {unassigned.map(u => {
+                    const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                    return (
+                      <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
+                          {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{role.label} • {DEPT_LABELS[u.department] || u.department}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : (
         /* Org chart view */
