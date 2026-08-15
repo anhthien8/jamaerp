@@ -146,7 +146,9 @@ export default function InventoryPage() {
       return;
     }
     try {
-      const [matResult, lowResult] = await Promise.all([api.getMaterials(), api.getLowStock()]);
+      // Không truyền page_size thì backend mặc định 50 — kho quá 50 vật tư là phần sau
+      // biến mất không dấu vết. Xin trần tối đa (le=200) và cảnh báo khi vẫn thiếu.
+      const [matResult, lowResult] = await Promise.all([api.getMaterials({ page_size: '200' }), api.getLowStock()]);
       const mats = extractItems(matResult);
       const low = extractItems(lowResult);
       setMaterials(mats);
@@ -154,6 +156,10 @@ export default function InventoryPage() {
       // Track pagination info if available
       if (!Array.isArray(matResult) && matResult.total_pages) {
         setPageInfo({ page: matResult.page, total_pages: matResult.total_pages, total: matResult.total });
+        if ((matResult.total ?? 0) > mats.length) {
+          // Ô tìm kiếm chỉ lọc trong phần ĐÃ tải — đừng khuyên tìm kiếm, nói thẳng là thiếu
+          toast(`Kho có ${matResult.total} vật tư nhưng chỉ tải được ${mats.length} mục đầu — danh sách và tìm kiếm đang thiếu phần còn lại, cần nâng cấp phân trang`, 'error');
+        }
       } else {
         setPageInfo({ page: 1, total_pages: 1, total: mats.length });
       }

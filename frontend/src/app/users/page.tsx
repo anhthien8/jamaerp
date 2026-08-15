@@ -80,6 +80,9 @@ export default function UsersPage() {
   // Đội nhóm — tạo/sửa đội, chọn trưởng nhóm, xếp thành viên
   const [teams, setTeams] = useState<Team[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]); // đủ toàn bộ nhân sự cho modal đội (bảng chính phân trang 20)
+  // Chưa tải xong allUsers mà mở modal sửa đội → danh sách tick rỗng, bấm Lưu là gỡ sạch
+  // thành viên thật trên server. Khóa nút Lưu đến khi danh sách về đủ.
+  const [allUsersLoaded, setAllUsersLoaded] = useState(false);
   const [teamModal, setTeamModal] = useState<'create' | 'edit' | null>(null);
   const [teamForm, setTeamForm] = useState({ name: '', code: '', department: 'SALES', leader_id: '' });
   const [teamMemberIds, setTeamMemberIds] = useState<Set<string>>(new Set());
@@ -140,12 +143,14 @@ export default function UsersPage() {
     if (canManageTeams) {
       api.getUsers({ page_size: '500' }).then(res => {
         setAllUsers(res.items || []);
+        setAllUsersLoaded(true);
         // Quá trần 1 trang → danh sách tick thành viên thiếu người, lưu sẽ gỡ nhầm
         if ((res.total ?? 0) > (res.items || []).length) {
           toast('Hệ thống vượt 500 nhân sự — danh sách xếp đội đang thiếu người, cần nâng cấp trước khi lưu đội', 'error');
         }
       }).catch(() => {
         // Nuốt lỗi im lặng làm modal treo «Đang tải...» vô hạn (review 14/08)
+        setAllUsersLoaded(false);
         toast('Không tải được danh sách nhân sự cho xếp đội — thử tải lại trang', 'error');
       });
     }
@@ -161,7 +166,13 @@ export default function UsersPage() {
     api.getUserPermissions(u.id).then(res => {
       setCustomPerms(res.custom_permissions || {});
       setCustomPermsLoaded(true);
-    }).catch(() => { setCustomPerms({}); setCustomPermsLoaded(true); });
+    }).catch(() => {
+      // Lỗi mạng thoáng qua mà vẫn đánh dấu "đã tải" thì bấm Lưu sẽ ghi đè {} lên
+      // quyền riêng thật của người này — giữ loaded=false để handleEdit bỏ qua phần quyền.
+      setCustomPerms({});
+      setCustomPermsLoaded(false);
+      toast('Không tải được quyền riêng của người này — lưu hồ sơ sẽ giữ nguyên quyền cũ', 'error');
+    });
   };
   const openPassword = (u: User) => { setEditId(u.id); setPwForm({ password: '', confirm: '' }); setModal('password'); setError(''); };
 
@@ -266,6 +277,10 @@ export default function UsersPage() {
     setTeamEditId(''); setTeamError(''); setTeamModal('create');
   };
   const openTeamEdit = (t: Team) => {
+    // teamMemberIds seed MỘT LẦN tại đây từ allUsers. Mở modal khi getUsers(500) chưa về
+    // = seed từ danh sách RỖNG; lúc getUsers về nút Lưu bật lại nhưng set tick vẫn rỗng
+    // → bấm Lưu gỡ sạch thành viên thật (kiểm chứng 15/08). Chặn từ cửa, không chỉ khóa nút.
+    if (!allUsersLoaded) { toast('Danh sách nhân sự đang tải — chờ vài giây rồi bấm lại thẻ đội', 'error'); return; }
     setTeamForm({ name: t.name, code: t.code, department: t.department, leader_id: t.leader_id || '' });
     // Chỉ seed người CÒN LÀM VIỆC — seed cả người nghỉ thì không có checkbox để bỏ tick,
     // lưu lần nào cũng 400 «người đã nghỉ việc» (review 14/08). Người nghỉ vẫn giữ
@@ -275,6 +290,7 @@ export default function UsersPage() {
   };
 
   const handleTeamSave = async () => {
+    if (!allUsersLoaded) { setTeamError('Danh sách nhân sự chưa tải xong — chờ vài giây rồi thử lại'); return; }
     if (!teamForm.name.trim()) { setTeamError('Tên đội không được để trống'); return; }
     if (teamModal === 'create' && !teamForm.code.trim()) { setTeamError('Mã đội không được để trống (VD: SALE-A)'); return; }
     setTeamSaving(true);
@@ -759,7 +775,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Key (tự动生成, không dấu cách)</label>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Key (tự động sinh, không dấu cách)</label>
                 <input
                   value={roleForm.role_key}
                   onChange={e => setRoleForm({ ...roleForm, role_key: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') })}
@@ -897,8 +913,8 @@ export default function UsersPage() {
               ) : <span />}
               <div className="flex gap-2">
                 <button onClick={() => setTeamModal(null)} className="px-4 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--surface-2)]">Hủy</button>
-                <button onClick={handleTeamSave} disabled={teamSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
-                  {teamSaving ? 'Đang lưu...' : teamModal === 'create' ? 'Tạo đội' : 'Lưu'}
+                <button onClick={handleTeamSave} disabled={teamSaving || !allUsersLoaded} className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+                  {teamSaving ? 'Đang lưu...' : !allUsersLoaded ? 'Đang tải nhân sự...' : teamModal === 'create' ? 'Tạo đội' : 'Lưu'}
                 </button>
               </div>
             </div>

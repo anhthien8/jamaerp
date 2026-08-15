@@ -39,8 +39,10 @@ export default function ChangelogPage() {
         </p>
 
         <div className="space-y-6">
-          {RELEASES.map(rel => (
-            <div key={rel.date} className="glass-card p-6">
+          {/* Cùng 1 ngày có thể ra 2 đợt cập nhật — key theo date trùng nhau làm React
+              render lẫn thẻ; ghép thêm chỉ số cho chắc chắn duy nhất */}
+          {RELEASES.map((rel, i) => (
+            <div key={`${rel.date}-${i}`} className="glass-card p-6">
               <div className="flex items-center gap-3 flex-wrap mb-4">
                 <span className="text-sm font-mono px-2.5 py-1 rounded-lg" style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E' }}>{rel.date}</span>
                 <h2 className="text-lg font-semibold">{rel.title}</h2>

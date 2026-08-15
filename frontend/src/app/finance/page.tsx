@@ -22,7 +22,12 @@ export default function FinancePage() {
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [commissions, setCommissions] = useState<CommissionStructure[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState('2026-06');
+  // Đóng đinh '2026-06' làm tab chi phí luôn mở vào tháng cũ — ai không để ý bộ lọc
+  // sẽ tưởng tháng này chưa nhập gì. Mặc định = tháng hiện tại theo giờ máy người dùng.
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showForm, setShowForm] = useState(false);

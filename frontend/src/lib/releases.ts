@@ -15,6 +15,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '15/08/2026',
+    title: 'Tổng rà soát chất lượng: vá 18 lỗi khắp hệ thống + làm mới hướng dẫn sử dụng theo vai trò',
+    tag: 'RELEASE',
+    news: [
+      'Hướng dẫn từng bước theo vai trò được rà lại toàn bộ cho khớp hệ thống hiện tại: nhân viên mới bấm «Hướng dẫn» là đi đúng màn hình, đúng nút — thêm các bước còn thiếu như liên kết Telegram lần đầu, copy báo giá gửi Zalo, chế độ NGOÀI TRỜI cho anh em công trường.',
+      'Checklist tuần đầu cho người mới có thêm 2 việc chung mọi vai trò (liên kết Telegram, đọc «Có gì mới») + 4 mẹo sống còn: quên mật khẩu lấy lại qua Telegram, phân biệt lỗi tải với số 0, chuông thông báo, cài app ra màn hình chính.',
+      'Cảnh báo rõ trong hướng dẫn CSKH: «Deal đã thắng» tạo NGAY Khách hàng + Dự án + Hợp đồng và không lùi được — chỉ chọn khi khách đã ký thật.',
+    ],
+    fixes: [
+      'Báo giá: xóa hết hạng mục rồi bấm Lưu nay lưu được bình thường (trước đây báo lỗi hệ thống); hai người cùng tạo báo giá một lúc không còn nguy cơ trùng mã; tự nhập mã đã tồn tại thì báo rõ «Mã đã tồn tại — chọn mã khác» thay vì lỗi khó hiểu.',
+      'Xếp đội: mở thẻ đội khi danh sách nhân sự chưa tải xong sẽ được nhắc chờ vài giây — chặn hẳn tình huống hiếm bấm Lưu lúc đó làm trôi sạch thành viên của đội.',
+      'Báo cáo P&L chế độ Làm việc: hết cảnh nút kỳ hiện «Năm NaN» hay bảng in «Invalid Date» — dự án chưa có ngày bắt đầu hiển thị «—» gọn gàng.',
+      'Bảng điều khiển cá nhân: thẻ số liệu nào bạn không có quyền mở trang chi tiết thì không còn giả vờ bấm được (mất chữ «Xem chi tiết», chuột không đổi hình).',
+      'Nhà cung cấp: trang có đủ menu trái như mọi trang khác, danh sách báo giá NCC hiện đúng thay vì trống trơn.',
+      'Kho: danh sách vật tư hiện đủ tới 200 mục thay vì đứng ở 50; tải lỗi sẽ báo thật thay vì lặng lẽ hiện danh sách demo.',
+      'Thu chi: mở trang mặc định vào đúng tháng hiện tại thay vì tháng cũ.',
+      'Nhân sự: ngày nghỉ việc lưu và hiển thị đúng; xử lý nghỉ việc tự bàn giao lead như hướng dẫn.',
+      'Cổng khách hàng: khách chỉ xem được đúng công trình của mình.',
+      'Trang «Có gì mới»: hai bản phát hành cùng ngày không còn dính lỗi hiển thị trùng.',
+    ],
+    test: [
+      'Nhân viên mới: đăng nhập → làm theo checklist tuần đầu (có 2 mục chung mới) → bấm «Bắt đầu hướng dẫn từng bước» → xác nhận các bước khớp màn hình thật.',
+      'Kế toán/Sale: tạo báo giá bỏ trống mã → hệ thống tự sinh mã BG-2026-xxxx; sửa báo giá xóa hết hạng mục → Lưu vẫn chạy.',
+      'Anh em công trường: menu dưới cùng → bật «☀️ NGOÀI TRỜI» khi nắng chói khó đọc màn hình.',
+    ],
+  },
+  {
     date: '14/08/2026',
     title: 'Chia đội kinh doanh ngay trên hệ thống: tạo đội, chọn trưởng nhóm, xếp thành viên',
     tag: 'RELEASE',

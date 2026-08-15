@@ -26,12 +26,16 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (user) {
+      // GET /accounting/summary chỉ mở cho ai có quyền «Xem thu chi» — leader vào trang
+      // này từng ăn 403 rồi banner đỏ "Chưa tải được thu chi" như thể hệ thống sập.
+      // Không đủ quyền thì đừng gọi; thẻ Doanh thu sẽ nói rõ là chưa được cấp quyền.
+      const coQuyenThuChi = getPermissions(user.role as UserRole).canViewPnL;
       Promise.allSettled([
         api.getExecutiveDashboard(),
-        api.getAccountingSummary(),
+        coQuyenThuChi ? api.getAccountingSummary() : Promise.resolve(null),
       ]).then(([d, s]) => {
         if (d.status === 'fulfilled') setDashboard(d.value);
-        if (s.status === 'fulfilled') setSummary(s.value);
+        if (s.status === 'fulfilled' && s.value) setSummary(s.value);
         const hong = [
           d.status === 'rejected' && 'điều hành',
           s.status === 'rejected' && 'thu chi',
@@ -98,6 +102,10 @@ export default function ReportsPage() {
                     </div>
                   )}
                 </>
+              ) : !perms.canViewPnL ? (
+                <p className="text-sm text-[var(--text-muted)]">
+                  Bạn chưa được cấp quyền xem số liệu thu chi. Liên hệ quản trị viên nếu công việc cần xem mục này.
+                </p>
               ) : (
                 <p className="text-sm text-red-300/80">Chưa tải được số liệu — bấm Tải lại ở đầu trang.</p>
               )}

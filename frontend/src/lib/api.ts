@@ -1252,7 +1252,10 @@ class ApiClient {
     return this.request<Supplier>(`/suppliers/${id}`, { method: 'PUT', body: data });
   }
   async getSupplierQuotes(supplierId: string) {
-    return this.request<SupplierQuote[]>(`/suppliers/${supplierId}/quotes`);
+    // Backend trả {items, total} chứ không phải mảng thuần — trước 15/08/2026 FE
+    // ép kiểu mảng rồi Array.isArray → luôn "Chưa có báo giá" dù DB có dữ liệu.
+    const res = await this.request<{ items?: SupplierQuote[] } | SupplierQuote[]>(`/suppliers/${supplierId}/quotes`);
+    return Array.isArray(res) ? res : (res.items ?? []);
   }
   async addSupplierQuote(supplierId: string, data: Partial<SupplierQuote>) {
     return this.request<SupplierQuote>(`/suppliers/${supplierId}/quotes`, { method: 'POST', body: data });

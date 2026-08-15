@@ -180,8 +180,9 @@ export default function QuotationsPage() {
           const unit_price = Number(li.unit_price) || 0;
           return { name: li.name.trim(), unit: li.unit.trim(), quantity, unit_price, total: quantity * unit_price };
         });
-      const items = { line_items };
-
+      // Backend (QuotationCreate/Update) nhận items là MẢNG hạng mục rồi tự bọc
+      // {line_items} khi lưu — FE gửi sẵn object bọc là 422, nút «Tạo báo giá»
+      // chưa từng chạy được (mã BG giờ backend tự sinh, không cần gửi code).
       const payload: Partial<Quotation> = {
         title: formData.title.trim(),
         type: formData.type,
@@ -190,7 +191,7 @@ export default function QuotationsPage() {
         tax_amount: formData.tax_amount ? Number(formData.tax_amount) : undefined,
         valid_until: formData.valid_until || undefined,
         notes: formData.notes.trim() || undefined,
-        items,
+        items: line_items,
       };
 
       let updated: Quotation;

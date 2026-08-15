@@ -15,7 +15,7 @@ class QuotationLineItem(BaseModel):
 
 
 class QuotationCreate(BaseModel):
-    code: str
+    code: str | None = None  # bỏ trống → backend tự sinh BG-{năm}-{số}
     type: str  # design, construction
     project_id: str | None = None
     lead_id: str | None = None

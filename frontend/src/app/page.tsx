@@ -188,17 +188,19 @@ export default function DashboardPage() {
               color="#EF4444"
               onClick={() => router.push('/accounting')}
             />
+            {/* /dashboard/personal (nguồn của kế toán) KHÔNG trả active_projects/total_contracts —
+                `?? 0` biến "thiếu dữ liệu" thành "bằng 0" trông như công ty đứng im. Hiện «—» cho thật. */}
             <KPICard
               title="Dự án Đang chạy"
-              value={data?.active_projects ?? 0}
-              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
+              value={data?.active_projects ?? '—'}
+              subtitle={data?.avg_project_progress != null ? `Tiến độ TB: ${data.avg_project_progress}%` : 'Xem chi tiết ở Dự án'}
               icon="🏗️"
               color="#C9A96E"
               onClick={() => router.push('/projects')}
             />
             <KPICard
               title="Hợp đồng"
-              value={data?.total_contracts ?? 0}
+              value={data?.total_contracts ?? '—'}
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
               color="var(--stage-interested)"
@@ -206,7 +208,9 @@ export default function DashboardPage() {
             />
           </div>
         ) : isPersonal ? (
-          /* Sales: Personal KPIs */
+          /* Sales: Personal KPIs. Vai trò TÙY CHỈNH cũng rơi vào nhánh này (dashboardType
+             kế thừa 'personal' của data_entry) nên onClick vẫn phải gate theo quyền —
+             thiết kế/giám sát bỏ tick «Xem Leads» mà bấm thẻ sẽ bị /leads đá ngược về nhà. */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Lead Của Tôi"
@@ -214,7 +218,7 @@ export default function DashboardPage() {
               subtitle="lead đang xử lý"
               icon="👥"
               color="var(--stage-new)"
-              onClick={() => router.push('/leads')}
+              onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
             <KPICard
               title="Giá trị pipeline"
@@ -222,7 +226,7 @@ export default function DashboardPage() {
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
               icon="💰"
               color="#C9A96E"
-              onClick={() => router.push('/leads')}
+              onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
             <KPICard
               title="Hợp đồng"
@@ -230,7 +234,7 @@ export default function DashboardPage() {
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
               icon="📄"
               color="var(--stage-interested)"
-              onClick={() => router.push('/contracts')}
+              onClick={perms.canViewContracts ? () => router.push('/contracts') : undefined}
             />
             <KPICard
               title="Hoa Hồng"
@@ -238,43 +242,46 @@ export default function DashboardPage() {
               subtitle="đã duyệt kỳ gần nhất"
               icon="💎"
               color="var(--stage-potential)"
-              onClick={() => router.push('/accounting')}
+              onClick={perms.canViewAccounting ? () => router.push('/accounting') : undefined}
             />
           </div>
         ) : (
-          /* Admin/Leader: Executive KPIs */
+          /* Nhánh mặc định: leader, giám sát, vai trò tùy chỉnh — nguồn /dashboard/personal
+             KHÔNG có total_leads/pipeline_value/active_projects/total_contracts. `?? 0` làm
+             giám sát tưởng công ty 0 lead 0 hợp đồng; nút nào không đủ quyền thì đừng đẩy
+             sang trang sẽ đá ngược về (giám sát bấm «Tổng Lead» → /leads → văng về nhà). */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard
               title="Tổng Lead"
-              value={data?.total_leads ?? 0}
-              subtitle={`Tháng này: ${data?.total_leads_month ?? 0}`}
+              value={data?.total_leads ?? '—'}
+              subtitle={data?.total_leads_month != null ? `Tháng này: ${data.total_leads_month}` : 'Xem chi tiết ở Leads'}
               icon="👥"
               color="var(--stage-new)"
-              onClick={() => router.push('/leads')}
+              onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
             <KPICard
               title="Giá trị pipeline"
               value={formatCurrency(data?.pipeline_value)}
-              subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
+              subtitle={data?.conversion_rate != null ? `${data.conversion_rate}% chuyển đổi` : '—'}
               icon="💰"
               color="#C9A96E"
-              onClick={() => router.push('/leads')}
+              onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
             <KPICard
               title="Dự án Đang chạy"
-              value={data?.active_projects ?? 0}
-              subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
+              value={data?.active_projects ?? '—'}
+              subtitle={data?.avg_project_progress != null ? `Tiến độ TB: ${data.avg_project_progress}%` : 'Xem chi tiết ở Dự án'}
               icon="🏗️"
               color="var(--stage-potential)"
-              onClick={() => router.push('/projects')}
+              onClick={perms.canViewProjects ? () => router.push('/projects') : undefined}
             />
             <KPICard
               title="Hợp đồng"
-              value={data?.total_contracts ?? 0}
+              value={data?.total_contracts ?? '—'}
               subtitle={formatCurrency(data?.total_contract_value)}
               icon="📄"
               color="var(--stage-interested)"
-              onClick={() => router.push('/contracts')}
+              onClick={perms.canViewContracts ? () => router.push('/contracts') : undefined}
             />
           </div>
         )}
@@ -697,9 +704,11 @@ function KPICard({ title, value, subtitle, icon, color, onClick }: {
   color: string;
   onClick?: () => void;
 }) {
+  // Thẻ không có onClick (thiếu quyền xem trang đích) phải TRÔNG như không bấm được:
+  // giữ cursor-pointer + «Xem chi tiết» thì chuột thấy thẻ sống mà bấm không ra gì.
   return (
     <div
-      className="stat-card glass-card p-5 cursor-pointer transition-all hover:scale-[1.02]"
+      className={`stat-card glass-card p-5 ${onClick ? 'cursor-pointer transition-all hover:scale-[1.02]' : ''}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -714,10 +723,12 @@ function KPICard({ title, value, subtitle, icon, color, onClick }: {
         </div>
         <span className="text-2xl">{icon}</span>
       </div>
-      <p className="text-[10px] text-[var(--text-disabled)] mt-2 flex items-center gap-1">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-        Xem chi tiết
-      </p>
+      {onClick && (
+        <p className="text-[10px] text-[var(--text-disabled)] mt-2 flex items-center gap-1">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          Xem chi tiết
+        </p>
+      )}
     </div>
   );
 }

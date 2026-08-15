@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, type Supplier, type SupplierQuote, type PriceComparison } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import Sidebar from '@/components/layout/Sidebar';
 import PriceComparisonTable from '@/components/ui/PriceComparison';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -133,6 +134,9 @@ export default function SuppliersPage() {
   const fmt = (n: number) => n.toLocaleString('vi-VN');
 
   return (
+    <Sidebar>
+    {/* Trang duy nhất từng thiếu Sidebar: vào từ menu xong là "kẹt" — không có
+        thanh điều hướng để quay lại, phải bấm Back trình duyệt. */}
     <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -512,5 +516,6 @@ export default function SuppliersPage() {
         </div>
       )}
     </div>
+    </Sidebar>
   );
 }

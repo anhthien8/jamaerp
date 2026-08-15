@@ -367,11 +367,13 @@ export default function PLPage() {
             project_code: item.project_code || '',
             project_name: item.project_name || '',
             revenue: item.revenue || 0,
-            costs: item.costs || 0,
+            // Backend trả `total_cost` (schemas/pl.py) — đọc `costs` sẽ luôn 0 → biên LN 100% giả
+            costs: item.total_cost ?? item.costs ?? 0,
             profit: item.profit || 0,
             margin: item.margin_pct || item.margin || 0,
             status: item.status || 'active',
-            start_date: item.start_date || '2026-01-01',
+            // Không bịa ngày 01/01 — để rỗng thì bộ lọc kỳ giữ lại dự án (nhánh isNaN)
+            start_date: item.start_date || '',
           }));
           setAllProjects(normalizedProjects);
           setPlError('');
@@ -462,13 +464,21 @@ export default function PLPage() {
     </span>
   );
 
+  // Backend /pl/projects hiện KHÔNG trả start_date → chuỗi rỗng ở chế độ Làm việc;
+  // đưa thẳng vào Date sẽ đẻ nút «undefined/» và «Năm NaN», bảng in «Invalid Date».
+  // Chỉ dựng bộ chọn kỳ từ dự án có ngày hợp lệ; ngày rỗng hiển thị «—».
+  const ngayHopLe = (s: string) => s !== '' && !isNaN(new Date(s).getTime());
+  const shortDate = (s: string) =>
+    ngayHopLe(s) ? new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—';
+
   // Available months/quarters/years for selectors
-  const availableMonths = [...new Set(allProjects.map(p => p.start_date.slice(0, 7)))].sort();
-  const availableQuarters = [...new Set(allProjects.map(p => {
+  const datedProjects = allProjects.filter(p => ngayHopLe(p.start_date));
+  const availableMonths = [...new Set(datedProjects.map(p => p.start_date.slice(0, 7)))].sort();
+  const availableQuarters = [...new Set(datedProjects.map(p => {
     const d = new Date(p.start_date);
     return `${d.getFullYear()}-Q${Math.ceil((d.getMonth() + 1) / 3)}`;
   }))].sort();
-  const availableYears = [...new Set(allProjects.map(p => new Date(p.start_date).getFullYear().toString()))].sort();
+  const availableYears = [...new Set(datedProjects.map(p => new Date(p.start_date).getFullYear().toString()))].sort();
 
   const monthLabel = (m: string) => {
     const [y, mo] = m.split('-');
@@ -849,7 +859,7 @@ export default function PLPage() {
                           <StatusBadge status={p.status} margin={p.margin} />
                         </td>
                         <td className="p-3 text-center text-xs text-[var(--text-secondary)]">
-                          {new Date(p.start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                          {shortDate(p.start_date)}
                         </td>
                         <td className="p-3 text-right font-semibold text-emerald-400">
                           {formatCurrency(p.revenue)}
@@ -922,7 +932,7 @@ export default function PLPage() {
                         <span className="text-[10px] text-[var(--text-muted)]">#{idx + 1}</span>
                         <span className="font-mono text-xs text-[var(--gold-400)]">{p.project_code}</span>
                         <span className="text-[10px] text-[var(--text-muted)]">
-                          {new Date(p.start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                          {shortDate(p.start_date)}
                         </span>
                       </div>
                       <p className="text-sm font-medium mt-0.5">{p.project_name}</p>
@@ -1007,7 +1017,7 @@ export default function PLPage() {
               <div>
                 <span className="font-mono text-xs text-[var(--gold-400)]">{detailProject.project_code}</span>
                 <h3 className="text-lg font-bold text-[var(--text-primary)]">{detailProject.project_name}</h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">Bắt đầu: {new Date(detailProject.start_date).toLocaleDateString('vi-VN')}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Bắt đầu: {ngayHopLe(detailProject.start_date) ? new Date(detailProject.start_date).toLocaleDateString('vi-VN') : '—'}</p>
               </div>
               <button onClick={() => setDetailProject(null)} className="text-[var(--text-muted)] hover:text-white text-xl leading-none">×</button>
             </div>

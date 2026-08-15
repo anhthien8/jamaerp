@@ -239,7 +239,7 @@ export default function HRPage() {
           >
             Đội nhóm
           </button>
-          {permissions?.canManageUsers && (
+          {user?.role === 'admin' && (
             <button
               onClick={() => { setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' }); setUserErrors({}); setShowCreateForm(true); }}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
@@ -300,25 +300,23 @@ export default function HRPage() {
                   <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {permissions?.canManageUsers && u.id !== user?.id && (
                       u.is_active ? (
-                        isRecentlyResigned(u) ? (
-                          <button
-                            onClick={() => handleUndoResign(u)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-                            title="Hoàn tác nghỉ việc"
-                          >
-                            Hoàn tác
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => openResignPreview(u)}
-                            className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
-                            title="Cho nhân viên nghỉ việc"
-                          >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
-                            Cho nghỉ việc
-                          </button>
-                        )
-                      ) : (
+                        <button
+                          onClick={() => openResignPreview(u)}
+                          className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
+                          title="Cho nhân viên nghỉ việc"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                          Cho nghỉ việc
+                        </button>
+                      ) : isRecentlyResigned(u) ? (
+                        <button
+                          onClick={() => handleUndoResign(u)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                          title="Hoàn tác nghỉ việc (trong 7 ngày)"
+                        >
+                          Hoàn tác
+                        </button>
+                      ) : user?.role === 'admin' ? (
                         <button
                           onClick={() => handleReactivate(u)}
                           className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
@@ -326,7 +324,7 @@ export default function HRPage() {
                         >
                           Kích hoạt
                         </button>
-                      )
+                      ) : null
                     )}
                   </div>
                 </div>
@@ -376,25 +374,23 @@ export default function HRPage() {
                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
                         {permissions?.canManageUsers && u.id !== user?.id && (
                           u.is_active ? (
-                            isRecentlyResigned(u) ? (
-                              <button
-                                onClick={() => handleUndoResign(u)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-                                title="Hoàn tác nghỉ việc"
-                              >
-                                Hoàn tác
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => openResignPreview(u)}
-                                className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
-                                title="Cho nhân viên nghỉ việc"
-                              >
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
-                                Cho nghỉ việc
-                              </button>
-                            )
-                          ) : (
+                            <button
+                              onClick={() => openResignPreview(u)}
+                              className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1 text-red-400 border border-red-500/40 hover:bg-red-500/15 hover:border-red-500/60 transition-colors"
+                              title="Cho nhân viên nghỉ việc"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                              Cho nghỉ việc
+                            </button>
+                          ) : isRecentlyResigned(u) ? (
+                            <button
+                              onClick={() => handleUndoResign(u)}
+                              className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                              title="Hoàn tác nghỉ việc (trong 7 ngày)"
+                            >
+                              Hoàn tác
+                            </button>
+                          ) : user?.role === 'admin' ? (
                             <button
                               onClick={() => handleReactivate(u)}
                               className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
@@ -402,7 +398,7 @@ export default function HRPage() {
                             >
                               Kích hoạt
                             </button>
-                          )
+                          ) : null
                         )}
                       </div>
                     </td>

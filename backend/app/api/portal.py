@@ -35,16 +35,26 @@ async def _get_customer_by_token(token: str, db: AsyncSession) -> Customer:
     return customer
 
 
+def _customer_owns_project(project: Project, customer: Customer) -> bool:
+    """customer.lead_id có thể NULL — so sánh khi đó sẽ nhận nhầm mọi dự án
+    chưa gắn lead của khách khác, nên chỉ đối chiếu lead_id khi khách có lead."""
+    if project.customer_id == customer.id:
+        return True
+    return customer.lead_id is not None and project.lead_id == customer.lead_id
+
+
 @router.get("/{token}")
 async def portal_profile(token: str, db: AsyncSession = Depends(get_db)):
     """Customer profile + list of projects."""
     customer = await _get_customer_by_token(token, db)
 
     # Get all projects for this customer
+    # (lead_id NULL thì Project.lead_id == None dịch thành IS NULL → lộ dự án khách khác)
+    dieu_kien = [Project.customer_id == customer.id]
+    if customer.lead_id is not None:
+        dieu_kien.append(Project.lead_id == customer.lead_id)
     result = await db.execute(
-        select(Project).where(
-            or_(Project.customer_id == customer.id, Project.lead_id == customer.lead_id)
-        ).order_by(Project.created_at.desc())
+        select(Project).where(or_(*dieu_kien)).order_by(Project.created_at.desc())
     )
     projects = result.scalars().all()
 
@@ -83,7 +93,7 @@ async def portal_project_detail(token: str, project_id: str, db: AsyncSession = 
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
 
     # Verify customer owns this project
-    if project.customer_id != customer.id and project.lead_id != customer.lead_id:
+    if not _customer_owns_project(project, customer):
         raise HTTPException(status_code=403, detail="Không có quyền xem dự án này")
 
     # Get tasks
@@ -138,7 +148,7 @@ async def portal_accept_stage(
 
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
-    if not project or (project.customer_id != customer.id and project.lead_id != customer.lead_id):
+    if not project or not _customer_owns_project(project, customer):
         raise HTTPException(status_code=403, detail="Không có quyền")
     if data.stage not in ACCEPTABLE_STAGES:
         raise HTTPException(status_code=400, detail="Giai đoạn không hợp lệ")
@@ -188,7 +198,7 @@ async def portal_activities(token: str, project_id: str, db: AsyncSession = Depe
     # Verify ownership
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
-    if not project or (project.customer_id != customer.id and project.lead_id != customer.lead_id):
+    if not project or not _customer_owns_project(project, customer):
         raise HTTPException(status_code=403, detail="Không có quyền")
 
     # Get activities from all tasks in this project

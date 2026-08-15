@@ -1,9 +1,12 @@
 """Quotations API — CRUD with line items and approve workflow."""
 
+import random
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -71,14 +74,26 @@ async def create_quotation(
     """Create new quotation."""
     # Convert line items to dict for JSON storage
     items_data = [item.model_dump() for item in data.items] if data.items else []
-    
+
     # Auto-calculate total if not provided
     total = data.total_amount
     if not total and items_data:
         total = sum(item.get("total", item.get("quantity", 1) * item.get("unit_price", 0)) for item in items_data)
 
+    year = datetime.now(timezone.utc).year
+    code = data.code
+    if not code:
+        for _attempt in range(100):
+            candidate = f"BG-{year}-{random.randint(1000, 9999)}"
+            exists = (await db.execute(select(Quotation).where(Quotation.code == candidate))).scalar_one_or_none()
+            if not exists:
+                code = candidate
+                break
+        if not code:
+            code = f"BG-{year}-{uuid.uuid4().hex[:8]}"
+
     qt = Quotation(
-        code=data.code,
+        code=code,
         type=data.type,
         project_id=str(data.project_id) if data.project_id else None,
         lead_id=str(data.lead_id) if data.lead_id else None,
@@ -91,8 +106,23 @@ async def create_quotation(
         created_by=current_user.id,
         status="draft",
     )
-    db.add(qt)
-    await db.flush()
+
+    # Check-then-insert ở trên không nguyên tử: 2 request cùng lúc có thể bốc trùng mã
+    # (unique của cột code sẽ chặn ở tầng DB). Bắt lại và bốc mã khác trong savepoint
+    # thay vì nổ 500; mã do người dùng tự nhập mà trùng thì báo 409 tử tế.
+    for _retry in range(3):
+        try:
+            async with db.begin_nested():
+                db.add(qt)
+                await db.flush()
+            break
+        except IntegrityError:
+            if data.code:
+                raise HTTPException(status_code=409, detail=f"Mã báo giá {data.code} đã tồn tại — chọn mã khác")
+            qt.code = f"BG-{year}-{uuid.uuid4().hex[:8]}"
+    else:
+        raise HTTPException(status_code=500, detail="Không sinh được mã báo giá, thử lưu lại lần nữa")
+
     return QuotationResponse.model_validate(qt)
 
 
@@ -110,10 +140,14 @@ async def update_quotation(
         raise HTTPException(status_code=404, detail="Báo giá không tồn tại")
 
     update_data = data.model_dump(exclude_unset=True)
-    if "items" in update_data and update_data["items"]:
-        items_data = [item.model_dump() if hasattr(item, "model_dump") else item for item in update_data["items"]]
-        qt.items = {"line_items": items_data}
-        del update_data["items"]
+    if "items" in update_data:
+        # Nhận cả mảng RỖNG: người dùng xóa hết hạng mục rồi lưu là hợp lệ.
+        # Trước 15/08/2026 điều kiện `and update_data["items"]` làm [] lọt thẳng
+        # vào setattr → qt.items thành list → QuotationResponse (items: dict) nổ 500.
+        items_value = update_data.pop("items")
+        if items_value is not None:
+            items_data = [item.model_dump() if hasattr(item, "model_dump") else item for item in items_value]
+            qt.items = {"line_items": items_data}
 
     for k, v in update_data.items():
         setattr(qt, k, v)
