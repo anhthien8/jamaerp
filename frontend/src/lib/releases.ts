@@ -15,6 +15,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '18/08/2026',
+    title: 'Mạng chập chờn không còn bị đá oan khỏi trang Nhân sự / Tài khoản',
+    tag: 'HOTFIX',
+    fixes: [
+      'Trưởng nhóm Kinh doanh (và các vai trò tùy chỉnh khác) mở trang Nhân sự hay Tài khoản đúng lúc máy chủ chậm / mạng chập chờn trước đây có thể bị đẩy ngược về Tổng quan dù có quyền — nay hệ thống tự thử lại vài lần, vẫn không được thì hiện thanh vàng «Không tải được quyền — Thử lại» và giữ bạn ở nguyên trang.',
+      'Ngược lại, khi máy chủ treo lâu, trang không còn đứng hình khung trống vô hạn — sau ít giây sẽ hiện thanh vàng để bạn bấm «Thử lại» thay vì phải F5 mò mẫm.',
+    ],
+    test: [
+      'Trưởng nhóm KD: mở trang Nhân sự lúc mạng yếu (hoặc vừa mở app buổi sáng khi máy chủ còn "ngái ngủ") → nếu thấy thanh vàng thì bấm «Thử lại» — không bị đá về Tổng quan như trước.',
+    ],
+  },
+  {
     date: '15/08/2026',
     title: 'Tổng rà soát chất lượng: vá 18 lỗi khắp hệ thống + làm mới hướng dẫn sử dụng theo vai trò',
     tag: 'RELEASE',
