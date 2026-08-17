@@ -7,6 +7,7 @@ import { api, SalaryGrade, Team, User } from '@/lib/api';
 import { getPermissions, getEffectivePermissions, getRoleLabel, ALL_PERMISSION_KEYS, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
+import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import Sidebar from '@/components/layout/Sidebar';
 
 interface CustomRole {
@@ -48,7 +49,7 @@ const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: ''
 
 export default function UsersPage() {
   const router = useRouter();
-  const { user, loading, effectivePermissions, permsReady } = useAuth();
+  const { user, loading, effectivePermissions, permsReady, permsError } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
@@ -106,11 +107,12 @@ export default function UsersPage() {
     // Gate theo quyền HIỆU LỰC (backend) và chỉ sau khi quyền đã chốt (permsReady) —
     // vai trò tùy chỉnh lúc mới vào chỉ có mặc định cục bộ, redirect sớm là đá nhầm.
     // Trang này mở cho ai có «Quản lý Users» hoặc «Xem Nhân sự» (khớp gate GET /users).
-    if (!loading && permsReady && user
+    // permsError = tải quyền lỗi tạm: KHÔNG đá về trang chủ (banner «Thử lại» lo).
+    if (!loading && permsReady && !permsError && user
         && !effectivePermissions.canManageUsers && !effectivePermissions.canViewHR) {
       router.push('/');
     }
-  }, [user, loading, permsReady, effectivePermissions, router]);
+  }, [user, loading, permsReady, permsError, effectivePermissions, router]);
 
   const loadUsers = useCallback(async () => {
     setLoading2(true);
@@ -366,6 +368,7 @@ export default function UsersPage() {
   return (
     <Sidebar>
       <div className="p-4 lg:p-6 max-w-6xl mx-auto">
+        <PermsErrorBanner className="mb-4" />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Quản lý tài khoản</h1>

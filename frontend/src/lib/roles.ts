@@ -212,6 +212,41 @@ export async function loadRolePermissions(): Promise<void> {
   }
 }
 
+/** Kết quả tải quyền của mình — bên gọi cần phân biệt LỖI TẠM với "không có gì để tải". */
+export type MyPermissionsResult =
+  | { status: 'ok'; permissions: RolePermissions } // backend trả quyền — bản chốt
+  | { status: 'skip' }                             // demo / chưa có token — dùng bản cục bộ
+  | { status: 'unauthorized' }                     // 401 — phiên hỏng, lời gọi data kế tiếp sẽ bắt đăng nhập lại
+  | { status: 'error' };                           // 500/CORS/mất mạng/timeout — KHÔNG được coi là đã chốt
+
+// Quá mốc này coi như treo (trước đây fetch không timeout → permsReady kẹt false
+// vô hạn, trang gate chỉ hiện khung trống); hủy để còn retry hoặc báo lỗi.
+const PERMS_TIMEOUT_MS = 8000;
+
+async function fetchMyPermissionsOnce(): Promise<MyPermissionsResult> {
+  if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return { status: 'skip' };
+  const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
+  if (!token) return { status: 'skip' };
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PERMS_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${baseUrl}/users/permissions/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    if (res.status === 401) return { status: 'unauthorized' };
+    if (!res.ok) return { status: 'error' };
+    const data = await res.json();
+    if (data.permissions) return { status: 'ok', permissions: data.permissions as RolePermissions };
+    return { status: 'error' };
+  } catch {
+    return { status: 'error' }; // mất mạng / CORS / abort vì quá hạn
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Tải quyền hiệu lực của CHÍNH người đang đăng nhập từ backend
  * (GET /users/permissions/me — mở cho mọi người, thêm 13/08/2026).
@@ -219,24 +254,17 @@ export async function loadRolePermissions(): Promise<void> {
  * Backend mới là nơi thật sự chặn API; menu vẽ theo bản này thì cái gì thấy được
  * là gọi được. Trước đây người thường không đọc nổi /permissions/roles (chỉ admin)
  * nên override sếp đặt trên trang Phân quyền không bao giờ tới được menu của họ.
- * Trả null khi demo / mất mạng — bên gọi tự rơi về bản tính cục bộ.
+ *
+ * Lỗi tạm (500/mất mạng/Railway cold-start) được retry 2 lần với backoff ngắn;
+ * vẫn lỗi thì trả {status:'error'} để AuthProvider bật permsError thay vì chốt
+ * nhầm bản cục bộ (vai trò tùy chỉnh sẽ bị gate đá oan khỏi trang có quyền).
  */
-export async function loadMyPermissions(): Promise<RolePermissions | null> {
-  try {
-    if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return null;
-    const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
-    if (!token) return null;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-    const res = await fetch(`${baseUrl}/users/permissions/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.permissions) return data.permissions as RolePermissions;
-  } catch {
-    // Silently ignore — defaults will be used
+export async function fetchMyPermissions(): Promise<MyPermissionsResult> {
+  for (let attempt = 0; ; attempt++) {
+    const kq = await fetchMyPermissionsOnce();
+    if (kq.status !== 'error' || attempt >= 2) return kq;
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
   }
-  return null;
 }
 
 /** Save role-level permission overrides for a specific role. */

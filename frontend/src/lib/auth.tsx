@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
-import { getEffectivePermissions, loadMyPermissions, RolePermissions, UserRole } from '@/lib/roles';
+import { fetchMyPermissions, getEffectivePermissions, loadCustomRoles, RolePermissions, SYSTEM_ROLES, UserRole } from '@/lib/roles';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // Demo mode — single shared password for all accounts (training/offline only)
@@ -71,6 +71,15 @@ interface AuthContextType {
    * mặc định data_entry cục bộ, redirect sớm là đá nhầm người có quyền.
    */
   permsReady: boolean;
+  /**
+   * true = tải quyền backend LỖI TẠM (500/CORS/mất mạng/cold-start) dù đã retry.
+   * Lúc này permsReady giữ false nên gate KHÔNG được redirect — quyền đang hiện
+   * chỉ là bản cục bộ tạm, đá người ta đi là đá oan (backend vẫn tự chặn data
+   * nên không rò rỉ gì). Trang gate hiện banner «Không tải được quyền — thử lại».
+   */
+  permsError: boolean;
+  /** Nút «Thử lại» trên banner — nạp lại quyền backend (kèm vai trò tùy chỉnh). */
+  retryPerms: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -83,6 +92,8 @@ const AuthContext = createContext<AuthContextType>({
   setMode: () => {},
   effectivePermissions: getEffectivePermissions('data_entry'),
   permsReady: false,
+  permsError: false,
+  retryPerms: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,6 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // null = chưa tải xong / demo / mất mạng → dùng bản tính cục bộ bên dưới.
   const [serverPerms, setServerPerms] = useState<RolePermissions | null>(null);
   const [permsReady, setPermsReady] = useState(false);
+  const [permsError, setPermsError] = useState(false);
+  // _customRoles (roles.ts) là cache module-level — trước đây chỉ Sidebar nạp và
+  // bump cục bộ nên AuthProvider không re-render, effectivePermissions của vai trò
+  // tùy chỉnh kẹt ở khung data_entry. Bump version này để useMemo tính lại.
+  const [customRolesVersion, setCustomRolesVersion] = useState(0);
 
   // Derive isDemo from mode for backward compatibility
   const isDemo = mode === 'demo';
@@ -101,10 +117,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ma trận Phân quyền có hiệu lực thật trên máy chủ); rơi về bản tính cục bộ
   // (mặc định vai trò + override cá nhân) khi chưa có.
   const effectivePermissions = useMemo(() => {
+    void customRolesVersion; // đổi khi cache vai trò tùy chỉnh vừa nạp xong → tính lại
     if (!user) return getEffectivePermissions('data_entry');
     const local = getEffectivePermissions(user.role as UserRole, user.custom_permissions);
     return serverPerms ? ({ ...local, ...serverPerms } as RolePermissions) : local;
-  }, [user, serverPerms]);
+  }, [user, serverPerms, customRolesVersion]);
+
+  // Nạp quyền backend cho phiên hiện tại. role truyền qua tham số vì lúc restore,
+  // state user chưa kịp commit khi hàm này chạy.
+  const napQuyenBackend = useCallback((role?: string) => {
+    setPermsError(false);
+    // Vai trò tùy chỉnh (sale_leader, admin_cskh…): nạp định nghĩa role TRƯỚC — nếu
+    // /permissions/me lỗi thì bản cục bộ còn phủ đúng quyền đã lưu thay vì khung
+    // data_entry (thiếu canViewHR → gate đá oan trưởng nhóm KD về trang chủ).
+    const napCustom = role && !SYSTEM_ROLES.includes(role)
+      ? loadCustomRoles().then((has) => { if (has) setCustomRolesVersion((v) => v + 1); })
+      : Promise.resolve();
+    void napCustom
+      .then(() => fetchMyPermissions())
+      .then((kq) => {
+        if (kq.status === 'ok') {
+          setServerPerms(kq.permissions);
+          setPermsReady(true);
+        } else if (kq.status === 'error') {
+          // Lỗi tạm dù đã retry: KHÔNG chốt quyền (permsReady giữ false → gate
+          // không redirect), bật banner cho người dùng bấm thử lại.
+          setPermsError(true);
+        } else {
+          // skip (demo/không token) hoặc 401 (phiên hỏng — lời gọi data kế tiếp
+          // sẽ bắt đăng nhập lại): không có gì để tải, chốt bản cục bộ.
+          setPermsReady(true);
+        }
+      });
+  }, []);
+
+  const retryPerms = useCallback(() => {
+    if (user) napQuyenBackend(user.role);
+  }, [user, napQuyenBackend]);
 
   useEffect(() => {
     void Promise.resolve().then(() => {
@@ -139,18 +188,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let dangTaiQuyen = false;
       if (stored) {
         try {
-          setUser(JSON.parse(stored));
+          const restored = JSON.parse(stored) as User;
+          setUser(restored);
           // Tải quyền backend nền — không chặn màn hình (menu tạm vẽ theo bản cục bộ)
           dangTaiQuyen = true;
-          void loadMyPermissions()
-            .then((p) => { if (p) setServerPerms(p); })
-            .finally(() => setPermsReady(true));
+          napQuyenBackend(restored.role);
         } catch {}
       }
       if (!dangTaiQuyen) setPermsReady(true);
       setLoading(false);
     });
-  }, []);
+  }, [napQuyenBackend]);
 
   const login = async (email: string, password: string, modeOverride?: AppMode) => {
     const effectiveMode = modeOverride || mode;
@@ -160,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (demoUser && password === DEMO_PASSWORD) {
         setUser(demoUser);
         setPermsReady(true); // demo: ma trận cục bộ là bản chốt
+        setPermsError(false);
         setModeState('demo');
         localStorage.setItem('jama_mode', 'demo');
         localStorage.setItem('jama_token', 'demo-token');
@@ -181,9 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await api.login(email, password);
       setUser(data.user);
       setPermsReady(false);
-      void loadMyPermissions()
-        .then((p) => { if (p) setServerPerms(p); })
-        .finally(() => setPermsReady(true));
+      napQuyenBackend(data.user.role);
       return;
     } catch {
       // API unavailable — fallback to demo (chỉ khi đúng mật khẩu demo)
@@ -222,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(adminUser);
       setServerPerms(null); // demo dùng ma trận cục bộ, không dính quyền backend
       setPermsReady(true);
+      setPermsError(false);
       setModeState('demo');
       localStorage.setItem('jama_mode', 'demo');
       localStorage.setItem('jama_token', 'demo-token');
@@ -239,7 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions, permsReady }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions, permsReady, permsError, retryPerms }}>
       {children}
     </AuthContext.Provider>
   );

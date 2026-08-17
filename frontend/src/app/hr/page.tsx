@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, User, Team, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -38,7 +39,7 @@ interface ResignPreviewData {
 }
 
 export default function HRPage() {
-  const { user, loading, effectivePermissions, permsReady } = useAuth();
+  const { user, loading, effectivePermissions, permsReady, permsError } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -66,8 +67,9 @@ export default function HRPage() {
     if (!loading && !user) router.push('/login');
     // Gate theo quyền HIỆU LỰC + đợi permsReady — vai trò tùy chỉnh (sale_leader,
     // admin_cskh) chỉ có quyền đúng sau khi backend trả /permissions/me.
-    if (!loading && permsReady && user && !effectivePermissions.canViewHR) router.push('/');
-  }, [user, loading, permsReady, effectivePermissions, router]);
+    // permsError = tải quyền lỗi tạm: KHÔNG đá về trang chủ (banner «Thử lại» lo).
+    if (!loading && permsReady && !permsError && user && !effectivePermissions.canViewHR) router.push('/');
+  }, [user, loading, permsReady, permsError, effectivePermissions, router]);
 
   const load = useCallback(async () => {
     try {
@@ -203,6 +205,7 @@ export default function HRPage() {
   return (
     <Sidebar>
     <div className="p-6 space-y-6 animate-in">
+      <PermsErrorBanner />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Nhân sự</h1>
