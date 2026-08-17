@@ -16,6 +16,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '18/08/2026',
+    title: 'Giao việc dự án chéo phòng ban hoạt động lại cho mọi vai trò',
+    tag: 'FIX',
+    fixes: [
+      'Trưởng nhóm Kinh doanh mở form «Thêm công việc» trong Dự án: ô «Người phụ trách» cho việc Thiết kế / Thi công / Thu mua trước đây bị TRỐNG (hệ quả phụ của đợt siết phạm vi nhân sự 14/08) — nay hiện đủ người đúng phòng ban để giao việc chéo phòng như quy trình.',
+      'Tên người phụ trách công việc khác phòng ban nay hiện đúng thay vì để trống trên thẻ công việc.',
+      'Các vai trò tự tạo như Quản lý dự án / Thiết kế / Giám sát thi công vào trang Dự án nay cũng giao việc và thấy tên người phụ trách bình thường — trước đây danh sách người giao việc bị chặn vì các vai trò này không có quyền «Xem Nhân sự».',
+      'Danh sách giao việc này chỉ có tên + vai trò + phòng ban — SĐT, email, bậc lương của đồng nghiệp vẫn kín như cũ; trang Nhân sự vẫn giữ nguyên phạm vi (trưởng nhóm chỉ thấy nhóm mình).',
+    ],
+    test: [
+      'Trưởng nhóm KD: mở một Dự án → «Thêm công việc» → chọn phòng ban Thiết kế → xác nhận ô «Người phụ trách» có danh sách nhân sự Thiết kế (không còn trống).',
+      'Quản lý dự án / Giám sát thi công: mở Dự án → giao một việc bằng nút «👤 Đảm nhận» trên thẻ công việc → xác nhận giao được và tên người nhận hiện đúng.',
+    ],
+  },
+  {
+    date: '18/08/2026',
     title: 'Mạng chập chờn không còn bị đá oan khỏi trang Nhân sự / Tài khoản',
     tag: 'HOTFIX',
     fixes: [

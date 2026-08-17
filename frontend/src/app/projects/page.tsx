@@ -280,7 +280,10 @@ export default function ProjectsPage() {
     try {
       const [t, u] = await Promise.all([
         api.getProjectTasks(project.id),
-        users.length === 0 ? extractItems(await api.getUsers()) : Promise.resolve(users),
+        // getUsers() là API Nhân sự — trưởng nhóm bị cắt về nhóm mình, vai trò
+        // tùy chỉnh không có canViewHR dính 403 → tên người phụ trách chéo phòng
+        // hiển thị trống. Dropdown «Đảm nhận» cần đủ nhân sự các phòng.
+        users.length === 0 ? api.getTaskAssignableUsers() : Promise.resolve(users),
       ]);
       setTasks(t);
       if (u.length > 0 && users.length === 0) setUsers(u);
@@ -519,7 +522,7 @@ export default function ProjectsPage() {
     setTaskForm({ title: '', stage: selectedProject?.stage || 'design', department: 'design', assigned_to: '' });
     setShowTaskForm(true);
     try {
-      const data = extractItems(await api.getUsers());
+      const data = await api.getTaskAssignableUsers();
       setUsers(data);
     } catch {
       setUsers([]);
@@ -1713,7 +1716,15 @@ export default function ProjectsPage() {
                 >
                   <option value="">-- Chọn người --</option>
                   {users
-                    .filter(u => !taskForm.department || u.department === taskForm.department || u.role === 'admin' || u.role === 'supervisor')
+                    // Cùng bộ lọc với select «Đảm nhận» ở kanban: phòng ban task
+                    // (design/…, viết thường) phải map qua DEPT_TO_USER_DEPT mới ra
+                    // phòng ban user (DESIGN/OPS/…, viết HOA) — so sánh thẳng thì
+                    // không bao giờ khớp, dropdown chỉ còn admin/supervisor.
+                    .filter(u => {
+                      if (u.role === 'admin' || u.role === 'supervisor') return true;
+                      if (!taskForm.department) return true;
+                      return (DEPT_TO_USER_DEPT[taskForm.department] || []).includes(u.department);
+                    })
                     .map(u => (
                       <option key={u.id} value={u.id}>{u.full_name || u.email}{u.department ? ` (${u.department})` : ''}</option>
                     ))

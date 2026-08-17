@@ -1322,6 +1322,16 @@ class ApiClient {
     return (Array.isArray(items) ? items : [])
       .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
   }
+  /**
+   * Người nhận việc dự án cho dropdown «Đảm nhận» — GET /users/task-assignable.
+   * Khác GET /users (gate quyền Nhân sự + trưởng nhóm bị cắt về nhóm mình):
+   * endpoint này gate theo Xem Dự án/Tạo Công việc và trả đủ nhân sự đang làm
+   * việc, nhưng chỉ danh tính tối thiểu (tên/vai trò/bộ phận) — không SĐT/lương.
+   */
+  async getTaskAssignableUsers(): Promise<User[]> {
+    const items = await this.request<User[]>('/users/task-assignable');
+    return Array.isArray(items) ? items : [];
+  }
   async getTeams() {
     return this.request<Team[]>('/users/teams');
   }

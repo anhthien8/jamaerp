@@ -132,6 +132,37 @@ async def list_assignable_users(
     ]
 
 
+@router.get("/task-assignable")
+async def list_task_assignable_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Danh sách người nhận việc dự án — cho dropdown «Đảm nhận» trang Dự án.
+
+    Trang Dự án từng dùng GET /users nên dính hai phạm vi sai ngữ cảnh: trưởng
+    nhóm KD bị cắt về «nhóm mình + chính mình» (không ai thuộc Thiết kế/Thi công/
+    Thu mua → dropdown rỗng), còn vai trò tùy chỉnh không có canViewHR
+    (quan_ly_du_an/thiet_ke/giam_sat_thi_cong) dính thẳng 403. Việc dự án vốn
+    giao CHÉO phòng ban nên endpoint này gate theo «Xem Dự án»/«Tạo Công việc»
+    và trả đủ nhân sự đang làm việc — nhưng CHỈ danh tính tối thiểu
+    (tên/vai trò/bộ phận), không SĐT, không bậc lương. Scope GET /users giữ nguyên
+    cho ngữ cảnh Nhân sự.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not (perms.get("canViewProjects") or perms.get("canCreateTasks")):
+        raise HTTPException(status_code=403, detail="Không có quyền xem danh sách phân công dự án")
+
+    q = select(User).where(User.is_active == True).order_by(User.full_name)  # noqa: E712
+    users = (await db.execute(q)).scalars().all()
+    return [
+        {
+            "id": u.id, "full_name": u.full_name, "role": u.role,
+            "department": u.department, "is_active": u.is_active,
+        }
+        for u in users
+    ]
+
+
 @router.get("/teams")
 async def list_teams(
     db: AsyncSession = Depends(get_db),
