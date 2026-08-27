@@ -33,6 +33,16 @@ export function canAssignLeads(user?: { role?: string; department?: string } | n
   return user.role === 'admin' || isTeamLead(user.role) || isSalesCoordinator(user.role, user.department);
 }
 
+/**
+ * Ai được ghi lognote CSKH (đánh giá chất lượng chăm sóc của team KD).
+ * PHẢI khớp can_write_cskh_note() trong backend/app/middleware/rbac.py.
+ * Cố tình KHÔNG có trưởng nhóm/sale: đây là đánh giá VỀ họ. Đọc thì ai cũng đọc được.
+ */
+export function canWriteCskhNote(user?: { role?: string; department?: string } | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || isSalesCoordinator(user.role, user.department);
+}
+
 export interface RolePermissions {
   canViewDashboard: boolean;
   dashboardType: 'executive' | 'team' | 'personal' | 'financial';

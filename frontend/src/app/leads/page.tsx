@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
-import { getPermissions, canAssignLeads, isSalesCoordinator, UserRole } from '@/lib/roles';
+import { getPermissions, canAssignLeads, canWriteCskhNote, isSalesCoordinator, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
   townhouse: 'Nhà phố', apartment: 'Căn hộ', villa: 'Biệt thự',
@@ -32,8 +32,12 @@ const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
 };
 const ACTIVITY_ICONS: Record<string, string> = {
   note: '📝', call: '📞', meeting: '🤝', email: '📧', sms: '💬',
-  stage_change: '🔄', assignment: '👤', system: '🤖',
+  stage_change: '🔄', assignment: '👤', system: '🤖', cskh: '🎧',
 };
+// Lognote CSKH — khớp CSKH_ACTIVITY_TYPE backend. Lưu chung bảng activities nên
+// mỗi mục tự có ngày giờ + tên người nhập; render ở khối riêng, tách khỏi timeline
+// chung để đánh giá chất lượng không bị trôi lẫn giữa hàng chục cuộc gọi.
+const CSKH_TYPE = 'cskh';
 const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'];
 // Cột hiển thị trên bảng kanban. KHÁC STAGES vì "Mất" phải có mặt để kiểm soát lead rơi,
 // nhưng không được nằm trong STAGES: chuyển sang "Mất" bắt buộc kèm lý do, mà các nút
@@ -118,6 +122,15 @@ function formatShortDate(value?: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
+}
+
+/** Ngày giờ đầy đủ CÓ năm — lognote CSKH trải nhiều tháng, thiếu năm là đọc nhầm. */
+function formatDateTime(value?: string | null): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 /** Ô tiêu đề bảng bấm được để đổi kiểu sắp xếp (dùng chung state với select "Sắp xếp"). */
@@ -283,6 +296,10 @@ function LeadsContent() {
   const [dateTo, setDateTo] = useState('');
   const [newNote, setNewNote] = useState('');
   const [newNoteLink, setNewNoteLink] = useState('');
+  // Lognote CSKH — chỉ Admin CSKH + admin nhập được (backend chặn 403 vai trò khác).
+  const [newCskhNote, setNewCskhNote] = useState('');
+  const [savingCskh, setSavingCskh] = useState(false);
+  const canWriteCskh = canWriteCskhNote(user);
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'calendar'>('kanban');
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -363,6 +380,7 @@ function LeadsContent() {
     // Ô ghi chú luôn sạch khi mở thẻ mới (tránh sót nội dung của lead trước).
     setNewNote('');
     setNewNoteLink('');
+    setNewCskhNote('');
     setLostPickerOpen(Boolean(options?.lostPicker));
     setAssignOpen(false);
     setActivities([]);
@@ -391,6 +409,7 @@ function LeadsContent() {
     setSelectedLead(null);
     setNewNote('');
     setNewNoteLink('');
+    setNewCskhNote('');
     setAssignOpen(false);
     setLostPickerOpen(false);
     setGoiY(null);
@@ -454,6 +473,23 @@ function LeadsContent() {
       toast('Đã thêm ghi chú', 'success');
     } catch {
       toast('Lỗi khi thêm ghi chú', 'error');
+    }
+  };
+
+  // Ghi một mục lognote CSKH. Backend đóng dấu ngày giờ + tên người nhập, và cố ý
+  // KHÔNG cập nhật "liên hệ lần cuối" của lead (đây là gọi kiểm tra, không phải chăm khách).
+  const handleAddCskhNote = async () => {
+    if (!selectedLead || !newCskhNote.trim() || savingCskh) return;
+    setSavingCskh(true);
+    try {
+      await api.createActivity(selectedLead.id, { type: CSKH_TYPE, content: newCskhNote.trim() });
+      setActivities(await api.getActivities(selectedLead.id));
+      setNewCskhNote('');
+      toast('Đã lưu đánh giá CSKH', 'success');
+    } catch (e) {
+      toast(`Lỗi khi lưu đánh giá: ${e instanceof Error ? e.message : 'Không rõ'}`, 'error');
+    } finally {
+      setSavingCskh(false);
     }
   };
 
@@ -594,6 +630,11 @@ function LeadsContent() {
           : `${formatDayKey(dateRange.from)} → ${formatDayKey(dateRange.to)}`)
       : DATE_PRESETS.find(p => p.value === datePreset)?.label || '')
     : null;
+
+  // Lognote CSKH tách khỏi timeline chung: mỗi bên một khối riêng trong thẻ chi tiết,
+  // để đánh giá chất lượng không trôi lẫn giữa hàng chục cuộc gọi/ghi chú thường ngày.
+  const cskhNotes = activities.filter(a => a.type === CSKH_TYPE);
+  const timelineActivities = activities.filter(a => a.type !== CSKH_TYPE);
 
   const hasUrlFilters = Boolean(activeStage || activeQuickFilter);
   const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all';
@@ -1472,22 +1513,85 @@ function LeadsContent() {
                 )}
               </div>
 
+              {/* ── CSKH — đánh giá chất lượng chăm sóc của team KD ── */}
+              {/* Lognote: mỗi lần Admin CSKH gọi lại khách là một mục mới có ngày giờ
+                  + tên người nhập. Ai xem được lead đều ĐỌC được; chỉ CSKH/admin ghi. */}
+              <div className="glass-card p-4">
+                <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                    🎧 CSKH — Đánh giá chất lượng chăm sóc ({cskhNotes.length})
+                  </h3>
+                  {cskhNotes[0] && (
+                    <span className="text-[10px] text-[var(--text-muted)]">
+                      Cập nhật gần nhất: {formatDateTime(cskhNotes[0].created_at)}
+                    </span>
+                  )}
+                </div>
+
+                {canWriteCskh ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={newCskhNote}
+                      onChange={e => setNewCskhNote(e.target.value)}
+                      rows={3}
+                      placeholder="Gọi lại khách để đánh giá chất lượng chăm sóc của team KD. VD: Khách khen bạn Mai tư vấn nhiệt tình, nhưng phàn nàn 3 ngày chưa nhận được báo giá."
+                      className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[#C9A96E] resize-y"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-[var(--text-muted)]">
+                        Mục đã lưu không sửa/xóa được — hệ thống tự đóng dấu ngày giờ và tên bạn.
+                      </p>
+                      <button
+                        onClick={handleAddCskhNote}
+                        disabled={!newCskhNote.trim() || savingCskh}
+                        className="flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-30 transition-all min-h-[36px]"
+                      >
+                        {savingCskh ? 'Đang lưu...' : 'Lưu đánh giá'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Chỉ Admin CSKH và quản trị viên ghi được mục mới. Bạn vẫn xem đầy đủ các đánh giá bên dưới.
+                  </p>
+                )}
+
+                {loadingActivities ? (
+                  <div className="text-center py-4 text-sm text-[var(--text-muted)]">Đang tải...</div>
+                ) : cskhNotes.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)] mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    Chưa có đánh giá CSKH nào cho khách này.
+                  </p>
+                ) : (
+                  <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {cskhNotes.map(note => (
+                      <div key={note.id} className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                        <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note.content}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] mt-1.5">
+                          🎧 {note.user_name || 'Admin CSKH'} · {formatDateTime(note.created_at)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Activity Timeline */}
               <div className="glass-card p-4">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">
-                  Lịch sử hoạt động ({activities.length})
+                  Lịch sử hoạt động ({timelineActivities.length})
                 </h3>
                 {loadingActivities ? (
                   <div className="text-center py-4 text-sm text-[var(--text-muted)]">Đang tải...</div>
-                ) : activities.length === 0 ? (
+                ) : timelineActivities.length === 0 ? (
                   <div className="text-center py-4 text-sm text-[var(--text-muted)]">Chưa có hoạt động</div>
                 ) : (
                   <div className="space-y-3">
-                    {[...activities].reverse().map((act, i) => (
+                    {[...timelineActivities].reverse().map((act, i) => (
                       <div key={act.id || i} className="flex gap-3">
                         <div className="flex flex-col items-center">
                           <span className="text-sm">{ACTIVITY_ICONS[act.type] || '📌'}</span>
-                          {i < activities.length - 1 && (
+                          {i < timelineActivities.length - 1 && (
                             <div className="w-px flex-1 mt-1" style={{ background: 'var(--border-subtle)' }} />
                           )}
                         </div>

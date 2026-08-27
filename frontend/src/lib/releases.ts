@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '27/08/2026',
+    title: 'Ô ghi chú CSKH trong thẻ khách: chấm chất lượng chăm sóc của team kinh doanh',
+    tag: 'RELEASE',
+    news: [
+      'Mở thẻ khách ở trang Quy trình có thêm khối «🎧 CSKH — Đánh giá chất lượng chăm sóc». Admin CSKH gọi lại khách hỏi thăm rồi ghi nhận xét vào đây: khách khen ai, phàn nàn gì, sale có gọi lại đúng hẹn không.',
+      'Đây là LOGNOTE nhiều mục, không phải một ô ghi đè: mỗi lần ghi là thêm một mục mới, mục cũ giữ nguyên. Hệ thống tự đóng dấu ngày giờ đầy đủ + tên người nhập, mới nhất nằm trên cùng, và có dòng «Cập nhật gần nhất» ngay cạnh tiêu đề.',
+      'Nhân viên kinh doanh ĐỌC được đầy đủ đánh giá về mình để biết chỗ nào khách chưa hài lòng mà sửa — nhưng không sửa/xóa được nội dung.',
+      'Ghi chú CSKH nằm ở khối riêng, không trộn vào «Lịch sử hoạt động» nên không bị trôi mất giữa hàng chục cuộc gọi và ghi chú hằng ngày.',
+    ],
+    fixes: [
+      'Ghi đánh giá CSKH KHÔNG làm mất cờ «⚠️ Quá hạn» của khách: cuộc gọi của CSKH là gọi kiểm tra chất lượng, không tính là team kinh doanh đã chăm khách. Trước giờ mọi ghi nhận đều làm mới mốc «liên hệ lần cuối» — nếu tính cả CSKH thì số liệu chăm sóc sẽ đẹp giả.',
+    ],
+    test: [
+      'Admin CSKH: mở một thẻ khách → gõ nhận xét vào ô CSKH → «Lưu đánh giá» → kiểm tra mục vừa ghi hiện đúng ngày giờ và tên bạn.',
+      'Admin CSKH: ghi thêm mục thứ hai cho cùng khách đó → xác nhận mục cũ vẫn còn, không bị đè.',
+      'Sale: mở thẻ khách của mình → xác nhận ĐỌC được đánh giá CSKH nhưng không có ô nhập (chỉ hiện dòng giải thích).',
+      'Sale/Trưởng nhóm: kiểm tra khách đang có cờ «⚠️ Quá hạn» — sau khi CSKH ghi đánh giá, cờ đó phải vẫn còn.',
+    ],
+  },
+  {
+    date: '27/08/2026',
     title: 'Trang Quy trình: thêm kiểu xem Danh sách, bộ lọc theo ngày và cột «Mất»',
     tag: 'RELEASE',
     news: [

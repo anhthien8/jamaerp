@@ -11,10 +11,13 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import (
     can_view_lead, can_modify_lead, can_assign_leads, can_assign_lead_to,
-    can_touch_lead_assignment, is_sales_coordinator, is_team_lead, SYSTEM_ROLES,
+    can_touch_lead_assignment, can_write_cskh_note, is_sales_coordinator,
+    is_team_lead, SYSTEM_ROLES,
 )
 from app.models.user import User, Team
-from app.models.lead import Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES
+from app.models.lead import (
+    Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES, CSKH_ACTIVITY_TYPE,
+)
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task
@@ -916,14 +919,24 @@ async def create_activity(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
 
+    is_cskh = data.type == CSKH_ACTIVITY_TYPE
+    if is_cskh and not can_write_cskh_note(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ Admin CSKH và quản trị viên được ghi đánh giá chăm sóc",
+        )
+
     activity = Activity(
         lead_id=lead_id, user_id=current_user.id,
         type=data.type, content=data.content,
     )
     db.add(activity)
 
-    # Update last contacted
-    lead.last_contacted_at = datetime.now(timezone.utc)
+    # Update last contacted.
+    # TRỪ lognote CSKH: đó là cuộc gọi KIỂM TRA chất lượng, không phải team KD chăm
+    # khách. Tính vào đây sẽ xoá oan cờ "⚠️ Quá hạn" và làm KPI chăm sóc đẹp giả.
+    if not is_cskh:
+        lead.last_contacted_at = datetime.now(timezone.utc)
     lead.updated_at = datetime.now(timezone.utc)
     await db.flush()
 

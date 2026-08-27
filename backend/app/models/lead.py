@@ -117,6 +117,12 @@ VALID_STAGE_TRANSITIONS: dict[str, list[str]] = {
 }
 
 
+# Loại activity dành riêng cho lognote CSKH — Admin CSKH gọi lại khách để đánh giá
+# chất lượng chăm sóc của team kinh doanh. Dùng bảng activities sẵn có nên mỗi mục
+# tự có ngày giờ + tên người nhập, không cần bảng/cột mới.
+CSKH_ACTIVITY_TYPE = "cskh"
+
+
 class Activity(Base):
     __tablename__ = "activities"
 

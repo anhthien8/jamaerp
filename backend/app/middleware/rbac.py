@@ -42,6 +42,16 @@ def can_assign_leads(user: User) -> bool:
     return user.role == "admin" or is_team_lead(user) or is_sales_coordinator(user)
 
 
+def can_write_cskh_note(user: User) -> bool:
+    """Ai được ghi lognote CSKH (đánh giá chất lượng chăm sóc của team KD).
+
+    CHỈ điều phối KD (Admin CSKH) + admin — chốt 27/08/2026. Cố tình KHÔNG cho
+    trưởng nhóm và sale: đây là đánh giá VỀ họ, tự viết được thì mất ý nghĩa
+    kiểm soát. Ai xem được lead vẫn ĐỌC được ghi chú (minh bạch để sale tự sửa).
+    """
+    return user.role == "admin" or is_sales_coordinator(user)
+
+
 def can_assign_lead_to(user: User, target: User) -> bool:
     """Được giao lead cho `target` không?
 
