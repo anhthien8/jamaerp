@@ -82,10 +82,15 @@ ok('Cổng KH /demo: chi tiết + nghiệm thu', (await page.evaluate(() => docu
 await page.goto(`${BASE}/leads`, { waitUntil: 'domcontentloaded' }); await page.waitForTimeout(2200); await dismiss();
 await page.locator('button:has-text("Thêm Lead")').first().click().catch(() => {});
 await page.waitForTimeout(900);
-const nameInput = page.locator('input[placeholder*="Tên"], input[placeholder*="tên"]').first();
+// Ô tên trong CreateLeadModal có placeholder "VD: Chị Mai" — selector cũ dò
+// placeholder*="Tên" trượt sang Ô TÌM KIẾM phía sau modal (fill của Playwright
+// không kiểm phần tử che), name modal rỗng → validate chặn → fail giả (QC 27/08).
+const nameInput = page.locator('input[placeholder="VD: Chị Mai"], input[placeholder*="Tên"]').first();
 if (await nameInput.isVisible().catch(() => false)) {
   await nameInput.fill(`[QC] ${STAMP}`);
-  await page.locator('input[placeholder*="09"], input[placeholder*="SĐT"], input[placeholder*="số"], input[placeholder*="phone"]').first().fill('0900000099').catch(() => {});
+  // Ô SĐT modal có placeholder "0901234567". KHÔNG dò placeholder*="SĐT" — ô tìm
+  // kiếm "Tìm tên, SĐT..." đứng TRƯỚC modal trong DOM sẽ nuốt mất số (QC 27/08).
+  await page.locator('input[placeholder="0901234567"], input[inputmode="tel"]').first().fill('0900000099').catch(() => {});
   await page.locator('button:has-text("Tạo lead"), button:has-text("Tạo Lead"), button:has-text("Lưu")').first().click().catch(() => {});
   await page.waitForTimeout(1500);
   const created = await page.evaluate(() => /thành công|đã tạo/i.test(document.body.innerText));

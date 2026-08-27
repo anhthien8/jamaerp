@@ -28,10 +28,17 @@ class TransactionUpdate(BaseModel):
     amount: Decimal | None = None
     project_id: UUID | None = None
     contract_id: UUID | None = None
+    # Audit 22/07 vá alias 'date' + thêm user_id cho TransactionCreate nhưng QUÊN
+    # bản Update — kế toán SỬA giao dịch đổi ngày/người là bị nuốt im lặng dù toast
+    # báo thành công (QC 27/08). Nay Update nhận y hệt Create.
+    user_id: UUID | None = None
     description: str | None = None
     reference: str | None = None
-    transaction_date: date | None = None
+    transaction_date: date | None = Field(default=None, validation_alias=AliasChoices("transaction_date", "date"))
     status: str | None = None
+
+    # Field lạ → 422 thay vì bị nuốt im lặng (cùng chốt chặn như LeadUpdate).
+    model_config = {"extra": "forbid"}
 
 
 class TransactionResponse(BaseModel):

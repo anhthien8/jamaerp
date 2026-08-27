@@ -112,6 +112,14 @@ export default function FeedbackPage() {
               ))}
             </tbody>
           </table>
+          {items.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-lg mb-1">📭 Chưa có góp ý nào</p>
+              <p className="text-sm text-[var(--text-muted)]">
+                Nhân viên gửi góp ý qua bot Telegram bằng lệnh <span className="font-mono">/feedback</span> — gửi xong sẽ hiện ở đây.
+              </p>
+            </div>
+          )}
         </div>
 
         {total > 20 && (

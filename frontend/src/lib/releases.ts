@@ -16,6 +16,28 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '27/08/2026',
+    title: 'Tổng QC hệ thống: vá 4 form «lưu giả» (Dự án, Hợp đồng, Báo giá, Thu chi) + 3 lỗi nhỏ',
+    tag: 'RELEASE',
+    news: [
+      'Đợt tổng rà soát chất lượng toàn hệ thống sau 4 bản cập nhật ngày 27/08: chạy đủ 533 test tự động, bộ QC 146 điểm theo từng vai trò, 10 luồng thao tác thật trên trình duyệt, và đi chụp màn hình từng trang của 5 vai trò trên bản chạy thật.',
+    ],
+    fixes: [
+      'NHÓM LỖI «LƯU GIẢ» (cùng họ với lỗi Mất lead đã vá sáng nay — báo thành công nhưng không lưu): SỬA DỰ ÁN đổi tên khách / SĐT / địa chỉ / loại công trình / giá trị / ngày bắt đầu / ngày dự kiến xong — trước đây toast xanh nhưng KHÔNG lưu gì. Nay lưu thật cả 7 trường.',
+      'SỬA HỢP ĐỒNG đổi ô «Dự án» — trước đây bị bỏ qua im lặng. Nay lưu thật.',
+      'SỬA BÁO GIÁ đổi «Loại» hoặc «Dự án» — trước đây bị bỏ qua im lặng. Nay lưu thật.',
+      'SỬA GIAO DỊCH THU CHI đổi ngày hoặc người liên quan — trước đây CHƯA BAO GIỜ lưu được (kể cả từ trước các bản cập nhật gần đây). Kế toán lưu ý: giao dịch nào từng sửa ngày đều đang mang ngày TẠO chứ không phải ngày đã chọn — cần rà lại.',
+      'Trưởng phòng chưa được xếp vào đội nào mở trang Chấm công không còn bị toast lỗi đỏ «Không tải được bảng công» — nay chỉ ẩn bảng công team, phần chấm công cá nhân hiện bình thường.',
+      'Trang Góp ý khi chưa có góp ý nào nay hiện hướng dẫn «gửi qua bot Telegram lệnh /feedback» thay vì bảng trống trơn.',
+      'Form «Thêm Lead»: ô «Trưởng nhóm phụ trách» chỉ còn liệt kê các đội KINH DOANH — không còn lẫn Ban Giám Đốc / Phòng Thiết Kế / Phòng Thu mua.',
+    ],
+    test: [
+      'Trưởng nhóm/PM: mở một Dự án → Sửa → đổi SĐT khách hoặc ngày dự kiến xong → Lưu → TẢI LẠI TRANG và xác nhận thay đổi còn đó (đây là điểm trước đây lưu giả).',
+      'Kế toán: sửa một giao dịch thu chi đổi ngày → tải lại → xác nhận ngày đã đổi thật. Và rà các giao dịch cũ từng sửa ngày.',
+      'Sale: tạo báo giá rồi Sửa đổi loại Thiết kế ↔ Thi công → tải lại → xác nhận loại đã đổi.',
+    ],
+  },
+  {
+    date: '27/08/2026',
     title: 'Sửa lỗi: bấm «Chuyển sang Mất lead» báo thành công nhưng lead vẫn nằm ở cột cũ',
     tag: 'HOTFIX',
     fixes: [

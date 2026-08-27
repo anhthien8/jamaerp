@@ -25,6 +25,16 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
+    # Nhóm trường form «Sửa dự án» FE vẫn gửi từ lâu nhưng schema quên khai báo —
+    # Pydantic nuốt im lặng nên đổi tên khách/SĐT/địa chỉ/loại/giá trị/ngày đều
+    # toast xanh mà không đổi gì (QC 27/08, cùng lớp bug «Mất lead»).
+    client_name: str | None = None
+    client_phone: str | None = None
+    address: str | None = None
+    project_type: str | None = None
+    total_value: float | None = None
+    start_date: datetime | None = None
+    target_end_date: datetime | None = None
     status: str | None = None
     stage: str | None = None
     progress: int | None = None
@@ -34,6 +44,9 @@ class ProjectUpdate(BaseModel):
     budget_total: float | None = None
     handover_date: datetime | None = None
     warranty_months: int | None = None
+
+    # Field lạ → 422 thay vì bị nuốt im lặng (cùng chốt chặn như LeadUpdate).
+    model_config = {"extra": "forbid"}
 
 
 class ProjectResponse(BaseModel):

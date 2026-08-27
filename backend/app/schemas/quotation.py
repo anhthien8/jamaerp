@@ -29,12 +29,19 @@ class QuotationCreate(BaseModel):
 
 class QuotationUpdate(BaseModel):
     title: str | None = None
+    # Form «Sửa báo giá» có ô đổi loại + dự án nhưng schema quên khai báo — đổi
+    # bị nuốt im lặng dù toast báo thành công (QC 27/08).
+    type: str | None = None
+    project_id: str | None = None
     status: str | None = None
     items: list[QuotationLineItem] | None = None
     total_amount: float | None = None
     tax_amount: float | None = None
     valid_until: date | None = None
     notes: str | None = None
+
+    # Field lạ → 422 thay vì bị nuốt im lặng (cùng chốt chặn như LeadUpdate).
+    model_config = {"extra": "forbid"}
 
 
 class QuotationResponse(BaseModel):

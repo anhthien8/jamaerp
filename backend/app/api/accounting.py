@@ -267,6 +267,20 @@ async def update_transaction(
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
 
     update_fields = data.model_dump(exclude_unset=True)
+    # Model KHÔNG có cột transaction_date/user_id/contract_id — setattr thẳng chỉ
+    # gắn thuộc tính rỗng không lưu (sửa ngày giao dịch chưa bao giờ ăn, QC 27/08).
+    # Map tường minh về đúng cột như create_transaction.
+    if "transaction_date" in update_fields:
+        d = update_fields.pop("transaction_date")
+        if d is not None:
+            txn.date = datetime.combine(d, datetime.min.time())
+    if "user_id" in update_fields:
+        uid = update_fields.pop("user_id")
+        txn.related_user_id = str(uid) if uid else None
+    update_fields.pop("contract_id", None)  # bảng transactions không có cột này
+    for k in ("project_id",):
+        if k in update_fields and update_fields[k] is not None:
+            update_fields[k] = str(update_fields[k])  # cột String(36), không nhận UUID object
     for k, v in update_fields.items():
         setattr(txn, k, v)
     await db.flush()

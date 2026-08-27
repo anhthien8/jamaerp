@@ -137,7 +137,9 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
     Promise.all([api.getAssignableSales(), api.getTeams()])
       .then(([users, teamList]) => {
         setSalesUsers(users);
-        setTeams(teamList);
+        // Chỉ đội KINH DOANH — GET /users/teams trả mọi đội phòng ban (Ban Giám Đốc,
+        // Thiết Kế, Thu mua...), giao data lead vào đó là vô nghĩa (QC 27/08).
+        setTeams(teamList.filter(t => (t.department || '').toUpperCase() === 'SALES'));
       })
       .catch(() => toast('Lỗi tải danh sách đội nhóm / nhân viên KD', 'error'))
       .finally(() => setAssignLoaded(true));

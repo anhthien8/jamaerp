@@ -163,8 +163,11 @@ async def team_attendance(
     """Bảng công team (leader: team mình; admin/accountant: mọi team hoặc toàn công ty)."""
     if current_user.role == "leader":
         team_id = current_user.team_id
+        # Leader chưa xếp đội: trả bảng RỖNG thay vì 400 — FE gộp lời gọi này trong
+        # Promise.all với bảng công cá nhân, 400 làm toast lỗi đỏ che luôn phần
+        # cá nhân vốn tải được (QC 27/08, tài khoản leader prod chưa có đội).
         if not team_id:
-            raise HTTPException(status_code=400, detail="Bạn chưa thuộc team nào")
+            return {"period": period or period_of(vn_today()), "items": []}
     elif current_user.role not in ("admin", "accountant"):
         raise HTTPException(status_code=403, detail="Không có quyền xem bảng công team")
 
