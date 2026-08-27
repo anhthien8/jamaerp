@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
-import { api, User } from '@/lib/api';
+import { api, Team, User } from '@/lib/api';
 import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 
@@ -119,16 +119,46 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // ── Gắn nhân viên KD phụ trách ngay khi tạo (feedback team KD 12/08/2026) ──
-  // Chỉ admin/leader/điều phối KD (canAssign); bỏ trống = người tạo tự phụ trách.
+  // ── Giao data: chọn TRƯỞNG NHÓM trước, rồi mới chọn nhân viên trong nhóm đó ──
+  // (yêu cầu 27/08/2026 — trước đây là một danh sách phẳng, không phân biệt đội
+  // nhóm nên CSKH dễ giao nhầm sang quân của trưởng nhóm khác).
+  // Chỉ admin/leader/điều phối KD (canAssign); bỏ trống cả hai = người tạo tự phụ trách.
+  const [teamId, setTeamId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [salesUsers, setSalesUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  // Cờ "đã bắn request" để ref (không phải state): setState đồng bộ ngay trong thân
+  // useEffect bị react-hooks/set-state-in-effect chặn.
+  const assignLoadStarted = useRef(false);
+  const [assignLoaded, setAssignLoaded] = useState(false);
   useEffect(() => {
-    if (!isOpen || !canAssign || salesUsers.length > 0) return;
-    api.getAssignableSales()
-      .then(setSalesUsers)
-      .catch(() => toast('Lỗi tải danh sách nhân viên KD', 'error'));
-  }, [isOpen, canAssign, salesUsers.length, toast]);
+    if (!isOpen || !canAssign || assignLoadStarted.current) return;
+    assignLoadStarted.current = true;
+    Promise.all([api.getAssignableSales(), api.getTeams()])
+      .then(([users, teamList]) => {
+        setSalesUsers(users);
+        setTeams(teamList);
+      })
+      .catch(() => toast('Lỗi tải danh sách đội nhóm / nhân viên KD', 'error'))
+      .finally(() => setAssignLoaded(true));
+  }, [isOpen, canAssign, toast]);
+  const loadingAssign = Boolean(canAssign) && !assignLoaded;
+
+  const selectedTeam = useMemo(() => teams.find(t => t.id === teamId) || null, [teams, teamId]);
+  // Nhân viên trong đội đã chọn. Trưởng nhóm cũng nằm trong đội nên hiện luôn ở
+  // đây (có nhãn) — CSKH vẫn giao thẳng cho trưởng nhóm được nếu muốn.
+  const teamMembers = useMemo(
+    () => salesUsers.filter(u => u.team_id === teamId),
+    [salesUsers, teamId],
+  );
+  // Đổi đội thì bỏ người đã chọn của đội cũ, tránh giao nhầm chéo đội.
+  const handleTeamChange = (nextTeamId: string) => {
+    setTeamId(nextTeamId);
+    setAssignedTo('');
+  };
+  // Chọn đội mà không chọn ai = giao cho trưởng nhóm để họ tự chia tiếp
+  // (đúng luồng CSKH → trưởng nhóm → sale đã chốt 14/08).
+  const resolvedAssignee = assignedTo || (teamId ? selectedTeam?.leader_id || '' : '');
 
   const set = (key: keyof CreateLeadForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [key]: e.target.value }));
@@ -160,6 +190,12 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
 
   const handleSubmit = async () => {
     if (!validate()) return;
+    // Đội chưa có trưởng nhóm thì không có ai để rơi về — bắt chọn người cụ thể,
+    // đừng lặng lẽ gán ngược cho người đang tạo.
+    if (teamId && !resolvedAssignee) {
+      toast('Đội này chưa có trưởng nhóm — chọn một nhân viên cụ thể để giao data', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.createLead({
@@ -180,9 +216,12 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
         plan_type: form.plan_type as 'online' | 'offline' | 'survey' | 'none' | undefined,
         tags: form.tags.length > 0 ? form.tags : undefined,
         deal_value: computedDealValue > 0 ? computedDealValue : undefined,
-        assigned_to: assignedTo || undefined,
+        assigned_to: resolvedAssignee || undefined,
       });
-      const assignedName = assignedTo ? salesUsers.find(u => u.id === assignedTo)?.full_name : '';
+      const assignedName = resolvedAssignee
+        ? salesUsers.find(u => u.id === resolvedAssignee)?.full_name
+          || (resolvedAssignee === selectedTeam?.leader_id ? selectedTeam?.leader_name || '' : '')
+        : '';
       toast(
         assignedName
           ? `Đã tạo Lead "${form.name}" và giao cho ${assignedName}!`
@@ -190,6 +229,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
         'success',
       );
       setForm(INITIAL);
+      setTeamId('');
       setAssignedTo('');
       setErrors({});
       onClose();
@@ -203,6 +243,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
   // Reset toàn bộ form + lỗi về mặc định khi đóng, để lần mở sau luôn sạch.
   const handleClose = () => {
     setForm(buildInitial());
+    setTeamId('');
     setAssignedTo('');
     setErrors({});
     setSubmitting(false);
@@ -276,16 +317,60 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
             </Field>
           </div>
 
-          {/* Gắn nhân viên KD phụ trách — chỉ admin/leader/điều phối KD (CSKH) thấy ô này */}
+          {/* Giao data theo đội — chỉ admin/leader/điều phối KD (CSKH) thấy khối này.
+              Bước 1 chọn trưởng nhóm, bước 2 chọn nhân viên TRONG nhóm đó. */}
           {canAssign && (
-            <Field label="Gắn nhân viên KD phụ trách">
-              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className="input" data-qc="assign-on-create">
-                <option value="">— Tôi tự phụ trách —</option>
-                {salesUsers.map(u => (
-                  <option key={u.id} value={u.id}>{u.full_name}</option>
-                ))}
-              </select>
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Trưởng nhóm phụ trách">
+                <select
+                  value={teamId}
+                  onChange={e => handleTeamChange(e.target.value)}
+                  className="input"
+                  data-qc="assign-team-on-create"
+                  disabled={loadingAssign}
+                >
+                  <option value="">{loadingAssign ? 'Đang tải...' : '— Tôi tự phụ trách —'}</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.leader_name ? `${t.leader_name} — ${t.name}` : `${t.name} (chưa có trưởng nhóm)`}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Nhân viên kinh doanh">
+                <select
+                  value={assignedTo}
+                  onChange={e => setAssignedTo(e.target.value)}
+                  className="input"
+                  data-qc="assign-on-create"
+                  disabled={!teamId}
+                >
+                  <option value="">
+                    {!teamId
+                      ? '— Chọn trưởng nhóm trước —'
+                      : selectedTeam?.leader_id
+                        ? '— Giao cho trưởng nhóm chia tiếp —'
+                        : '— Chọn nhân viên —'}
+                  </option>
+                  {teamMembers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.full_name}{u.id === selectedTeam?.leader_id ? ' (Trưởng nhóm)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {teamId && (
+                <p className="sm:col-span-2 -mt-1 text-[11px] text-[var(--text-muted)]">
+                  {teamMembers.length === 0
+                    ? '⚠️ Đội này chưa có thành viên nào — xếp người vào đội ở trang Tài khoản trước.'
+                    : assignedTo
+                      ? `Data sẽ vào thẳng ${teamMembers.find(u => u.id === assignedTo)?.full_name || 'nhân viên đã chọn'}.`
+                      : selectedTeam?.leader_id
+                        ? `Chưa chọn nhân viên → data giao cho ${selectedTeam.leader_name || 'trưởng nhóm'} để chia tiếp trong nhóm.`
+                        : '⚠️ Đội này chưa có trưởng nhóm — phải chọn một nhân viên cụ thể.'}
+                </p>
+              )}
+            </div>
           )}
 
           {/* ── NEW: Lark CRM Fields ── */}

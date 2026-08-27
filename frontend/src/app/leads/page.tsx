@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
-import { getPermissions, canAssignLeads, canWriteCskhNote, isSalesCoordinator, UserRole } from '@/lib/roles';
+import { getPermissions, canAssignLeads, canWriteCskhNote, isSalesCoordinator, isTeamLead, UserRole } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
   townhouse: 'Nhà phố', apartment: 'Căn hộ', villa: 'Biệt thự',
@@ -345,14 +345,26 @@ function LeadsContent() {
         tags: typeof lead.tags === 'string' ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })() : lead.tags || [],
       }));
       // Apply role-based scope filtering.
-      // Điều phối KD (CSKH — vai trò tùy chỉnh bộ phận KD) phải thấy TẤT CẢ để phân chia,
-      // dù leadsScope của vai trò custom fallback về 'own' của data_entry.
-      const scope = isSalesCoordinator(user?.role, user?.department) ? 'all' : perms.leadsScope;
+      // Hai vai trò phải ép phạm vi tay vì `leadsScope` không nằm trong ma trận
+      // checkbox của vai trò tùy chỉnh — mọi vai trò custom đều thừa kế 'own' của
+      // data_entry, nên bản cũ NÉM BỎ chính số lead backend đã trả đúng:
+      //   - Điều phối KD (CSKH): phải thấy TẤT CẢ để phân chia.
+      //   - Trưởng nhóm KD (leader + sale_leader): phải thấy lead cả nhóm. Đây là
+      //     lỗi user báo 27/08 «leader chỉ xem được lead gắn cho mình».
+      const scope = isSalesCoordinator(user?.role, user?.department)
+        ? 'all'
+        : isTeamLead(user?.role)
+          ? 'team'
+          : perms.leadsScope;
       let filtered = allLeads;
       if (scope === 'own') {
         filtered = allLeads.filter(l => l.assigned_to === user?.id);
       } else if (scope === 'team') {
-        filtered = allLeads.filter(l => l.team_id === user?.team_id || !l.assigned_to);
+        // Soi gương _team_lead_lead_scope() backend: lead nhóm mình HOẶC lead giao
+        // cho chính mình (trưởng nhóm chưa xếp đội vẫn thấy data của mình).
+        filtered = allLeads.filter(l =>
+          (!!user?.team_id && l.team_id === user.team_id) || l.assigned_to === user?.id
+        );
       }
       // Apply client-side filters for region and property_class
       if (filterRegion !== 'all') {

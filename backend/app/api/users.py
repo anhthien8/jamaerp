@@ -30,6 +30,29 @@ from app.services.audit import log_action
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+async def _dong_bo_nhan_doi_cua_lead(
+    db: AsyncSession, user_ids: list[str] | set[str], team_id: str | None
+) -> int:
+    """Gắn lại nhãn đội cho lead theo đội MỚI của người phụ trách.
+
+    `Lead.team_id` là bản sao đội của người đang phụ trách (assign_lead đặt
+    `lead.team_id = target_user.team_id`), mà phạm vi của trưởng nhóm lại đọc
+    đúng cột này. Đổi đội của người mà không gắn lại lead thì nhãn trôi:
+      - Sale nhận lead lúc chưa có đội → lead mang team_id NULL. Xếp vào đội sau
+        thì trưởng nhóm KHÔNG BAO GIỜ thấy số lead đó (lỗi user báo 27/08).
+      - Sale chuyển sang đội khác → lead cũ vẫn đeo nhãn đội cũ, trưởng nhóm đội
+        cũ còn thấy data của người đã rời đi.
+    Trả về số lead đã gắn lại.
+    """
+    ids = [u for u in user_ids if u]
+    if not ids:
+        return 0
+    res = await db.execute(
+        sa_update(Lead).where(Lead.assigned_to.in_(ids)).values(team_id=team_id)
+    )
+    return res.rowcount or 0
+
+
 def _get_combined_permissions(role: str, custom: dict | None) -> dict:
     """Merge role defaults with custom overrides. Custom overrides take precedence."""
     defaults = _ROLE_PERMISSION_DEFAULTS.get(role, _ROLE_PERMISSION_DEFAULTS["data_entry"])
@@ -241,6 +264,7 @@ async def create_team(
     await db.flush()
     if leader:
         leader.team_id = team.id
+        await _dong_bo_nhan_doi_cua_lead(db, [leader.id], team.id)
     await db.flush()
 
     await log_action(
@@ -299,6 +323,7 @@ async def update_team(
                 raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
             team.leader_id = leader.id
             leader.team_id = team.id
+            await _dong_bo_nhan_doi_cua_lead(db, [leader.id], team.id)
         else:
             team.leader_id = None
     await db.flush()
@@ -380,6 +405,10 @@ async def set_team_members(
         u.team_id = None
     for u in found.values():
         u.team_id = team.id
+    # Lead đi theo người: vào đội thì data cũ của họ mang nhãn đội mới, rời đội thì
+    # nhãn bị gỡ. Không có bước này thì trưởng nhóm không thấy data của quân mình.
+    await _dong_bo_nhan_doi_cua_lead(db, [u.id for u in removed], None)
+    await _dong_bo_nhan_doi_cua_lead(db, [u.id for u in found.values()], team.id)
     await db.flush()
 
     await log_action(
@@ -835,12 +864,16 @@ async def update_user(
         "role": user.role, "is_active": user.is_active, "team_id": user.team_id,
         "department": user.department, "telegram_user_id": user.telegram_user_id,
     }
+    doi_cu = user.team_id
     for k in allowed:
         if k in provided:
             setattr(user, k, provided[k])
     if "password" in provided and data.password:
         user.password_hash = hash_password(data.password)
     user.updated_at = datetime.now(timezone.utc)
+    # Chuyển đội qua đường sửa hồ sơ cũng phải kéo lead đi theo, y như xếp thành viên.
+    if user.team_id != doi_cu:
+        await _dong_bo_nhan_doi_cua_lead(db, [user.id], user.team_id)
     await db.flush()
 
     # Audit các thay đổi nhạy cảm (quyền, trạng thái, đội)

@@ -16,6 +16,27 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '27/08/2026',
+    title: 'Giao data theo đội: chọn Trưởng nhóm trước rồi mới chọn nhân viên — và Trưởng nhóm xem được data cả nhóm',
+    tag: 'RELEASE',
+    news: [
+      'Form «Thêm Lead» đổi ô «Gắn nhân viên KD phụ trách» thành 2 bước: chọn «Trưởng nhóm phụ trách» trước, rồi ô «Nhân viên kinh doanh» chỉ hiện đúng người trong nhóm của trưởng nhóm đó. Hết cảnh một danh sách dài trộn lẫn mọi đội, giao nhầm sang quân của trưởng nhóm khác.',
+      'Chọn trưởng nhóm mà chưa chọn nhân viên cụ thể thì data về thẳng trưởng nhóm để họ tự chia tiếp trong nhóm — đúng luồng CSKH → Trưởng nhóm → Sale. Ngay dưới ô có dòng nhắc data sẽ vào tay ai.',
+      'Đổi trưởng nhóm thì ô nhân viên tự xóa lựa chọn cũ, không giao nhầm chéo đội.',
+    ],
+    fixes: [
+      'LỖI QUAN TRỌNG: tài khoản Trưởng nhóm trước đây chỉ xem được data gắn cho chính mình, không thấy data của nhân viên trong nhóm mình phụ trách. Nay xem và quản lý được data của cả nhóm.',
+      'Nguyên nhân thứ hai đã xử lý: nhân viên nhận data TRƯỚC khi được xếp vào đội thì số data đó không mang nhãn đội, nên trưởng nhóm không bao giờ thấy dù sau đó đã xếp người vào đội. Nay xếp người vào đội / chuyển đội / đổi trưởng nhóm đều tự gắn lại nhãn đội cho toàn bộ data của người đó, và hệ thống đã rà soát gắn lại một lượt cho data cũ.',
+      'Nhân viên chuyển sang đội khác thì data cũ đi theo sang đội mới — trưởng nhóm đội cũ không còn thấy data của người đã rời đi. Data chưa giao cho ai vẫn nằm ở kho chung, không bị vơ vào đội nào.',
+    ],
+    test: [
+      'Admin CSKH: thêm một lead mới → chọn «Trưởng nhóm phụ trách» → xác nhận ô «Nhân viên kinh doanh» chỉ liệt kê người của nhóm đó.',
+      'Admin CSKH: chọn trưởng nhóm rồi bấm Tạo luôn (không chọn nhân viên) → xác nhận data vào tay trưởng nhóm.',
+      'Trưởng nhóm: mở trang Quy trình → xác nhận thấy data của TẤT CẢ nhân viên trong nhóm mình, không chỉ data của mình. Đây là phần cần anh em kiểm kỹ nhất.',
+      'Trưởng nhóm: đếm thử số lead trong nhóm xem có khớp với số nhân viên đang giữ data không — thiếu ai thì báo lại ngay.',
+    ],
+  },
+  {
+    date: '27/08/2026',
     title: 'Ô ghi chú CSKH trong thẻ khách: chấm chất lượng chăm sóc của team kinh doanh',
     tag: 'RELEASE',
     news: [
