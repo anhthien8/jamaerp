@@ -57,6 +57,10 @@ class Lead(Base):
     # Pipeline
     stage: Mapped[str] = mapped_column(String(30), nullable=False, default="new")
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
+    # Lý do mất lead — bắt buộc khi chuyển sang stage "lost", tự xoá khi lead được
+    # kéo về lại pipeline. FE đã dựng UI chọn lý do từ lâu nhưng backend chưa hề
+    # có chỗ chứa, nên lý do bay mất im lặng (lỗi user báo 27/08/2026).
+    lost_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Assignment
     assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)

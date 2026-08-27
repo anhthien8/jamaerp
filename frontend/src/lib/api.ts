@@ -982,14 +982,29 @@ class ApiClient {
     return this.request<Lead>('/leads', { method: 'POST', body: data });
   }
 
-  async updateLead(id: string, data: Partial<Lead>) {
+  /**
+   * Sửa thông tin lead. KHÔNG đổi được stage/lost_reason qua đây — dùng
+   * changeStage(). Backend nay trả 422 nếu gửi field lạ; kiểu dữ liệu dưới đây
+   * chặn sớm ngay từ lúc biên dịch.
+   */
+  async updateLead(id: string, data: Omit<Partial<Lead>, 'stage' | 'lost_reason'>) {
     return this.request<Lead>(`/leads/${id}`, { method: 'PUT', body: data });
   }
 
-  async changeStage(id: string, newStage: string, designContractValue?: number, note?: string) {
+  /**
+   * Đổi giai đoạn lead — CỬA DUY NHẤT cho mọi chuyển stage, kể cả sang "Mất".
+   * Đừng đổi stage qua updateLead(): PUT /leads/{id} không nhận stage/lost_reason
+   * và Pydantic bỏ qua field lạ, nên nó trả 200 mà lead nằm y nguyên chỗ cũ.
+   */
+  async changeStage(id: string, newStage: string, opts?: { designContractValue?: number; note?: string; lostReason?: string }) {
     return this.request<Lead>(`/leads/${id}/stage`, {
       method: 'PUT',
-      body: { new_stage: newStage, design_contract_value: designContractValue, note },
+      body: {
+        new_stage: newStage,
+        design_contract_value: opts?.designContractValue,
+        note: opts?.note,
+        lost_reason: opts?.lostReason,
+      },
     });
   }
 

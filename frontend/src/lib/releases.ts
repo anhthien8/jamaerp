@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '27/08/2026',
+    title: 'Sửa lỗi: bấm «Chuyển sang Mất lead» báo thành công nhưng lead vẫn nằm ở cột cũ',
+    tag: 'HOTFIX',
+    fixes: [
+      'LỖI CHÍNH: chọn lý do rồi bấm «Xác nhận mất lead», hệ thống hiện thông báo xanh «đã chuyển» nhưng lead vẫn nằm nguyên cột cũ, tải lại trang cũng vậy. Nay chuyển đúng sang cột «❌ Mất» thật.',
+      'Lý do mất lead trước đây KHÔNG được lưu lại chút nào — hệ thống chưa hề có chỗ chứa nó, dù màn hình vẫn cho chọn. Nay lý do được lưu, hiện trong thẻ khách và ghi vào lịch sử hoạt động («Chuyển stage: … → Mất — Lý do: …»), nên sau này rà lại biết vì sao mất khách.',
+      'Vì lý do cũ chưa từng được lưu nên các lead đã chuyển sang Mất TRƯỚC bản này sẽ hiện trống phần lý do — không khôi phục được. Từ bản này trở đi mới có.',
+      'Kéo một lead từ cột «Mất» quay lại pipeline thì lý do mất cũ được xoá, không còn treo dòng «Mất: …» trên khách đang chăm lại.',
+      'Chuyển sang «Mất» mà chưa chọn lý do nay bị chặn rõ ràng (kể cả khi chuyển hàng loạt), thay vì âm thầm không làm gì.',
+    ],
+    test: [
+      'Sale/Trưởng nhóm: mở một lead thử → «🚫 Chuyển sang Mất lead» → chọn lý do → Xác nhận → kiểm tra lead ĐÃ nhảy sang cột «❌ Mất».',
+      'Mở lại lead vừa chuyển → xác nhận khối «Lý do mất lead» hiện đúng lý do đã chọn, và lịch sử hoạt động có dòng ghi lý do.',
+      'Kéo lead đó từ cột «Mất» về «Đang tư vấn» → xác nhận phần lý do mất đã được xoá.',
+    ],
+  },
+  {
+    date: '27/08/2026',
     title: 'Giao data theo đội: chọn Trưởng nhóm trước rồi mới chọn nhân viên — và Trưởng nhóm xem được data cả nhóm',
     tag: 'RELEASE',
     news: [

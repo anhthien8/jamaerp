@@ -514,11 +514,10 @@ function LeadsContent() {
     if (stageBusy.current) return;
     stageBusy.current = true;
     try {
-      if (newStage === 'lost' && reasonOverride) {
-        await api.updateLead(lead.id, { stage: newStage, lost_reason: reasonOverride });
-      } else {
-        await api.changeStage(lead.id, newStage);
-      }
+      // Mọi chuyển giai đoạn (kể cả sang "Mất") đi qua đúng một cửa /stage.
+      // Bản cũ dùng updateLead cho nhánh "Mất" — endpoint đó KHÔNG nhận stage nên
+      // trả 200 mà lead nằm nguyên cột cũ, user tưởng đã chuyển xong (lỗi 27/08).
+      await api.changeStage(lead.id, newStage, { lostReason: reasonOverride });
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
       fetchLeads();
       closeLeadDetail();

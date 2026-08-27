@@ -87,7 +87,7 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
         property_class=lead.property_class, price_per_sqm=lead.price_per_sqm,
         region=lead.region, segment=lead.segment,
         plan_type=lead.plan_type, tags=lead.tags, deal_value=lead.deal_value,
-        stage=lead.stage, priority=lead.priority,
+        stage=lead.stage, priority=lead.priority, lost_reason=lead.lost_reason,
         assigned_to=lead.assigned_to, team_id=lead.team_id,
         ai_score=lead.ai_score, ai_notes=lead.ai_notes,
         design_contract_value=lead.design_contract_value,
@@ -522,8 +522,19 @@ async def change_stage(
             detail=f"Không thể chuyển từ {lead.stage} sang {data.new_stage}",
         )
 
+    # Vào "Mất" bắt buộc kèm lý do — không có thì báo lỗi, tuyệt đối không im lặng
+    # cho qua (bản cũ trả 200 mà stage y nguyên, user tưởng đã chuyển xong).
+    ly_do_mat = (data.lost_reason or "").strip()
+    if data.new_stage == "lost" and not ly_do_mat:
+        raise HTTPException(status_code=400, detail="Cần chọn lý do trước khi chuyển sang Mất")
+
     old_stage = lead.stage
     lead.stage = data.new_stage
+    if data.new_stage == "lost":
+        lead.lost_reason = ly_do_mat[:255]
+    elif old_stage == "lost":
+        # Kéo lead sống lại: xoá lý do cũ kẻo thẻ lead còn treo dòng "Mất: ..."
+        lead.lost_reason = None
     if data.design_contract_value:
         lead.design_contract_value = data.design_contract_value
     lead.updated_at = datetime.now(timezone.utc)
@@ -683,6 +694,8 @@ async def change_stage(
 
     # Log activity
     content = f"Chuyển stage: {STAGE_LABELS.get(old_stage)} → {STAGE_LABELS.get(data.new_stage)}"
+    if ly_do_mat:
+        content += f" — Lý do: {ly_do_mat}"
     if data.note:
         content += f" — {data.note}"
     db.add(Activity(
@@ -713,6 +726,7 @@ class BulkAssign(_BaseModel):
 class BulkStageChange(_BaseModel):
     lead_ids: list[str]
     new_stage: str
+    lost_reason: str | None = None
 
 
 @router.post("/bulk/assign")
@@ -792,6 +806,10 @@ async def bulk_change_stage(
             status_code=400,
             detail="«Ký HĐ Thiết kế» phải chuyển từng lead (hệ thống tự tạo Khách hàng + Dự án + Hợp đồng) — không chuyển hàng loạt được",
         )
+    # Cùng luật với chuyển từng lead: vào "Mất" phải có lý do.
+    ly_do_mat = (data.lost_reason or "").strip()
+    if data.new_stage == "lost" and not ly_do_mat:
+        raise HTTPException(status_code=400, detail="Cần chọn lý do trước khi chuyển sang Mất")
     result = await db.execute(
         select(Lead).where(Lead.id.in_(data.lead_ids))
     )
@@ -800,7 +818,12 @@ async def bulk_change_stage(
     for lead in leads:
         if not can_modify_lead(current_user, lead):
             continue
+        old_stage = lead.stage
         lead.stage = data.new_stage
+        if data.new_stage == "lost":
+            lead.lost_reason = ly_do_mat[:255]
+        elif old_stage == "lost":
+            lead.lost_reason = None
         lead.updated_at = datetime.now(timezone.utc)
         updated += 1
     await db.flush()
