@@ -35,6 +35,10 @@ const ACTIVITY_ICONS: Record<string, string> = {
   stage_change: '🔄', assignment: '👤', system: '🤖',
 };
 const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'];
+// Cột hiển thị trên bảng kanban. KHÁC STAGES vì "Mất" phải có mặt để kiểm soát lead rơi,
+// nhưng không được nằm trong STAGES: chuyển sang "Mất" bắt buộc kèm lý do, mà các nút
+// "Chuyển giai đoạn" trong thẻ chi tiết lại bắn thẳng handleStageChange không lý do.
+const BOARD_STAGES = [...STAGES, 'lost'];
 const ALL_STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
 const OVERDUE_DAYS = 3;
 const LOST_REASONS = [
@@ -45,8 +49,107 @@ const LOST_REASONS = [
   'Lý do khác',
 ];
 
+// ── Lọc theo ngày (double-check lead nhập đúng/đủ) ──────────────────────────
+// Backend trả ISO KHÔNG kèm timezone (cột DateTime naive) nên new Date() đọc theo
+// giờ máy — đúng bằng cách timeAgo/toLocaleString đang hiển thị ở mọi trang khác.
+const DATE_FIELDS: Record<string, { label: string; short: string; pick: (l: Lead) => string | undefined }> = {
+  updated_at: { label: 'Ngày cập nhật', short: 'Cập nhật', pick: l => l.updated_at },
+  created_at: { label: 'Ngày thêm mới', short: 'Thêm mới', pick: l => l.created_at },
+  last_contacted_at: { label: 'Ngày liên hệ cuối', short: 'Liên hệ cuối', pick: l => l.last_contacted_at },
+};
+const DATE_PRESETS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Mọi lúc' },
+  { value: 'today', label: 'Hôm nay' },
+  { value: 'yesterday', label: 'Hôm qua' },
+  { value: '7d', label: '7 ngày qua' },
+  { value: '30d', label: '30 ngày qua' },
+  { value: 'this_month', label: 'Tháng này' },
+  { value: 'custom', label: 'Tùy chọn…' },
+];
+
+function dayKey(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function toDayKey(value?: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : dayKey(d);
+}
+
+function daysAgoKey(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return dayKey(d);
+}
+
+function formatDayKey(key: string): string {
+  const [y, m, d] = key.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Đổi preset + 2 ô ngày tùy chọn thành khoảng [from, to] dạng YYYY-MM-DD. null = không lọc. */
+function resolveDateRange(preset: string, from: string, to: string): { from: string; to: string } | null {
+  const today = dayKey(new Date());
+  switch (preset) {
+    case 'today': return { from: today, to: today };
+    case 'yesterday': { const y = daysAgoKey(1); return { from: y, to: y }; }
+    case '7d': return { from: daysAgoKey(6), to: today };
+    case '30d': return { from: daysAgoKey(29), to: today };
+    case 'this_month': { const n = new Date(); return { from: dayKey(new Date(n.getFullYear(), n.getMonth(), 1)), to: today }; }
+    case 'custom': {
+      if (!from && !to) return null;
+      // Nhập ngược (từ > đến) thì tự đảo, khỏi ra bảng trống mà không hiểu vì sao.
+      if (from && to && from > to) return { from: to, to: from };
+      return { from: from || '0000-01-01', to: to || '9999-12-31' };
+    }
+    default: return null;
+  }
+}
+
+type SortKey = 'newest' | 'updated' | 'budget' | 'ai_score' | 'deal_value';
+
 function getLeadTimestamp(lead: Lead) {
   return lead.last_contacted_at || lead.updated_at || lead.created_at;
+}
+
+function formatShortDate(value?: string | null): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
+}
+
+/** Ô tiêu đề bảng bấm được để đổi kiểu sắp xếp (dùng chung state với select "Sắp xếp"). */
+function SortableTh({ label, sortKey, sortBy, setSortBy, align = 'left' }: {
+  label: string;
+  sortKey: SortKey;
+  sortBy: SortKey;
+  setSortBy: (key: SortKey) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = sortBy === sortKey;
+  return (
+    <th className={cn('px-4 py-3 font-medium whitespace-nowrap', align === 'right' ? 'text-right' : 'text-left')}
+      style={{ color: active ? '#C9A96E' : 'var(--text-tertiary)' }}>
+      <button
+        onClick={() => setSortBy(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-[#C9A96E] transition-colors"
+        title={`Sắp xếp theo ${label.toLowerCase()}`}
+      >
+        {label}
+        <span className={cn('text-[9px]', !active && 'opacity-30')}>▼</span>
+      </button>
+    </th>
+  );
+}
+
+function PlainTh({ label, align = 'left' }: { label: string; align?: 'left' | 'right' }) {
+  return (
+    <th className={cn('px-4 py-3 font-medium whitespace-nowrap text-[var(--text-tertiary)]', align === 'right' ? 'text-right' : 'text-left')}>
+      {label}
+    </th>
+  );
 }
 
 function isOverdueLead(lead: Lead) {
@@ -68,10 +171,16 @@ function TagBadge({ tag }: { tag: string }) {
   );
 }
 
-function LostReasonSelector({ onConfirm, onCancel }: { onConfirm: (reason: string) => void; onCancel: () => void }) {
+// Ô chọn lý do mất lead. Trạng thái mở do trang mẹ giữ để kéo thẻ vào cột "Mất"
+// hoặc chọn "Mất" ở dropdown nhanh có thể bật sẵn ô này thay vì bắt user tự dò.
+function LostReasonSelector({ isOpen, setIsOpen, onConfirm, onCancel }: {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) {
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
 
   const handleConfirm = () => {
     const reason = selectedReason === 'Lý do khác' ? customReason.trim() : selectedReason;
@@ -155,7 +264,9 @@ function LeadsContent() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  const [stageChangeTarget, setStageChangeTarget] = useState<string | null>(null);
+  // Ô chọn lý do mất lead trong thẻ chi tiết — bật sẵn khi user kéo vào cột "Mất".
+  const [lostPickerOpen, setLostPickerOpen] = useState(false);
+  const lostPickerRef = useRef<HTMLDivElement | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -164,10 +275,15 @@ function LeadsContent() {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
   const [filterPropertyClass, setFilterPropertyClass] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'budget' | 'ai_score' | 'deal_value'>('newest');
+  const [sortBy, setSortBy] = useState<SortKey>('newest');
+  // Lọc theo ngày tạo/cập nhật/liên hệ — để soát lại lead vừa nhập đã đúng & đủ chưa.
+  const [dateField, setDateField] = useState<string>('updated_at');
+  const [datePreset, setDatePreset] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [newNote, setNewNote] = useState('');
   const [newNoteLink, setNewNoteLink] = useState('');
-  const [viewMode, setViewMode] = useState<'kanban' | 'calendar'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'calendar'>('kanban');
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [searchQuery, setSearchQuery] = useState('');
@@ -242,11 +358,12 @@ function LeadsContent() {
     if (user) void Promise.resolve().then(fetchLeads);
   }, [user, fetchLeads]);
 
-  const openLeadDetail = async (lead: Lead) => {
+  const openLeadDetail = async (lead: Lead, options?: { lostPicker?: boolean }) => {
     setSelectedLead(lead);
     // Ô ghi chú luôn sạch khi mở thẻ mới (tránh sót nội dung của lead trước).
     setNewNote('');
     setNewNoteLink('');
+    setLostPickerOpen(Boolean(options?.lostPicker));
     setAssignOpen(false);
     setActivities([]);
     setGoiY(null);
@@ -275,9 +392,20 @@ function LeadsContent() {
     setNewNote('');
     setNewNoteLink('');
     setAssignOpen(false);
+    setLostPickerOpen(false);
     setGoiY(null);
     setLichSuGoiY([]);
   }, []);
+
+  // Ô chọn lý do nằm cuối thẻ chi tiết (thẻ có thể cuộn) — bật sẵn mà không cuộn tới
+  // thì user bấm "Mất" xong tưởng không có gì xảy ra.
+  useEffect(() => {
+    if (!lostPickerOpen || !selectedLead) return;
+    const id = window.setTimeout(() => {
+      lostPickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [lostPickerOpen, selectedLead]);
 
   // Xin Co-Pilot một gợi ý mới. Backend tự đọc lại các gợi ý cũ + phản hồi của sale
   // nên không lặp lại việc đã làm/đã bỏ qua.
@@ -420,11 +548,19 @@ function LeadsContent() {
   if (sortBy === 'budget') sorted.sort((a, b) => (b.estimated_budget || 0) - (a.estimated_budget || 0));
   else if (sortBy === 'ai_score') sorted.sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
   else if (sortBy === 'deal_value') sorted.sort((a, b) => (b.deal_value || 0) - (a.deal_value || 0));
+  else if (sortBy === 'updated') sorted.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   else sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const dateRange = resolveDateRange(datePreset, dateFrom, dateTo);
 
   const filteredByUrl = sorted.filter(lead => {
     if (activeStage && lead.stage !== activeStage) return false;
     if (activeQuickFilter === 'overdue' && !isOverdueLead(lead)) return false;
+    if (dateRange) {
+      // Lead chưa có mốc ngày đang lọc (vd chưa liên hệ lần nào) coi như không khớp.
+      const key = toDayKey(DATE_FIELDS[dateField]?.pick(lead));
+      if (!key || key < dateRange.from || key > dateRange.to) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!lead.name.toLowerCase().includes(q) && !(lead.phone || '').includes(q)
@@ -435,7 +571,8 @@ function LeadsContent() {
     return true;
   });
 
-  const visibleStages = activeStage && !STAGES.includes(activeStage) ? [activeStage] : STAGES;
+  // Vào bằng deep-link ?stage=... thì chỉ dựng đúng cột đó, khỏi bày 5 cột rỗng.
+  const visibleStages = activeStage ? [activeStage] : BOARD_STAGES;
 
   // Group by stage for kanban
   const kanban = visibleStages.map(stage => ({
@@ -443,17 +580,41 @@ function LeadsContent() {
     leads: filteredByUrl.filter(l => l.stage === stage),
   }));
 
+  // Số hiển thị phải khớp thứ đang thực sự vẽ ra: kanban bỏ qua lead ngoài các cột
+  // (vd "Ngủ đông"), còn bảng/lịch thì vẽ hết.
+  const shownCount = viewMode === 'kanban'
+    ? kanban.reduce((sum, col) => sum + col.leads.length, 0)
+    : filteredByUrl.length;
+
+  // Khoảng để mở một đầu thì ghi "từ …" / "đến …", đừng in ra mốc bù 01/01/0000.
+  const dateRangeLabel = dateRange
+    ? (datePreset === 'custom'
+      ? (!dateTo ? `từ ${formatDayKey(dateRange.from)}`
+        : !dateFrom ? `đến ${formatDayKey(dateRange.to)}`
+          : `${formatDayKey(dateRange.from)} → ${formatDayKey(dateRange.to)}`)
+      : DATE_PRESETS.find(p => p.value === datePreset)?.label || '')
+    : null;
+
   const hasUrlFilters = Boolean(activeStage || activeQuickFilter);
-  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '';
+  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all';
   const activeFilterLabels = [
     activeStage ? `Giai đoạn: ${STAGE_CONFIG[activeStage]?.label || activeStage}` : null,
     activeQuickFilter === 'overdue' ? `Quá hạn CSKH > ${OVERDUE_DAYS} ngày` : null,
     filterRegion !== 'all' ? `Khu vực: ${filterRegion}` : null,
     filterPropertyClass !== 'all' ? PROPERTY_CLASS_LABELS[filterPropertyClass]?.label : null,
+    dateRangeLabel ? `${DATE_FIELDS[dateField]?.label}: ${dateRangeLabel}` : null,
   ].filter(Boolean);
 
-  const clearUrlFilters = () => {
-    router.push('/leads');
+  const clearFilters = () => {
+    setFilterSource('all');
+    setFilterPriority('all');
+    setFilterRegion('all');
+    setFilterPropertyClass('all');
+    setSearchQuery('');
+    setDatePreset('all');
+    setDateFrom('');
+    setDateTo('');
+    if (hasUrlFilters) router.push('/leads');
   };
 
   return (
@@ -464,28 +625,28 @@ function LeadsContent() {
           <div>
             <h1 className="text-2xl font-bold">Quy trình CRM</h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Click vào card để xem chi tiết · {filteredByUrl.length}/{leads.length} leads
+                {viewMode === 'list' ? 'Click vào dòng để xem chi tiết' : 'Click vào card để xem chi tiết'} · {shownCount}/{leads.length} leads
               </p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
             <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
-              <button
-                onClick={() => setViewMode('kanban')}
-                className="px-3 py-1.5 text-xs font-medium transition-all"
-                style={{
-                  background: viewMode === 'kanban' ? 'rgba(201,169,110,0.2)' : 'var(--surface-2)',
-                  color: viewMode === 'kanban' ? '#C9A96E' : 'var(--text-muted)',
-                  borderRight: '1px solid var(--border-subtle)',
-                }}
-              >📋 Kanban</button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className="px-3 py-1.5 text-xs font-medium transition-all"
-                style={{
-                  background: viewMode === 'calendar' ? 'rgba(201,169,110,0.2)' : 'var(--surface-2)',
-                  color: viewMode === 'calendar' ? '#C9A96E' : 'var(--text-muted)',
-                }}
-              >📅 Lịch</button>
+              {([
+                { mode: 'kanban', label: '📋 Kanban' },
+                { mode: 'list', label: '📊 Danh sách' },
+                { mode: 'calendar', label: '📅 Lịch' },
+              ] as const).map((v, i, arr) => (
+                <button
+                  key={v.mode}
+                  onClick={() => setViewMode(v.mode)}
+                  aria-pressed={viewMode === v.mode}
+                  className="px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+                  style={{
+                    background: viewMode === v.mode ? 'rgba(201,169,110,0.2)' : 'var(--surface-2)',
+                    color: viewMode === v.mode ? '#C9A96E' : 'var(--text-muted)',
+                    borderRight: i < arr.length - 1 ? '1px solid var(--border-subtle)' : undefined,
+                  }}
+                >{v.label}</button>
+              ))}
             </div>
             <button
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 whitespace-nowrap"
@@ -535,9 +696,50 @@ function LeadsContent() {
             <option value="mid_range">Trung bình</option>
             <option value="budget">Bình dân</option>
           </select>
+          {/* Lọc theo ngày — soát lại lead vừa thêm/vừa sửa đã nhập đúng & đủ chưa */}
+          <span className="text-xs text-[var(--text-muted)] ml-2 mr-1">Ngày:</span>
+          <select
+            value={dateField}
+            onChange={e => setDateField(e.target.value)}
+            aria-label="Lọc theo mốc ngày"
+            className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+          >
+            {Object.entries(DATE_FIELDS).map(([key, f]) => (
+              <option key={key} value={key}>{f.label}</option>
+            ))}
+          </select>
+          <select
+            value={datePreset}
+            onChange={e => setDatePreset(e.target.value)}
+            aria-label="Khoảng thời gian"
+            className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+            style={datePreset !== 'all' ? { borderColor: 'rgba(201,169,110,0.5)', color: '#C9A96E' } : undefined}
+          >
+            {DATE_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+          {datePreset === 'custom' && (
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                aria-label="Từ ngày"
+                className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+              />
+              <span className="text-xs text-[var(--text-muted)]">→</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                aria-label="Đến ngày"
+                className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+              />
+            </div>
+          )}
           <span className="text-xs text-[var(--text-muted)] ml-2 mr-1">Sắp xếp:</span>
           <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="newest">Mới nhất</option>
+            <option value="updated">Cập nhật gần nhất</option>
             <option value="budget">Ngân sách cao → thấp</option>
             <option value="deal_value">Giá trị hợp đồng cao → thấp</option>
             <option value="ai_score">Điểm AI cao → thấp</option>
@@ -552,7 +754,7 @@ function LeadsContent() {
             </div>
           )}
           {hasFilters && (
-            <button onClick={() => { setFilterSource('all'); setFilterPriority('all'); setFilterRegion('all'); setFilterPropertyClass('all'); setSearchQuery(''); if (hasUrlFilters) clearUrlFilters(); }} className="text-[10px] px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(248,113,113,0.1)', color: '#EF4444' }}>
+            <button onClick={clearFilters} className="text-[10px] px-2 py-1 rounded-lg ml-auto" style={{ background: 'rgba(248,113,113,0.1)', color: '#EF4444' }}>
               ✕ Xóa bộ lọc
             </button>
           )}
@@ -568,6 +770,145 @@ function LeadsContent() {
           <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
             <p className="text-lg mb-2">📭 Không có lead phù hợp</p>
             <p className="text-sm">Hãy xóa bộ lọc hoặc kiểm tra lại dữ liệu lead</p>
+          </div>
+        ) : viewMode === 'list' ? (
+          /* ── List / Table View ── */
+          <div className="glass-card overflow-hidden">
+            {/* Mobile: mỗi lead một dòng gọn, bảng ngang không dùng được trên điện thoại */}
+            <div className="md:hidden">
+              {filteredByUrl.map(lead => (
+                <div
+                  key={lead.id}
+                  onClick={() => openLeadDetail(lead)}
+                  className="p-3 cursor-pointer active:bg-white/5 transition-colors"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {lead.name}
+                        {isOverdueLead(lead) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 ml-1">⚠️ Quá hạn</span>}
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">📱 {lead.phone || '—'}</p>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0" style={{
+                      background: `${STAGE_CONFIG[lead.stage]?.color}20`,
+                      color: STAGE_CONFIG[lead.stage]?.color,
+                    }}>
+                      {STAGE_CONFIG[lead.stage]?.emoji} {STAGE_CONFIG[lead.stage]?.label || lead.stage}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1.5 text-[10px] text-[var(--text-muted)]">
+                    <span>{lead.assigned_user_name || 'Chưa phân công'}</span>
+                    <span>{DATE_FIELDS[dateField]?.short}: {formatShortDate(DATE_FIELDS[dateField]?.pick(lead))}</span>
+                    {lead.deal_value ? <span className="text-[#C9A96E] font-semibold">{formatDealValue(lead.deal_value)}</span> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop: bảng cuộn ngang */}
+            <div className="hidden md:block table-scroll">
+              <table className="w-full text-sm min-w-[1180px]">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <PlainTh label="Khách hàng" />
+                    <PlainTh label="Giai đoạn" />
+                    <PlainTh label="Ưu tiên" />
+                    <PlainTh label="Bất động sản" />
+                    <SortableTh label="Ngân sách" sortKey="budget" sortBy={sortBy} setSortBy={setSortBy} align="right" />
+                    <SortableTh label="Giá trị HĐ" sortKey="deal_value" sortBy={sortBy} setSortBy={setSortBy} align="right" />
+                    <SortableTh label="AI" sortKey="ai_score" sortBy={sortBy} setSortBy={setSortBy} align="right" />
+                    <PlainTh label="Nguồn" />
+                    <PlainTh label="Phụ trách" />
+                    <SortableTh label="Thêm mới" sortKey="newest" sortBy={sortBy} setSortBy={setSortBy} />
+                    <SortableTh label="Cập nhật" sortKey="updated" sortBy={sortBy} setSortBy={setSortBy} />
+                    <PlainTh label="Gọi" align="right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredByUrl.map(lead => (
+                    <tr
+                      key={lead.id}
+                      onClick={() => openLeadDetail(lead)}
+                      className="cursor-pointer transition-colors hover:bg-white/5"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1 h-8 rounded-full flex-shrink-0" style={{ background: PRIORITY_LABELS[lead.priority]?.color || '#6B7280' }} />
+                          <div className="min-w-0">
+                            <p className="font-medium text-[var(--text-primary)] truncate max-w-[180px]">
+                              {lead.name}
+                              {isOverdueLead(lead) && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1">⚠️ Quá hạn</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">{lead.phone || '—'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] px-2 py-1 rounded-full font-semibold whitespace-nowrap" style={{
+                          background: `${STAGE_CONFIG[lead.stage]?.color}20`,
+                          color: STAGE_CONFIG[lead.stage]?.color,
+                        }}>
+                          {STAGE_CONFIG[lead.stage]?.emoji} {STAGE_CONFIG[lead.stage]?.label || lead.stage}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: PRIORITY_LABELS[lead.priority]?.color || 'var(--text-secondary)' }}>
+                        {PRIORITY_LABELS[lead.priority]?.label || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap">
+                        {PROPERTY_LABELS[lead.property_type || ''] || lead.property_type || '—'}
+                        {lead.area_sqm ? <span className="text-[var(--text-muted)]"> · {lead.area_sqm}m²</span> : null}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[var(--text-secondary)] whitespace-nowrap">
+                        {lead.estimated_budget ? formatCurrency(lead.estimated_budget) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#10B981] whitespace-nowrap">
+                        {formatDealValue(lead.deal_value)}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {lead.ai_score != null && lead.ai_score > 0 ? (
+                          <span style={{ color: lead.ai_score >= 80 ? '#10B981' : lead.ai_score >= 60 ? '#F59E0B' : '#EF4444' }}>
+                            {lead.ai_score}
+                          </span>
+                        ) : <span className="text-[var(--text-muted)]">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap">
+                        {SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {lead.assigned_user_name
+                          ? <span className="text-[var(--text-secondary)]">{lead.assigned_user_name}</span>
+                          : <span style={{ color: '#F59E0B' }}>Chưa phân công</span>}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap">{formatShortDate(lead.created_at)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-[var(--text-secondary)]">{formatShortDate(lead.updated_at)}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{timeAgo(lead.updated_at)}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <a
+                          href={lead.phone ? `tel:${lead.phone}` : undefined}
+                          className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E]"
+                          title={lead.phone ? `Gọi ${lead.phone}` : 'Chưa có SĐT'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!lead.phone) { e.preventDefault(); return; }
+                            api.createActivity(lead.id, { type: 'call', content: `📞 Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+                              .then(() => toast('Đang gọi + đã ghi nhận', 'success'))
+                              .catch(() => {});
+                          }}
+                        >
+                          <LineIcon name="phone" size={16} color="currentColor" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : viewMode === 'calendar' ? (
           /* Calendar View */
@@ -663,13 +1004,19 @@ function LeadsContent() {
                     const leadId = e.dataTransfer.getData('text/lead-id');
                     const lead = leads.find(l => l.id === leadId);
                     if (!lead || lead.stage === col.stage) return;
-                    if (col.stage === 'lost') { toast('Chuyển vào "Mất" cần chọn lý do — mở thẻ lead và dùng menu trạng thái', 'error'); return; }
+                    // "Mất" bắt buộc có lý do → mở thẳng thẻ lead với ô chọn lý do bật sẵn.
+                    if (col.stage === 'lost') { void openLeadDetail(lead, { lostPicker: true }); return; }
                     handleStageChange(lead, col.stage);
                   }}
                 >
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <div className="stage-dot" style={{ backgroundColor: config?.color }} />
                     <span className="text-sm font-medium">{config?.label}</span>
+                    {col.stage === 'lost' && (
+                      <span className="text-[10px] text-[var(--text-muted)]" title="Kéo thẻ vào đây sẽ mở ô chọn lý do mất lead">
+                        (cần lý do)
+                      </span>
+                    )}
                     <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-white/10 text-[var(--text-secondary)]">
                       {col.leads.length}
                     </span>
@@ -777,14 +1124,16 @@ function LeadsContent() {
                                 e.stopPropagation();
                                 const newStage = e.target.value;
                                 if (newStage === 'lost') {
-                                  setSelectedLead(lead);
-                                  setStageChangeTarget(newStage);
+                                  // Mở thẻ chi tiết kèm ô chọn lý do — đổi thẳng sẽ bị chặn.
+                                  void openLeadDetail(lead, { lostPicker: true });
                                 } else {
                                   handleStageChange(lead, newStage);
                                 }
                               }}
                             >
-                              {STAGES.map(s => (
+                              {/* Lead ở giai đoạn ngoài bảng (vd "Ngủ đông") vẫn phải có option
+                                  của chính nó, không thì ô select hiện trống. */}
+                              {(BOARD_STAGES.includes(lead.stage) ? BOARD_STAGES : [...BOARD_STAGES, lead.stage]).map(s => (
                                 <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
                               ))}
                             </select>
@@ -1227,7 +1576,7 @@ function LeadsContent() {
               )}
 
               {/* Stage Actions */}
-              <div className="glass-card p-4">
+              <div className="glass-card p-4" ref={lostPickerRef}>
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Chuyển giai đoạn</h3>
                 <div className="flex flex-wrap gap-2">
                   {STAGES.filter(s => s !== selectedLead.stage).map(stage => (
@@ -1246,12 +1595,16 @@ function LeadsContent() {
                   ))}
                 </div>
                 {/* Lost reason selector — visible before confirming lost */}
-                <LostReasonSelector
-                  onConfirm={(reason) => {
-                    handleStageChange(selectedLead, 'lost', reason);
-                  }}
-                  onCancel={() => {}}
-                />
+                {selectedLead.stage !== 'lost' && (
+                  <LostReasonSelector
+                    isOpen={lostPickerOpen}
+                    setIsOpen={setLostPickerOpen}
+                    onConfirm={(reason) => {
+                      handleStageChange(selectedLead, 'lost', reason);
+                    }}
+                    onCancel={() => {}}
+                  />
+                )}
               </div>
 
               {/* Timestamps */}

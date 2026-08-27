@@ -15,6 +15,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '27/08/2026',
+    title: 'Trang Quy trình: thêm kiểu xem Danh sách, bộ lọc theo ngày và cột «Mất»',
+    tag: 'RELEASE',
+    news: [
+      'Trang Quy trình có thêm kiểu xem «📊 Danh sách» bên cạnh Kanban và Lịch: toàn bộ lead nằm trên một bảng ngang — tên, giai đoạn, ưu tiên, loại nhà, ngân sách, giá trị hợp đồng, điểm AI, nguồn, người phụ trách, ngày thêm, ngày cập nhật. Bấm vào tiêu đề cột để sắp xếp, bấm vào dòng để mở thẻ khách như cũ.',
+      'Bộ lọc theo ngày: chọn mốc (Ngày cập nhật / Ngày thêm mới / Ngày liên hệ cuối) rồi chọn khoảng (Hôm nay, Hôm qua, 7 ngày qua, 30 ngày qua, Tháng này, hoặc tự chọn từ ngày – đến ngày). Dùng để soát lại data mình vừa nhập trong ngày đã đủ thông tin chưa.',
+      'Bảng kanban có thêm cột «❌ Mất» ở cuối: các lead đã đánh mất nay nhìn thấy và kiểm soát được ngay trên bảng, trước đây phải đi vòng từ trang Tổng quan mới thấy.',
+      'Kéo một thẻ khách thả vào cột «Mất» sẽ tự mở thẻ khách và bật sẵn ô chọn lý do mất — không còn báo lỗi đỏ bắt tự đi tìm. Chọn «Mất» ở ô trạng thái nhỏ trên thẻ cũng vậy.',
+      'Thêm kiểu sắp xếp «Cập nhật gần nhất» — ghép với bộ lọc ngày là ra đúng danh sách data vừa đụng tới.',
+    ],
+    fixes: [
+      'Số lead ghi ở đầu trang Quy trình nay khớp đúng số thẻ đang hiện; trước đây có đếm cả lead không nằm trong cột nào nên nhìn cứ thấy thiếu.',
+      'Ô trạng thái nhỏ trên thẻ khách không còn bị trống với lead ở giai đoạn «Mất» hoặc «Ngủ đông».',
+      'Bấm vào một giai đoạn từ trang Tổng quan nay chỉ mở đúng cột đó thay vì bày thêm 4 cột rỗng.',
+    ],
+    test: [
+      'Sale/CSKH: mở Quy trình → bấm «📊 Danh sách» → kiểm tra bảng kéo ngang xem được hết cột, bấm tiêu đề «Giá trị HĐ» xem có sắp xếp không.',
+      'Cuối ngày: chọn Ngày «Ngày thêm mới» + «Hôm nay» → rà lại các lead vừa nhập xem đã đủ SĐT, khu vực, ngân sách, người phụ trách chưa.',
+      'Trưởng nhóm: kéo thử một thẻ khách vào cột «❌ Mất» → xác nhận thẻ khách tự mở và ô chọn lý do đã bật sẵn.',
+    ],
+  },
+  {
     date: '18/08/2026',
     title: 'Giao việc dự án chéo phòng ban hoạt động lại cho mọi vai trò',
     tag: 'FIX',
