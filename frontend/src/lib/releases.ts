@@ -15,6 +15,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '29/08/2026',
+    title: 'Siết quyền Duyệt báo giá & Xác nhận thu tiền — tách quyền soạn với quyền duyệt',
+    tag: 'RELEASE',
+    news: [
+      'ĐỔI QUYỀN — anh em đọc kỹ: nút «Duyệt báo giá» nay chỉ Giám đốc, Trưởng nhóm/phòng và Giám sát mới thấy. Sale vẫn soạn, sửa, gửi báo giá bình thường như cũ — chỉ là không tự duyệt bản của chính mình nữa.',
+      'Nút «Xác nhận TT» (đánh dấu đã thu tiền đợt thanh toán hợp đồng) nay chỉ Kế toán, Giám đốc và Trưởng nhóm/phòng mới thấy. Sale vẫn xem được đầy đủ trạng thái thanh toán của hợp đồng, chỉ không tự tích «đã thu».',
+      'Sale nào đang quen tự duyệt báo giá hoặc tự tích đã thu tiền thì từ nay báo cấp trên / kế toán làm giúp. Nếu cách này vướng thực tế công việc, báo lại để chỉnh.',
+    ],
+    fixes: [
+      'Kế toán không còn tạo/sửa được báo giá — đúng như bảng phân quyền và tài liệu công ty vẫn ghi (Kế toán = chỉ Đọc báo giá). Trước đây bảng ghi một đằng, hệ thống cho làm một nẻo.',
+      'Ba nút trên trước đây KHÔNG hề kiểm quyền ở máy chủ: dù giao diện có ẩn nút thì người biết cách vẫn gọi thẳng được. Nay máy chủ tự chặn, không phụ thuộc nút bị ẩn.',
+    ],
+    test: [
+      'Sale: mở một báo giá nháp → xác nhận KHÔNG còn nút «Duyệt báo giá», nhưng vẫn sửa và lưu được bình thường.',
+      'Sale: mở hợp đồng → xác nhận vẫn xem được các đợt thanh toán và trạng thái, nhưng không còn nút «Xác nhận TT».',
+      'Trưởng nhóm/Kế toán: xác nhận vẫn duyệt báo giá / tích đã thu tiền được như thường.',
+    ],
+  },
+  {
     date: '27/08/2026',
     title: 'Tổng QC hệ thống: vá 4 form «lưu giả» (Dự án, Hợp đồng, Báo giá, Thu chi) + 3 lỗi nhỏ',
     tag: 'RELEASE',

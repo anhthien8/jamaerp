@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Quotation, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { getPermissions, canApproveQuotation, UserRole } from '@/lib/roles';
 import AccessDenied from '@/components/ui/AccessDenied';
 import MoneyInput from '@/components/ui/MoneyInput';
 
@@ -97,6 +97,8 @@ export default function QuotationsPage() {
 
   const perms = user ? getPermissions(user.role as UserRole) : null;
   const canCreate = perms?.canCreateQuotations ?? false;
+  // Duyệt là quyền cấp trên, khác quyền soạn — backend chặn 403, FE ẩn nút cho khớp.
+  const canApprove = canApproveQuotation(user);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -344,7 +346,7 @@ export default function QuotationsPage() {
             )}
 
             <div className="flex gap-2">
-              {selected.status === 'draft' && (
+              {selected.status === 'draft' && canApprove && (
                 <button
                   onClick={() => handleApprove(selected.id)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"

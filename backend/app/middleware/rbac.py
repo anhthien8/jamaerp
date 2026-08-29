@@ -42,6 +42,28 @@ def can_assign_leads(user: User) -> bool:
     return user.role == "admin" or is_team_lead(user) or is_sales_coordinator(user)
 
 
+def can_approve_quotation(user: User) -> bool:
+    """Ai được DUYỆT báo giá — chốt với chủ dự án 29/08/2026: Giám đốc + Trưởng
+    nhóm/phòng + Giám sát.
+
+    Tách quyền SOẠN với quyền DUYỆT: sale vẫn tạo/sửa báo giá bình thường nhưng
+    không tự duyệt bản của chính mình (trước QC 29/08 mọi tài khoản đăng nhập đều
+    duyệt được — backend không kiểm, nút trên FE cũng không ẩn).
+    """
+    return user.role == "admin" or is_team_lead(user) or user.role == "supervisor"
+
+
+def can_confirm_payment(user: User) -> bool:
+    """Ai được đánh dấu ĐÃ THU TIỀN một đợt thanh toán hợp đồng — chốt 29/08/2026:
+    Kế toán + Giám đốc + Trưởng nhóm/phòng.
+
+    Ghi nhận tiền về là việc kế toán (tài liệu công ty: «Kế toán nhận thông báo HĐ
+    mới → kiểm tra → tạo phiếu thu»); thêm trưởng nhóm để không tắc khi kế toán nghỉ.
+    Sale vẫn XEM được trạng thái thanh toán, chỉ không tự tích.
+    """
+    return user.role in ("admin", "accountant") or is_team_lead(user)
+
+
 def can_write_cskh_note(user: User) -> bool:
     """Ai được ghi lognote CSKH (đánh giá chất lượng chăm sóc của team KD).
 

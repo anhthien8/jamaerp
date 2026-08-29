@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Contract, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import MoneyInput from '@/components/ui/MoneyInput';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -64,6 +64,9 @@ export default function ContractsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  // Ghi nhận tiền về là việc kế toán — backend chặn 403, FE ẩn nút cho khớp
+  // (trước QC 29/08 ai xem được hợp đồng cũng tích được «đã thu tiền»).
+  const canConfirmTT = canConfirmPayment(user);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selected, setSelected] = useState<Contract | null>(null);
@@ -477,7 +480,7 @@ export default function ContractsPage() {
                             📷 Có sao kê
                           </span>
                         )}
-                        {inst.status === 'pending' && (
+                        {inst.status === 'pending' && canConfirmTT && (
                           <button
                             onClick={(e) => { e.stopPropagation(); openPaymentModal(selected.id, idx); }}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"

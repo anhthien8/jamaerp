@@ -11,11 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import quyen_hieu_luc
+from app.middleware.rbac import can_approve_quotation
 from app.models.user import User
 from app.models.quotation import Quotation
 from app.schemas.quotation import QuotationCreate, QuotationUpdate, QuotationResponse
 
 router = APIRouter(prefix="/quotations", tags=["quotations"])
+
+
+async def _yeu_cau_quyen_bao_gia(current_user: User, db: AsyncSession) -> None:
+    """Chặn ai không có «Tạo Báo giá» (canCreateQuotations) khỏi mọi thao tác GHI."""
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canCreateQuotations"):
+        raise HTTPException(status_code=403, detail="Không có quyền tạo/sửa báo giá")
 
 
 @router.get("")
@@ -72,6 +81,10 @@ async def create_quotation(
     current_user: User = Depends(get_current_user),
 ):
     """Create new quotation."""
+    # Backend PHẢI tự gác, không dựa nút bị ẩn trên FE: kế toán là «Đọc» báo giá
+    # theo ma trận quyền lẫn tài liệu công ty, nhưng endpoint trước đây cho mọi
+    # tài khoản đăng nhập tạo/sửa báo giá (QC 29/08 gọi thử bằng token kế toán → 200).
+    await _yeu_cau_quyen_bao_gia(current_user, db)
     # Convert line items to dict for JSON storage
     items_data = [item.model_dump() for item in data.items] if data.items else []
 
@@ -134,6 +147,7 @@ async def update_quotation(
     current_user: User = Depends(get_current_user),
 ):
     """Update quotation."""
+    await _yeu_cau_quyen_bao_gia(current_user, db)
     result = await db.execute(select(Quotation).where(Quotation.id == quotation_id))
     qt = result.scalar_one_or_none()
     if not qt:
@@ -163,6 +177,9 @@ async def approve_quotation(
     current_user: User = Depends(get_current_user),
 ):
     """Approve a quotation."""
+    # Duyệt là quyền của cấp trên, KHÁC quyền soạn — sale không tự duyệt bản mình.
+    if not can_approve_quotation(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ Giám đốc / Trưởng nhóm / Giám sát được duyệt báo giá")
     result = await db.execute(select(Quotation).where(Quotation.id == quotation_id))
     qt = result.scalar_one_or_none()
     if not qt:

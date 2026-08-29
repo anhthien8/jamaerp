@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import can_confirm_payment
 from app.models.user import User
 from app.models.contract import Contract
 from app.models.project import Project
@@ -190,6 +191,10 @@ async def update_payment(
     current_user: User = Depends(get_current_user),
 ):
     """Update payment installment status."""
+    # Ghi nhận tiền về = việc kế toán. Trước QC 29/08 mọi tài khoản xem được hợp
+    # đồng đều tích được «đã thu tiền» (backend không kiểm, FE không ẩn nút).
+    if not can_confirm_payment(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ Kế toán / Giám đốc / Trưởng nhóm được xác nhận đã thu tiền")
     result = await db.execute(select(Contract).where(Contract.id == contract_id))
     contract = result.scalar_one_or_none()
     if not contract:

@@ -21,7 +21,8 @@ const pw = (key, fallback) => process.env[`QC_PASS_${key.toUpperCase()}`] || fal
 
 const ROLES = [
   { key: 'admin', user: 'admin', pass: pw('admin', 'admin123'), pages: ['/', '/leads', '/projects', '/pl', '/attendance', '/approvals', '/settings', '/users', '/permissions', '/hr', '/customers', '/contracts', '/quotations', '/inventory', '/suppliers', '/accounting', '/finance', '/kpi', '/reports', '/feedback'] },
-  { key: 'executive', user: 'ceo', pass: pw('ceo', 'ceo123'), pages: ['/', '/pl', '/reports', '/kpi', '/feedback'] },
+  // 'executive' (ceo@) KHÔNG tồn tại trên prod — ceo thực chất là admin (đối chiếu
+  // GET /users 12/08). Để lại thì walker báo «ĐĂNG NHẬP THẤT BẠI» giả mỗi lần chạy.
   { key: 'leader', user: 'leader', pass: pw('leader', 'leader123'), pages: ['/', '/leads', '/projects', '/hr', '/accounting', '/kpi'] },
   { key: 'sales', user: 'sales', pass: pw('sales', 'sales123'), pages: ['/', '/leads', '/quote-tool', '/quotations', '/customers', '/contracts'] },
   { key: 'accountant', user: 'accountant', pass: pw('accountant', 'account123'), pages: ['/', '/accounting', '/finance', '/pl', '/hr', '/inventory', '/contracts'] },

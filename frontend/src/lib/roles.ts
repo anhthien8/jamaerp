@@ -34,6 +34,26 @@ export function canAssignLeads(user?: { role?: string; department?: string } | n
 }
 
 /**
+ * Ai được DUYỆT báo giá — chốt 29/08/2026: Giám đốc + Trưởng nhóm/phòng + Giám sát.
+ * PHẢI khớp can_approve_quotation() trong backend/app/middleware/rbac.py.
+ * Sale vẫn soạn/sửa báo giá, chỉ không tự duyệt bản của chính mình.
+ */
+export function canApproveQuotation(user?: { role?: string } | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || isTeamLead(user.role) || user.role === 'supervisor';
+}
+
+/**
+ * Ai được đánh dấu ĐÃ THU TIỀN một đợt thanh toán hợp đồng — chốt 29/08/2026:
+ * Kế toán + Giám đốc + Trưởng nhóm/phòng.
+ * PHẢI khớp can_confirm_payment() trong backend/app/middleware/rbac.py.
+ */
+export function canConfirmPayment(user?: { role?: string } | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || user.role === 'accountant' || isTeamLead(user.role);
+}
+
+/**
  * Ai được ghi lognote CSKH (đánh giá chất lượng chăm sóc của team KD).
  * PHẢI khớp can_write_cskh_note() trong backend/app/middleware/rbac.py.
  * Cố tình KHÔNG có trưởng nhóm/sale: đây là đánh giá VỀ họ. Đọc thì ai cũng đọc được.
