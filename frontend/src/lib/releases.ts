@@ -16,6 +16,19 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'Dự án: ô «Đảm nhận» bỏ nốt tài khoản Giám đốc — chỉ còn đúng người trong phòng',
+    tag: 'FIX',
+    fixes: [
+      'Ô «👤 Đảm nhận» nay chỉ hiện nhân sự thuộc đúng phòng ban của đầu việc, KHÔNG còn kèm 4 tài khoản Giám đốc như bản sáng nay. Ví dụ đầu việc Thiết kế: từ 21 người xuống còn 17 người phòng Thiết kế.',
+      'Giám đốc muốn tự nhận một đầu việc thì đổi phòng ban của đầu việc đó, hoặc nhờ người trong phòng nhận rồi bàn giao.',
+    ],
+    test: [
+      'Mở một dự án → đầu việc nhóm THIẾT KẾ → ô «Đảm nhận»: danh sách phải KHÔNG còn tên Giám đốc nào.',
+      'Nếu thiếu người đáng lẽ phải có, kiểm phòng ban của họ trong Tài khoản — danh sách lấy đúng theo đó.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'Dự án: ô «Đảm nhận» chỉ còn hiện nhân sự đúng phòng ban của đầu việc',
     tag: 'FIX',
     fixes: [

@@ -56,11 +56,11 @@ const DEPT_TO_USER_DEPT: Record<string, string[]> = {
 const taskDeptOf = (t: { department?: string | null; stage?: string | null }): string =>
   t.department || (t.stage === 'acceptance' ? 'construction' : t.stage || '');
 
-/** Ai được nhận task phòng ban `dept`. Chỉ admin (Giám đốc) là toàn quyền;
- *  supervisor trên prod cũng thuộc phòng ban cụ thể (DESIGN/OPS/PURCHASING/PM)
- *  nên KHÔNG còn được coi là toàn quyền như bản cũ. Không rõ phòng ban → chỉ admin. */
+/** Ai được nhận task phòng ban `dept` — CHỈ người thuộc đúng phòng ban đó.
+ *  Không có ngoại lệ nào: chốt 05/09 sau khi user thấy 4 tài khoản Giám đốc (EXEC)
+ *  lọt vào mọi dropdown. Supervisor cũng không toàn quyền — trên prod họ thuộc
+ *  phòng cụ thể (DESIGN/OPS/PURCHASING/PM). Task không rõ phòng ban → không ai. */
 const canTakeTask = (u: { role?: string; department?: string | null }, dept: string): boolean => {
-  if (u.role === 'admin') return true;
   const allowed = DEPT_TO_USER_DEPT[dept];
   return !!allowed && allowed.includes((u.department || '').toUpperCase());
 };
@@ -1729,10 +1729,7 @@ export default function ProjectsPage() {
                 >
                   <option value="">-- Chọn người --</option>
                   {users
-                    // Cùng bộ lọc với select «Đảm nhận» ở kanban: phòng ban task
-                    // (design/…, viết thường) phải map qua DEPT_TO_USER_DEPT mới ra
-                    // phòng ban user (DESIGN/OPS/…, viết HOA) — so sánh thẳng thì
-                    // không bao giờ khớp, dropdown chỉ còn admin/supervisor.
+                    // Dùng chung canTakeTask với select «Đảm nhận» ở kanban.
                     .filter(u => canTakeTask(u, taskForm.department))
                     .map(u => (
                       <option key={u.id} value={u.id}>{u.full_name || u.email}{u.department ? ` (${u.department})` : ''}</option>
