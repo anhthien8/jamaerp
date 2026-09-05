@@ -23,7 +23,7 @@ const PROPERTY_LABELS: Record<string, string> = {
 const SOURCE_LABELS: Record<string, string> = {
   facebook: 'Facebook', zalo: 'Zalo', website: 'Website',
   referral: 'Giới thiệu', tiktok: 'TikTok',
-  hotline: 'Hotline', office_visit: 'Khách đến văn phòng', other: 'Khác',
+  hotline: 'Hotline', office_visit: 'Khách đến văn phòng', google_form: 'Google Form', other: 'Khác',
 };
 const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   urgent: { label: 'Khẩn cấp', color: 'var(--danger)' },

@@ -1017,7 +1017,9 @@ class ApiClient {
 
   async getActivities(leadId: string): Promise<Activity[]> {
     // Backend trả object phân trang {items,...}; demo trả mảng thuần → chuẩn hoá về mảng.
-    const res = await this.request<Activity[] | { items: Activity[] }>(`/leads/${leadId}/activities`);
+    // Lấy tối đa backend cho phép (200): khối lognote CSKH trong thẻ chi tiết đọc từ
+    // mảng này, mặc định 50 thì lead bận rộn sẽ KHUẤT mất đánh giá cũ (QC 05/09).
+    const res = await this.request<Activity[] | { items: Activity[] }>(`/leads/${leadId}/activities`, { params: { page_size: '200' } });
     return Array.isArray(res) ? res : (res?.items ?? []);
   }
 

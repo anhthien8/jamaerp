@@ -16,6 +16,18 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'QC vòng 3: 2 lỗi nhỏ ở thẻ khách',
+    tag: 'FIX',
+    fixes: [
+      'Lead có nguồn từ Google Form trước đây hiện chữ «google_form» thô trên thẻ — nay hiện «Google Form» như các nguồn khác (đang có 3 lead như vậy).',
+      'Thẻ khách trước đây chỉ tải 50 mục lịch sử gần nhất — khách được chăm lâu ngày sẽ bị khuất mất các đánh giá CSKH cũ. Nay tải tới 200 mục.',
+    ],
+    test: [
+      'CSKH: mở một khách có nguồn Google Form → thẻ hiện «Google Form» thay vì mã tiếng Anh.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'Data khách: đổi tên 2 cột pipeline, lọc theo nhân viên phụ trách, thanh kéo ngang đặt lên trên',
     tag: 'RELEASE',
     news: [

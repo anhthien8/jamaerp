@@ -22,6 +22,9 @@ export const SOURCE_LABELS: Record<string, string> = {
   tiktok: 'TikTok',
   hotline: 'Hotline',
   office_visit: 'Khách đến văn phòng',
+  // Nguồn do Zalo listener / form marketing tự gắn — không có trong form Tạo Lead
+  // nhưng đã có 3 lead prod mang giá trị này và đang hiện mã thô (QC 05/09).
+  google_form: 'Google Form',
   other: 'Khác',
 };
 
