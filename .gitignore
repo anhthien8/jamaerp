@@ -51,3 +51,4 @@ backend/backups/
 # AI tools
 .claude/
 .codex/
+.vercel
