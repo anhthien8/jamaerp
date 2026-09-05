@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
-from app.models.project import Project, Task, TaskActivity
+from app.models.project import Project, Task, TaskActivity, task_department_for_stage
 from app.models.notification import Notification
 from app.cache import cache
 from app.schemas.project import (
@@ -410,7 +410,9 @@ async def create_task(
         title=data.title,
         description=data.description,
         stage=data.stage,
-        department=data.department,
+        # Form bỏ trống phòng ban → suy từ giai đoạn, KHÔNG để NULL (NULL làm dropdown
+        # «Đảm nhận» FE hiện toàn bộ nhân sự — QC 05/09).
+        department=data.department or task_department_for_stage(data.stage),
         assigned_to=data.assigned_to,
         order=data.order,
         status=data.status,

@@ -37,14 +37,32 @@ const DEPT_LABELS: Record<string, { label: string; color: string }> = {
   sales: { label: 'Kinh doanh', color: '#F97316' },
 };
 
-// Mapping: task department → user department (for filtering assignees)
+// Phòng ban của task (viết thường) → phòng ban user (viết HOA) được nhận việc.
+// Sửa 05/09 theo cơ cấu THẬT trên prod: dự toán/báo giá (du_toan,
+// dutoan_thumua_leader) và thu mua đều nằm ở PURCHASING — bản cũ map báo giá
+// sang SALES+DESIGN và thu mua sang OPS nên hiện nhầm người.
 const DEPT_TO_USER_DEPT: Record<string, string[]> = {
   design: ['DESIGN'],
-  quotation: ['SALES', 'DESIGN'],
-  procurement: ['OPS', 'PURCHASING'],
+  quotation: ['PURCHASING'],
+  procurement: ['PURCHASING'],
   construction: ['OPS'],
   accounting: ['ACCT'],
   sales: ['SALES'],
+};
+
+/** Phòng ban hiệu lực của task: `department` nếu có, không thì suy từ `stage`
+ *  (task tự sinh khi thắng deal từng để trống department — backfill u01 đã dọn,
+ *  nhưng vẫn giữ fallback cho dữ liệu cũ / cache). Nghiệm thu do đội thi công làm. */
+const taskDeptOf = (t: { department?: string | null; stage?: string | null }): string =>
+  t.department || (t.stage === 'acceptance' ? 'construction' : t.stage || '');
+
+/** Ai được nhận task phòng ban `dept`. Chỉ admin (Giám đốc) là toàn quyền;
+ *  supervisor trên prod cũng thuộc phòng ban cụ thể (DESIGN/OPS/PURCHASING/PM)
+ *  nên KHÔNG còn được coi là toàn quyền như bản cũ. Không rõ phòng ban → chỉ admin. */
+const canTakeTask = (u: { role?: string; department?: string | null }, dept: string): boolean => {
+  if (u.role === 'admin') return true;
+  const allowed = DEPT_TO_USER_DEPT[dept];
+  return !!allowed && allowed.includes((u.department || '').toUpperCase());
 };
 
 // ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
@@ -1272,12 +1290,7 @@ export default function ProjectsPage() {
                                       }}
                                     >
                                       <option value="">👤 Đảm nhận</option>
-                                      {users.filter(u => {
-                                        if (u.role === 'admin' || u.role === 'supervisor') return true;
-                                        if (!task.department) return true;
-                                        const allowedDepts = DEPT_TO_USER_DEPT[task.department] || [];
-                                        return allowedDepts.includes(u.department);
-                                      }).map(u => (
+                                      {users.filter(u => canTakeTask(u, taskDeptOf(task))).map(u => (
                                         <option key={u.id} value={u.id}>{u.full_name}</option>
                                       ))}
                                     </select>
@@ -1720,11 +1733,7 @@ export default function ProjectsPage() {
                     // (design/…, viết thường) phải map qua DEPT_TO_USER_DEPT mới ra
                     // phòng ban user (DESIGN/OPS/…, viết HOA) — so sánh thẳng thì
                     // không bao giờ khớp, dropdown chỉ còn admin/supervisor.
-                    .filter(u => {
-                      if (u.role === 'admin' || u.role === 'supervisor') return true;
-                      if (!taskForm.department) return true;
-                      return (DEPT_TO_USER_DEPT[taskForm.department] || []).includes(u.department);
-                    })
+                    .filter(u => canTakeTask(u, taskForm.department))
                     .map(u => (
                       <option key={u.id} value={u.id}>{u.full_name || u.email}{u.department ? ` (${u.department})` : ''}</option>
                     ))

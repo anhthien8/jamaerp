@@ -90,6 +90,24 @@ class Project(Base):
         return f"<Project {self.code}>"
 
 
+# Giai đoạn task → phòng ban đảm nhận. Key giai đoạn trùng key phòng ban, trừ
+# «acceptance» (nghiệm thu) do đội thi công làm. Dùng ở cả tạo task tự động lẫn
+# tạo tay khi form bỏ trống phòng ban, và migration backfill u01.
+STAGE_TO_DEPARTMENT: dict[str, str] = {
+    "design": "design",
+    "quotation": "quotation",
+    "procurement": "procurement",
+    "construction": "construction",
+    "acceptance": "construction",
+}
+
+
+def task_department_for_stage(stage: str | None) -> str | None:
+    if not stage:
+        return None
+    return STAGE_TO_DEPARTMENT.get(stage, stage)
+
+
 class Task(Base):
     __tablename__ = "tasks"
 

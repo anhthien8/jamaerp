@@ -16,6 +16,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'Dự án: ô «Đảm nhận» chỉ còn hiện nhân sự đúng phòng ban của đầu việc',
+    tag: 'FIX',
+    fixes: [
+      'Ở thẻ dự án, ô «👤 Đảm nhận» của mỗi đầu việc trước đây liệt kê TOÀN BỘ nhân sự công ty — giao việc Báo giá mà thấy cả thiết kế, thi công, sale. Nay chỉ hiện người thuộc phòng ban của đầu việc đó: việc Thiết kế → phòng Thiết kế, Báo giá & Thu mua → phòng Dự toán/Thu mua, Thi công & Nghiệm thu → đội Thi công.',
+      'Nguyên nhân: 19 đầu việc tự sinh khi thắng deal không được gắn phòng ban, nên bộ lọc coi như «ai cũng được». Toàn bộ đầu việc cũ (hơn 2.100) đã được gắn lại phòng ban theo giai đoạn — anh em không cần làm gì.',
+      'Giám đốc vẫn hiện ở mọi đầu việc (toàn quyền). Giám sát nay chỉ hiện ở đầu việc của phòng mình, không còn hiện khắp nơi như trước.',
+      'Form «Thêm công việc» bỏ trống phòng ban thì hệ thống tự suy theo giai đoạn, không còn tạo ra đầu việc «vô phòng ban».',
+    ],
+    test: [
+      'Trưởng nhóm/PM: mở một dự án → nhóm THIẾT KẾ → bấm ô «Đảm nhận» → chỉ thấy người phòng Thiết kế (+ Giám đốc).',
+      'Mở nhóm BÁO GIÁ → ô «Đảm nhận» chỉ thấy người Dự toán/Thu mua. Nếu thiếu ai đáng lẽ phải có, báo lại kèm tên — có thể tài khoản người đó đang để sai phòng ban trong Tài khoản.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'QC vòng 3: 2 lỗi nhỏ ở thẻ khách',
     tag: 'FIX',
     fixes: [

@@ -20,7 +20,7 @@ from app.models.lead import (
 )
 from app.models.customer import Customer
 from app.cache import cache
-from app.models.project import Project, Task
+from app.models.project import Project, Task, task_department_for_stage
 from app.models.contract import Contract
 from app.models.notification import Notification
 import random
@@ -632,6 +632,10 @@ async def change_stage(
                         title=title,
                         description=desc,
                         stage=tstage,
+                        # Phòng ban suy từ giai đoạn — bản cũ để NULL cho cả 19 task nên
+                        # dropdown «Đảm nhận» trên FE rơi vào nhánh «không có phòng ban
+                        # → cho mọi người» (2128/2128 task prod bị vậy, QC 05/09).
+                        department=task_department_for_stage(tstage),
                         status="not_started",
                         order=order,
                     )
