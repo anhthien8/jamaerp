@@ -86,7 +86,48 @@ async def require_project_access(
     )).scalar() or 0
     if co_task:
         return current_user
+    if await _chua_phan_cong_pic(db, project):
+        return current_user
     raise HTTPException(status_code=403, detail="Bạn không phụ trách dự án này")
+
+
+# ── «Chưa phân công PIC» — lối thoát để không tắt trắng màn hình Dự án ───────
+# Đo prod ngay sau khi bật lọc phạm vi (05/09): 113 dự án nhưng pm_id/
+# designer_id/purchasing_id đều = 0, 108/113 sales_id trỏ vào tài khoản admin
+# (dấu vết lúc import), và 0 đầu việc nào được giao người. Hệ quả: 50 nhân sự
+# mở mục Dự án thấy màn hình trống. Chốt với chủ dự án: dự án CHƯA phân công
+# thì giữ nguyên như cũ (ai cũng xem được); vừa gắn PIC là nó tự động chỉ còn
+# người phụ trách + trưởng phòng thấy.
+#
+# «Chưa phân công» tính theo BỘ PHẬN chứ không theo NULL — nếu chỉ xét NULL thì
+# 108 dự án có sales_id=admin vẫn biến mất khỏi màn hình cả công ty. Một cột chỉ
+# tính là ĐÃ phân công khi người trong đó đúng là nhân sự của bộ phận tương ứng.
+# Cố ý KHÔNG dọn 108 giá trị sales_id đó về NULL: cột này còn được hợp đồng/hoa
+# hồng (contracts.py), portal khách hàng và bot Telegram dùng.
+
+def _dieu_kien_chua_phan_cong():
+    """Điều kiện SQL: dự án chưa có PIC đúng bộ phận ở bất kỳ vai nào."""
+    da_phan_cong = []
+    for dept, cot in PIC_THEO_PHONG_BAN.items():
+        nhan_su_phong = select(User.id).where(
+            func.upper(func.coalesce(User.department, "")) == dept
+        )
+        # coalesce để cột NULL cho ra FALSE thay vì NULL — thiếu nó thì `~or_(...)`
+        # ra NULL và dự án trống PIC bị loại sạch, đúng cái đang muốn tránh.
+        da_phan_cong.append(func.coalesce(getattr(Project, cot), "").in_(nhan_su_phong))
+    return ~or_(*da_phan_cong)
+
+
+async def _chua_phan_cong_pic(db: AsyncSession, project: Project) -> bool:
+    """Bản kiểm trên 1 dự án — dùng cho guard chi tiết, khớp với điều kiện SQL trên."""
+    for dept, cot in PIC_THEO_PHONG_BAN.items():
+        uid = getattr(project, cot, None)
+        if not uid:
+            continue
+        nguoi = await db.get(User, uid)
+        if nguoi and (nguoi.department or "").upper() == dept:
+            return False
+    return True
 
 class ProjectStageUpdate(BaseModel):
     stage: str
@@ -219,6 +260,8 @@ async def list_projects(
             Project.sales_id == current_user.id,
             Project.purchasing_id == current_user.id,
             Project.id.in_(du_an_co_task),
+            # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
+            _dieu_kien_chua_phan_cong(),
         ]
         if pham_vi == "phong_ban":
             # Trưởng phòng: thêm mọi dự án có PIC thuộc bộ phận mình.

@@ -142,7 +142,7 @@ async def test_nhan_vien_chi_thay_du_an_cua_minh(client, bo_may, nguoi, du_an_cu
     assert p[du_an_cua_minh] in thay, "phải thấy dự án mình phụ trách"
     khac = [v for k, v in p.items() if k not in (du_an_cua_minh, "trong")]
     assert not (set(khac) & thay), "KHÔNG được thấy dự án của bộ phận khác"
-    assert p["trong"] not in thay, "dự án chưa phân công ai thì không hiện"
+    assert p["trong"] in thay, "dự án CHƯA phân công thì vẫn hiện cho mọi người"
 
 
 # ── Phần 2: trưởng phòng thấy TOÀN BỘ dự án của bộ phận mình ────────────────
@@ -165,6 +165,50 @@ async def test_chu_tri_thiet_ke_khong_phai_truong_phong(client, bo_may):
     u, p = bo_may["u"], bo_may["p"]
     thay = await _ma_du_an_thay_duoc(client, u["tk_chutri"])
     assert p["tk"] not in thay, "chủ trì không được xem toàn phòng như trưởng phòng"
+
+
+# ── Dự án CHƯA phân công thì không được biến mất khỏi màn hình ──────────────
+# Đo prod ngay sau khi bật lọc: 113 dự án nhưng pm_id/designer_id/purchasing_id
+# đều = 0 và 108/113 sales_id trỏ vào tài khoản admin → 50 nhân sự thấy màn hình
+# trống. Chốt 05/09: chưa phân công thì giữ nguyên như cũ.
+
+@pytest.mark.asyncio
+async def test_du_an_chua_phan_cong_thi_ai_cung_thay(client, bo_may):
+    u, p = bo_may["u"], bo_may["p"]
+    for nguoi in ("tk", "gs", "tm", "tk_chutri"):
+        thay = await _ma_du_an_thay_duoc(client, u[nguoi])
+        assert p["trong"] in thay, f"{nguoi} phải thấy dự án chưa phân công"
+    resp = await client.get(f"/api/v1/projects/{p['trong']}", headers=auth_header(u["tk"]))
+    assert resp.status_code == 200, "và mở chi tiết được, không 403"
+
+
+@pytest.mark.asyncio
+async def test_pic_sai_bo_phan_van_tinh_la_chua_phan_cong(client, admin_user, bo_may):
+    """Hình dạng dữ liệu THẬT trên prod: sales_id trỏ vào tài khoản admin (EXEC).
+
+    Nếu tính «chưa phân công» theo NULL thì 108 dự án kiểu này biến mất khỏi màn
+    hình cả công ty. Người trong cột phải ĐÚNG bộ phận mới tính là đã phân công.
+    """
+    u = bo_may["u"]
+    pid = await _tao_du_an(client, admin_user, "PRJ-SALESADMIN", sales_id=admin_user.id)
+    thay = await _ma_du_an_thay_duoc(client, u["tk"])
+    assert pid in thay, "sales_id trỏ người ngoài phòng KD ⇒ vẫn coi là chưa phân công"
+
+
+@pytest.mark.asyncio
+async def test_gan_pic_xong_thi_nguoi_khac_het_thay(client, admin_user, bo_may):
+    """Vừa gắn PIC là dự án tự động chỉ còn người phụ trách + trưởng phòng thấy."""
+    u, p = bo_may["u"], bo_may["p"]
+    assert p["trong"] in await _ma_du_an_thay_duoc(client, u["gs"])
+    resp = await client.put(
+        f"/api/v1/projects/{p['trong']}",
+        json={"designer_id": u["tk"].id},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    assert p["trong"] not in await _ma_du_an_thay_duoc(client, u["gs"]), "giám sát hết thấy"
+    assert p["trong"] in await _ma_du_an_thay_duoc(client, u["tk"]), "thiết kế được gắn thì thấy"
+    assert p["trong"] in await _ma_du_an_thay_duoc(client, u["tk_tp"]), "trưởng phòng TK thấy"
 
 
 # ── Kế toán / admin giữ toàn quyền xem ──────────────────────────────────────

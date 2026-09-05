@@ -26,7 +26,7 @@ export const RELEASES: Release[] = [
       'Giám đốc, Admin và Kế toán vẫn xem được toàn bộ dự án (kế toán cần đối chiếu công nợ, thanh toán, P&L).',
     ],
     fixes: [
-      'LƯU Ý VẬN HÀNH: vì trước nay chưa dự án nào gắn PM/Thiết kế/Thu mua, ngay sau bản này nhân sự các phòng đó sẽ chỉ còn thấy dự án mà họ có đầu việc. Trưởng phòng vào «Chỉnh sửa» từng dự án gắn PIC cho đủ là danh sách hiện lại bình thường.',
+      'KHÔNG ai mất dự án đang có: dự án CHƯA phân công PIC vẫn hiện cho mọi người y như trước. Chỉ khi một dự án được gắn PIC thì nó mới thu về đúng người phụ trách + trưởng phòng của họ. Vì hiện 113/113 dự án chưa gắn PM/Thiết kế/Thu mua nên hôm nay màn hình của anh em không đổi gì — bộ lọc sẽ "ăn" dần theo tốc độ gắn PIC.',
       'Mở thẳng link một dự án ngoài phạm vi của mình nay báo «Bạn không phụ trách dự án này» thay vì mở được — trước đây chặn không đồng bộ với danh sách.',
       'Thêm chỉ mục cho bảng đầu việc để bộ lọc mới không làm chậm màn hình Dự án.',
     ],
