@@ -463,6 +463,20 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Thanh trượt ngang đặt TRÊN bảng kanban (trang Quy trình).
+     Thanh cuộn toàn cục chỉ 5px + alpha .08 — quá mờ cho thứ đang cố làm nổi bật,
+     và nền dùng overlay scrollbar thì nó ẩn hẳn tới khi rê chuột. Ghi đè để LUÔN hiện. */
+  .top-scrollbar::-webkit-scrollbar { height: 10px; }
+  .top-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .top-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--gold-500);
+    opacity: 0.9;
+    border-radius: 100px;
+  }
+  .top-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--gold-700); }
+  /* Firefox không có ::-webkit-* */
+  .top-scrollbar { scrollbar-width: thin; scrollbar-color: var(--gold-500) transparent; }
 }
 
 /* === Utility Layer === */

@@ -297,7 +297,7 @@ export const DEMO_PIPELINE_KANBAN: PipelineKanban[] = [
   { stage: 'new', stage_label: 'Tiếp nhận mới', leads: DEMO_LEADS.filter(l => l.stage === 'new'), count: stageCounts['new'] || 0 },
   { stage: 'interested', stage_label: 'Đang tư vấn', leads: DEMO_LEADS.filter(l => l.stage === 'interested'), count: stageCounts['interested'] || 0 },
   { stage: 'survey_scheduled', stage_label: 'Khảo sát', leads: DEMO_LEADS.filter(l => l.stage === 'survey_scheduled'), count: stageCounts['survey_scheduled'] || 0 },
-  { stage: 'potential', stage_label: 'Dự toán & tư vấn', leads: DEMO_LEADS.filter(l => l.stage === 'potential'), count: stageCounts['potential'] || 0 },
+  { stage: 'potential', stage_label: 'Đang đàm phán', leads: DEMO_LEADS.filter(l => l.stage === 'potential'), count: stageCounts['potential'] || 0 },
   { stage: 'signed_design', stage_label: 'Ký HĐ Thiết kế', leads: DEMO_LEADS.filter(l => l.stage === 'signed_design'), count: stageCounts['signed_design'] || 0 },
 ];
 

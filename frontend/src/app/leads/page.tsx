@@ -8,7 +8,7 @@ import LineIcon from '@/components/ui/LineIcon';
 import {
   STAGE_CONFIG, formatCurrency, timeAgo, cn,
   formatPricePerSqm, formatDealValue,
-  PROPERTY_CLASS_LABELS, PLAN_TYPE_LABELS,
+  PROPERTY_CLASS_LABELS, PLAN_TYPE_LABELS, NEEDS_LABELS,
   REGION_OPTIONS, TAG_COLORS,
 } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
@@ -22,7 +22,8 @@ const PROPERTY_LABELS: Record<string, string> = {
 };
 const SOURCE_LABELS: Record<string, string> = {
   facebook: 'Facebook', zalo: 'Zalo', website: 'Website',
-  referral: 'Giới thiệu', tiktok: 'TikTok', other: 'Khác',
+  referral: 'Giới thiệu', tiktok: 'TikTok',
+  hotline: 'Hotline', office_visit: 'Khách đến văn phòng', other: 'Khác',
 };
 const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   urgent: { label: 'Khẩn cấp', color: 'var(--danger)' },
@@ -45,6 +46,9 @@ const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_de
 const BOARD_STAGES = [...STAGES, 'lost'];
 const ALL_STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
 const OVERDUE_DAYS = 3;
+// Kanban windowing: mỗi cột chỉ VẼ tối đa chừng này thẻ mỗi «trang» — cột «Tiếp nhận mới»
+// 137 thẻ từng đẩy trang cao ~28.000px. Chỉ giới hạn render; đếm ở header cột vẫn là tổng thật.
+const KANBAN_PAGE_SIZE = 25;
 const LOST_REASONS = [
   'Ngân sách không phù hợp',
   'Đã chọn đối thủ',
@@ -277,6 +281,48 @@ function LeadsContent() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  // ── Thanh trượt ngang thứ 2 đặt TRÊN bảng kanban ──────────────────────────
+  // Hai khối cuộn soi gương nhau: kéo cái nào thì cái kia đi theo. Cờ `dangDongBo`
+  // chặn vòng lặp vô tận (set scrollLeft lại bắn onScroll của bên kia).
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const dangDongBo = useRef(false);
+  const goRoiTheoDoi = useRef<(() => void) | null>(null);
+
+  // Gắn bằng CALLBACK REF, không phải useEffect: bảng kanban chỉ mount SAU khi lead
+  // tải xong (lượt render đầu còn ở nhánh "Đang tải"), nên effect theo [viewMode]
+  // chạy lúc boardRef còn null rồi không bao giờ chạy lại → thanh trượt rộng sai.
+  const ganBang = useCallback((node: HTMLDivElement | null) => {
+    goRoiTheoDoi.current?.();
+    goRoiTheoDoi.current = null;
+    boardRef.current = node;
+    if (!node) return;
+    const dongBoRong = () => {
+      if (spacerRef.current) spacerRef.current.style.width = `${node.scrollWidth}px`;
+    };
+    dongBoRong();
+    const ro = new ResizeObserver(dongBoRong);   // đổi kích thước cửa sổ
+    ro.observe(node);
+    const mo = new MutationObserver(dongBoRong); // thêm/bớt cột do đổi bộ lọc
+    mo.observe(node, { childList: true });
+    goRoiTheoDoi.current = () => { ro.disconnect(); mo.disconnect(); };
+  }, []);
+
+  const onBoardScroll = useCallback(() => {
+    if (dangDongBo.current || !boardRef.current || !topScrollRef.current) return;
+    dangDongBo.current = true;
+    topScrollRef.current.scrollLeft = boardRef.current.scrollLeft;
+    requestAnimationFrame(() => { dangDongBo.current = false; });
+  }, []);
+
+  const onTopScroll = useCallback(() => {
+    if (dangDongBo.current || !boardRef.current || !topScrollRef.current) return;
+    dangDongBo.current = true;
+    boardRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    requestAnimationFrame(() => { dangDongBo.current = false; });
+  }, []);
+
   // Ô chọn lý do mất lead trong thẻ chi tiết — bật sẵn khi user kéo vào cột "Mất".
   const [lostPickerOpen, setLostPickerOpen] = useState(false);
   const lostPickerRef = useRef<HTMLDivElement | null>(null);
@@ -288,6 +334,10 @@ function LeadsContent() {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
   const [filterPropertyClass, setFilterPropertyClass] = useState<string>('all');
+  // Lọc theo nhân viên KD phụ trách. Danh sách dựng TỪ CHÍNH lead đang tải nên
+  // không cần gọi thêm API (sale thường bị 403 ở /users/assignable) và chỉ liệt
+  // kê người thực sự đang giữ data trong phạm vi mình xem được.
+  const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortKey>('newest');
   // Lọc theo ngày tạo/cập nhật/liên hệ — để soát lại lead vừa nhập đã đúng & đủ chưa.
   const [dateField, setDateField] = useState<string>('updated_at');
@@ -304,6 +354,9 @@ function LeadsContent() {
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [searchQuery, setSearchQuery] = useState('');
+  // Số thẻ đang vẽ mỗi cột kanban (thiếu key = KANBAN_PAGE_SIZE). Chỉ giới hạn RENDER,
+  // không đụng dữ liệu: header cột và shownCount vẫn đếm đủ.
+  const [kanbanVisible, setKanbanVisible] = useState<Record<string, number>>({});
   const searchParams = useSearchParams();
   const urlStage = searchParams.get('stage');
   const urlFilter = searchParams.get('filter');
@@ -386,6 +439,22 @@ function LeadsContent() {
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchLeads);
   }, [user, fetchLeads]);
+
+  // Đổi bộ lọc / từ khóa / sắp xếp / cột đang xem → cụp mọi cột về trang đầu:
+  // tập thẻ và thứ tự đã khác, giữ trạng thái «đã hiện thêm» cũ chỉ gây rối.
+  // Chỉnh NGAY TRONG RENDER theo "chữ ký bộ lọc" thay vì useEffect — setState đồng
+  // bộ trong effect gây render thác (react-hooks/set-state-in-effect) và làm cột
+  // nhấp nháy một nhịp ở tập thẻ cũ trước khi cụp.
+  const filterSig = [
+    searchQuery, filterSource, filterPriority, filterRegion, filterPropertyClass,
+    filterAssignee, dateField, datePreset, dateFrom, dateTo, sortBy,
+    activeStage, activeQuickFilter,
+  ].join('|');
+  const [prevFilterSig, setPrevFilterSig] = useState(filterSig);
+  if (prevFilterSig !== filterSig) {
+    setPrevFilterSig(filterSig);
+    setKanbanVisible({});
+  }
 
   const openLeadDetail = async (lead: Lead, options?: { lostPicker?: boolean }) => {
     setSelectedLead(lead);
@@ -519,6 +588,13 @@ function LeadsContent() {
       // trả 200 mà lead nằm nguyên cột cũ, user tưởng đã chuyển xong (lỗi 27/08).
       await api.changeStage(lead.id, newStage, { lostReason: reasonOverride });
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
+      // Sort «Mới nhất» xếp lead cũ rất sâu: thẻ vừa chuyển vào cột đông có thể
+      // nằm ngoài 25 thẻ đầu → thẻ «biến mất», sale tưởng chuyển hụt. Nới cửa sổ
+      // cột đích đủ rộng để thẻ chắc chắn hiện ra; muốn gọn đã có nút «Thu gọn».
+      setKanbanVisible(prev => ({
+        ...prev,
+        [newStage]: Math.max(prev[newStage] ?? KANBAN_PAGE_SIZE, leads.filter(l => l.stage === newStage).length + 1),
+      }));
       fetchLeads();
       closeLeadDetail();
     } catch (e) {
@@ -600,9 +676,28 @@ function LeadsContent() {
 
   const dateRange = resolveDateRange(datePreset, dateFrom, dateTo);
 
+  // Danh sách NVKD để chọn — dựng từ lead đang có, kèm ô "Chưa phân công".
+  const assigneeOptions = (() => {
+    const byId = new Map<string, string>();
+    let coChuaPhanCong = false;
+    for (const l of leads) {
+      if (l.assigned_to) byId.set(l.assigned_to, l.assigned_user_name || 'Không rõ tên');
+      else coChuaPhanCong = true;
+    }
+    return {
+      items: [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1], 'vi')),
+      coChuaPhanCong,
+    };
+  })();
+
   const filteredByUrl = sorted.filter(lead => {
     if (activeStage && lead.stage !== activeStage) return false;
     if (activeQuickFilter === 'overdue' && !isOverdueLead(lead)) return false;
+    if (filterAssignee !== 'all') {
+      if (filterAssignee === 'unassigned') {
+        if (lead.assigned_to) return false;
+      } else if (lead.assigned_to !== filterAssignee) return false;
+    }
     if (dateRange) {
       // Lead chưa có mốc ngày đang lọc (vd chưa liên hệ lần nào) coi như không khớp.
       const key = toDayKey(DATE_FIELDS[dateField]?.pick(lead));
@@ -648,13 +743,18 @@ function LeadsContent() {
   const timelineActivities = activities.filter(a => a.type !== CSKH_TYPE);
 
   const hasUrlFilters = Boolean(activeStage || activeQuickFilter);
-  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all';
+  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all' || filterAssignee !== 'all';
   const activeFilterLabels = [
     activeStage ? `Giai đoạn: ${STAGE_CONFIG[activeStage]?.label || activeStage}` : null,
     activeQuickFilter === 'overdue' ? `Quá hạn CSKH > ${OVERDUE_DAYS} ngày` : null,
     filterRegion !== 'all' ? `Khu vực: ${filterRegion}` : null,
     filterPropertyClass !== 'all' ? PROPERTY_CLASS_LABELS[filterPropertyClass]?.label : null,
     dateRangeLabel ? `${DATE_FIELDS[dateField]?.label}: ${dateRangeLabel}` : null,
+    filterAssignee === 'unassigned'
+      ? 'Phụ trách: Chưa phân công'
+      : filterAssignee !== 'all'
+        ? `Phụ trách: ${assigneeOptions.items.find(([id]) => id === filterAssignee)?.[1] || '—'}`
+        : null,
   ].filter(Boolean);
 
   const clearFilters = () => {
@@ -663,6 +763,7 @@ function LeadsContent() {
     setFilterRegion('all');
     setFilterPropertyClass('all');
     setSearchQuery('');
+    setFilterAssignee('all');
     setDatePreset('all');
     setDateFrom('');
     setDateTo('');
@@ -747,6 +848,19 @@ function LeadsContent() {
             <option value="luxury">Hạng sang</option>
             <option value="mid_range">Trung bình</option>
             <option value="budget">Bình dân</option>
+          </select>
+          <select
+            value={filterAssignee}
+            onChange={e => setFilterAssignee(e.target.value)}
+            aria-label="Lọc theo nhân viên kinh doanh phụ trách"
+            className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none max-w-[170px]"
+            style={filterAssignee !== 'all' ? { borderColor: 'rgba(201,169,110,0.5)', color: '#C9A96E' } : undefined}
+          >
+            <option value="all">Tất cả nhân viên KD</option>
+            {assigneeOptions.coChuaPhanCong && <option value="unassigned">— Chưa phân công —</option>}
+            {assigneeOptions.items.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
           </select>
           {/* Lọc theo ngày — soát lại lead vừa thêm/vừa sửa đã nhập đúng & đủ chưa */}
           <span className="text-xs text-[var(--text-muted)] ml-2 mr-1">Ngày:</span>
@@ -1041,7 +1155,24 @@ function LeadsContent() {
         ) : (
           /* Kanban Board */
           <div className="relative">
-            <div className="flex gap-4 overflow-x-auto pb-4 min-w-0" style={{ maskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)' }}>
+            {/* Thanh trượt ngang ĐẶT TRÊN, dính đầu trang. Cột "Tiếp nhận mới" có thể
+                cao vài chục nghìn px nên thanh trượt mặc định nằm dưới đáy khối là
+                không với tới được — phải cuộn hết data mới thấy (feedback 29/08). */}
+            <div
+              ref={topScrollRef}
+              onScroll={onTopScroll}
+              className="top-scrollbar sticky top-0 z-20 overflow-x-auto overflow-y-hidden mb-2 rounded"
+              style={{ height: 16, background: 'var(--surface-2)' }}
+              aria-hidden="true"
+            >
+              <div ref={spacerRef} style={{ height: 1 }} />
+            </div>
+            <div
+              ref={ganBang}
+              onScroll={onBoardScroll}
+              className="flex gap-4 overflow-x-auto pb-4 min-w-0"
+              style={{ maskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)' }}
+            >
             {kanban.map(col => {
               const config = STAGE_CONFIG[col.stage];
               return (
@@ -1074,7 +1205,7 @@ function LeadsContent() {
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {col.leads.map(lead => (
+                    {col.leads.slice(0, kanbanVisible[col.stage] ?? KANBAN_PAGE_SIZE).map(lead => (
                       <div
                         key={lead.id}
                         draggable={lead.stage !== 'signed_design'}
@@ -1128,7 +1259,7 @@ function LeadsContent() {
                           )}
                           {lead.segment && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                              🏷️ {lead.segment}
+                              🏷️ {NEEDS_LABELS[lead.segment] || lead.segment}
                             </span>
                           )}
                         </div>
@@ -1208,6 +1339,34 @@ function LeadsContent() {
                         </div>
                       </div>
                     ))}
+                    {(() => {
+                      const shown = Math.min(col.leads.length, kanbanVisible[col.stage] ?? KANBAN_PAGE_SIZE);
+                      const hidden = col.leads.length - shown;
+                      if (hidden <= 0 && shown <= KANBAN_PAGE_SIZE) return null;
+                      return (
+                        <div className="flex gap-2 pt-1">
+                          {hidden > 0 && (
+                            <button
+                              onClick={() => setKanbanVisible(prev => ({ ...prev, [col.stage]: shown + KANBAN_PAGE_SIZE }))}
+                              className="flex-1 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-80 min-h-[36px]"
+                              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px dashed var(--border-subtle)' }}
+                            >
+                              Hiện thêm {Math.min(hidden, KANBAN_PAGE_SIZE)} thẻ (còn {hidden})
+                            </button>
+                          )}
+                          {shown > KANBAN_PAGE_SIZE && (
+                            <button
+                              onClick={() => setKanbanVisible(prev => ({ ...prev, [col.stage]: KANBAN_PAGE_SIZE }))}
+                              className="py-2 px-3 rounded-lg text-xs font-medium transition-all hover:opacity-80 min-h-[36px]"
+                              style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                              title={`Thu về ${KANBAN_PAGE_SIZE} thẻ đầu`}
+                            >
+                              Thu gọn
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -1402,8 +1561,8 @@ function LeadsContent() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
                   {selectedLead.segment && (
                     <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                      <p className="text-xs text-[var(--text-muted)]">Phân khúc</p>
-                      <p className="text-sm font-semibold mt-1">{selectedLead.segment}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Nhu cầu</p>
+                      <p className="text-sm font-semibold mt-1">{NEEDS_LABELS[selectedLead.segment] || selectedLead.segment}</p>
                     </div>
                   )}
                   {selectedLead.price_per_sqm && (

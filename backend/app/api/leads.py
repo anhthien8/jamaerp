@@ -39,9 +39,11 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 STAGE_LABELS = {
     "new": "Tiếp nhận mới",
     "interested": "Đang tư vấn",
-    "survey_scheduled": "Khảo sát",
-    "potential": "Dự toán & tư vấn",
-    "signed_design": "Ký HĐ Thiết kế",
+    # PHẢI khớp STAGE_CONFIG của frontend (lib/utils.ts) — nhãn này đi vào lịch sử
+    # hoạt động, trước 29/08 backend ghi tên KHÁC hẳn tên trên bảng kanban.
+    "survey_scheduled": "Đã gửi báo giá",
+    "potential": "Đang đàm phán",
+    "signed_design": "Deal đã thắng",
     "lost": "Mất",
     "dormant": "Ngủ đông",
 }

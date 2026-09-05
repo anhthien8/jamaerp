@@ -20,8 +20,8 @@ STAGE_EMOJIS = {
 STAGE_LABELS = {
     "new": "Mới tiếp nhận",
     "interested": "Có nhu cầu",
-    "survey_scheduled": "Đã hẹn khảo sát",
-    "potential": "KH tiềm năng",
+    "survey_scheduled": "Đã gửi báo giá",
+    "potential": "Đang đàm phán",
     "signed_design": "Ký thiết kế",
     "lost": "Mất",
     "dormant": "Ngủ đông",

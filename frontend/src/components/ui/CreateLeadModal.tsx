@@ -29,7 +29,7 @@ const INITIAL: CreateLeadForm = {
   name: '', phone: '', email: '', address: '',
   property_type: 'townhouse', area_sqm: '', estimated_budget: '',
   source: 'zalo', needs: '', priority: 'medium',
-  property_class: 'mid_range', price_per_sqm: '', region: '', segment: 'townhouse',
+  property_class: 'mid_range', price_per_sqm: '', region: '', segment: 'thi_cong_noi_that',
   plan_type: 'none', tags: [],
 };
 
@@ -48,6 +48,8 @@ const SOURCE_OPTIONS = [
   { value: 'tiktok', label: 'TikTok' },
   { value: 'website', label: 'Website' },
   { value: 'referral', label: 'Giới thiệu' },
+  { value: 'hotline', label: 'Hotline' },
+  { value: 'office_visit', label: 'Khách đến văn phòng' },
   { value: 'other', label: 'Khác' },
 ];
 
@@ -64,12 +66,13 @@ const PROPERTY_CLASS_OPTIONS = [
   { value: 'budget', label: 'Bình dân' },
 ];
 
-const SEGMENT_OPTIONS = [
-  { value: 'villa', label: 'Biệt thự' },
-  { value: 'townhouse', label: 'Nhà phố' },
-  { value: 'apartment', label: 'Căn hộ' },
-  { value: 'shophouse', label: 'Shophouse' },
-  { value: 'office', label: 'Văn phòng' },
+// Ô này trước tên «Phân khúc» và lặp y hệt «Loại BĐS» (biệt thự/nhà phố/căn hộ…)
+// nên không thêm thông tin gì. Đổi thành «Nhu cầu» 05/09/2026 — vẫn lưu vào cột
+// `segment` sẵn có nên không cần migration.
+const NEEDS_OPTIONS = [
+  { value: 'thi_cong_noi_that', label: 'Thi công nội thất' },
+  { value: 'cai_tao', label: 'Cải tạo' },
+  { value: 'xay_moi', label: 'Xây mới' },
 ];
 
 const PLAN_TYPE_OPTIONS = [
@@ -109,7 +112,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
       property_class: 'mid_range',
       price_per_sqm: '',
       region: '',
-      segment: 'townhouse',
+      segment: 'thi_cong_noi_that',
       plan_type: 'none',
       tags: [],
     };
@@ -394,7 +397,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
             </Field>
           </div>
 
-          {/* Region + Segment */}
+          {/* Khu vực + Nhu cầu */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Khu vực">
               <select value={form.region} onChange={set('region')} className="input">
@@ -402,9 +405,9 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
                 {REGION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </Field>
-            <Field label="Phân khúc">
+            <Field label="Nhu cầu">
               <select value={form.segment} onChange={set('segment')} className="input">
-                {SEGMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {NEEDS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </Field>
           </div>

@@ -16,6 +16,28 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'Data khách: đổi tên 2 cột pipeline, lọc theo nhân viên phụ trách, thanh kéo ngang đặt lên trên',
+    tag: 'RELEASE',
+    news: [
+      'ĐỔI TÊN 2 CỘT — anh em để ý kẻo tìm nhầm: «Đang chờ» nay là «📤 Đã gửi báo giá», «Đã chốt hồ sơ» nay là «🤝 Đang đàm phán». Bốn cột còn lại giữ nguyên tên. Không có data nào bị mất hay chuyển cột — chỉ đổi chữ hiển thị.',
+      'Tên cột nay đồng nhất ở mọi nơi: bảng data khách, lịch sử hoạt động trong thẻ khách, và bot Telegram. Trước đây cùng một cột mà ba chỗ gọi ba tên khác nhau («Đang chờ» / «Khảo sát» / «Đã hẹn khảo sát») rất dễ hiểu lầm.',
+      'Thêm bộ lọc «Tất cả nhân viên KD» trên thanh lọc: chọn một người để xem riêng data của người đó, hoặc chọn «— Chưa phân công —» để soi data còn tồn chưa giao ai. Danh sách chỉ hiện những người thực sự đang giữ data trong phạm vi bạn xem được.',
+      'Thanh kéo ngang nay nằm NGAY TRÊN bảng và dính ở đầu trang: kéo qua các cột mà không phải cuộn xuống tận đáy để tìm thanh kéo. Kéo thanh trên hay kéo thẳng bảng đều được, hai bên tự chạy theo nhau.',
+      'Form «Tạo Lead mới»: ô «Phân khúc» (vốn trùng y hệt «Loại BĐS», không thêm thông tin gì) đổi thành «Nhu cầu» với 3 lựa chọn Thi công nội thất / Cải tạo / Xây mới.',
+      'Nguồn lead có thêm «Hotline» và «Khách đến văn phòng».',
+    ],
+    fixes: [
+      'Lead nhập TRƯỚC hôm nay vẫn hiện ô «Nhu cầu» theo giá trị cũ (Nhà phố, Biệt thự…) chứ không hiện mã khó đọc. Muốn chuẩn hoá thì mở thẻ khách chọn lại nhu cầu đúng.',
+    ],
+    test: [
+      'Sale/CSKH: mở Data khách → kiểm 2 cột đã đổi tên đúng, và số thẻ từng cột không đổi so với hôm qua.',
+      'CSKH/Trưởng nhóm: chọn bộ lọc «Tất cả nhân viên KD» → chọn một sale → xác nhận chỉ còn data của người đó; thử «— Chưa phân công —» xem còn tồn bao nhiêu.',
+      'Kéo thanh ngang màu vàng ở trên đầu bảng → xác nhận bảng chạy theo, không cần cuộn xuống đáy.',
+      'Bấm «+ Thêm Lead» → ô «Nhu cầu» có đúng 3 lựa chọn, ô «Nguồn lead» có Hotline và Khách đến văn phòng.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'Bảng data khách gọn lại: hết cuộn mỏi tay ở cột «Tiếp nhận mới» + P&L có ngày thật',
     tag: 'RELEASE',
     news: [

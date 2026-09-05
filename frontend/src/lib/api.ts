@@ -159,7 +159,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
   if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) {
     // Tính động từ DEMO_LEADS (không dùng snapshot tĩnh) để lead mới tạo / kéo cột hiển thị ngay
-    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['survey_scheduled', 'Đang chờ'], ['potential', 'Đã chốt hồ sơ'], ['signed_design', 'Deal đã thắng']];
+    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['survey_scheduled', 'Đã gửi báo giá'], ['potential', 'Đang đàm phán'], ['signed_design', 'Deal đã thắng']];
     return defs.map(([stage, stage_label]) => {
       const leads = d.DEMO_LEADS.filter(l => l.stage === stage);
       return { stage, stage_label, leads, count: leads.length };
@@ -2200,6 +2200,11 @@ export interface PnLProject {
   profit: number;
   margin_pct: number;
   status: string;
+  // Backend schemas/pl.py trả total_cost/margin (page P&L map fallback cả 2 tên)
+  // + start_date ISO nullable từ 05/09/2026 — dự án chưa nhập ngày là null.
+  total_cost?: number;
+  margin?: number;
+  start_date?: string | null;
 }
 
 export interface PnLProjectDetail {
