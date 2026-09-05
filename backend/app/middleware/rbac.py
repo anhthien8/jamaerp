@@ -42,6 +42,55 @@ def can_assign_leads(user: User) -> bool:
     return user.role == "admin" or is_team_lead(user) or is_sales_coordinator(user)
 
 
+# ── Phạm vi xem DỰ ÁN theo bộ phận (05/09/2026) ─────────────────────────────
+# Trước đây list_projects KHÔNG lọc gì: mọi tài khoản đăng nhập thấy toàn bộ
+# 113 dự án. Nay soi gương luồng lead của Kinh doanh: nhân viên thấy dự án mình
+# phụ trách, trưởng phòng thấy toàn bộ dự án của bộ phận mình.
+
+# Cột PIC trên bảng projects ứng với từng bộ phận.
+PIC_THEO_PHONG_BAN: dict[str, str] = {
+    "OPS": "pm_id",              # Giám sát / PM
+    "DESIGN": "designer_id",     # Thiết kế
+    "SALES": "sales_id",         # Kinh doanh
+    "PURCHASING": "purchasing_id",  # Dự toán – Thu mua
+}
+
+# Vai trò TRƯỞNG PHÒNG thật sự — chốt với chủ dự án 05/09 sau khi đối chiếu cơ
+# cấu thật trên prod. Cố ý KHÔNG gồm `design_leader` (5 người) và `2d_leader`:
+# theo sơ đồ trong JD Thiết kế họ là CHỦ TRÌ, không phải trưởng phòng.
+VAI_TRO_TRUONG_PHONG: dict[str, set[str]] = {
+    "DESIGN": {"leader"},
+    "OPS": {"operation_leader"},
+    "PURCHASING": {"dutoan_thumua_leader"},
+    "SALES": {"leader", SALE_LEADER_ROLE},
+}
+
+
+def la_truong_phong(user: User) -> bool:
+    """Trưởng phòng của CHÍNH bộ phận mình (vai trò `leader` ở phòng khác không tính)."""
+    dept = (user.department or "").upper()
+    return user.role in VAI_TRO_TRUONG_PHONG.get(dept, set())
+
+
+def pham_vi_du_an(user: User) -> str:
+    """'tat_ca' | 'phong_ban' | 'cua_toi' — dùng chung cho list và guard chi tiết."""
+    # Kế toán giữ toàn quyền xem: cần đối chiếu công nợ/thanh toán/P&L mọi dự án
+    # (chốt 05/09). Executive xem toàn bộ để nắm tình hình.
+    if user.role in ("admin", "executive", "accountant"):
+        return "tat_ca"
+    if la_truong_phong(user):
+        return "phong_ban"
+    return "cua_toi"
+
+
+def la_pic_du_an(user: User, project) -> bool:
+    """Người này có phải PIC của dự án không (bất kể bộ phận nào)."""
+    return user.id in {
+        project.pm_id, project.designer_id, project.sales_id,
+        getattr(project, "purchasing_id", None),
+    }
+
+
 def can_approve_quotation(user: User) -> bool:
     """Ai được DUYỆT báo giá — chốt với chủ dự án 29/08/2026: Giám đốc + Trưởng
     nhóm/phòng + Giám sát.

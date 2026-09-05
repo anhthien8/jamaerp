@@ -56,6 +56,10 @@ class Project(Base):
     pm_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     designer_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     sales_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    # PIC Báo giá – Thu mua (phòng PURCHASING). Thêm 05/09/2026: 3 trường trên đã có
+    # từ đầu nhưng thiếu hẳn bộ phận này, nên dự toán/thu mua không ai gắn được vào
+    # dự án và cũng không lọc được dự án của mình.
+    purchasing_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
     # Timestamps
     start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -73,6 +77,7 @@ class Project(Base):
     pm = relationship("User", foreign_keys=[pm_id])
     designer = relationship("User", foreign_keys=[designer_id])
     sales = relationship("User", foreign_keys=[sales_id])
+    purchasing = relationship("User", foreign_keys=[purchasing_id])
     tasks = relationship("Task", back_populates="project", order_by="Task.order")
     quotations = relationship("Quotation", back_populates="project")
     contracts = relationship("Contract", back_populates="project")
@@ -141,6 +146,10 @@ class Task(Base):
         Index("ix_tasks_project_stage", "project_id", "stage"),
         Index("ix_tasks_status", "status"),
         Index("ix_tasks_department", "department"),
+        # Phạm vi dự án (05/09) lọc «dự án tôi có đầu việc» bằng subquery
+        # SELECT project_id FROM tasks WHERE assigned_to = ? — chạy mỗi lần
+        # mở danh sách dự án của mọi tài khoản không phải admin.
+        Index("ix_tasks_assigned", "assigned_to"),
     )
 
     def __repr__(self) -> str:

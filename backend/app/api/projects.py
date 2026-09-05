@@ -3,13 +3,16 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, case, and_
+from sqlalchemy import select, func, case, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.project import Project, Task, TaskActivity, task_department_for_stage
+from app.middleware.rbac import (
+    PIC_THEO_PHONG_BAN, la_pic_du_an, la_truong_phong, pham_vi_du_an,
+)
 from app.models.notification import Notification
 from app.cache import cache
 from app.schemas.project import (
@@ -63,19 +66,27 @@ async def require_project_access(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if current_user.role == "accountant":
-        return current_user  # read-only for accounting
-    if current_user.role == "supervisor":
-        return current_user  # read-only for supervisor
-    if project.pm_id == current_user.id:
+    pham_vi = pham_vi_du_an(current_user)
+    if pham_vi == "tat_ca":
         return current_user
-    if project.designer_id == current_user.id:
+    if la_pic_du_an(current_user, project):
         return current_user
-    if project.sales_id == current_user.id:
+    if pham_vi == "phong_ban":
+        # Trưởng phòng: dự án nào có PIC thuộc bộ phận mình thì xem được.
+        cot = PIC_THEO_PHONG_BAN.get((current_user.department or "").upper())
+        if cot and getattr(project, cot, None):
+            nguoi = await db.get(User, getattr(project, cot))
+            if nguoi and (nguoi.department or "").upper() == (current_user.department or "").upper():
+                return current_user
+    # Được giao đầu việc trong dự án cũng phải xem được dự án đó
+    co_task = (await db.execute(
+        select(func.count(Task.id)).where(
+            Task.project_id == project.id, Task.assigned_to == current_user.id
+        )
+    )).scalar() or 0
+    if co_task:
         return current_user
-    if current_user.role == "leader":
-        return current_user  # team leaders can view all
-    raise HTTPException(status_code=403, detail="No access to this project")
+    raise HTTPException(status_code=403, detail="Bạn không phụ trách dự án này")
 
 class ProjectStageUpdate(BaseModel):
     stage: str
@@ -195,6 +206,30 @@ async def list_projects(
         q = select(Project).order_by(Project.created_at.desc())
     if status:
         q = q.where(Project.status == status)
+
+    # ── Phạm vi theo bộ phận (05/09/2026) ────────────────────────────────
+    # Trước đây endpoint này KHÔNG lọc gì: mọi tài khoản thấy toàn bộ dự án.
+    pham_vi = pham_vi_du_an(current_user)
+    if pham_vi != "tat_ca":
+        # Dự án mình là PIC, hoặc mình được giao ít nhất 1 đầu việc trong đó.
+        du_an_co_task = select(Task.project_id).where(Task.assigned_to == current_user.id)
+        dieu_kien = [
+            Project.pm_id == current_user.id,
+            Project.designer_id == current_user.id,
+            Project.sales_id == current_user.id,
+            Project.purchasing_id == current_user.id,
+            Project.id.in_(du_an_co_task),
+        ]
+        if pham_vi == "phong_ban":
+            # Trưởng phòng: thêm mọi dự án có PIC thuộc bộ phận mình.
+            dept = (current_user.department or "").upper()
+            cot = PIC_THEO_PHONG_BAN.get(dept)
+            if cot:
+                nguoi_cung_phong = select(User.id).where(
+                    func.upper(func.coalesce(User.department, "")) == dept
+                )
+                dieu_kien.append(getattr(Project, cot).in_(nguoi_cung_phong))
+        q = q.where(or_(*dieu_kien))
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())

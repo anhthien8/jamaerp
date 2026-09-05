@@ -1851,6 +1851,8 @@ export interface Project {
   pm_id?: string;
   designer_id?: string;
   sales_id?: string;
+  /** PIC Báo giá – Thu mua (phòng PURCHASING), thêm 05/09/2026 */
+  purchasing_id?: string;
   start_date?: string;
   target_end_date?: string;
   budget_total?: number | null;

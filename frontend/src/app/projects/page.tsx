@@ -161,6 +161,9 @@ export default function ProjectsPage() {
     name: '', client_name: '', client_phone: '', address: '',
     project_type: 'design_build', total_value: '', start_date: '', target_end_date: '',
     budget_total: '', handover_date: '', warranty_months: '12',
+    // PIC 4 bộ phận — trước đây form KHÔNG cho chọn nên prod có 113 dự án mà
+    // pm_id/designer_id đều rỗng (đo 05/09).
+    pm_id: '', designer_id: '', purchasing_id: '', sales_id: '',
   });
   const [savingProject, setSavingProject] = useState(false);
   const [showPauseReason, setShowPauseReason] = useState(false);
@@ -474,6 +477,12 @@ export default function ProjectsPage() {
 
   // Open project form for create or edit
   const openProjectForm = (project?: Project) => {
+    // Nạp danh sách nhân sự cho 4 ô chọn PIC. Trước đây `users` chỉ được nạp khi
+    // mở THẺ dự án / form Thêm công việc, nên mở form dự án từ danh sách thì cả
+    // 4 dropdown rỗng trơn (bắt được lúc tự kiểm 05/09).
+    if (users.length === 0) {
+      api.getTaskAssignableUsers().then(setUsers).catch(() => {});
+    }
     if (project) {
       setEditingProject(project);
       setProjectForm({
@@ -488,10 +497,14 @@ export default function ProjectsPage() {
         budget_total: project.budget_total ? String(project.budget_total) : '',
         handover_date: project.handover_date ? project.handover_date.slice(0, 10) : '',
         warranty_months: String(project.warranty_months ?? 12),
+        pm_id: project.pm_id || '',
+        designer_id: project.designer_id || '',
+        purchasing_id: project.purchasing_id || '',
+        sales_id: project.sales_id || '',
       });
     } else {
       setEditingProject(null);
-      setProjectForm({ name: '', client_name: '', client_phone: '', address: '', project_type: 'design_build', total_value: '', start_date: '', target_end_date: '', budget_total: '', handover_date: '', warranty_months: '12' });
+      setProjectForm({ name: '', client_name: '', client_phone: '', address: '', project_type: 'design_build', total_value: '', start_date: '', target_end_date: '', budget_total: '', handover_date: '', warranty_months: '12', pm_id: '', designer_id: '', purchasing_id: '', sales_id: '' });
     }
     setShowProjectForm(true);
   };
@@ -515,6 +528,11 @@ export default function ProjectsPage() {
         budget_total: projectForm.budget_total ? Number(projectForm.budget_total) : undefined,
         handover_date: projectForm.handover_date || undefined,
         warranty_months: projectForm.warranty_months ? Number(projectForm.warranty_months) : undefined,
+        // Gửi '' → undefined để bỏ trống PIC nghĩa là "chưa phân công", không phải chuỗi rỗng
+        pm_id: projectForm.pm_id || undefined,
+        designer_id: projectForm.designer_id || undefined,
+        purchasing_id: projectForm.purchasing_id || undefined,
+        sales_id: projectForm.sales_id || undefined,
       };
       if (editingProject) {
         const updated = await api.updateProject(editingProject.id, payload);
@@ -1045,10 +1063,11 @@ export default function ProjectsPage() {
               {/* Team Assignment — Phân công bộ phận */}
               <div className="glass-card p-4">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">👥 Phân công bộ phận</h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { label: 'PM', id: selectedProject.pm_id, color: '#8B5CF6', icon: '📋' },
+                    { label: 'PM / Giám sát', id: selectedProject.pm_id, color: '#8B5CF6', icon: '📋' },
                     { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: '🎨' },
+                    { label: 'Báo giá – Thu mua', id: selectedProject.purchasing_id, color: '#10B981', icon: '🧾' },
                     { label: 'Kinh doanh', id: selectedProject.sales_id, color: '#3B82F6', icon: '💼' },
                   ].map(m => {
                     const userName = m.id ? (users.find(u => u.id === m.id)?.full_name || '—') : '—';
@@ -1589,6 +1608,47 @@ export default function ProjectsPage() {
                   </select>
                 </div>
               </div>
+
+              {/* ── Phân công PIC 4 bộ phận (05/09/2026) ──────────────────────
+                  Trước đây form chỉ tạo dự án rồi để trống PM/Thiết kế/Thu mua,
+                  nên các bộ phận đó không lọc được «dự án của tôi». Mỗi ô lọc
+                  bằng canTakeTask — cùng luật với ô «Đảm nhận» ở đầu việc. */}
+              <div>
+                <label className="text-xs font-medium text-[var(--text-muted)] block mb-2">
+                  Phân công phụ trách (PIC)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {([
+                    { key: 'pm_id', nhan: '📋 PM / Giám sát', dept: 'construction' },
+                    { key: 'designer_id', nhan: '🎨 Thiết kế', dept: 'design' },
+                    { key: 'purchasing_id', nhan: '🧾 Báo giá – Thu mua', dept: 'quotation' },
+                    { key: 'sales_id', nhan: '💼 Kinh doanh', dept: 'sales' },
+                  ] as const).map(o => {
+                    const ungVien = users.filter(u => canTakeTask(u, o.dept));
+                    return (
+                      <div key={o.key}>
+                        <label className="text-[11px] text-[var(--text-muted)] block mb-1">{o.nhan}</label>
+                        <select
+                          value={projectForm[o.key]}
+                          onChange={e => setProjectForm(f => ({ ...f, [o.key]: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+                        >
+                          <option value="">— Chưa phân công —</option>
+                          {ungVien.map(u => (
+                            <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                          ))}
+                        </select>
+                        {ungVien.length === 0 && (
+                          <p className="text-[10px] mt-1" style={{ color: '#F59E0B' }}>
+                            Chưa có nhân sự nào thuộc bộ phận này — kiểm phòng ban trong Tài khoản.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Địa chỉ</label>
                 <input

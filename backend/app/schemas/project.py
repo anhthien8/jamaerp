@@ -18,6 +18,7 @@ class ProjectCreate(BaseModel):
     pm_id: str | None = None
     designer_id: str | None = None
     sales_id: str | None = None
+    purchasing_id: str | None = None
     start_date: datetime | None = None
     target_end_date: datetime | None = None
     stage: str = "design"
@@ -41,6 +42,9 @@ class ProjectUpdate(BaseModel):
     spent: float | None = None
     pm_id: str | None = None
     designer_id: str | None = None
+    # Bổ sung 05/09: form «Chỉnh sửa» phải gán được ĐỦ 4 PIC
+    sales_id: str | None = None
+    purchasing_id: str | None = None
     budget_total: float | None = None
     handover_date: datetime | None = None
     warranty_months: int | None = None
@@ -68,6 +72,7 @@ class ProjectResponse(BaseModel):
     pm_id: str | None = None
     designer_id: str | None = None
     sales_id: str | None = None
+    purchasing_id: str | None = None
     start_date: datetime | None = None
     target_end_date: datetime | None = None
     budget_total: float | None = None

@@ -16,6 +16,29 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'Dự án: phân công PIC đủ 4 bộ phận + mỗi phòng chỉ thấy dự án của mình',
+    tag: 'MỚI',
+    news: [
+      'Form «Thêm dự án» và «Chỉnh sửa» có thêm khu vực «Phân công phụ trách (PIC)» với 4 ô: 🏗️ Giám sát (PM) — 🎨 Thiết kế — 🧾 Báo giá & Thu mua — 💼 Kinh doanh. Trước đây chỉ gắn được Kinh doanh, ba vai còn lại không có chỗ nhập nên 113/113 dự án đang trống PM và Thiết kế.',
+      'Mỗi ô chỉ hiện nhân sự đúng phòng ban đó (lấy theo Tài khoản), giống ô «Đảm nhận» của đầu việc.',
+      'Danh sách dự án nay lọc theo người: nhân viên Thiết kế / Giám sát / Báo giá – Thu mua / Kinh doanh chỉ thấy dự án MÌNH phụ trách hoặc có đầu việc được giao. Trước đây mọi tài khoản đăng nhập đều thấy trọn 113 dự án.',
+      'Trưởng phòng thấy TOÀN BỘ dự án của bộ phận mình (Trưởng phòng Thiết kế, Trưởng phòng Vận hành, Trưởng phòng Dự toán–Thu mua, Trưởng nhóm Kinh doanh) — đúng logic đã làm cho bên Kinh doanh.',
+      'Giám đốc, Admin và Kế toán vẫn xem được toàn bộ dự án (kế toán cần đối chiếu công nợ, thanh toán, P&L).',
+    ],
+    fixes: [
+      'LƯU Ý VẬN HÀNH: vì trước nay chưa dự án nào gắn PM/Thiết kế/Thu mua, ngay sau bản này nhân sự các phòng đó sẽ chỉ còn thấy dự án mà họ có đầu việc. Trưởng phòng vào «Chỉnh sửa» từng dự án gắn PIC cho đủ là danh sách hiện lại bình thường.',
+      'Mở thẳng link một dự án ngoài phạm vi của mình nay báo «Bạn không phụ trách dự án này» thay vì mở được — trước đây chặn không đồng bộ với danh sách.',
+      'Thêm chỉ mục cho bảng đầu việc để bộ lọc mới không làm chậm màn hình Dự án.',
+    ],
+    test: [
+      'Đăng nhập tài khoản Thiết kế → mục Dự án: chỉ thấy dự án mình là PIC Thiết kế hoặc có đầu việc.',
+      'Đăng nhập Trưởng phòng Thiết kế → phải thấy dự án của tất cả nhân viên phòng Thiết kế, nhưng không thấy dự án chỉ có PIC Thi công.',
+      'Vào «Chỉnh sửa» một dự án → khu «Phân công phụ trách (PIC)» → gắn đủ 4 người → Lưu → mở lại vẫn còn đủ 4.',
+      'Nếu một ô PIC báo «chưa có nhân sự», kiểm phòng ban của họ trong Tài khoản — danh sách lấy đúng theo đó.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'Dự án: ô «Đảm nhận» bỏ nốt tài khoản Giám đốc — chỉ còn đúng người trong phòng',
     tag: 'FIX',
     fixes: [
