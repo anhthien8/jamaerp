@@ -78,6 +78,46 @@ class TestPLProjectList:
         assert resp.status_code == 403
 
 
+# ── start_date + status trong P&L (vá 05/09/2026: FE dựng bộ chọn kỳ từ đây) ──
+
+@pytest.mark.asyncio
+class TestPLProjectStartDate:
+    async def test_list_tra_start_date_va_status(self, client: AsyncClient, admin_user, project_with_financials, db_session):
+        from datetime import datetime
+
+        project_with_financials.start_date = datetime(2026, 3, 15)
+        await db_session.commit()
+
+        resp = await client.get("/api/v1/pl/projects", headers=auth_header(admin_user))
+        assert resp.status_code == 200
+        item = next(i for i in resp.json() if i["project_id"] == project_with_financials.id)
+        # date-only yyyy-mm-dd — FE slice(0,7) dựng availableMonths, khớp định dạng MOCK
+        assert item["start_date"] == "2026-03-15"
+        assert item["status"] == project_with_financials.status
+
+    async def test_list_start_date_null_khong_no(self, client: AsyncClient, admin_user, project_with_financials):
+        # Fixture không set start_date → None: dự án cũ chưa nhập ngày không được làm nổ API
+        resp = await client.get("/api/v1/pl/projects", headers=auth_header(admin_user))
+        assert resp.status_code == 200
+        item = next(i for i in resp.json() if i["project_id"] == project_with_financials.id)
+        assert item["start_date"] is None
+        assert item["status"] == project_with_financials.status
+
+    async def test_detail_tra_start_date(self, client: AsyncClient, admin_user, project_with_financials, db_session):
+        from datetime import datetime
+
+        project_with_financials.start_date = datetime(2026, 3, 15)
+        await db_session.commit()
+
+        resp = await client.get(
+            f"/api/v1/pl/projects/{project_with_financials.id}", headers=auth_header(admin_user)
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["start_date"] == "2026-03-15"
+        assert body["status"] == project_with_financials.status
+
+
 # ── GET /api/v1/pl/projects/{project_id} ──────────────────────────────────
 
 @pytest.mark.asyncio

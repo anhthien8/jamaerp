@@ -15,6 +15,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '05/09/2026',
+    title: 'Bảng data khách gọn lại: hết cuộn mỏi tay ở cột «Tiếp nhận mới» + P&L có ngày thật',
+    tag: 'RELEASE',
+    news: [
+      'Cột nào trên bảng data khách cũng chỉ hiện 25 thẻ đầu, muốn xem tiếp bấm «Hiện thêm 25 thẻ (còn X)» ở đáy cột — cột «Tiếp nhận mới» 137 thẻ từng kéo trang dài gần 30 màn hình, giờ gọn trong một tầm mắt. Số trên đầu cột vẫn là TỔNG thật, không mất thẻ nào.',
+      'Đã xem thêm rồi muốn gọn lại: bấm «Thu gọn» về 25 thẻ đầu. Đổi bộ lọc, tìm kiếm hay sắp xếp thì các cột tự gọn về như cũ.',
+      'Báo cáo P&L chế độ Làm việc nay có NGÀY BẮT ĐẦU thật của từng dự án: bộ chọn kỳ theo tháng/quý/năm hoạt động với số liệu thật (trước đây toàn «—» vì máy chủ chưa trả ngày), huy hiệu trạng thái dự án cũng là trạng thái thật.',
+    ],
+    fixes: [
+      'Kéo thẻ vào cột đang đông: thẻ vừa chuyển luôn hiện ra ngay (không còn cảnh thẻ «biến mất» dưới nếp gấp làm tưởng chuyển hụt — thực ra data vẫn nguyên).',
+      'Ngày trên P&L hiển thị đúng ở mọi múi giờ — kể cả khi sếp mở báo cáo lúc đi công tác nước ngoài.',
+    ],
+    test: [
+      'Sale/CSKH: mở Data khách → cột «Tiếp nhận mới» chỉ 25 thẻ + nút «Hiện thêm» ở đáy; kéo một thẻ sang cột khác → thẻ hiện ngay ở cột đích.',
+      'Kế toán/Giám đốc: mở P&L (chế độ Làm việc) → cột ngày có dd/mm thay «—» với dự án đã nhập ngày bắt đầu; bấm lọc theo tháng → đúng dự án của tháng đó.',
+      'Dự án chưa nhập ngày bắt đầu vẫn hiện «—» và luôn có mặt trong mọi kỳ — muốn lọc theo kỳ thì vào Dự án nhập ngày bắt đầu.',
+    ],
+  },
+  {
     date: '29/08/2026',
     title: 'Siết quyền Duyệt báo giá & Xác nhận thu tiền — tách quyền soạn với quyền duyệt',
     tag: 'RELEASE',

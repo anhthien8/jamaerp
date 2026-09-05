@@ -157,6 +157,8 @@ async def project_pl_list(
                 total_cost=total_cost,
                 profit=profit,
                 margin=round(margin, 2),
+                start_date=p.start_date.date().isoformat() if p and p.start_date else None,
+                status=p.status if p else None,
             )
         )
 
@@ -234,6 +236,8 @@ async def project_pl_detail(
         project_id=project.id,
         project_code=project.code,
         project_name=project.name,
+        start_date=project.start_date.date().isoformat() if project.start_date else None,
+        status=project.status,
         revenue=revenue,
         cost_material=cost_material,
         cost_transaction=cost_transaction,

@@ -19,7 +19,15 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column('customers', sa.Column('portal_token', sa.String(length=36), nullable=True))
     op.add_column('customers', sa.Column('portal_enabled', sa.Boolean(), nullable=False, server_default=sa.false()))
-    op.create_unique_constraint('uq_customers_portal_token', 'customers', ['portal_token'])
+    if op.get_bind().dialect.name == 'sqlite':
+        # SQLite không ALTER được constraint — phải batch mode (copy-and-move).
+        # Bản gốc gọi thẳng create_unique_constraint làm CẢ CHUỖI migration chết
+        # tại đây trên sqlite dev: 9 bản sau (l01→t01) không bao giờ chạy.
+        # Nhánh Postgres giữ nguyên — prod đã áp bản gốc, không đổi lịch sử.
+        with op.batch_alter_table('customers') as batch_op:
+            batch_op.create_unique_constraint('uq_customers_portal_token', ['portal_token'])
+    else:
+        op.create_unique_constraint('uq_customers_portal_token', 'customers', ['portal_token'])
 
 
 def downgrade() -> None:

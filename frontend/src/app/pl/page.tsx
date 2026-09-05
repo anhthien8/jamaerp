@@ -396,27 +396,31 @@ export default function PLPage() {
   }, [user, fetchData]);
 
   // ── Date filtering logic ──
+  // So kỳ bằng CHUỖI 'yyyy-mm-dd' (khớp cách dựng availableMonths bằng slice):
+  // new Date('yyyy-mm-dd') là nửa đêm UTC, đọc getMonth()/getFullYear() theo giờ
+  // địa phương sẽ lùi 1 ngày ở múi giờ âm → dự án rơi khỏi đúng kỳ của nó
+  // (nút «Th03/2026» hiện ra mà bấm vào thì chính dự án đó biến mất).
   const filteredProjects = useMemo(() => {
     if (filterType === 'all') return allProjects;
 
     return allProjects.filter(p => {
-      const d = new Date(p.start_date);
-      if (isNaN(d.getTime())) return true;
+      const s = p.start_date;
+      // Ngày rỗng/không hợp lệ: GIỮ LẠI trong mọi kỳ (chủ ý — không bịa ngày)
+      if (s === '' || isNaN(new Date(s).getTime())) return true;
 
       switch (filterType) {
-        case 'month': {
-          const [fy, fm] = filterMonth.split('-').map(Number);
-          return d.getFullYear() === fy && (d.getMonth() + 1) === fm;
-        }
+        case 'month':
+          return s.slice(0, 7) === filterMonth;
         case 'quarter': {
           const [qy, qq] = filterQuarter.split('-Q').map(Number);
-          const pq = Math.ceil((d.getMonth() + 1) / 3);
-          return d.getFullYear() === qy && pq === qq;
+          const pq = Math.ceil(Number(s.slice(5, 7)) / 3);
+          return Number(s.slice(0, 4)) === qy && pq === qq;
         }
         case 'year': {
-          return d.getFullYear() === Number(filterYear);
+          return s.slice(0, 4) === filterYear;
         }
         case 'custom': {
+          const d = new Date(s);
           if (customDays) {
             const now = new Date();
             const daysAgo = new Date(now.getTime() - Number(customDays) * 86400000);
@@ -464,21 +468,30 @@ export default function PLPage() {
     </span>
   );
 
-  // Backend /pl/projects hiện KHÔNG trả start_date → chuỗi rỗng ở chế độ Làm việc;
-  // đưa thẳng vào Date sẽ đẻ nút «undefined/» và «Năm NaN», bảng in «Invalid Date».
-  // Chỉ dựng bộ chọn kỳ từ dự án có ngày hợp lệ; ngày rỗng hiển thị «—».
+  // Backend /pl/projects trả start_date dạng 'yyyy-mm-dd' (từ 05/09/2026), dự án
+  // cũ chưa nhập ngày là null → normalize thành '' ở fetchData. Chỉ dựng bộ chọn
+  // kỳ từ dự án có ngày hợp lệ; ngày rỗng hiển thị «—» (không bịa 01/01).
+  // Hiển thị + dựng kỳ đều bằng CHUỖI (không qua Date local) — tránh lệch 1 ngày
+  // ở múi giờ âm, cùng lý do với bộ lọc kỳ phía trên.
   const ngayHopLe = (s: string) => s !== '' && !isNaN(new Date(s).getTime());
-  const shortDate = (s: string) =>
-    ngayHopLe(s) ? new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—';
+  const shortDate = (s: string) => {
+    if (!ngayHopLe(s)) return '—';
+    const [, m, d] = s.slice(0, 10).split('-');
+    return `${d}/${m}`;
+  };
+  const fullDate = (s: string) => {
+    if (!ngayHopLe(s)) return '—';
+    const [y, m, d] = s.slice(0, 10).split('-');
+    return `${d}/${m}/${y}`;
+  };
 
   // Available months/quarters/years for selectors
   const datedProjects = allProjects.filter(p => ngayHopLe(p.start_date));
   const availableMonths = [...new Set(datedProjects.map(p => p.start_date.slice(0, 7)))].sort();
-  const availableQuarters = [...new Set(datedProjects.map(p => {
-    const d = new Date(p.start_date);
-    return `${d.getFullYear()}-Q${Math.ceil((d.getMonth() + 1) / 3)}`;
-  }))].sort();
-  const availableYears = [...new Set(datedProjects.map(p => new Date(p.start_date).getFullYear().toString()))].sort();
+  const availableQuarters = [...new Set(datedProjects.map(p =>
+    `${p.start_date.slice(0, 4)}-Q${Math.ceil(Number(p.start_date.slice(5, 7)) / 3)}`
+  ))].sort();
+  const availableYears = [...new Set(datedProjects.map(p => p.start_date.slice(0, 4)))].sort();
 
   const monthLabel = (m: string) => {
     const [y, mo] = m.split('-');
@@ -1017,7 +1030,7 @@ export default function PLPage() {
               <div>
                 <span className="font-mono text-xs text-[var(--gold-400)]">{detailProject.project_code}</span>
                 <h3 className="text-lg font-bold text-[var(--text-primary)]">{detailProject.project_name}</h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">Bắt đầu: {ngayHopLe(detailProject.start_date) ? new Date(detailProject.start_date).toLocaleDateString('vi-VN') : '—'}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Bắt đầu: {fullDate(detailProject.start_date)}</p>
               </div>
               <button onClick={() => setDetailProject(null)} className="text-[var(--text-muted)] hover:text-white text-xl leading-none">×</button>
             </div>

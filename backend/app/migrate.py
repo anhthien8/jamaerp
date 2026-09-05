@@ -57,8 +57,18 @@ def _alembic_config():
     return cfg
 
 
-async def run_migrations() -> bool:
-    """Stamp (nếu cần) + upgrade head. Trả về True nếu thành công.
+async def run_migrations() -> str:
+    """Stamp (nếu cần) + upgrade head. Trả về trạng thái DB phát hiện được.
+
+    - 'fresh'   — DB mới tinh: KHÔNG chạy chuỗi migration. Models là nguồn sự thật
+                  mới nhất; create_all ngay sau đó (trong lifespan) dựng full schema,
+                  caller phải gọi stamp_head() để boot sau đi đường 'managed'.
+                  Chạy cả chuỗi trên DB rỗng từng chết giữa chừng (k01 nổ
+                  NotImplementedError trên sqlite) → DB nửa vời: 9 migration sau
+                  không chạy, create_all không bù cột vào bảng đã tồn tại.
+    - 'legacy'  — stamp baseline rồi upgrade head.
+    - 'managed' — upgrade head bình thường.
+    - 'error'   — migration lỗi (app vẫn khởi động, create_all vá phần bảng mới).
 
     Alembic chạy sync — gọi trong thread để không block event loop lâu.
     """
@@ -71,6 +81,10 @@ async def run_migrations() -> bool:
         state = await _detect_state(settings.DATABASE_URL, settings.is_sqlite)
         logger.info("[migrate] DB state: %s", state)
 
+        if state == "fresh":
+            logger.info("[migrate] DB mới tinh — bỏ qua chuỗi migration, để create_all dựng schema")
+            return "fresh"
+
         from alembic import command
 
         def _run() -> None:
@@ -82,7 +96,36 @@ async def run_migrations() -> bool:
 
         await asyncio.to_thread(_run)
         logger.info("[migrate] upgrade head OK")
-        return True
+        return state
     except Exception as exc:
         logger.warning("[migrate] migration failed (app vẫn khởi động, create_all fallback): %s", exc)
+        if settings.is_sqlite:
+            logger.warning(
+                "[migrate] DB dev sqlite kẹt giữa chuỗi migration (chuỗi viết cho Postgres, "
+                "một số bản dùng ALTER không chạy trên sqlite). Cách sạch nhất: xóa file .db "
+                "rồi boot lại — fresh boot dựng schema mới nhất thẳng từ models."
+            )
+        return "error"
+
+
+async def stamp_head() -> bool:
+    """Đánh dấu DB đang ở head — gọi SAU create_all trên DB mới tinh.
+
+    Không stamp thì boot sau bị _detect_state coi là 'legacy' (có users, không có
+    version) → stamp baseline + chạy lại cả chuỗi migration trên schema đã mới nhất
+    → nổ 'duplicate column'.
+    """
+    import asyncio
+
+    try:
+        from alembic import command
+
+        def _run() -> None:
+            command.stamp(_alembic_config(), "head")
+
+        await asyncio.to_thread(_run)
+        logger.info("[migrate] stamp head OK (DB mới dựng từ create_all)")
+        return True
+    except Exception as exc:
+        logger.warning("[migrate] stamp head failed: %s", exc)
         return False

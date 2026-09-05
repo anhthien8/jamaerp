@@ -23,6 +23,11 @@ class PLProjectItem(BaseModel):
     total_cost: float = 0.0
     profit: float = 0.0
     margin: float = 0.0
+    # Ngày bắt đầu (date-only 'yyyy-mm-dd', khớp định dạng MOCK phía FE) + trạng thái
+    # dự án — FE dựng bộ chọn kỳ (tháng/quý/năm) và huy hiệu trạng thái từ đây.
+    # Nullable: dự án cũ chưa nhập ngày thì FE hiện «—» (page chuẩn hóa None → '').
+    start_date: str | None = None
+    status: str | None = None
 
 
 class PLProjectDetail(PLProjectItem):

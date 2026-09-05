@@ -71,11 +71,25 @@ async def lifespan(app: FastAPI):
         from app.models.supplier import Supplier, SupplierQuote, PriceComparison  # noqa
         from app.models.estimation import Estimation, EstimationItem  # noqa
 
-        from app.migrate import run_migrations
-        await run_migrations()
+        from app.migrate import run_migrations, stamp_head
+        db_state = await run_migrations()
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        if db_state == "fresh":
+            # DB vừa được create_all dựng nguyên vẹn từ models — stamp head để
+            # boot sau đi đường 'managed' thay vì chạy lại cả chuỗi migration.
+            # Stamp FAIL mà chạy tiếp là hỏng ngầm VĨNH VIỄN: boot sau thấy có
+            # bảng users nhưng không có version row → tưởng 'legacy' → stamp
+            # baseline SAI trên schema đã mới nhất, migration tương lai không
+            # bao giờ áp được nữa. Chết to, chết rõ ngay tại đây.
+            if not await stamp_head():
+                raise RuntimeError(
+                    "Không stamp được alembic head cho DB mới dựng — sửa lỗi alembic "
+                    "(xem log phía trên) rồi XÓA file DB (sqlite) để boot lại sạch, "
+                    "hoặc chạy tay trong backend/: python -m alembic stamp head"
+                )
 
         from app.database import async_session
         from app.seed import seed_database, seed_vai_tro_phong_ban
