@@ -15,7 +15,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: '05/09/2026',
+    date: '09/09/2026',
     title: 'Sổ tay sử dụng nằm ngay trong app — menu «Sổ tay»',
     tag: 'RELEASE',
     news: [

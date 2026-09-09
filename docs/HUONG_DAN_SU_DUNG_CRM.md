@@ -1,6 +1,6 @@
 # 📘 Hướng dẫn sử dụng JAMA HOME CRM
 
-> **File này đã ngừng cập nhật từ 05/09/2026.**
+> **File này đã ngừng cập nhật từ 09/09/2026.**
 
 Sổ tay sử dụng đầy đủ (luôn mới nhất) nằm **ngay trong hệ thống**, sau đăng nhập:
 

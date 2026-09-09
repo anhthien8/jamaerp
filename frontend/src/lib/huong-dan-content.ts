@@ -3,7 +3,7 @@
  * File docs/HUONG_DAN_SU_DUNG_CRM.md cũ đã ngừng cập nhật (repo public, không
  * muốn lộ quy trình nội bộ) — mọi chỉnh sửa hướng dẫn làm TẠI ĐÂY.
  *
- * Sinh lần đầu 05/09/2026 từ workflow 7 agent đọc mã nguồn hiện tại (không chép
+ * Sinh lần đầu 09/09/2026 từ workflow 7 agent đọc mã nguồn hiện tại (không chép
  * guide cũ). Quy ước: viết cho nhân viên không rành máy tính, thuần Việt, câu
  * ngắn hướng hành động; trong text hỗ trợ **đậm** và `code` (page tự render).
  * Nhãn nút/menu/quyền PHẢI khớp mã nguồn — đổi tính năng thì sửa mục tương ứng
@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '05/09/2026';
+export const GUIDE_UPDATED = '09/09/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
