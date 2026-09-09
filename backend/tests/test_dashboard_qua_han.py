@@ -52,6 +52,19 @@ class TestExecutiveOverdueTasks:
             f"nhận {body['overdue_tasks']}"
         )
 
+    async def test_cache_dashboard_song_that(
+        self, client: AsyncClient, admin_user: User
+    ):
+        # Vá 09/09/2026: @cached từng nằm trên @router.get → cache mã chết.
+        # Sau request thật, store phải có key prefix "dashboard" (kèm role).
+        resp = await client.get("/api/v1/dashboard/executive", headers=auth_header(admin_user))
+        assert resp.status_code == 200, resp.text
+        dash_keys = [k for k in cache._store if k.startswith("dashboard")]
+        assert dash_keys, "cache /dashboard/executive phải có key sau request"
+        assert any(k.endswith(":admin") for k in dash_keys), (
+            f"key phải tách theo role (key_fn) — nhận: {dash_keys}"
+        )
+
 
 @pytest.mark.asyncio
 class TestPersonalOverdue:

@@ -48,7 +48,10 @@ def cached(ttl: int = 300, prefix: str = "", key_fn=None):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             # Build cache key from function name + args
-            key_parts = [prefix or func.__name__]
+            # prefix dùng chung cho cả nhóm endpoint (để clear_prefix quét một
+            # phát) nên key PHẢI kèm tên hàm — nếu không /pl/summary và
+            # /pl/projects cùng ra key "pl" rồi trả nhầm response của nhau.
+            key_parts = [prefix, func.__name__] if prefix else [func.__name__]
             for arg in args:
                 if hasattr(arg, 'id'):
                     key_parts.append(str(arg.id))
