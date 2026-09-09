@@ -52,3 +52,10 @@ backend/backups/
 .claude/
 .codex/
 .vercel
+
+# Tài liệu nội bộ — file văn phòng (danh sách nhân viên, bảng giá, JD...)
+# không được commit vào repo công khai; lưu Obsidian vault
+docs/**/*.xlsx
+docs/**/*.pdf
+docs/**/*.pptx
+docs/**/*.docx

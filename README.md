@@ -106,13 +106,8 @@ npm run dev
 
 ## 👤 Tài khoản Demo
 
-| Vai trò | Email | Mật khẩu | Quyền hạn |
-|---------|-------|-----------|-----------|
-| **Admin** | `admin@jamahome.vn` | `admin123` | Toàn quyền — quản lý users, cài đặt hệ thống |
-| **Giám đốc** | `ceo@jamahome.vn` | `ceo123` | Xem tất cả — dashboard tổng hợp, báo cáo toàn công ty |
-| **Leader Sales** | `leader@jamahome.vn` | `leader123` | Quản lý đội sales + commission override |
-| **Nhân viên Sales** | `sales@jamahome.vn` | `sales123` | Leads cá nhân, tạo báo giá, theo dõi dự án |
-| **Kế toán** | `accountant@jamahome.vn` | `account123` | Quản lý thu chi, lương, hoa hồng, hợp đồng |
+Hệ thống seed sẵn các tài khoản demo theo vai trò (Admin, Giám đốc, Leader, Sales, Kế toán...).
+Thông tin đăng nhập xem trong `backend/app/seed.py` khi chạy môi trường dev — **không dùng mật khẩu seed cho môi trường production**.
 
 ---
 
