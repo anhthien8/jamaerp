@@ -1092,6 +1092,13 @@ export default function SettingsPage() {
             >
               <LineIcon name="compass" size={16} color="#C9A96E" />Xem lại hướng dẫn từng bước theo vai trò
             </button>
+            <button
+              onClick={() => router.push('/huong-dan')}
+              className="mt-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 min-h-[44px] flex items-center justify-center gap-2"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+            >
+              <LineIcon name="info" size={16} color="#C9A96E" />Mở Sổ tay sử dụng đầy đủ
+            </button>
           </div>
           </div>
         </div>

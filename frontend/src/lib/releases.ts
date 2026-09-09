@@ -16,6 +16,18 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '05/09/2026',
+    title: 'Sổ tay sử dụng nằm ngay trong app — menu «Sổ tay»',
+    tag: 'RELEASE',
+    news: [
+      'Menu trái có mục mới «Sổ tay» 📘: hướng dẫn ĐẦY ĐỦ mọi tính năng, viết lại toàn bộ ngày 05/09 cho khớp hệ thống hiện tại (27 mục: đăng nhập, quy trình khách, dự án, hợp đồng, chấm công, Telegram…). Có ô tìm kiếm — gõ «quên mật khẩu» hay «duyệt báo giá» là ra ngay mục cần đọc.',
+      'Nhân viên mới: checklist tuần đầu có thêm việc «Lướt qua Sổ tay — đọc kỹ mục việc của bạn». Đường tắt khác: Cài đặt → «Mở Sổ tay sử dụng đầy đủ».',
+    ],
+    test: [
+      'Mọi người: mở menu → «Sổ tay» → thử ô tìm kiếm với từ khóa việc mình hay làm → đọc mục vai trò của mình, thấy chỗ nào tả sai với màn hình thật thì báo /feedback.',
+    ],
+  },
+  {
+    date: '05/09/2026',
     title: 'Dự án: phân công PIC đủ 4 bộ phận + mỗi phòng chỉ thấy dự án của mình',
     tag: 'MỚI',
     news: [

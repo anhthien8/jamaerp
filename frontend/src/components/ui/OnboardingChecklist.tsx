@@ -185,6 +185,7 @@ const TRAINING_CHECKLIST: Record<string, { id: string; icon: string; title: stri
 const COMMON_CHECKLIST: { id: string; icon: string; title: string; href: string }[] = [
   { id: 'link_telegram', icon: '🔗', title: 'Liên kết Telegram: Cài đặt → nhắn /id cho bot → Lưu → /start', href: '/settings' },
   { id: 'read_changelog', icon: '🔔', title: 'Đọc «Có gì mới» + cách báo lỗi (/feedback)', href: '/changelog' },
+  { id: 'read_guide', icon: '📘', title: 'Lướt qua Sổ tay sử dụng — đọc kỹ mục việc của bạn', href: '/huong-dan' },
 ];
 
 const SHORTCUTS = [
