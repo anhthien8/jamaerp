@@ -13,7 +13,8 @@ import { useToast } from '@/components/ui/Toast';
 import { monthLabelVN } from '@/lib/labels';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
-const currentPeriod = () => new Date().toISOString().slice(0, 7);
+// Kỳ theo GIỜ VN — toISOString là UTC, sáng sớm ngày 1 (00:00-06:59 VN) sẽ lùi nhầm kỳ tháng trước
+const currentPeriod = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 7);
 
 /** ISO "2026-07-14" → "14/07" — chỉ đổi hiển thị, giữ nguyên data gốc. */
 const fmtDateVN = (isoDate: string | null | undefined): string => {
@@ -177,7 +178,9 @@ export default function AttendancePage() {
   // Payslip state
   const [payslips, setPayslips] = useState<PayrollRow[]>([]);
 
-  const isApprover = user && ['admin', 'leader', 'accountant'].includes(user.role);
+  // sale_leader (trưởng nhóm KD — vai trò tùy chỉnh) được duyệt OT team mình
+  // từ 09/09/2026 — backend đã mở cùng phạm vi (is_team_lead + team scope)
+  const isApprover = user && ['admin', 'leader', 'accountant', 'sale_leader'].includes(user.role);
   const canSeeTeam = isApprover;
 
   useEffect(() => {
@@ -237,8 +240,12 @@ export default function AttendancePage() {
     if (!pending) return;
     try {
       const action = JSON.parse(pending) as { type: 'checkin' | 'checkout' };
-      if (action.type === 'checkin') await api.attendanceCheckin();
-      else await api.attendanceCheckout();
+      if (action.type === 'checkin') {
+        // Gửi lại từ hàng đợi offline cũng xin GPS — không thì bản ghi retry
+        // không bao giờ được gắn nhãn ✓VP
+        const gps = await layGPS();
+        await api.attendanceCheckin(gps.latitude != null ? gps : undefined);
+      } else await api.attendanceCheckout();
       localStorage.removeItem(QUEUE_KEY);
       toast('✅ Đã gửi lại chấm công thành công (lúc trước mất mạng)', 'success');
       await loadAttendance();
@@ -256,10 +263,24 @@ export default function AttendancePage() {
   const isNetworkError = (e: unknown) =>
     e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
 
+  // GPS để đối chiếu bán kính văn phòng (09/09) — người dùng từ chối/không có
+  // GPS thì vẫn vào ca bình thường, chỉ thiếu nhãn ✓VP.
+  const layGPS = (): Promise<{ latitude?: number; longitude?: number }> =>
+    new Promise(resolve => {
+      if (!navigator.geolocation) return resolve({});
+      const timer = setTimeout(() => resolve({}), 4000);
+      navigator.geolocation.getCurrentPosition(
+        pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
+        () => { clearTimeout(timer); resolve({}); },
+        { enableHighAccuracy: false, timeout: 3500, maximumAge: 120000 },
+      );
+    });
+
   const doCheckin = async () => {
     setBusy(true);
     try {
-      const res = await api.attendanceCheckin();
+      const gps = await layGPS();
+      const res = await api.attendanceCheckin(gps.latitude != null ? gps : undefined);
       toast(res.message, res.created ? 'success' : 'info');
       await loadAttendance();
     } catch (e) {
@@ -431,8 +452,18 @@ export default function AttendancePage() {
                       <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-primary)' }}>{r.work_hours}h</td>
                       <td className="px-4 py-2.5" style={{ color: OT_BADGE[r.ot_status]?.color }}>
                         {r.ot_hours > 0 ? `${r.ot_hours}h · ${OT_BADGE[r.ot_status]?.label}` : '—'}
+                        {r.ot_hours > 0 && r.ot_decided_by_name && (
+                          <span className="block text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                            bởi {r.ot_decided_by_name} · {fmtTimeVN(r.ot_decided_at ?? null)}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>{r.source}</td>
+                      <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>
+                        {r.source}
+                        {(r.ip_ok || r.gps_ok) && (
+                          <span title={r.ip_ok ? 'Trùng mạng văn phòng' : 'GPS trong bán kính văn phòng'} style={{ color: '#34d399' }}> ✓VP</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -463,7 +494,7 @@ export default function AttendancePage() {
             {canSeeTeam && teamRows.length > 0 && (
               <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}>
-                  👥 Bảng công {user.role === 'leader' ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
+                  👥 Bảng công {['leader', 'sale_leader'].includes(user.role) ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
                 </div>
                 <table className="w-full text-sm">
                   <thead>

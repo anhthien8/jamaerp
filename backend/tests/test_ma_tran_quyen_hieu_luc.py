@@ -171,6 +171,10 @@ ROUTE_CONG_KHAI = {
     "/api/v1/portal/{token}/projects/{project_id}/accept-stage",
     "/api/v1/portal/{token}/projects/{project_id}/activities",
     "/api/v1/feedback/telegram",
+    # 09/09/2026 — webhook máy chấm công: xác thực bằng khóa thiết bị trong header
+    # X-Device-Key (so sánh constant-time với SystemSetting, mặc định TẮT cho tới
+    # khi admin bấm «Tạo khóa» trong Cài đặt) — thiết bị không có JWT người dùng.
+    "/api/v1/attendance/device-webhook",
 }
 
 

@@ -7,7 +7,10 @@ Quy tắc:
 - Kỳ lương đã khóa (Payroll approved/paid) → mọi sửa đổi bị từ chối.
 """
 
+import ipaddress
+import json
 import logging
+import math
 from datetime import datetime, date, timezone
 from zoneinfo import ZoneInfo
 
@@ -15,12 +18,17 @@ from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord
+from app.models.notification import SystemSetting
 from app.models.payroll import Payroll
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+# SystemSetting keys — cấu hình chấm công văn phòng (admin sửa ở Cài đặt)
+OFFICE_SETTINGS_KEY = "office_checkin"      # {"networks": ["1.2.3.4","5.6.7.0/24"], "lat":…, "lng":…, "radius_m":…}
+DEVICE_SETTINGS_KEY = "attendance_device"   # {"api_key": "...", "enabled": bool}
 
 STANDARD_HOURS_PER_DAY = 8.0
 # OT dưới 30 phút không tính (tránh nhiễu do checkout muộn vài phút)
@@ -63,6 +71,85 @@ async def get_or_none_today(db: AsyncSession, user_id: str) -> AttendanceRecord 
     return result.scalar_one_or_none()
 
 
+async def get_setting_json(db: AsyncSession, key: str) -> dict:
+    """Đọc SystemSetting dạng JSON — trả {} nếu chưa cấu hình/hỏng."""
+    setting = await db.get(SystemSetting, key)
+    if not setting or not setting.value:
+        return {}
+    try:
+        parsed = json.loads(setting.value)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+async def set_setting_json(db: AsyncSession, key: str, value: dict) -> None:
+    setting = await db.get(SystemSetting, key)
+    payload = json.dumps(value, ensure_ascii=False)
+    if setting:
+        setting.value = payload
+    else:
+        db.add(SystemSetting(key=key, value=payload))
+    await db.flush()
+
+
+def ip_in_networks(ip: str | None, networks: list[str]) -> bool | None:
+    """IP có thuộc mạng văn phòng? None = không đối chiếu được (thiếu IP/cấu hình)."""
+    if not ip or not networks:
+        return None
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    for net in networks:
+        net = (net or "").strip()
+        if not net:
+            continue
+        try:
+            if "/" in net:
+                if addr in ipaddress.ip_network(net, strict=False):
+                    return True
+            elif addr == ipaddress.ip_address(net):
+                return True
+        except ValueError:
+            continue  # dòng cấu hình hỏng — bỏ qua, không làm chết cả check
+    return False
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    r = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def gps_within_office(lat: float | None, lng: float | None, cfg: dict) -> bool | None:
+    """GPS có trong bán kính văn phòng? None = thiếu GPS hoặc chưa cấu hình tọa độ."""
+    if lat is None or lng is None:
+        return None
+    o_lat, o_lng = cfg.get("lat"), cfg.get("lng")
+    if o_lat is None or o_lng is None:
+        return None
+    try:
+        radius = float(cfg.get("radius_m") or 200)
+        return _haversine_m(float(lat), float(lng), float(o_lat), float(o_lng)) <= radius
+    except (TypeError, ValueError):
+        # Cấu hình hỏng (radius/tọa độ không phải số) → coi như không đối chiếu
+        # được, KHÔNG được làm chết cả endpoint check-in
+        return None
+
+
+async def verify_office(
+    db: AsyncSession, *, ip: str | None, lat: float | None, lng: float | None
+) -> tuple[bool | None, bool | None]:
+    """Đối chiếu check-in với văn phòng: (ip_ok, gps_ok) — None = không có gì để so."""
+    cfg = await get_setting_json(db, OFFICE_SETTINGS_KEY)
+    if not cfg:
+        return None, None
+    return ip_in_networks(ip, cfg.get("networks") or []), gps_within_office(lat, lng, cfg)
+
+
 async def record_checkin(
     db: AsyncSession,
     user: User,
@@ -71,8 +158,13 @@ async def record_checkin(
     project_id: str | None = None,
     lat: float | None = None,
     lng: float | None = None,
+    ip: str | None = None,
+    ip_ok: bool | None = None,
+    gps_ok: bool | None = None,
+    at: datetime | None = None,
 ) -> tuple[AttendanceRecord, bool]:
     """Check-in. Trả về (record, created) — created=False nếu hôm nay đã check-in."""
+    when = at or datetime.now(timezone.utc)
     existing = await get_or_none_today(db, user.id)
     if existing:
         return existing, False
@@ -80,9 +172,12 @@ async def record_checkin(
     record = AttendanceRecord(
         user_id=user.id,
         work_date=vn_today(),
-        check_in=datetime.now(timezone.utc),
+        check_in=when,
         check_in_lat=lat,
         check_in_lng=lng,
+        check_in_ip=ip,
+        ip_ok=ip_ok,
+        gps_ok=gps_ok,
         project_id=project_id,
         source=source,
     )
@@ -107,6 +202,11 @@ def _compute_hours(record: AttendanceRecord, out_at: datetime) -> None:
     else:
         record.ot_hours = 0
         record.ot_status = "none"
+    # Giờ vừa tính LẠI → quyết định duyệt cũ (nếu có) không còn ứng với số giờ này.
+    # Không xóa thì FE hiện «từ chối bởi X» ngay trên OT đang ⏳ chờ duyệt.
+    record.ot_decided_by = None
+    record.ot_decided_by_name = None
+    record.ot_decided_at = None
 
 
 async def record_checkout(db: AsyncSession, user: User) -> AttendanceRecord | None:

@@ -83,8 +83,9 @@ export default function KpiPage() {
 
   // Ai thấy tab "Đội nhóm" — PHẢI khớp chốt chặn GET /kpi/team ở backend, nếu không
   // là hoặc giấu tab của người có quyền, hoặc mở tab rồi để họ ăn 403.
+  // sale_leader: backend cho qua is_team_lead từ trước nhưng FE quên — mở 09/09.
   const isLeaderOrAbove = !!user && (
-    ['admin', 'leader', 'executive'].includes(user.role) || isSalesCoordinator(user.role, user.department)
+    ['admin', 'leader', 'executive', 'sale_leader'].includes(user.role) || isSalesCoordinator(user.role, user.department)
   );
 
   useEffect(() => {

@@ -88,6 +88,7 @@ class BackgroundWorker:
         self._last_attendance_close_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
         self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
+        self._last_contract_notify_date: str = ""  # "YYYY-MM-DD" (VN time) — nhắc hạn HĐLĐ
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -278,6 +279,15 @@ class BackgroundWorker:
                     "attendance_auto_close",
                     process_attendance_auto_close,
                     priority=TaskPriority.HIGH,
+                )
+
+            # 08:00 VN hàng ngày: nhắc HĐLĐ sắp hết hạn (≤30 ngày) cho admin/kế toán
+            if vn_now.hour >= 8 and self._last_contract_notify_date != today_str:
+                self._last_contract_notify_date = today_str
+                self.enqueue_task(
+                    "contract_expiry_notify",
+                    process_contract_expiry_notify,
+                    priority=TaskPriority.NORMAL,
                 )
 
             # Mùng 1 hàng tháng: báo kế toán chốt bảng công tháng trước
@@ -559,6 +569,72 @@ async def process_attendance_auto_close() -> dict[str, Any]:
         return {"status": "completed", "closed": closed}
     except Exception as exc:
         logger.exception("Attendance auto-close failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_contract_expiry_notify() -> dict[str, Any]:
+    """08:00 VN hàng ngày — nhắc admin/kế toán HĐLĐ sắp hết hạn trong 30 ngày.
+
+    _notify tự dedupe theo (type, ref_id) chưa đọc — mỗi hợp đồng chỉ nhắc lại
+    sau khi người nhận đã đọc thông báo cũ, không spam mỗi sáng.
+    """
+    logger.info("Starting contract expiry notification...")
+    try:
+        from datetime import timedelta
+
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models.employee_profile import EmployeeProfile
+        from app.models.user import User
+        from app.services.attendance_service import vn_today
+        from app.services.automation import _notify
+
+        today = vn_today()
+        deadline = today + timedelta(days=30)
+        notified = 0
+        async with async_session() as session:
+            rows = (
+                await session.execute(
+                    select(EmployeeProfile, User)
+                    .join(User, User.id == EmployeeProfile.user_id)
+                    .where(
+                        EmployeeProfile.contract_end_date.isnot(None),
+                        EmployeeProfile.contract_end_date >= today,
+                        EmployeeProfile.contract_end_date <= deadline,
+                        User.is_active == True,  # noqa: E712
+                    )
+                )
+            ).all()
+            if rows:
+                hr_users = (
+                    await session.execute(
+                        select(User).where(
+                            User.role.in_(("accountant", "admin")),
+                            User.is_active == True,  # noqa: E712
+                        )
+                    )
+                ).scalars().all()
+                for profile, employee in rows:
+                    days_left = (profile.contract_end_date - today).days
+                    for hr in hr_users:
+                        ok = await _notify(
+                            session,
+                            hr,
+                            type_="contract_expiry",
+                            title=f"HĐLĐ của {employee.full_name} hết hạn sau {days_left} ngày",
+                            body=(
+                                f"Hợp đồng lao động của {employee.full_name} hết hạn ngày "
+                                f"{profile.contract_end_date.strftime('%d/%m/%Y')} — vào hồ sơ để gia hạn/ký mới."
+                            ),
+                            link=f"/hr/nhan-vien?id={employee.id}",
+                            ref_id=f"contract-{employee.id}-{profile.contract_end_date}",
+                        )
+                        notified += 1 if ok else 0
+            await session.commit()
+        logger.info("Contract expiry notification finished: %d notified.", notified)
+        return {"status": "completed", "notified": notified}
+    except Exception as exc:
+        logger.exception("Contract expiry notification failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

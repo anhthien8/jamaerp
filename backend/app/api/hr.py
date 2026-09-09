@@ -11,6 +11,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.lead import Lead, Activity
+from app.models.handover import HandoverRecord
 from app.models.project import Task, Project
 from app.services.audit import log_action
 
@@ -190,6 +191,14 @@ async def resign(
             content=f"Chuyển giao từ {old_name} do nghỉ việc",
         )
         db.add(activity)
+        # Vết bàn giao có cấu trúc (09/09/2026) — trước đây chỉ có text trong
+        # Activity, không truy ngược được «khách X đã sang tay ai» sau nghỉ việc
+        db.add(HandoverRecord(
+            from_user_id=user.id, from_user_name=user.full_name,
+            to_user_id=target, to_user_name=target_name,
+            entity_type="lead", entity_id=lead.id, entity_name=lead.name or lead.id,
+            reason="resign", actor_id=current_user.id, actor_name=current_user.full_name,
+        ))
         transferred_leads += 1
 
     # --- Tasks ---
@@ -199,6 +208,14 @@ async def resign(
     tasks = tasks_result.scalars().all()
 
     transferred_tasks = 0
+    _name_cache: dict[str, str] = {}
+
+    async def _user_name(uid: str) -> str:
+        if uid not in _name_cache:
+            u = await db.get(User, uid)
+            _name_cache[uid] = u.full_name if u else uid
+        return _name_cache[uid]
+
     for task in tasks:
         target = task_target_id
         if not target:
@@ -209,6 +226,12 @@ async def resign(
         if not target:
             continue
         task.assigned_to = target
+        db.add(HandoverRecord(
+            from_user_id=user.id, from_user_name=user.full_name,
+            to_user_id=target, to_user_name=await _user_name(target),
+            entity_type="task", entity_id=task.id, entity_name=task.title or task.id,
+            reason="resign", actor_id=current_user.id, actor_name=current_user.full_name,
+        ))
         transferred_tasks += 1
 
     # --- Hoa hồng còn treo (pending/approved chưa paid) — báo kế toán chốt kỳ cuối ---

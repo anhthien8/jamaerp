@@ -197,7 +197,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo». Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
+        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo, **Chấm công văn phòng** — khai IP mạng công ty + tọa độ VP để bảng công gắn nhãn ✓VP, và nối máy chấm công qua API) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo». Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
       }
     ]
   },
@@ -914,7 +914,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. Trang có 3 tab: **Của tôi**, **Đội nhóm**, **Bảng xếp hạng** — tab Đội nhóm chỉ hiện với Giám đốc, Trưởng phòng, Ban Quản Trị và Điều phối kinh doanh."
+        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. Trang có 3 tab: **Của tôi**, **Đội nhóm**, **Bảng xếp hạng** — tab Đội nhóm chỉ hiện với Giám đốc, Trưởng phòng, Trưởng nhóm KD, Ban Quản Trị và Điều phối kinh doanh."
       },
       {
         "type": "list",
@@ -975,7 +975,20 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Trưởng phòng, Kế toán và Giám đốc còn thấy thêm: khối «OT chờ duyệt» và bảng công cả team / toàn công ty ở cuối trang."
+        "text": "Trưởng phòng, Trưởng nhóm KD (team mình), Kế toán và Giám đốc còn thấy thêm: khối «OT chờ duyệt» và bảng công team / toàn công ty ở cuối trang."
+      },
+      {
+        "type": "h3",
+        "text": "Nhãn «✓VP» và duyệt OT (mới 09/09)"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Bấm **Vào ca** trên web, app sẽ xin vị trí GPS (cho phép thì tốt, từ chối vẫn vào ca được). Nếu bạn đang ở văn phòng (đúng mạng công ty hoặc trong bán kính GPS), bảng công tự gắn nhãn **✓VP** — khỏi ai thắc mắc.",
+          "Tăng ca (OT) sau khi được duyệt sẽ hiện rõ **ai duyệt, lúc mấy giờ** ngay trong bảng công của bạn.",
+          "**Trưởng nhóm Kinh doanh** từ nay duyệt được OT của người trong nhóm mình (trước chỉ Trưởng phòng/Admin/Kế toán).",
+          "Công ty có máy chấm công thì Admin nối máy vào hệ thống ở **Cài đặt → Chấm công văn phòng** — lượt quẹt máy tự đổ về bảng công (nguồn hiện «Máy chấm công»)."
+        ]
       }
     ]
   },
@@ -1012,7 +1025,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Giờ tăng ca hiện ngay trong bảng công của bạn kèm trạng thái: «OT chờ duyệt», «OT đã duyệt» hoặc «OT từ chối». Trưởng phòng / Kế toán / Giám đốc duyệt OT trong khối **OT chờ duyệt** ở trang Chấm công — bấm **Duyệt** hoặc **Từ chối** từng ca."
+        "text": "Giờ tăng ca hiện ngay trong bảng công của bạn kèm trạng thái: «OT chờ duyệt», «OT đã duyệt» hoặc «OT từ chối». Trưởng phòng / Trưởng nhóm KD (team mình) / Kế toán / Giám đốc duyệt OT trong khối **OT chờ duyệt** ở trang Chấm công — bấm **Duyệt** hoặc **Từ chối** từng ca."
       },
       {
         "type": "h3",
@@ -1066,6 +1079,80 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "warn",
         "text": "TẠO tài khoản đăng nhập mới là việc của Admin: dùng nút **+ Thêm nhân viên** ở trang Nhân sự (chỉ Giám đốc thấy nút này) hoặc trang **Tài khoản**. Nhân viên thường không tự tạo tài khoản."
+      },
+      {
+        "type": "h3",
+        "text": "Hồ sơ nhân viên chi tiết (mới 09/09)"
+      },
+      {
+        "type": "p",
+        "text": "Bấm vào **một nhân viên bất kỳ** trong danh sách để mở trang hồ sơ chi tiết: thông tin cá nhân + hợp đồng lao động, chấm công, nghỉ phép — và với Admin/Kế toán có thêm tab **Tiền** (lương, thưởng, hoa hồng, tạm ứng) + tab **Bàn giao** (ai nghỉ việc, khách/việc đã sang tay ai)."
+      }
+    ]
+  },
+  {
+    "id": "ho-so-nhan-vien",
+    "icon": "user",
+    "title": "Hồ sơ nhân viên 360° — CCCD, HĐLĐ, tiền, bàn giao",
+    "roles": [
+      "Admin",
+      "Kế toán"
+    ],
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Mở menu **Nhân sự** → bấm vào một nhân viên. Trang hồ sơ có các tab; nhân viên thường cũng mở được hồ sơ CỦA CHÍNH MÌNH để xem (không sửa được)."
+      },
+      {
+        "type": "table",
+        "header": [
+          "Tab",
+          "Có gì",
+          "Ai xem được"
+        ],
+        "rows": [
+          [
+            "Hồ sơ & HĐLĐ",
+            "CCCD, ngày sinh, địa chỉ, TK ngân hàng, BHXH, ngày vào làm, loại HĐ + ngày hết hạn, ảnh giấy tờ",
+            "Admin, Kế toán (sửa) · chính chủ (xem)"
+          ],
+          [
+            "Tiền",
+            "Lương từng kỳ, thưởng, hoa hồng, tạm ứng, giao dịch sổ kế toán gắn người",
+            "CHỈ Admin + Kế toán · chính chủ"
+          ],
+          [
+            "Chấm công / Nghỉ phép",
+            "Bảng công từng ngày theo kỳ, số phép đã dùng",
+            "Thêm Trưởng nhóm/phòng (người trong nhóm mình)"
+          ],
+          [
+            "Bàn giao",
+            "Nghỉ việc thì khách/đầu việc nào đã sang tay ai, lúc nào",
+            "Admin, Kế toán"
+          ],
+          [
+            "Nhật ký",
+            "Ai đổi lương/quyền/cho nghỉ việc người này",
+            "Chỉ Admin"
+          ]
+        ]
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Điền hồ sơ: mở tab **Hồ sơ & HĐLĐ** → bấm **Sửa** → điền → **Lưu**.",
+          "Tải ảnh CCCD/HĐLĐ: kéo xuống khối **Giấy tờ** → bấm **+ CCCD mặt trước** (hoặc loại khác) → chọn ảnh — app tự nén JPG cho nhẹ, không cần chỉnh gì.",
+          "Nhập **Ngày hết hạn** hợp đồng để hệ thống nhắc gia hạn (HĐ không thời hạn thì để trống)."
+        ]
+      },
+      {
+        "type": "warn",
+        "text": "Giấy tờ tùy thân là dữ liệu nhạy cảm — hệ thống KHÔNG đăng lên nhóm Telegram (khác ảnh công trình) và chỉ Admin/Kế toán/chính chủ mở được. Đừng chụp CCCD gửi qua Zalo/nhóm chat cho nhau."
+      },
+      {
+        "type": "tip",
+        "text": "Nhân viên đã nghỉ việc vẫn mở được hồ sơ (có nhãn «Đã nghỉ việc») — mọi lịch sử lương, hoa hồng, bàn giao giữ nguyên để tra cứu."
       }
     ]
   },
@@ -1243,7 +1330,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "Trưởng nhóm Kinh doanh",
-            "Nhận data từ CSKH, chia khách cho sale trong nhóm, báo giá, KPI"
+            "Nhận data từ CSKH, chia khách cho sale trong nhóm, báo giá, KPI đội nhóm, duyệt OT + xem bảng công team"
           ],
           [
             "Nhân viên Sale",

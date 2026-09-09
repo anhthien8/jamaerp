@@ -268,6 +268,11 @@ async def _pg_dump_to_file(out_file: Path) -> None:
         "-Fc",
         "--no-owner",
         "--no-privileges",
+        # Ảnh CCCD/HĐLĐ (employee_documents.data) KHÔNG được rời máy chủ qua kênh
+        # Telegram — đúng quyết định 09/09/2026 «giấy tờ tùy thân không lên Telegram».
+        # Chỉ loại DATA, giữ schema: restore xong bảng vẫn tồn tại (rỗng), HR còn
+        # bản gốc giấy để tải lại. Đánh đổi có chủ đích: mất DB là mất ảnh scan.
+        "--exclude-table-data=employee_documents",
         "-f",
         str(out_file),
         _strip_password_from_url(libpq_url),

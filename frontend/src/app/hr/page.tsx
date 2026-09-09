@@ -281,7 +281,13 @@ export default function HRPage() {
             {users.map(u => {
               const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
               return (
-                <div key={u.id} className="p-4 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                <div
+                  key={u.id}
+                  onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
+                  className="p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.01]"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+                  title="Bấm để mở hồ sơ nhân viên"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
@@ -300,7 +306,7 @@ export default function HRPage() {
                   <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-2">
                     <span>{u.email}</span>
                   </div>
-                  <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
                     {permissions?.canManageUsers && u.id !== user?.id && (
                       u.is_active ? (
                         <button
@@ -353,8 +359,10 @@ export default function HRPage() {
                 return (
                   <tr
                     key={u.id}
-                    className="transition-colors"
+                    className="transition-colors cursor-pointer"
                     style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
+                    title="Bấm để mở hồ sơ nhân viên"
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
@@ -372,7 +380,7 @@ export default function HRPage() {
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{DEPT_LABELS[u.department] || u.department}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.email}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.phone || '—'}</td>
-                    <td className="px-5 py-3.5 text-center">
+                    <td className="px-5 py-3.5 text-center" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
                         {permissions?.canManageUsers && u.id !== user?.id && (

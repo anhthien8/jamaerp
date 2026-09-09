@@ -19,6 +19,8 @@ from app.models.leave import LeaveBalance, LeaveRequest
 from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.models.ai_memory import AiRun
+from app.models.employee_profile import EmployeeProfile, EmployeeDocument
+from app.models.handover import HandoverRecord
 
 __all__ = [
     "User", "Team",
@@ -37,4 +39,6 @@ __all__ = [
     "KpiSnapshot", "CoachingNote", "ReviewCycle",
     "ZaloSession", "ZaloGroup", "ZaloMessage", "ZaloSignal",
     "AiRun",
+    "EmployeeProfile", "EmployeeDocument",
+    "HandoverRecord",
 ]

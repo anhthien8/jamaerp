@@ -24,12 +24,24 @@ class AttendanceRecord(Base):
     project_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("projects.id"), nullable=True)
 
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="web")
-    # Sources: web, telegram, leave (ngày nghỉ phép), auto (hệ thống tự đóng ca)
+    # Sources: web, telegram, leave (ngày nghỉ phép), auto (hệ thống tự đóng ca),
+    # device (máy chấm công bắn qua webhook)
+
+    # Đối chiếu văn phòng lúc check-in (05/09 GĐ C): None = không có dữ liệu để
+    # đối chiếu (chưa cấu hình văn phòng / thiếu GPS), True/False = kết quả thật.
+    check_in_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    ip_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    gps_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     work_hours: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     ot_hours: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     ot_status: Mapped[str] = mapped_column(String(20), nullable=False, default="none")
     # OT statuses: none, pending, approved, rejected
+
+    # Ai chốt OT + lúc nào — tên snapshot để bảng công hiển thị không cần join
+    ot_decided_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    ot_decided_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ot_decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Ca bị hệ thống tự đóng (quên checkout) — leader cần xác nhận lại giờ công
     needs_review: Mapped[bool] = mapped_column(Boolean, default=False)

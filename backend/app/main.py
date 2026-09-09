@@ -70,6 +70,8 @@ async def lifespan(app: FastAPI):
         from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa
         from app.models.supplier import Supplier, SupplierQuote, PriceComparison  # noqa
         from app.models.estimation import Estimation, EstimationItem  # noqa
+        from app.models.employee_profile import EmployeeProfile, EmployeeDocument  # noqa
+        from app.models.handover import HandoverRecord  # noqa
 
         from app.migrate import run_migrations, stamp_head
         db_state = await run_migrations()
@@ -264,6 +266,9 @@ app.include_router(audit_router, prefix="/api/v1")
 
 from app.api.attendance import router as attendance_router
 app.include_router(attendance_router, prefix="/api/v1")
+
+from app.api.hr_profile import router as hr_profile_router
+app.include_router(hr_profile_router, prefix="/api/v1")
 
 from app.api.approvals import router as approvals_router
 app.include_router(approvals_router, prefix="/api/v1")

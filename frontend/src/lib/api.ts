@@ -1459,6 +1459,65 @@ class ApiClient {
     return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-reject`, { method: 'POST' });
   }
 
+  // === Chấm công văn phòng + máy chấm công (09/09) ===
+  async getOfficeConfig() {
+    return this.request<{
+      office: { networks: string[]; lat: number | null; lng: number | null; radius_m: number };
+      device: { enabled: boolean; api_key_masked: string | null; webhook_path: string };
+    }>('/attendance/office-config');
+  }
+  async updateOfficeConfig(data: { networks: string[]; lat?: number | null; lng?: number | null; radius_m?: number }) {
+    return this.request<{ office: unknown }>('/attendance/office-config', { method: 'PUT', body: data });
+  }
+  async rotateDeviceKey() {
+    return this.request<{ api_key: string; enabled: boolean }>('/attendance/device-key/rotate', { method: 'POST' });
+  }
+  async toggleDevice(enabled: boolean) {
+    return this.request<{ enabled: boolean }>('/attendance/device-config', { method: 'PUT', body: { enabled } });
+  }
+
+  // === Hồ sơ nhân viên 360° (09/09) ===
+  async getEmployeeProfile(userId: string) {
+    return this.request<{
+      user: { id: string; full_name: string; email: string; phone: string | null; role: string; department: string | null; team_id: string | null; is_active: boolean; resign_date: string | null };
+      profile: EmployeeProfileData;
+      documents: EmployeeDocumentMeta[];
+      can_edit: boolean;
+    }>(`/hr/employees/${userId}/profile`);
+  }
+  async updateEmployeeProfile(userId: string, data: EmployeeProfileData) {
+    return this.request<{ profile: EmployeeProfileData }>(`/hr/employees/${userId}/profile`, { method: 'PUT', body: data });
+  }
+  async uploadEmployeeDocument(userId: string, data: { doc_type: string; filename: string; mime: string; data_base64: string }) {
+    return this.request<{ id: string }>(`/hr/employees/${userId}/documents`, { method: 'POST', body: data });
+  }
+  async getEmployeeDocument(userId: string, docId: string) {
+    return this.request<{ id: string; mime: string; filename: string; data_base64: string }>(`/hr/employees/${userId}/documents/${docId}`);
+  }
+  async deleteEmployeeDocument(userId: string, docId: string) {
+    return this.request<{ deleted: boolean }>(`/hr/employees/${userId}/documents/${docId}`, { method: 'DELETE' });
+  }
+  async getEmployeeFinance(userId: string) {
+    return this.request<EmployeeFinanceData>(`/hr/employees/${userId}/finance`);
+  }
+  async getEmployeeAttendance(userId: string, period?: string) {
+    return this.request<{ summary: AttendanceSummary; records: AttendanceRecord[] }>(
+      `/hr/employees/${userId}/attendance`, { params: period ? { period } : undefined }
+    );
+  }
+  async getEmployeeLeaves(userId: string) {
+    return this.request<{
+      balance: { year: number; annual_total: number; annual_used: number; sick_used: number; unpaid_used: number };
+      requests: { id: string; leave_type: string; start_date: string; end_date: string; days: number; reason: string; status: string; created_at: string }[];
+    }>(`/hr/employees/${userId}/leaves`);
+  }
+  async getEmployeeHandovers(userId: string) {
+    return this.request<{ given: HandoverItem[]; received: HandoverItem[] }>(`/hr/employees/${userId}/handovers`);
+  }
+  async getEmployeeAudit(userId: string) {
+    return this.request<{ items: { id: string; action: string; actor_name: string | null; note: string | null; created_at: string }[] }>(`/hr/employees/${userId}/audit`);
+  }
+
   // === HR Phase 1: Phê duyệt ===
   async approvalsPendingForMe() {
     return this.request<{ items: ApprovalItem[]; count: number }>('/approvals/pending-for-me');
@@ -2395,11 +2454,73 @@ export interface AttendanceRecord {
   check_out: string | null;
   project_id: string | null;
   source: string;
+  // Đối chiếu văn phòng lúc check-in (09/09): null = không có gì để so
+  ip_ok?: boolean | null;
+  gps_ok?: boolean | null;
   work_hours: number;
   ot_hours: number;
   ot_status: 'none' | 'pending' | 'approved' | 'rejected';
+  // Ai chốt OT + lúc nào (giờ UTC — FE tự +7 khi hiển thị)
+  ot_decided_by_name?: string | null;
+  ot_decided_at?: string | null;
   needs_review: boolean;
   note: string | null;
+}
+
+// === Hồ sơ nhân viên 360° (09/09/2026) ===
+export interface EmployeeProfileData {
+  national_id?: string | null;
+  national_id_issued_date?: string | null;
+  national_id_issued_place?: string | null;
+  date_of_birth?: string | null;
+  address?: string | null;
+  emergency_contact?: string | null;
+  bank_account?: string | null;
+  bank_name?: string | null;
+  social_insurance_no?: string | null;
+  hire_date?: string | null;
+  contract_type?: string | null;
+  contract_signed_date?: string | null;
+  contract_end_date?: string | null;
+  note?: string | null;
+}
+
+export interface EmployeeDocumentMeta {
+  id: string;
+  doc_type: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  uploaded_by_name: string | null;
+  created_at: string;
+}
+
+export interface EmployeeFinanceData {
+  payrolls: {
+    id: string; period: string; status: string; base_salary: number;
+    commission_total: number; bonus: number; allowance: number; ot_pay: number;
+    work_days: number; gross: number; net: number; advance_deduction: number;
+    paid_at: string | null;
+  }[];
+  commissions: {
+    id: string; type: string; amount: number; status: string; milestone: string;
+    period: string | null; project_id: string | null; created_at: string;
+  }[];
+  advances: {
+    id: string; amount: number; reason: string; status: string;
+    period_deducted: string | null; created_at: string;
+  }[];
+  transactions: {
+    id: string; type: string; category: string; amount: number;
+    description: string; transaction_date: string; status: string;
+  }[];
+  totals: { net_paid: number; commission_paid: number; commission_pending: number; advance_open: number };
+}
+
+export interface HandoverItem {
+  id: string; entity_type: string; entity_id: string; entity_name: string;
+  reason: string; from_user_name: string; to_user_name: string;
+  actor_name: string | null; created_at: string;
 }
 
 export interface AttendanceSummary {

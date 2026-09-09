@@ -389,6 +389,146 @@ function ZaloSection() {
   );
 }
 
+function OfficeCheckinSection() {
+  const { toast } = useToast();
+  const [networks, setNetworks] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
+  const [radius, setRadius] = useState('200');
+  const [deviceEnabled, setDeviceEnabled] = useState(false);
+  const [keyMasked, setKeyMasked] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [webhookPath, setWebhookPath] = useState('/api/v1/attendance/device-webhook');
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  // Tải cấu hình LỖI mà vẫn cho bấm Lưu = ghi đè config thật bằng form rỗng
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const loadConfig = useCallback(() => {
+    api.getOfficeConfig().then(cfg => {
+      setNetworks(cfg.office.networks.join('\n'));
+      setLat(cfg.office.lat != null ? String(cfg.office.lat) : '');
+      setLng(cfg.office.lng != null ? String(cfg.office.lng) : '');
+      setRadius(String(cfg.office.radius_m));
+      setDeviceEnabled(cfg.device.enabled);
+      setKeyMasked(cfg.device.api_key_masked);
+      setWebhookPath(cfg.device.webhook_path);
+      setLoadFailed(false);
+      setLoaded(true);
+    }).catch(() => { setLoadFailed(true); setLoaded(true); });
+  }, []);
+
+  useEffect(() => { loadConfig(); }, [loadConfig]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.updateOfficeConfig({
+        networks: networks.split('\n').map(s => s.trim()).filter(Boolean),
+        lat: lat ? Number(lat) : null,
+        lng: lng ? Number(lng) : null,
+        radius_m: Number(radius) || 200,
+      });
+      toast('Đã lưu cấu hình văn phòng', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Lưu thất bại', 'error');
+    } finally { setSaving(false); }
+  };
+
+  const rotate = async () => {
+    if (!confirm('Tạo khóa mới sẽ VÔ HIỆU khóa cũ — máy chấm công đang nối phải cập nhật lại. Tiếp tục?')) return;
+    try {
+      const res = await api.rotateDeviceKey();
+      setNewKey(res.api_key);
+      setKeyMasked(`${res.api_key.slice(0, 6)}****${res.api_key.slice(-4)}`);
+      setDeviceEnabled(true);
+      toast('Đã tạo khóa — sao chép ngay, khóa chỉ hiện MỘT LẦN', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Tạo khóa thất bại', 'error');
+    }
+  };
+
+  const inputStyle = { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' } as const;
+
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="clock" />Chấm công văn phòng</h2>
+      <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+        Nhân viên bấm Vào ca trên web: hệ thống tự đối chiếu IP mạng công ty + GPS điện thoại với
+        tọa độ văn phòng — trùng thì bảng công gắn nhãn <span style={{ color: '#34d399' }}>✓VP</span>. Không cấu hình = không đối chiếu (vẫn chấm công bình thường).
+      </p>
+      {!loaded ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Đang tải…</p> : loadFailed ? (
+        <div className="text-sm flex items-center justify-between gap-2" style={{ color: 'var(--text-secondary)' }}>
+          <span>⚠️ Chưa tải được cấu hình — không cho lưu để khỏi ghi đè nhầm.</span>
+          <button onClick={loadConfig} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>Tải lại</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>IP mạng công ty (mỗi dòng 1 IP hoặc dải CIDR — hỏi nhà mạng/IT lấy IP tĩnh)</label>
+            <textarea value={networks} onChange={e => setNetworks(e.target.value)} rows={2}
+              placeholder={'113.161.72.10\n192.168.1.0/24'}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none font-mono" style={inputStyle} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Vĩ độ VP</label>
+              <input value={lat} onChange={e => setLat(e.target.value)} placeholder="10.7769" className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Kinh độ VP</label>
+              <input value={lng} onChange={e => setLng(e.target.value)} placeholder="106.7009" className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Bán kính (m)</label>
+              <input value={radius} onChange={e => setRadius(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} />
+            </div>
+          </div>
+          <button onClick={() => void save()} disabled={saving}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold min-h-[44px]"
+            style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}>
+            {saving ? 'Đang lưu…' : 'Lưu cấu hình văn phòng'}
+          </button>
+
+          <div className="pt-3 mt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <p className="text-sm font-semibold mb-1">API máy chấm công {deviceEnabled ? '· 🟢 đang bật' : '· ⚪ chưa bật'}</p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+              Máy chấm công (hoặc phần mềm trung gian) bắn từng lượt quẹt về hệ thống — nhiều lượt/ngày
+              tự gộp: sớm nhất = vào ca, muộn nhất = tan ca.
+            </p>
+            <div className="text-xs font-mono px-3 py-2 rounded-lg mb-2 break-all" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              POST {webhookPath}<br />
+              Header: X-Device-Key: {newKey || keyMasked || '(bấm «Tạo khóa» bên dưới)'}<br />
+              {'Body: {"email": "nv@jamahome.vn", "event_time": "2026-09-09T08:00:00", "direction": "in|out|auto"}'}
+            </div>
+            {newKey && (
+              <div className="flex items-center gap-2 mb-2">
+                <button onClick={() => { navigator.clipboard.writeText(newKey); toast('Đã sao chép khóa', 'success'); }}
+                  className="text-xs px-3 py-1.5 rounded-lg font-semibold" style={{ background: '#C9A96E', color: '#1a1a1a' }}>📋 Sao chép khóa</button>
+                <span className="text-[10px]" style={{ color: '#F87171' }}>Khóa chỉ hiện một lần — rời trang là mất!</span>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => void rotate()} className="flex-1 py-2 rounded-lg text-xs font-semibold min-h-[36px]"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                🔑 {keyMasked ? 'Tạo khóa mới (vô hiệu khóa cũ)' : 'Tạo khóa'}
+              </button>
+              {keyMasked && (
+                <button onClick={() => void api.toggleDevice(!deviceEnabled).then(r => { setDeviceEnabled(r.enabled); toast(r.enabled ? 'Đã bật API máy chấm công' : 'Đã tắt API máy chấm công', 'success'); })}
+                  className="py-2 px-3 rounded-lg text-xs font-semibold min-h-[36px]"
+                  style={{ background: 'var(--surface-2)', color: deviceEnabled ? '#F87171' : '#34d399', border: '1px solid var(--border-subtle)' }}>
+                  {deviceEnabled ? 'Tắt' : 'Bật'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function BackupSection() {
   const [data, setData] = useState<BackupSettingsResponse | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1051,6 +1191,7 @@ export default function SettingsPage() {
             <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
               <AISettingsSection />
               <ZaloSection />
+              <OfficeCheckinSection />
             </div>
           </div>
         )}

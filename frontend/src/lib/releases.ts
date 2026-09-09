@@ -16,6 +16,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '09/09/2026',
+    title: 'Hồ sơ nhân viên 360° + chấm công văn phòng «✓VP» + trưởng nhóm KD duyệt OT',
+    tag: 'RELEASE',
+    news: [
+      'Trang Nhân sự: bấm vào một nhân viên là mở HỒ SƠ CHI TIẾT — thông tin cá nhân, CCCD, hợp đồng lao động (kèm ảnh scan, app tự nén), chấm công, nghỉ phép. Admin/Kế toán thấy thêm tab Tiền (lương, thưởng, hoa hồng, tạm ứng từng kỳ) và tab Bàn giao (nghỉ việc thì khách/việc đã sang tay ai — tra được mãi mãi).',
+      'Trưởng nhóm Kinh doanh từ nay DUYỆT được tăng ca của người trong nhóm mình. Bảng công hiện rõ ai duyệt OT, lúc mấy giờ — hết cảnh hỏi nhau «ai bấm duyệt đấy?».',
+      'Vào ca trên web giờ tự đối chiếu văn phòng: đúng mạng công ty hoặc GPS trong bán kính VP là bảng công gắn nhãn ✓VP. Admin cấu hình tại Cài đặt → «Chấm công văn phòng» — có cả cổng API để nối máy chấm công vân tay.',
+    ],
+    fixes: [
+      'Vai trò Trưởng nhóm KD trước đây không thấy bảng công team dù được giao quản nhóm — đã mở đúng phạm vi nhóm mình.',
+    ],
+    test: [
+      'Admin/Kế toán: Nhân sự → bấm một nhân viên → điền thử hồ sơ + tải ảnh CCCD → xem tab Tiền.',
+      'Trưởng nhóm KD: mở Chấm công → thấy bảng công team + khối «OT chờ duyệt» → duyệt thử một ca.',
+      'Mọi người: bấm Vào ca (cho phép vị trí nếu muốn có nhãn ✓VP) → xem cột Nguồn trong bảng công.',
+    ],
+  },
+  {
+    date: '09/09/2026',
     title: 'Sổ tay sử dụng nằm ngay trong app — menu «Sổ tay»',
     tag: 'RELEASE',
     news: [
