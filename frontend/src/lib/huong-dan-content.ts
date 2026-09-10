@@ -133,6 +133,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             "4 thẻ của riêng bạn: **Lead Của Tôi**, Giá trị pipeline, Hợp đồng, **Hoa Hồng** đã duyệt kỳ gần nhất."
           ],
           [
+            "Trưởng nhóm KD",
+            "4 thẻ cá nhân như Sale, cộng thêm khối **⚡ Cần xử lý ngay** đếm **tăng ca chờ duyệt của team bạn** — bấm vào là sang trang Chấm công để duyệt. Team không có OT chờ thì khối này ẩn."
+          ],
+          [
             "Trưởng phòng",
             "Số liệu chung (lead, pipeline, dự án, hợp đồng) + khối **⚡ Cần xử lý ngay**: khách quá hạn, đơn chờ duyệt, tăng ca chờ — bấm vào là tới nơi."
           ],
@@ -986,7 +990,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm **Vào ca** trên web, app sẽ xin vị trí GPS (cho phép thì tốt, từ chối vẫn vào ca được). Nếu bạn đang ở văn phòng (đúng mạng công ty hoặc trong bán kính GPS), bảng công tự gắn nhãn **✓VP** — khỏi ai thắc mắc.",
           "Tăng ca (OT) sau khi được duyệt sẽ hiện rõ **ai duyệt, lúc mấy giờ** ngay trong bảng công của bạn.",
-          "**Trưởng nhóm Kinh doanh** từ nay duyệt được OT của người trong nhóm mình (trước chỉ Trưởng phòng/Admin/Kế toán).",
+          "**Trưởng nhóm Kinh doanh** từ nay duyệt được OT của người trong nhóm mình (trước chỉ Trưởng phòng/Admin/Kế toán). Team có OT chờ duyệt thì ngay trang **Tổng quan** hiện khối «⚡ Cần xử lý ngay» kèm số lượng — bấm vào là sang Chấm công.",
           "Công ty có máy chấm công thì Admin nối máy vào hệ thống ở **Cài đặt → Chấm công văn phòng** — lượt quẹt máy tự đổ về bảng công (nguồn hiện «Máy chấm công»)."
         ]
       }

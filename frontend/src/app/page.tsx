@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [acctSummary, setAcctSummary] = useState<AccountingSummary | null>(null);
   const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
   const [leaderCounts, setLeaderCounts] = useState<{ approvals: number; ot: number } | null>(null);
+  const [saleLeaderOT, setSaleLeaderOT] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -56,6 +57,15 @@ export default function DashboardPage() {
         Promise.all([api.approvalsPendingForMe(), api.pendingOT()])
           .then(([approvals, ot]) => setLeaderCounts({ approvals: approvals.count, ot: ot.items.length }))
           .catch(() => setLeaderCounts(null));
+      }
+
+      // Trưởng nhóm KD duyệt OT team mình (09/09) nhưng rơi vào dashboard CÁ NHÂN
+      // (dashboardType kế thừa 'personal') — không có khối leader thì không biết có
+      // OT đang chờ. Backend /attendance/ot/pending tự giới hạn phạm vi team.
+      if (user.role === 'sale_leader') {
+        api.pendingOT()
+          .then(ot => setSaleLeaderOT(ot.items.length))
+          .catch(() => setSaleLeaderOT(null));
       }
     }
   }, [user]);
@@ -378,6 +388,20 @@ export default function DashboardPage() {
                 <span className="text-xl font-bold" style={{ color: 'var(--stage-dormant)' }}>{leaderCounts.ot}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Trưởng nhóm KD: đếm OT team đang chờ mình duyệt — ẩn khi 0 (cùng ngữ nghĩa
+            «Cần xử lý ngay»: không có gì chờ thì không chiếm chỗ) */}
+        {user.role === 'sale_leader' && (saleLeaderOT ?? 0) > 0 && (
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">⚡ Cần xử lý ngay</h3>
+            <button onClick={() => router.push('/attendance')}
+              className="w-full flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
+              style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-dormant)' }}>
+              <span className="text-sm text-[var(--text-secondary)]">Tăng ca chờ duyệt (team bạn)</span>
+              <span className="text-xl font-bold" style={{ color: 'var(--stage-dormant)' }}>{saleLeaderOT}</span>
+            </button>
           </div>
         )}
 
