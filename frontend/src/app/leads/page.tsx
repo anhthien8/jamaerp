@@ -45,7 +45,15 @@ const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_de
 // "Chuyển giai đoạn" trong thẻ chi tiết lại bắn thẳng handleStageChange không lý do.
 const BOARD_STAGES = [...STAGES, 'lost'];
 const ALL_STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
-const OVERDUE_DAYS = 3;
+// Ngưỡng «Quá hạn» THEO GIAI ĐOẠN (tính từ last_contacted_at hoặc updated_at).
+// Ngưỡng phẳng 3 ngày cũ gắn cờ cho ~73% lead — cờ mọc khắp nơi thì hết ý nghĩa cảnh báo.
+// signed_design/lost/dormant không có trong map = không bao giờ gắn cờ.
+const OVERDUE_DAYS_BY_STAGE: Record<string, number> = {
+  new: 3,
+  interested: 7,
+  survey_scheduled: 7,
+  potential: 14,
+};
 // Kanban windowing: mỗi cột chỉ VẼ tối đa chừng này thẻ mỗi «trang» — cột «Tiếp nhận mới»
 // 137 thẻ từng đẩy trang cao ~28.000px. Chỉ giới hạn render; đếm ở header cột vẫn là tổng thật.
 const KANBAN_PAGE_SIZE = 25;
@@ -61,8 +69,8 @@ const LOST_REASONS = [
 // Backend trả ISO KHÔNG kèm timezone (cột DateTime naive) nên new Date() đọc theo
 // giờ máy — đúng bằng cách timeAgo/toLocaleString đang hiển thị ở mọi trang khác.
 const DATE_FIELDS: Record<string, { label: string; short: string; pick: (l: Lead) => string | undefined }> = {
-  updated_at: { label: 'Ngày cập nhật', short: 'Cập nhật', pick: l => l.updated_at },
   created_at: { label: 'Ngày thêm mới', short: 'Thêm mới', pick: l => l.created_at },
+  updated_at: { label: 'Ngày cập nhật', short: 'Cập nhật', pick: l => l.updated_at },
   last_contacted_at: { label: 'Ngày liên hệ cuối', short: 'Liên hệ cuối', pick: l => l.last_contacted_at },
 };
 const DATE_PRESETS: { value: string; label: string }[] = [
@@ -170,10 +178,12 @@ function PlainTh({ label, align = 'left' }: { label: string; align?: 'left' | 'r
 }
 
 function isOverdueLead(lead: Lead) {
-  const timestamp = getLeadTimestamp(lead);
-  if (!timestamp || ['signed_design', 'lost'].includes(lead.stage)) return false;
+  const days = OVERDUE_DAYS_BY_STAGE[lead.stage];
+  if (!days) return false;
+  const timestamp = lead.last_contacted_at || lead.updated_at;
+  if (!timestamp) return false;
   const ageMs = Date.now() - new Date(timestamp).getTime();
-  return ageMs > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+  return ageMs > days * 24 * 60 * 60 * 1000;
 }
 
 function TagBadge({ tag }: { tag: string }) {
@@ -340,7 +350,8 @@ function LeadsContent() {
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortKey>('newest');
   // Lọc theo ngày tạo/cập nhật/liên hệ — để soát lại lead vừa nhập đã đúng & đủ chưa.
-  const [dateField, setDateField] = useState<string>('updated_at');
+  // Mặc định «Ngày thêm mới»: sale nghĩ theo ngày NHẬN lead, không phải ngày hệ thống sửa bản ghi.
+  const [dateField, setDateField] = useState<string>('created_at');
   const [datePreset, setDatePreset] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -746,7 +757,7 @@ function LeadsContent() {
   const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all' || filterAssignee !== 'all';
   const activeFilterLabels = [
     activeStage ? `Giai đoạn: ${STAGE_CONFIG[activeStage]?.label || activeStage}` : null,
-    activeQuickFilter === 'overdue' ? `Quá hạn CSKH > ${OVERDUE_DAYS} ngày` : null,
+    activeQuickFilter === 'overdue' ? 'Quá hạn CSKH (ngưỡng theo giai đoạn)' : null,
     filterRegion !== 'all' ? `Khu vực: ${filterRegion}` : null,
     filterPropertyClass !== 'all' ? PROPERTY_CLASS_LABELS[filterPropertyClass]?.label : null,
     dateRangeLabel ? `${DATE_FIELDS[dateField]?.label}: ${dateRangeLabel}` : null,
