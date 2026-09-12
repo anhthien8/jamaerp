@@ -375,6 +375,12 @@ function LeadsContent() {
   // Ô chọn lý do mất lead trong thẻ chi tiết — bật sẵn khi user kéo vào cột "Mất".
   const [lostPickerOpen, setLostPickerOpen] = useState(false);
   const lostPickerRef = useRef<HTMLDivElement | null>(null);
+  // ── Bulk stage: đổi giai đoạn hàng loạt (POST /leads/bulk/stage) ──
+  // Backend chặn signed_design (side-effect sinh KH+Dự án phải chạy từng lead)
+  // và bắt lý do khi vào «Mất» — FE lặp lại 2 luật đó cho chọn trước khi gọi.
+  const [bulkStageOpen, setBulkStageOpen] = useState(false);
+  const [bulkStageValue, setBulkStageValue] = useState('');
+  const [bulkLostReason, setBulkLostReason] = useState('');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -716,6 +722,35 @@ function LeadsContent() {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Không thể giao lead'}`, 'error');
     } finally {
       setAssigning(false);
+    }
+  };
+
+  // ── Bulk stage: đổi giai đoạn hàng loạt cho các lead đang chọn (view danh sách) ──
+  // Backend chặn signed_design (side-effect sinh KH+Dự án phải chạy từng lead) và
+  // bắt lý do khi vào «Mất» — FE lặp lại 2 luật đó để chọn trước khi gọi API.
+  const runBulkStage = async () => {
+    if (!bulkStageValue || bulkBusy || selectedLeadIds.size === 0) return;
+    if (bulkStageValue === 'lost' && !bulkLostReason.trim()) {
+      toast('Chọn lý do mất lead trước', 'error');
+      return;
+    }
+    if (bulkStageValue === 'signed_design') return; // đã chặn ở UI, đề phòng gọi tay
+    setBulkBusy(true);
+    try {
+      const res = await api.bulkChangeStage(
+        [...selectedLeadIds], bulkStageValue,
+        bulkStageValue === 'lost' ? bulkLostReason.trim() : undefined,
+      );
+      toast(`Đã chuyển ${res.updated} lead${res.skipped ? ` (bỏ qua ${res.skipped} ngoài phạm vi)` : ''}`, res.updated ? 'success' : 'error');
+      setSelectedLeadIds(new Set());
+      setBulkStageOpen(false);
+      setBulkStageValue('');
+      setBulkLostReason('');
+      fetchLeads();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không rõ'}`, 'error');
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -2003,7 +2038,7 @@ function LeadsContent() {
       {canAssign && viewMode === 'list' && selectedLeadIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-3 rounded-2xl glass-card shadow-2xl" style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-1)' }}>
           <span className="text-xs font-semibold text-white whitespace-nowrap">{selectedLeadIds.size} lead đã chọn</span>
-          {!bulkAssignOpen ? (
+          {!bulkAssignOpen && !bulkStageOpen ? (
             <>
               <button
                 onClick={() => { void loadAssignableUsers(); setBulkAssignOpen(true); }}
@@ -2012,13 +2047,19 @@ function LeadsContent() {
                 👤 Giao cho…
               </button>
               <button
+                onClick={() => setBulkStageOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 transition-all whitespace-nowrap"
+              >
+                🔄 Đổi giai đoạn
+              </button>
+              <button
                 onClick={() => setSelectedLeadIds(new Set())}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
               >
                 Bỏ chọn
               </button>
             </>
-          ) : (
+          ) : bulkAssignOpen ? (
             <>
               <select
                 autoFocus
@@ -2035,6 +2076,49 @@ function LeadsContent() {
               </select>
               <button
                 onClick={() => setBulkAssignOpen(false)}
+                disabled={bulkBusy}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
+              >
+                Hủy
+              </button>
+            </>
+          ) : (
+            /* Bulk stage — dropdown + lý do «Mất» + nút chạy, 1 dòng gọn trong thanh nổi */
+            <>
+              <select
+                autoFocus
+                disabled={bulkBusy}
+                value={bulkStageValue}
+                onChange={e => setBulkStageValue(e.target.value)}
+                aria-label="Chuyển các lead đã chọn sang giai đoạn"
+                className="text-xs px-2 py-1.5 rounded-lg cursor-pointer border outline-none max-w-[180px]"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', borderColor: 'var(--border-subtle)' }}
+              >
+                <option value="">— Chọn giai đoạn —</option>
+                {/* signed_design bị BE chặn (tự sinh KH+Dự án phải chạy từng lead),
+                    lost thì hiện ra nhưng bắt nhập lý do ngay bên cạnh. */}
+                {['new', 'interested', 'survey_scheduled', 'potential', 'dormant', 'lost'].map(s => (
+                  <option key={s} value={s}>{STAGE_CONFIG[s]?.emoji} {STAGE_CONFIG[s]?.label || s}</option>
+                ))}
+              </select>
+              {bulkStageValue === 'lost' && (
+                <input
+                  value={bulkLostReason}
+                  onChange={e => setBulkLostReason(e.target.value)}
+                  placeholder="Lý do mất lead (bắt buộc)"
+                  className="text-xs px-2 py-1.5 rounded-lg border outline-none w-44"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', borderColor: 'rgba(239,68,68,0.4)' }}
+                />
+              )}
+              <button
+                onClick={() => void runBulkStage()}
+                disabled={bulkBusy || !bulkStageValue || (bulkStageValue === 'lost' && !bulkLostReason.trim())}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-40 transition-all whitespace-nowrap"
+              >
+                {bulkBusy ? 'Đang chuyển…' : 'Chuyển'}
+              </button>
+              <button
+                onClick={() => { setBulkStageOpen(false); setBulkStageValue(''); setBulkLostReason(''); }}
                 disabled={bulkBusy}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
               >
