@@ -287,6 +287,45 @@ function LeadsContent() {
   const perms = getPermissions((user?.role || 'data_entry') as UserRole);
   // Admin/leader/điều phối KD (CSKH) được gắn/đổi người phụ trách — khớp can_assign_leads() backend.
   const canAssign = canAssignLeads(user);
+
+  // Bulk assign — chọn nhiều lead ở view danh sách rồi giao 1 lượt (POST /leads/bulk/assign
+  // + /bulk/stage đã có BE từ Phiên 14/07, FE chưa từng có UI). Backend tự bỏ qua lead
+  // ngoài phạm vi người gán (trưởng nhóm chỉ giao lead nhóm mình), trả {updated, skipped}.
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(() => new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const toggleSelectLead = (id: string) => {
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllVisible = () => {
+    setSelectedLeadIds(prev => {
+      const visible = filteredByUrl.map(l => l.id);
+      const allSelected = visible.length > 0 && visible.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) visible.forEach(id => next.delete(id));
+      else visible.forEach(id => next.add(id));
+      return next;
+    });
+  };
+  const handleBulkAssign = async (userId: string) => {
+    if (selectedLeadIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await api.bulkAssignLeads([...selectedLeadIds], userId);
+      toast(`Đã giao ${res.updated} lead${res.skipped ? ` (bỏ qua ${res.skipped} ngoài phạm vi)` : ''}`, 'success');
+      setSelectedLeadIds(new Set());
+      setBulkAssignOpen(false);
+      fetchLeads();
+    } catch (e) {
+      toast(`Lỗi giao hàng loạt: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   // Kéo thả kanban (feedback beta 22/07) — cột đang được kéo qua để highlight
@@ -585,12 +624,31 @@ function LeadsContent() {
     }
   };
 
+  // Hộp xác nhận «Deal đã thắng» — chuyển sang signed_design tự sinh KH+HĐ+19 tasks
+  // và KHÔNG lùi được (QC 05/09: kéo nhầm là mất công dọn dữ liệu). Trước đây bắn
+  // thẳng API không hỏi.
+  const [signedConfirmOpen, setSignedConfirmOpen] = useState(false);
+  const [signedTarget, setSignedTarget] = useState<Lead | null>(null);
+
   const handleStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
     if (newStage === 'lost' && !reasonOverride) {
       toast('Vui lòng chọn lý do mất lead', 'error');
       return;
     }
+    // Cửa chặn duy nhất: mọi đường vào signed_design (nút trong thẻ, kéo thả kanban)
+    // đều phải qua hộp xác nhận. Hủy = không gọi API.
+    if (newStage === 'signed_design' && lead.stage !== 'signed_design') {
+      setSignedTarget(lead);
+      setSignedConfirmOpen(true);
+      return;
+    }
     // Đang có 1 lượt đổi stage chạy dở → bỏ qua lượt thứ 2 (chặn tạo trùng KH+Dự án).
+    await doStageChange(lead, newStage, reasonOverride);
+  };
+
+  // Thân thật của việc đổi giai đoạn — confirm dialog signed_design gọi thẳng vào
+  // đây (đi lại handleStageChange sẽ bị hộp xác nhận chặn lần nữa, vòng lặp).
+  const doStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
     if (stageBusy.current) return;
     stageBusy.current = true;
     try {
@@ -988,6 +1046,18 @@ function LeadsContent() {
               <table className="w-full text-sm min-w-[1180px]">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    {canAssign && (
+                      <th className="px-3 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          aria-label="Chọn tất cả lead đang hiển thị"
+                          checked={filteredByUrl.length > 0 && filteredByUrl.every(l => selectedLeadIds.has(l.id))}
+                          onChange={toggleSelectAllVisible}
+                          onClick={e => e.stopPropagation()}
+                          className="w-4 h-4 cursor-pointer accent-[#C9A96E]"
+                        />
+                      </th>
+                    )}
                     <PlainTh label="Khách hàng" />
                     <PlainTh label="Giai đoạn" />
                     <PlainTh label="Ưu tiên" />
@@ -1010,6 +1080,17 @@ function LeadsContent() {
                       className="cursor-pointer transition-colors hover:bg-white/5"
                       style={{ borderBottom: '1px solid var(--border-subtle)' }}
                     >
+                      {canAssign && (
+                        <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Chọn ${lead.name}`}
+                            checked={selectedLeadIds.has(lead.id)}
+                            onChange={() => toggleSelectLead(lead.id)}
+                            className="w-4 h-4 cursor-pointer accent-[#C9A96E]"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="w-1 h-8 rounded-full flex-shrink-0" style={{ background: PRIORITY_LABELS[lead.priority]?.color || '#6B7280' }} />
@@ -1890,6 +1971,20 @@ function LeadsContent() {
                     onCancel={() => {}}
                   />
                 )}
+                {/* Ngủ đông — trạng thái dormant có ở backend từ đầu nhưng không có đường vào UI
+                    (QC 05/09: nút chỉ validate, không tạo được). Khách im lặng dài hạn ≠ mất hẳn. */}
+                {selectedLead.stage !== 'dormant' && selectedLead.stage !== 'lost' && selectedLead.stage !== 'signed_design' && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => handleStageChange(selectedLead, 'dormant')}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
+                      style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
+                      title="Khách tạm im lặng nhưng chưa mất — cất vào Ngủ đông, sau này đánh thức lại được"
+                    >
+                      😴 Chuyển sang Ngủ đông
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Timestamps */}
@@ -1899,6 +1994,67 @@ function LeadsContent() {
                 <span>Liên hệ: {selectedLead.last_contacted_at ? timeAgo(selectedLead.last_contacted_at) : 'Chưa'}</span>
                 {selectedLead.lost_reason && <span className="text-red-400">Mất: {selectedLead.lost_reason}</span>}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thanh hành động bulk — nổi dưới màn hình khi có lead được chọn ở view danh sách */}
+      {canAssign && viewMode === 'list' && selectedLeadIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 px-4 py-3 rounded-2xl glass-card shadow-2xl" style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-1)' }}>
+          <span className="text-xs font-semibold text-white whitespace-nowrap">{selectedLeadIds.size} lead đã chọn</span>
+          {!bulkAssignOpen ? (
+            <>
+              <button
+                onClick={() => { void loadAssignableUsers(); setBulkAssignOpen(true); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all whitespace-nowrap"
+              >
+                👤 Giao cho…
+              </button>
+              <button
+                onClick={() => setSelectedLeadIds(new Set())}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
+              >
+                Bỏ chọn
+              </button>
+            </>
+          ) : (
+            <>
+              <select
+                autoFocus
+                disabled={bulkBusy}
+                defaultValue=""
+                onChange={e => { if (e.target.value) void handleBulkAssign(e.target.value); }}
+                className="text-xs px-2 py-1.5 rounded-lg cursor-pointer border outline-none"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', borderColor: 'var(--border-subtle)' }}
+              >
+                <option value="">{loadingUsers ? 'Đang tải…' : bulkBusy ? 'Đang giao…' : 'Chọn người phụ trách'}</option>
+                {assignableUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.full_name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setBulkAssignOpen(false)}
+                disabled={bulkBusy}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
+              >
+                Hủy
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {signedConfirmOpen && signedTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="signed-confirm-title">
+          <div className="absolute inset-0 bg-black/70" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }} />
+          <div className="relative w-full max-w-md rounded-2xl p-5 glass-card">
+            <h3 id="signed-confirm-title" className="text-base font-bold text-white">✅ Xác nhận deal đã thắng</h3>
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Đã ký — thiết kế» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
+            <p className="mt-2 text-xs text-amber-400">Thao tác này không thể lùi lại. Chỉ xác nhận khi hợp đồng đã ký.</p>
+            <div className="flex justify-end gap-2 mt-5">
+              <button className="px-3 py-2 rounded-lg text-xs bg-white/10 text-white" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }}>Hủy</button>
+              <button className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300" onClick={() => { const target = signedTarget; setSignedConfirmOpen(false); setSignedTarget(null); void doStageChange(target, 'signed_design'); }}>Xác nhận deal thắng</button>
             </div>
           </div>
         </div>
