@@ -92,8 +92,11 @@ async def _build_project_revenues(db: AsyncSession) -> dict[str, float]:
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@cached(ttl=300, prefix="pl")
+# LƯU Ý thứ tự decorator: @router.get phải nằm TRÊN @cached — decorator áp từ
+# dưới lên, đặt ngược lại thì router đăng ký hàm gốc và cache thành mã chết
+# trên đường HTTP (bug vá 09/09/2026; accounting.py từng dính y hệt).
 @router.get("/summary", response_model=PLSummary)
+@cached(ttl=300, prefix="pl")
 async def company_pl_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_require_clevel),
@@ -120,8 +123,9 @@ async def company_pl_summary(
     )
 
 
-@cached(ttl=300, prefix="pl")
+# Thứ tự decorator: @router.get trên, @cached dưới (xem ghi chú ở /summary)
 @router.get("/projects", response_model=list[PLProjectItem])
+@cached(ttl=300, prefix="pl")
 async def project_pl_list(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_require_clevel),

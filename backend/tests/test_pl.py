@@ -1,8 +1,13 @@
 """Tests for P&L (Profit & Loss) API — summary, project list, project detail, RBAC."""
 
+import uuid
+from datetime import datetime, timezone
+
 import pytest
 from httpx import AsyncClient
 
+from app.cache import cache
+from app.models.contract import Contract
 from tests.conftest import auth_header
 
 
@@ -182,3 +187,80 @@ class TestPLEdgeCases:
         assert body["total_cost"] == 0
         assert body["profit"] == 0
         assert body["margin"] == 0.0
+
+
+# ── Cache /pl (vá 09/09/2026) ─────────────────────────────────────────────
+# Trước đó @cached nằm TRÊN @router.get → router đăng ký hàm gốc, cache là
+# mã chết trên đường HTTP. Nhóm test này chốt 3 hợp đồng: (1) cache thật sự
+# sống, (2) 2 endpoint cùng prefix không đụng key nhau, (3) sửa dự án qua API
+# thật sự làm mới dữ liệu (clear_prefix("pl") trong projects.py có tác dụng).
+
+@pytest.mark.asyncio
+class TestPLCache:
+    async def test_lan_2_tra_tu_cache_khong_query_db(
+        self, client: AsyncClient, admin_user, project_with_financials, db_session
+    ):
+        r1 = await client.get("/api/v1/pl/summary", headers=auth_header(admin_user))
+        assert r1.status_code == 200
+        assert any(k.startswith("pl") for k in cache._store), (
+            "sau request đầu cache._store phải có key prefix 'pl' — "
+            "nếu rỗng tức @cached lại thành mã chết (kiểm tra thứ tự decorator)"
+        )
+
+        # Thêm hợp đồng ký mới THẲNG vào DB (không qua API nên không invalidate).
+        # Nếu lần 2 thấy số mới nghĩa là endpoint vẫn query DB thay vì trả cache.
+        db_session.add(Contract(
+            id=str(uuid.uuid4()),
+            code="HD-CACHE-01",
+            project_id=project_with_financials.id,
+            title="HD test cache",
+            status="signed",
+            total_value=1_000_000_000,
+        ))
+        await db_session.commit()
+
+        r2 = await client.get("/api/v1/pl/summary", headers=auth_header(admin_user))
+        assert r2.json()["total_revenue"] == r1.json()["total_revenue"], (
+            "lần 2 phải trả nguyên response cache (chưa thấy hợp đồng mới)"
+        )
+
+        # clear_prefix("pl") → request kế tiếp phải query lại và thấy số mới
+        cache.clear_prefix("pl")
+        r3 = await client.get("/api/v1/pl/summary", headers=auth_header(admin_user))
+        assert r3.json()["total_revenue"] == r1.json()["total_revenue"] + 1_000_000_000
+
+    async def test_summary_va_projects_khong_dung_key_nhau(
+        self, client: AsyncClient, admin_user, project_with_financials
+    ):
+        r_sum = await client.get("/api/v1/pl/summary", headers=auth_header(admin_user))
+        r_proj = await client.get("/api/v1/pl/projects", headers=auth_header(admin_user))
+        assert r_sum.status_code == 200
+        assert r_proj.status_code == 200
+
+        # Key chỉ có prefix (bug cũ) thì cả 2 endpoint cùng ra key "pl" —
+        # /pl/projects sẽ trả nhầm dict summary đã cache của /pl/summary.
+        pl_keys = [k for k in cache._store if k.startswith("pl")]
+        assert len(pl_keys) == 2, f"2 endpoint phải ra 2 key riêng, nhận: {pl_keys}"
+        assert isinstance(r_proj.json(), list)
+        assert "total_revenue" in r_sum.json()
+
+    async def test_sua_status_du_an_lam_moi_pl(
+        self, client: AsyncClient, admin_user, project_with_financials
+    ):
+        r1 = await client.get("/api/v1/pl/projects", headers=auth_header(admin_user))
+        item1 = next(i for i in r1.json() if i["project_id"] == project_with_financials.id)
+        assert item1["status"] == "active"
+
+        # PUT đổi status qua API → projects.py phải clear_prefix("pl")
+        r_put = await client.put(
+            f"/api/v1/projects/{project_with_financials.id}",
+            json={"status": "completed"},
+            headers=auth_header(admin_user),
+        )
+        assert r_put.status_code == 200, r_put.text
+
+        r2 = await client.get("/api/v1/pl/projects", headers=auth_header(admin_user))
+        item2 = next(i for i in r2.json() if i["project_id"] == project_with_financials.id)
+        assert item2["status"] == "completed", (
+            "vẫn thấy status cũ = response dính cache 300s, invalidation không chạy"
+        )

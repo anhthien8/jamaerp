@@ -70,6 +70,22 @@ def _reset_login_rate_limit():
 
 
 # ---------------------------------------------------------------------------
+# Reset cache in-memory giữa các test: app dùng chung 1 process pytest nên
+# response cache TTL 300s (pl/dashboard) sẽ rò từ test này sang test kia —
+# ví dụ /pl/summary của test có dữ liệu dội sang test_summary_empty_db.
+# Clear cả store (không chỉ prefix) để prefix mới sau này khỏi dính lại bug.
+# ---------------------------------------------------------------------------
+from app.cache import cache as _app_cache  # noqa
+
+
+@pytest.fixture(autouse=True)
+def _reset_cache():
+    _app_cache._store.clear()
+    yield
+    _app_cache._store.clear()
+
+
+# ---------------------------------------------------------------------------
 # Engine & session factory per test
 # ---------------------------------------------------------------------------
 

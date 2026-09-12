@@ -17,8 +17,11 @@ from app.cache import cache, cached
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [kw.get("current_user").role if kw.get("current_user") else "anon"])
+# LƯU Ý thứ tự decorator: @router.get phải nằm TRÊN @cached — decorator áp từ
+# dưới lên, đặt ngược lại thì router đăng ký hàm gốc và cache thành mã chết
+# trên đường HTTP (bug vá 09/09/2026, cùng lớp với pl.py).
 @router.get("/executive")
+@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [kw.get("current_user").role if kw.get("current_user") else "anon"])
 async def executive_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
