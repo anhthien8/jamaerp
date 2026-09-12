@@ -1015,6 +1015,22 @@ class ApiClient {
     });
   }
 
+  /** Giao hàng loạt — backend tự bỏ qua lead ngoài phạm vi (trả về skipped). */
+  async bulkAssignLeads(leadIds: string[], userId: string) {
+    return this.request<{ updated: number; skipped: number }>('/leads/bulk/assign', {
+      method: 'POST',
+      body: { lead_ids: leadIds, user_id: userId },
+    });
+  }
+
+  /** Đổi giai đoạn hàng loạt. Backend chặn signed_design (side-effect phải chuyển từng lead). */
+  async bulkChangeStage(leadIds: string[], newStage: string, lostReason?: string) {
+    return this.request<{ updated: number; skipped: number }>('/leads/bulk/stage', {
+      method: 'POST',
+      body: { lead_ids: leadIds, new_stage: newStage, lost_reason: lostReason },
+    });
+  }
+
   async getActivities(leadId: string): Promise<Activity[]> {
     // Backend trả object phân trang {items,...}; demo trả mảng thuần → chuẩn hoá về mảng.
     // Lấy tối đa backend cho phép (200): khối lognote CSKH trong thẻ chi tiết đọc từ

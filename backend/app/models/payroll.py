@@ -121,6 +121,34 @@ class Payroll(Base):
     )
 
 
+class Bonus(Base):
+    """Thưởng — đề xuất bởi kế toán/admin, duyệt qua Approval Center,
+    tự cộng vào dòng lương kỳ tương ứng khi generate, chốt paid khi chi lương."""
+
+    __tablename__ = "bonuses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    period: Mapped[str] = mapped_column(String(10), nullable=False)  # kỳ lương cộng thưởng, "2026-09"
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    # Statuses: pending -> approved -> paid | rejected | cancelled
+    approval_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("ix_bonuses_user_period", "user_id", "period"),
+        Index("ix_bonuses_period_status", "period", "status"),
+    )
+
+
 class SalaryAdvance(Base):
     """Tạm ứng lương — duyệt qua Approval Center, tự trừ vào kỳ lương kế tiếp."""
 
