@@ -13,6 +13,7 @@ from app.models.project import Project, Task, TaskActivity, task_department_for_
 from app.middleware.rbac import (
     PIC_THEO_PHONG_BAN, la_pic_du_an, la_truong_phong, pham_vi_du_an,
 )
+from app.middleware.permissions import quyen_hieu_luc
 from app.models.notification import Notification
 from app.cache import cache
 from app.schemas.project import (
@@ -417,9 +418,13 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create new project — admin, leader, pm only."""
-    if current_user.role not in ("admin", "leader", "supervisor"):
-        raise HTTPException(status_code=403, detail="Không có quyền tạo dự án")
+    """Create new project — qua ma trận Phân quyền (canCreateProjects)."""
+    # Refactor từ hardcode admin/leader/supervisor (Phiên 09/09): ma trận là
+    # nguồn sự thật. Lưu ý: matrix cho executive có canCreateProjects=True nên
+    # refactor này MỞ thêm quyền cho executive so với bản hardcode cũ.
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canCreateProjects"):
+        raise HTTPException(status_code=403, detail="Bạn không có quyền «Tạo Dự án» — xem trang Phân quyền")
     project = Project(**data.model_dump())
     db.add(project)
     await db.flush()
@@ -475,9 +480,12 @@ async def create_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new task under a project — admin, leader, supervisor only."""
-    if current_user.role not in ("admin", "leader", "supervisor"):
-        raise HTTPException(status_code=403, detail="Không có quyền tạo đầu việc")
+    """Create a new task under a project — qua ma trận Phân quyền (canCreateTasks)."""
+    # Refactor từ hardcode admin/leader/supervisor — matrix khớp 100% bản cũ
+    # cho 6 role hệ thống, khác biệt chỉ khi admin chỉnh ma trận.
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canCreateTasks"):
+        raise HTTPException(status_code=403, detail="Bạn không có quyền «Tạo Công việc» — xem trang Phân quyền")
     # Verify project exists
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
