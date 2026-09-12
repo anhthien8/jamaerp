@@ -380,6 +380,7 @@ function LeadsContent() {
   // và bắt lý do khi vào «Mất» — FE lặp lại 2 luật đó cho chọn trước khi gọi.
   const [bulkStageOpen, setBulkStageOpen] = useState(false);
   const [bulkStageValue, setBulkStageValue] = useState('');
+  const [dormantReason, setDormantReason] = useState('');
   const [bulkLostReason, setBulkLostReason] = useState('');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
@@ -649,19 +650,22 @@ function LeadsContent() {
       return;
     }
     // Đang có 1 lượt đổi stage chạy dở → bỏ qua lượt thứ 2 (chặn tạo trùng KH+Dự án).
-    await doStageChange(lead, newStage, reasonOverride);
+    await doStageChange(lead, newStage, { reason: reasonOverride });
   };
 
   // Thân thật của việc đổi giai đoạn — confirm dialog signed_design gọi thẳng vào
   // đây (đi lại handleStageChange sẽ bị hộp xác nhận chặn lần nữa, vòng lặp).
-  const doStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
+  const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string }) => {
     if (stageBusy.current) return;
     stageBusy.current = true;
     try {
       // Mọi chuyển giai đoạn (kể cả sang "Mất") đi qua đúng một cửa /stage.
       // Bản cũ dùng updateLead cho nhánh "Mất" — endpoint đó KHÔNG nhận stage nên
       // trả 200 mà lead nằm nguyên cột cũ, user tưởng đã chuyển xong (lỗi 27/08).
-      await api.changeStage(lead.id, newStage, { lostReason: reasonOverride });
+      await api.changeStage(lead.id, newStage, {
+        lostReason: newStage === 'lost' ? opts?.reason : undefined,
+        note: newStage === 'dormant' ? (opts?.reason ? `Ngủ đông: ${opts.reason}` : undefined) : undefined,
+      });
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
       // Sort «Mới nhất» xếp lead cũ rất sâu: thẻ vừa chuyển vào cột đông có thể
       // nằm ngoài 25 thẻ đầu → thẻ «biến mất», sale tưởng chuyển hụt. Nới cửa sổ
@@ -2007,17 +2011,48 @@ function LeadsContent() {
                   />
                 )}
                 {/* Ngủ đông — trạng thái dormant có ở backend từ đầu nhưng không có đường vào UI
-                    (QC 05/09: nút chỉ validate, không tạo được). Khách im lặng dài hạn ≠ mất hẳn. */}
+                    (QC 05/09: nút chỉ validate, không tạo được). Khách im lặng dài hạn ≠ mất hẳn.
+                    Lý do là tuỳ chọn nhưng nên ghi: backend lưu activity type stage_change
+                    kèm note, giúp leader hiểu tại sao lead bị cất đi. */}
                 {selectedLead.stage !== 'dormant' && selectedLead.stage !== 'lost' && selectedLead.stage !== 'signed_design' && (
-                  <div className="mt-2">
-                    <button
-                      onClick={() => handleStageChange(selectedLead, 'dormant')}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-                      style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
-                      title="Khách tạm im lặng nhưng chưa mất — cất vào Ngủ đông, sau này đánh thức lại được"
-                    >
-                      😴 Chuyển sang Ngủ đông
-                    </button>
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {!dormantReason ? (
+                      <button
+                        onClick={() => setDormantReason('__pending__')}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
+                        style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
+                        title="Khách tạm im lặng nhưng chưa mất — cất vào Ngủ đông, sau này đánh thức lại được"
+                      >
+                        😴 Chuyển sang Ngủ đông
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-400">Lý do ngủ đông (tuỳ chọn):</p>
+                        <input
+                          value={dormantReason === '__pending__' ? '' : dormantReason}
+                          onChange={e => setDormantReason(e.target.value || '__pending__')}
+                          placeholder="VD: Khách đi nước ngoài 3 tháng, liên hệ lại tháng 10"
+                          className="w-full px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-gray-400"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              void doStageChange(selectedLead, 'dormant', { reason: dormantReason === '__pending__' ? undefined : dormantReason.trim() || undefined });
+                              setDormantReason('');
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500/20 text-gray-300 hover:bg-gray-500/30 transition-all"
+                          >
+                            Xác nhận Ngủ đông
+                          </button>
+                          <button
+                            onClick={() => setDormantReason('')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-muted)] hover:bg-white/10 transition-all"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
