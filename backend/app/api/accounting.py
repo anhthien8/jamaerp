@@ -225,7 +225,9 @@ async def create_transaction(
 ):
     """Create new transaction."""
     if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+        # Giữ hardcode admin/accountant: giới hạn nghiệp vụ tài chính, không phải ô
+        # trong ma trận Phân quyền — KHÔNG chuyển sang quyen_hieu_luc.
+        raise HTTPException(status_code=403, detail="Cần quyền admin, accountant để thực hiện thao tác này")
     import uuid
     txn = Transaction(
         id=str(uuid.uuid4()),
@@ -260,7 +262,9 @@ async def update_transaction(
 ):
     """Update transaction."""
     if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+        # Giữ hardcode admin/accountant: giới hạn nghiệp vụ tài chính, không phải ô
+        # trong ma trận Phân quyền — KHÔNG chuyển sang quyen_hieu_luc.
+        raise HTTPException(status_code=403, detail="Cần quyền admin, accountant để thực hiện thao tác này")
     result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
     txn = result.scalar_one_or_none()
     if not txn:
@@ -296,7 +300,9 @@ async def delete_transaction(
 ):
     """Soft-delete transaction (set status=cancelled)."""
     if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+        # Giữ hardcode admin/accountant: giới hạn nghiệp vụ tài chính, không phải ô
+        # trong ma trận Phân quyền — KHÔNG chuyển sang quyen_hieu_luc.
+        raise HTTPException(status_code=403, detail="Cần quyền admin, accountant để thực hiện thao tác này")
     result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
     txn = result.scalar_one_or_none()
     if not txn:
@@ -315,7 +321,9 @@ async def create_commission(
 ):
     """Create commission record."""
     if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+        # Giữ hardcode admin/accountant: giới hạn nghiệp vụ tài chính, không phải ô
+        # trong ma trận Phân quyền — KHÔNG chuyển sang quyen_hieu_luc.
+        raise HTTPException(status_code=403, detail="Cần quyền admin, accountant để thực hiện thao tác này")
     # Kỳ lương đã khóa → cấm thêm hoa hồng lùi kỳ
     if data.period:
         from app.services.attendance_service import is_period_locked
@@ -353,7 +361,9 @@ async def update_commission_status(
 ):
     """Update commission status."""
     if current_user.role not in ("admin", "accountant"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+        # Giữ hardcode admin/accountant: giới hạn nghiệp vụ tài chính, không phải ô
+        # trong ma trận Phân quyền — KHÔNG chuyển sang quyen_hieu_luc.
+        raise HTTPException(status_code=403, detail="Cần quyền admin, accountant để thực hiện thao tác này")
     result = await db.execute(select(Commission).where(Commission.id == comm_id))
     comm = result.scalar_one_or_none()
     if not comm:

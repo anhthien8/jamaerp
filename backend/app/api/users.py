@@ -252,8 +252,8 @@ async def create_team(
             raise HTTPException(status_code=400, detail=f"{leader.full_name} đang làm trưởng nhóm đội {other.name} — đổi trưởng nhóm đội đó trước")
         # Tự lập đội lấy mình làm trưởng nhóm = tự chuyển đội — đường vòng qua guard
         # của update_team/set_team_members, chặn nốt (phản biện vá 14/08)
-        if leader.id == current_user.id and current_user.role not in ("admin", "accountant"):
-            raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+        if leader.id == current_user.id and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
+            raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
 
     team = Team(
         name=data.name.strip(), code=code,
@@ -317,10 +317,10 @@ async def update_team(
             # Gán mình làm trưởng nhóm = tự chuyển đội, tự mở rộng phạm vi lead — chặn như update_user
             if (
                 leader.id == current_user.id
-                and current_user.role not in ("admin", "accountant")
                 and current_user.team_id != team.id
+                and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers")
             ):
-                raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+                raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
             team.leader_id = leader.id
             leader.team_id = team.id
             await _dong_bo_nhan_doi_cua_lead(db, [leader.id], team.id)
@@ -362,10 +362,10 @@ async def set_team_members(
     # Tự thêm mình vào đội khác = tự mở rộng phạm vi lead — chặn như update_user (review 14/08)
     if (
         current_user.id in data.user_ids
-        and current_user.role not in ("admin", "accountant")
         and current_user.team_id != team.id
+        and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers")
     ):
-        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+        raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
 
     wanted = set(data.user_ids)
     if team.leader_id:
@@ -783,9 +783,11 @@ async def update_user(
     current_user: User = Depends(get_current_user),
 ):
     """Update user."""
-    # Admin/kế toán-nhân sự sửa được người khác; user thường chỉ sửa chính mình
-    # (bản cũ chặn accountant dù UI /users hiện nút Sửa — audit 22/07)
-    if current_user.role not in ("admin", "accountant") and current_user.id != user_id:
+    # Người có «Quản lý Users» sửa được người khác; user thường chỉ sửa chính mình
+    # (bản cũ chặn accountant dù UI /users hiện nút Sửa — audit 22/07;
+    # 12/09: hardcode admin/accountant → ma trận canManageUsers)
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canManageUsers") and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Không có quyền")
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -830,9 +832,9 @@ async def update_user(
     if (
         "team_id" in provided
         and provided["team_id"] != user.team_id
-        and current_user.role not in ("admin", "accountant")
+        and not perms.get("canManageUsers")
     ):
-        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
+        raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
 
     # Trưởng nhóm đương nhiệm không rời đội qua đường sửa hồ sơ — kể cả admin.
     # Nếu cho rời, teams.leader_id thành mồ côi: sĩ số sai, phạm vi lead lệch (review 14/08)
@@ -855,9 +857,9 @@ async def update_user(
     if (
         "department" in provided
         and provided["department"] != user.department
-        and current_user.role not in ("admin", "accountant")
+        and not perms.get("canManageUsers")
     ):
-        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển bộ phận nhân sự")
+        raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển bộ phận nhân sự")
 
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username", "salary_grade_id", "dependents_count"]
     before_sensitive = {
@@ -909,7 +911,7 @@ async def get_user_permissions(
     Only admin and accountant can view permissions for other users.
     Any user can view their own.
     """
-    if current_user.role not in ("admin", "accountant") and current_user.id != user_id:
+    if current_user.id != user_id and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
         raise HTTPException(status_code=403, detail="Không có quyền xem phân quyền")
 
     result = await db.execute(select(User).where(User.id == user_id))
