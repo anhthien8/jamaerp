@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord  # noqa: F401 — dùng qua attendance_service
-from app.models.payroll import Commission, Payroll, SalaryAdvance
+from app.models.payroll import Bonus, Commission, Payroll, SalaryAdvance
 from app.models.salary_grade import SalaryGrade
 from app.models.user import User
 from app.services.attendance_service import (
@@ -124,6 +124,18 @@ async def _pending_advances(db: AsyncSession, user_id: str, period: str) -> tupl
     return round(sum(a.amount for a in advances)), advances
 
 
+async def _approved_bonuses(db: AsyncSession, user_id: str, period: str) -> tuple[float, list[Bonus]]:
+    """Thưởng đã duyệt của kỳ (status approved, chưa paid) — GĐ B hồ sơ NV 360°."""
+    result = await db.execute(
+        select(Bonus).where(
+            Bonus.user_id == user_id,
+            Bonus.period == period,
+            Bonus.status == "approved",
+        )
+    )
+    return round(sum(b.amount for b in result.scalars().all())), list(result.scalars().all())
+
+
 async def build_payroll_row(
     db: AsyncSession,
     user: User,
@@ -145,9 +157,10 @@ async def build_payroll_row(
 
     commission = await _commission_total(db, user.id, period)
     advance_total, advances = await _pending_advances(db, user.id, period)
+    bonus_total, approved_bonuses = await _approved_bonuses(db, user.id, period)
 
     salary_for_days = round(base_salary * min(work_days / standard_days, 1.0)) if base_salary else 0.0
-    gross = salary_for_days + ot_pay + commission  # bonus/allowance kế toán bổ sung tay sau
+    gross = salary_for_days + ot_pay + commission + bonus_total  # allowance kế toán bổ sung tay sau
 
     insurance = compute_insurance_employee(base_salary, grade, cap)
     insurance_company = compute_insurance_company(base_salary, grade, cap)
@@ -178,7 +191,7 @@ async def build_payroll_row(
         ot_hours=ot_hours,
         ot_pay=ot_pay,
         commission_total=commission,
-        bonus=0,
+        bonus=bonus_total,
         allowance=0,
         gross_salary=round(gross),
         bhxh_employee=insurance,

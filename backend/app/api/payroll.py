@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.approval import ApprovalRequest
-from app.models.payroll import Commission, Payroll, SalaryAdvance
+from app.models.payroll import Bonus, Commission, Payroll, SalaryAdvance
+from app.models.payroll import Transaction
 from app.models.user import User
 from app.services import approval_engine, payroll_engine
 from app.services.approval_engine import ApprovalError
@@ -134,6 +135,150 @@ async def _on_payroll_rejected(db: AsyncSession, request: ApprovalRequest) -> No
 
 approval_engine.register_side_effect("payroll_period", _on_payroll_approved)
 approval_engine.register_reject_effect("payroll_period", _on_payroll_rejected)
+
+
+# ---------------------------------------------------------------------------
+# Thưởng (GĐ B hồ sơ NV 360°) — đề xuất bởi kế toán/admin, duyệt qua Approval
+# Center, tự cộng vào dòng lương khi generate, chốt paid khi chi lương kỳ đó.
+# ---------------------------------------------------------------------------
+
+async def _on_bonus_approved(db: AsyncSession, request: ApprovalRequest) -> None:
+    bonus = await db.get(Bonus, request.ref_id)
+    if bonus and bonus.status == "pending":
+        bonus.status = "approved"
+        bonus.resolved_at = datetime.now(timezone.utc)
+        await db.flush()
+
+
+async def _on_bonus_rejected(db: AsyncSession, request: ApprovalRequest) -> None:
+    bonus = await db.get(Bonus, request.ref_id)
+    if bonus and bonus.status == "pending":
+        bonus.status = "rejected" if request.status == "rejected" else "cancelled"
+        bonus.resolved_at = datetime.now(timezone.utc)
+        await db.flush()
+
+
+approval_engine.register_side_effect("bonus", _on_bonus_approved)
+approval_engine.register_reject_effect("bonus", _on_bonus_rejected)
+
+
+class BonusCreateBody(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    period: str = Field(..., pattern=PERIOD_PATTERN)
+    amount: float = Field(..., gt=0)
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+@router.post("/bonus")
+async def create_bonus(
+    body: BonusCreateBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kế toán/admin đề xuất thưởng cho nhân viên — duyệt qua Approval Center."""
+    _require_accountant(current_user)
+    target = await db.get(User, body.user_id)
+    if not target or not target.is_active:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại hoặc đã nghỉ")
+    # Kỳ lương đã khóa (approved/paid) → thưởng lùi kỳ sẽ lệch sổ
+    from app.services.attendance_service import is_period_locked
+    if await is_period_locked(db, body.period):
+        raise HTTPException(status_code=409, detail=f"Kỳ lương {body.period} đã khóa — chọn kỳ khác")
+
+    bonus = Bonus(
+        user_id=body.user_id, period=body.period,
+        amount=body.amount, reason=body.reason,
+        created_by=current_user.id,
+    )
+    db.add(bonus)
+    await db.flush()
+
+    # Chuỗi duyệt: kế toán còn lại (nếu khác người đề xuất) + admin
+    acct_result = await db.execute(
+        select(User).where(User.role == "accountant", User.is_active == True).limit(1)  # noqa: E712
+    )
+    accountant = acct_result.scalar_one_or_none()
+    admin_result = await db.execute(
+        select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
+    )
+    admin = admin_result.scalar_one_or_none()
+
+    chain: list[str] = []
+    if accountant and accountant.id != current_user.id:
+        chain.append(accountant.id)
+    if admin and admin.id not in chain and admin.id != current_user.id:
+        chain.append(admin.id)
+    if not chain:
+        # Kế toán tự đề xuất và là admin duy nhất — vẫn cần 1 cấp duyệt khác.
+        # Không có ai khác → từ chối luôn, không để thưởng tự duyệt.
+        raise HTTPException(status_code=409, detail="Không có người duyệt phù hợp — cần ít nhất 1 admin/kế toán khác")
+
+    try:
+        approval = await approval_engine.create_request(
+            db,
+            type_="bonus",
+            ref_id=bonus.id,
+            title=f"Thưởng {body.amount:,.0f}đ kỳ {body.period} — {target.full_name}",
+            requester=current_user,
+            approver_ids=chain,
+            amount=body.amount,
+            sla_hours=48,
+        )
+    except ApprovalError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.detail)
+
+    bonus.approval_id = approval.id
+    await db.flush()
+    return {
+        "bonus": {"id": bonus.id, "amount": bonus.amount, "reason": bonus.reason,
+                  "period": bonus.period, "status": bonus.status},
+        "approval_id": approval.id,
+    }
+
+
+@router.get("/bonuses/me")
+async def my_bonuses(
+    period: str | None = Query(default=None, pattern=PERIOD_PATTERN),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Thưởng của chính tôi (mọi trạng thái) — minh bạch trước khi kỳ lương chốt."""
+    q = select(Bonus).where(Bonus.user_id == current_user.id)
+    if period:
+        q = q.where(Bonus.period == period)
+    q = q.order_by(Bonus.created_at.desc()).limit(50)
+    result = await db.execute(q)
+    return {"items": [
+        {
+            "id": b.id, "amount": b.amount, "reason": b.reason, "period": b.period,
+            "status": b.status, "created_at": str(b.created_at),
+            "resolved_at": str(b.resolved_at) if b.resolved_at else None,
+        }
+        for b in result.scalars().all()
+    ]}
+
+
+@router.get("/bonuses")
+async def list_bonuses(
+    period: str = Query(..., pattern=PERIOD_PATTERN),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kế toán xem toàn bộ thưởng của một kỳ (để đối chiếu trước submit)."""
+    _require_accountant(current_user)
+    result = await db.execute(
+        select(Bonus, User.full_name)
+        .join(User, User.id == Bonus.user_id)
+        .where(Bonus.period == period)
+        .order_by(Bonus.status, User.full_name)
+    )
+    return {"period": period, "items": [
+        {
+            "id": b.id, "user_id": b.user_id, "full_name": name,
+            "amount": b.amount, "reason": b.reason, "status": b.status,
+        }
+        for b, name in result.all()
+    ]}
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +448,30 @@ async def pay(
     )
     for commission in comm_result.scalars().all():
         commission.status = "paid"
+
+    # Thưởng của kỳ → paid (GĐ B: vòng đời bonus khớp commission)
+    bonus_result = await db.execute(
+        select(Bonus).where(Bonus.period == period, Bonus.status == "approved")
+    )
+    for bonus in bonus_result.scalars().all():
+        bonus.status = "paid"
+
+    # Quỹ lương: sinh 1 Transaction expense cho tổng net kỳ (GĐ B — trước đây
+    # chi lương không đụng sổ tiền, P&L thiếu chi lương thật của kỳ).
+    total_net = round(sum(r.net_salary for r in rows))
+    if total_net > 0:
+        import uuid as _uuid
+        db.add(Transaction(
+            id=str(_uuid.uuid4()),
+            code=f"PAYROLL-{period}",
+            type="expense",
+            category="salary",
+            description=f"Chi lương kỳ {period} — {len(rows)} người",
+            amount=total_net,
+            created_by=current_user.id,
+            status="completed",
+            date=now,
+        ))
 
     await db.flush()
 
