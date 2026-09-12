@@ -251,9 +251,11 @@ async def create_team(
         if other:
             raise HTTPException(status_code=400, detail=f"{leader.full_name} đang làm trưởng nhóm đội {other.name} — đổi trưởng nhóm đội đó trước")
         # Tự lập đội lấy mình làm trưởng nhóm = tự chuyển đội — đường vòng qua guard
-        # của update_team/set_team_members, chặn nốt (phản biện vá 14/08)
-        if leader.id == current_user.id and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
-            raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
+        # của update_team/set_team_members, chặn nốt (phản biện vá 14/08).
+        # Ponytail: role cứng admin/accountant — canManageUsers đã check ở guard đầu
+        # endpoint, dùng lại ở đây thì tự lập đội luôn lọt (test_doi_nhom bắt được).
+        if leader.id == current_user.id and current_user.role not in ("admin", "accountant"):
+            raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
 
     team = Team(
         name=data.name.strip(), code=code,
@@ -314,13 +316,15 @@ async def update_team(
             )).scalars().first()
             if other:
                 raise HTTPException(status_code=400, detail=f"{leader.full_name} đang làm trưởng nhóm đội {other.name} — đổi trưởng nhóm đội đó trước")
-            # Gán mình làm trưởng nhóm = tự chuyển đội, tự mở rộng phạm vi lead — chặn như update_user
+            # Gán mình làm trưởng nhóm = tự chuyển đội, tự mở rộng phạm vi lead — chặn như update_user.
+            # Ponytail: role cứng admin/accountant như set_team_members (canManageUsers
+            # đã được guard đầu endpoint check — thay vào đây thì self-assign lọt).
             if (
                 leader.id == current_user.id
                 and current_user.team_id != team.id
-                and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers")
+                and current_user.role not in ("admin", "accountant")
             ):
-                raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
+                raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
             team.leader_id = leader.id
             leader.team_id = team.id
             await _dong_bo_nhan_doi_cua_lead(db, [leader.id], team.id)
@@ -359,13 +363,17 @@ async def set_team_members(
     if not team:
         raise HTTPException(status_code=404, detail="Đội không tồn tại")
 
-    # Tự thêm mình vào đội khác = tự mở rộng phạm vi lead — chặn như update_user (review 14/08)
+    # Tự thêm mình vào đội khác = tự mở rộng phạm vi lead — chặn như update_user (review 14/08).
+    # Ponytail: giữ so role cứng admin/accountant (KHÔNG đổi thành canManageUsers —
+    # guard ngoài đã check canManageUsers rồi, thay vào đây thì điều kiện luôn False,
+    # self-add không bao giờ bị chặn; test_doi_nhom bắt được đúng regression này).
+    # Nghiệp vụ: quản lý users ≠ được tự mở rộng phạm vi dữ liệu của mình.
     if (
         current_user.id in data.user_ids
         and current_user.team_id != team.id
-        and not (await quyen_hieu_luc(current_user, db)).get("canManageUsers")
+        and current_user.role not in ("admin", "accountant")
     ):
-        raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển nhóm nhân sự")
+        raise HTTPException(status_code=403, detail="Chỉ admin/kế toán mới được chuyển nhóm nhân sự")
 
     wanted = set(data.user_ids)
     if team.leader_id:
