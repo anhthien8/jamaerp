@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
-import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, REGION_OPTIONS, STAGE_CONFIG, TAG_COLORS, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, TAG_COLORS, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
@@ -384,7 +384,6 @@ function LeadsContent() {
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
-  const [filterPropertyClass, setFilterPropertyClass] = useState<string>('all');
   // Lọc theo nhân viên KD phụ trách. Danh sách dựng TỪ CHÍNH lead đang tải nên
   // không cần gọi thêm API (sale thường bị 403 ở /users/assignable) và chỉ liệt
   // kê người thực sự đang giữ data trong phạm vi mình xem được.
@@ -473,9 +472,6 @@ function LeadsContent() {
       if (filterRegion !== 'all') {
         filtered = filtered.filter(l => l.region === filterRegion);
       }
-      if (filterPropertyClass !== 'all') {
-        filtered = filtered.filter(l => l.property_class === filterPropertyClass);
-      }
       setLeads(filtered);
     } catch (e) {
       console.warn('API error, using empty list:', e);
@@ -484,7 +480,7 @@ function LeadsContent() {
     } finally {
       setLoadingLeads(false);
     }
-  }, [filterSource, filterPriority, filterRegion, filterPropertyClass, perms.leadsScope, user, user?.id, user?.team_id, user?.role, user?.department]);
+  }, [filterSource, filterPriority, filterRegion, perms.leadsScope, user, user?.id, user?.team_id, user?.role, user?.department]);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchLeads);
@@ -496,7 +492,7 @@ function LeadsContent() {
   // bộ trong effect gây render thác (react-hooks/set-state-in-effect) và làm cột
   // nhấp nháy một nhịp ở tập thẻ cũ trước khi cụp.
   const filterSig = [
-    searchQuery, filterSource, filterPriority, filterRegion, filterPropertyClass,
+    searchQuery, filterSource, filterPriority, filterRegion,
     filterAssignee, dateField, datePreset, dateFrom, dateTo, sortBy,
     activeStage, activeQuickFilter,
   ].join('|');
@@ -677,6 +673,10 @@ function LeadsContent() {
   };
 
   // Nạp ứng viên phụ trách 1 lần rồi cache (bộ lọc dùng chung nằm ở api.getAssignableSales).
+  // Danh sách tỉnh/thành cho ô lọc — gói useMemo vì nó quét toàn bộ lead (619
+  // bản ghi trên prod) để nhặt các giá trị cũ; để trong JSX là tính lại mỗi render.
+  const danhSachKhuVuc = useMemo(() => tuyChonKhuVuc(leads.map(l => l.region)), [leads]);
+
   const loadAssignableUsers = useCallback(async () => {
     if (usersLoaded.current) return;
     setLoadingUsers(true);
@@ -844,12 +844,11 @@ function LeadsContent() {
   const timelineActivities = activities.filter(a => a.type !== CSKH_TYPE);
 
   const hasUrlFilters = Boolean(activeStage || activeQuickFilter);
-  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || filterPropertyClass !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all' || filterAssignee !== 'all';
+  const hasFilters = filterSource !== 'all' || filterPriority !== 'all' || filterRegion !== 'all' || hasUrlFilters || searchQuery !== '' || datePreset !== 'all' || filterAssignee !== 'all';
   const activeFilterLabels = [
     activeStage ? `Giai đoạn: ${STAGE_CONFIG[activeStage]?.label || activeStage}` : null,
     activeQuickFilter === 'overdue' ? 'Quá hạn CSKH (ngưỡng theo giai đoạn)' : null,
-    filterRegion !== 'all' ? `Khu vực: ${filterRegion}` : null,
-    filterPropertyClass !== 'all' ? PROPERTY_CLASS_LABELS[filterPropertyClass]?.label : null,
+    filterRegion !== 'all' ? `Tỉnh/thành: ${filterRegion}` : null,
     dateRangeLabel ? `${DATE_FIELDS[dateField]?.label}: ${dateRangeLabel}` : null,
     filterAssignee === 'unassigned'
       ? 'Phụ trách: Chưa phân công'
@@ -862,7 +861,6 @@ function LeadsContent() {
     setFilterSource('all');
     setFilterPriority('all');
     setFilterRegion('all');
-    setFilterPropertyClass('all');
     setSearchQuery('');
     setFilterAssignee('all');
     setDatePreset('all');
@@ -940,15 +938,14 @@ function LeadsContent() {
             <option value="medium">🔵 Trung bình</option>
             <option value="low">⚪ Thấp</option>
           </select>
+          {/* Khu vực = 34 tỉnh/thành sau sáp nhập, KÈM các giá trị cũ đang thực
+              sự có trong dữ liệu (96 lead đang lưu tên quận / tên tỉnh trước
+              sáp nhập) để vẫn lọc ra được — xem tuyChonKhuVuc.
+              Ô «Phân loại» đã bỏ 22/09 cùng lúc với trường ở form tạo Lead:
+              không còn đường nhập nên bộ lọc đó thành mồ côi. */}
           <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
-            <option value="all">Tất cả khu vực</option>
-            {REGION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <select value={filterPropertyClass} onChange={e => setFilterPropertyClass(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
-            <option value="all">Tất cả phân loại</option>
-            <option value="luxury">Hạng sang</option>
-            <option value="mid_range">Trung bình</option>
-            <option value="budget">Bình dân</option>
+            <option value="all">Tất cả tỉnh/thành</option>
+            {danhSachKhuVuc.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
           <select
             value={filterAssignee}

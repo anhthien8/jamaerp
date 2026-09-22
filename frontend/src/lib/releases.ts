@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '22/09/2026',
+    title: 'Form Tạo Lead: gọn lại 2 trường, Khu vực đổi thành 34 tỉnh/thành sau sáp nhập',
+    tag: 'MỚI',
+    news: [
+      'Ô «Khu vực» nay chọn theo TỈNH/THÀNH — đủ 34 đơn vị hành chính sau sáp nhập (Nghị quyết 202/2025/QH15, hiệu lực 01/07/2025): 6 thành phố trực thuộc trung ương xếp trước (TP. Hồ Chí Minh đứng đầu), 28 tỉnh xếp A→Z. Trước đây danh sách là 10 quận của TP.HCM nên khách ở tỉnh khác không có chỗ chọn.',
+      'Bộ lọc Khu vực ở danh sách Lead cũng đổi theo, và VẪN giữ các giá trị cũ đang có trong dữ liệu (Q1, Q7, Gò Vấp, «Quận khác», Long An…) để 96 lead nhập trước hôm nay vẫn lọc ra được.',
+    ],
+    fixes: [
+      'Bỏ 2 trường «Phân loại» và «Đơn giá/m²» khỏi form Tạo Lead cho gọn. Kiểm trước khi bỏ: «Phân loại» có ở đủ 619 lead nhưng 612 lead là giá trị mặc định «Trung bình» — tức gần như không ai chọn; «Đơn giá/m²» chỉ 9/619 lead có số.',
+      'Bỏ luôn ô lọc «Phân loại» ở danh sách Lead vì không còn đường nhập, để đó chỉ thêm rối.',
+      'Dữ liệu cũ KHÔNG bị xóa: 9 lead đã có đơn giá và 7 lead «Hạng sang» vẫn hiện nguyên trong thẻ chi tiết.',
+      'Ô «Giá trị HĐ» trước đây tự tính bằng Đơn giá × Diện tích nên từ nay sẽ để trống với lead mới — giá trị khách dự kiến chi đã có ô «Ngân sách» (3 mức) thay thế.',
+    ],
+    test: [
+      'Thêm Lead → ô Khu vực: phải thấy nhóm «Thành phố trực thuộc trung ương» và nhóm «Tỉnh», tổng 34 lựa chọn.',
+      'Form Tạo Lead: không còn ô «Phân loại» và «Đơn giá/m²».',
+      'Danh sách Lead → lọc Khu vực: vẫn chọn được «Quận khác» / «Q7» để tra lead cũ.',
+    ],
+  },
+  {
+    date: '22/09/2026',
     title: 'Sửa lỗi Trưởng phòng bị chặn oan khi lưu phân công PIC',
     tag: 'FIX',
     fixes: [

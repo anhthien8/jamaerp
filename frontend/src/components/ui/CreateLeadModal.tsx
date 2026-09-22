@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api, Team, User } from '@/lib/api';
-import { REGION_OPTIONS, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
+import { TINH_THANH_TRUC_THUOC_TW, TINH_THANH_TINH, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 
 interface CreateLeadForm {
@@ -18,8 +18,6 @@ interface CreateLeadForm {
   source: string;
   needs: string;
   priority: string;
-  property_class: string;
-  price_per_sqm: string;
   region: string;
   segment: string;
   plan_type: string;
@@ -30,7 +28,7 @@ const INITIAL: CreateLeadForm = {
   name: '', phone: '', email: '', address: '',
   property_type: 'townhouse', area_sqm: '', estimated_budget: '', ngan_sach_khoang: '',
   source: 'zalo', needs: '', priority: 'medium',
-  property_class: 'mid_range', price_per_sqm: '', region: '', segment: 'thi_cong_noi_that',
+  region: '', segment: 'thi_cong_noi_that',
   plan_type: 'none', tags: [],
 };
 
@@ -59,12 +57,6 @@ const PRIORITY_OPTIONS = [
   { value: 'high', label: 'Cao', color: '#F59E0B' },
   { value: 'medium', label: 'Trung bình', color: '#3B82F6' },
   { value: 'low', label: 'Thấp', color: '#6B7280' },
-];
-
-const PROPERTY_CLASS_OPTIONS = [
-  { value: 'luxury', label: 'Hạng sang' },
-  { value: 'mid_range', label: 'Trung bình' },
-  { value: 'budget', label: 'Bình dân' },
 ];
 
 // Ô này trước tên «Phân khúc» và lặp y hệt «Loại BĐS» (biệt thự/nhà phố/căn hộ…)
@@ -111,8 +103,6 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
       source: initialData.source || 'zalo',
       needs: initialData.needs || '',
       priority: 'medium',
-      property_class: 'mid_range',
-      price_per_sqm: '',
       region: '',
       segment: 'thi_cong_noi_that',
       plan_type: 'none',
@@ -172,12 +162,6 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
     setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
-  const computedDealValue = useMemo(() => {
-    const pps = form.price_per_sqm ? Number(form.price_per_sqm) : 0;
-    const area = form.area_sqm ? Number(form.area_sqm) : 0;
-    return pps > 0 && area > 0 ? pps * area : 0;
-  }, [form.price_per_sqm, form.area_sqm]);
-
   const toggleTag = (tag: string) => {
     setForm(prev => ({
       ...prev,
@@ -217,13 +201,10 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
         source: form.source,
         needs: form.needs || undefined,
         priority: form.priority,
-        property_class: form.property_class as 'luxury' | 'mid_range' | 'budget' | undefined,
-        price_per_sqm: form.price_per_sqm ? Number(form.price_per_sqm) : undefined,
         region: form.region || undefined,
         segment: form.segment || undefined,
         plan_type: form.plan_type as 'online' | 'offline' | 'survey' | 'none' | undefined,
         tags: form.tags.length > 0 ? form.tags : undefined,
-        deal_value: computedDealValue > 0 ? computedDealValue : undefined,
         assigned_to: resolvedAssignee || undefined,
       });
       const assignedName = resolvedAssignee
@@ -389,31 +370,23 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
             </div>
           )}
 
-          {/* ── NEW: Lark CRM Fields ── */}
-
-          {/* Property Class + Price per sqm */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phân loại">
-              <select value={form.property_class} onChange={set('property_class')} className="input">
-                {PROPERTY_CLASS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Đơn giá/m² (nghìn đồng)">
-              <MoneyInput
-                valueDong={form.price_per_sqm}
-                onChangeDong={v => setForm(f => ({ ...f, price_per_sqm: v }))}
-                placeholder="VD: 12000 = 12 triệu/m²"
-                className="input pr-24"
-              />
-            </Field>
-          </div>
+          {/* «Phân loại» và «Đơn giá/m²» đã BỎ ngày 22/09 theo yêu cầu chủ dự án.
+              Đo prod trước khi bỏ: property_class có đủ 619/619 lead nhưng 612
+              là giá trị mặc định 'mid_range' (chỉ 7 lead khác) — tức không ai
+              thực sự chọn; price_per_sqm chỉ 9/619 lead có số. Giữ cột trong
+              database để 9 lead cũ không mất dữ liệu. */}
 
           {/* Khu vực + Nhu cầu */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Khu vực">
+            <Field label="Khu vực (tỉnh/thành)">
               <select value={form.region} onChange={set('region')} className="input">
-                <option value="">Chọn khu vực</option>
-                {REGION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                <option value="">Chọn tỉnh/thành</option>
+                <optgroup label="Thành phố trực thuộc trung ương">
+                  {TINH_THANH_TRUC_THUOC_TW.map(r => <option key={r} value={r}>{r}</option>)}
+                </optgroup>
+                <optgroup label="Tỉnh">
+                  {TINH_THANH_TINH.map(r => <option key={r} value={r}>{r}</option>)}
+                </optgroup>
               </select>
             </Field>
             <Field label="Nhu cầu">
@@ -471,18 +444,6 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
               })}
             </div>
           </Field>
-
-          {/* Deal Value Auto-calc Preview */}
-          {computedDealValue > 0 && (
-            <div className="px-3 py-2 rounded-lg flex items-center justify-between" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-              <span className="text-xs text-[var(--text-muted)]">💰 Deal Value (tự tính):</span>
-              <span className="text-sm font-bold text-[#C9A96E]">
-                {computedDealValue >= 1_000_000_000
-                  ? `${(computedDealValue / 1_000_000_000).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} tỷ`
-                  : `${(computedDealValue / 1_000_000).toFixed(0)} triệu`}
-              </span>
-            </div>
-          )}
 
           {/* Priority */}
           <Field label="Mức ưu tiên">
