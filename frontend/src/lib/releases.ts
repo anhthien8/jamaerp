@@ -16,6 +16,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '22/09/2026',
+    title: 'Sửa lỗi Trưởng phòng bị chặn oan khi lưu phân công PIC',
+    tag: 'FIX',
+    fixes: [
+      'Trưởng phòng chọn người cho ô của phòng mình rồi bấm «Cập nhật» thì bị báo «Bạn chỉ được phân công PIC cho bộ phận …» dù đang làm đúng phần của mình. Nay lưu được bình thường.',
+      'Nguyên nhân: form «Chỉnh sửa dự án» gửi lại CẢ 4 ô PIC mỗi lần lưu — kể cả những ô bạn không được sửa và không hề chạm vào. Hệ thống lại kiểm theo «ô nào có trong dữ liệu gửi lên» nên chặn oan chính những ô đang giữ nguyên. Nay chỉ kiểm những ô THỰC SỰ thay đổi.',
+      'Ví dụ thật: Trưởng phòng Thiết kế chọn người cho ô Thiết kế, nhưng dự án sẵn có người ở ô Kinh doanh nên bị chặn.',
+      'Vẫn chặn đúng như cũ nếu đổi THẬT ô của phòng khác, hoặc gắn người không thuộc phòng mình.',
+    ],
+    test: [
+      'Đăng nhập Trưởng phòng Thiết kế → mở dự án ĐÃ CÓ người ở ô Kinh doanh → Chỉnh sửa → chọn người ở ô Thiết kế → Cập nhật: phải lưu được.',
+      'Mở lại dự án: ô Kinh doanh vẫn giữ nguyên người cũ, không bị mất.',
+    ],
+  },
+  {
+    date: '22/09/2026',
     title: 'Sửa lỗi Trưởng phòng không gắn được PIC — «Bạn không phụ trách dự án này»',
     tag: 'FIX',
     fixes: [

@@ -267,3 +267,76 @@ async def test_nhan_vien_thuong_khong_gan_duoc_pic(client, admin_user, bo_may):
     r = await client.put(f"/api/v1/projects/{du_an}", json={"designer_id": nv["DESIGN"].id},
                          headers=auth_header(nv["DESIGN"]))
     assert r.status_code in (400, 403), r.text
+
+
+# ── Form gửi lại nguyên giá trị cũ của các ô mình không được sửa ────────────
+# Ảnh user gửi 22/09: Thái Mạnh Cường (Trưởng phòng Thiết kế) chọn Lê Minh Nhật
+# ở ô Thiết kế, bấm Cập nhật → toast «Bạn chỉ được phân công PIC cho bộ phận
+# Thiết kế». Vì form gửi CẢ 4 ô PIC mỗi lần lưu, trong đó sales_id là giá trị
+# CŨ được echo lại — kiểm tra lại xét «có mặt trong payload» thay vì «có thay
+# đổi thật» nên chặn oan chính ô mà người ta không hề chạm vào.
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phong", ["DESIGN", "OPS", "PURCHASING", "SALES"])
+async def test_gui_lai_gia_tri_cu_cua_o_phong_khac_khong_bi_chan(
+    client, db_session, admin_user, bo_may, phong
+):
+    tp, nv = bo_may["tp"], bo_may["nv"]
+    # Dự án đã có PIC đủ 4 phòng (giống dự án thật trên prod)
+    du_an = await _tao_du_an(
+        client, admin_user,
+        designer_id=nv["DESIGN"].id, pm_id=nv["OPS"].id,
+        purchasing_id=nv["PURCHASING"].id, sales_id=nv["SALES"].id,
+    )
+    nguoi_moi = await _tao_user(
+        client, db_session, admin_user, f"moi{phong.lower()}@test.com",
+        {"DESIGN": "thiet_ke", "OPS": "giam_sat_thi_cong",
+         "PURCHASING": "thu_mua", "SALES": "data_entry"}[phong], phong,
+    )
+    # Đúng payload form gửi: đổi ô của mình, 3 ô kia echo nguyên giá trị cũ
+    payload = {
+        "name": "Dự án CHỊ LYNA", "client_name": "CHỊ LYNA",
+        "designer_id": nv["DESIGN"].id, "pm_id": nv["OPS"].id,
+        "purchasing_id": nv["PURCHASING"].id, "sales_id": nv["SALES"].id,
+    }
+    payload[COT[phong]] = nguoi_moi.id
+    r = await client.put(f"/api/v1/projects/{du_an}", json=payload,
+                         headers=auth_header(tp[phong]))
+    assert r.status_code == 200, f"trưởng phòng {phong} bị chặn oan: {r.text}"
+    assert r.json()[COT[phong]] == nguoi_moi.id
+    # 3 ô kia giữ nguyên
+    for khac in ("DESIGN", "OPS", "PURCHASING", "SALES"):
+        if khac != phong:
+            assert r.json()[COT[khac]] == nv[khac].id
+
+
+@pytest.mark.asyncio
+async def test_doi_that_o_phong_khac_van_bi_chan(client, db_session, admin_user, bo_may):
+    """Echo giá trị cũ thì bỏ qua, nhưng ĐỔI thật ô phòng khác vẫn phải chặn."""
+    tp, nv = bo_may["tp"], bo_may["nv"]
+    du_an = await _tao_du_an(client, admin_user, sales_id=nv["SALES"].id)
+    nv_kd2 = await _tao_user(client, db_session, admin_user, "nvkd2@test.com",
+                             "data_entry", "SALES")
+    r = await client.put(
+        f"/api/v1/projects/{du_an}",
+        json={"designer_id": nv["DESIGN"].id, "sales_id": nv_kd2.id},
+        headers=auth_header(tp["DESIGN"]),
+    )
+    assert r.status_code == 403, r.text
+    assert "Thiết kế" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_sua_thong_tin_khac_khong_can_dung_den_pic(client, admin_user, bo_may):
+    """Đổi tên/địa chỉ dự án mà form vẫn echo 4 ô PIC — không được chặn."""
+    tp, nv = bo_may["tp"], bo_may["nv"]
+    du_an = await _tao_du_an(client, admin_user, designer_id=nv["DESIGN"].id,
+                             sales_id=nv["SALES"].id)
+    r = await client.put(
+        f"/api/v1/projects/{du_an}",
+        json={"name": "Dự án CHỊ LYNA (sửa tên)", "address": "ORCHARD HILL",
+              "designer_id": nv["DESIGN"].id, "sales_id": nv["SALES"].id},
+        headers=auth_header(tp["DESIGN"]),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "Dự án CHỊ LYNA (sửa tên)"

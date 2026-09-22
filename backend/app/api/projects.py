@@ -549,7 +549,7 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
 
-    await _kiem_quyen_phan_cong_pic(db, current_user, data.model_dump(exclude_unset=True))
+    await _kiem_quyen_phan_cong_pic(db, current_user, project, data.model_dump(exclude_unset=True))
 
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(project, k, v)
@@ -576,7 +576,7 @@ TEN_BO_PHAN: dict[str, str] = {
 
 
 async def _kiem_quyen_phan_cong_pic(
-    db: AsyncSession, nguoi: User, thay_doi: dict
+    db: AsyncSession, nguoi: User, project: Project, thay_doi: dict
 ) -> None:
     """Ai được gắn PIC vào cột nào, và người được gắn phải thuộc bộ phận nào.
 
@@ -591,7 +591,15 @@ async def _kiem_quyen_phan_cong_pic(
     còn phải sửa được 108/153 dự án cũ đang có `sales_id` trỏ vào tài khoản admin.
     """
     cot_pic = {cot: dept for dept, cot in PIC_THEO_PHONG_BAN.items()}
-    cot_dang_doi = {k: v for k, v in thay_doi.items() if k in cot_pic}
+    # CHỈ xét ô ĐỔI THẬT. Form «Chỉnh sửa dự án» gửi lại cả 4 ô PIC mỗi lần lưu,
+    # kể cả những ô người này không được sửa (và không hề chạm vào) — xét theo
+    # «có mặt trong payload» là chặn oan: Trưởng phòng Thiết kế đổi ô Thiết kế
+    # nhưng bị báo «Bạn chỉ được phân công PIC cho bộ phận Thiết kế» vì payload
+    # echo kèm sales_id cũ (ảnh user gửi 22/09). Cùng cách xử lý như update_user.
+    cot_dang_doi = {
+        k: v for k, v in thay_doi.items()
+        if k in cot_pic and v != getattr(project, k, None)
+    }
     if not cot_dang_doi or nguoi.role in ("admin", "executive"):
         return
 
