@@ -51,6 +51,11 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canCreateTasks": True, "canEditTasks": True,
         "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": True, "canViewSettings": True,
+        # Thêm 22/09/2026: trước đây quyền sửa Nhà cung cấp / Khách hàng
+        # hardcode trong suppliers.py & customers.py, KHÔNG có ô nào trong ma
+        # trận nên admin không cấp/thu được. Giá trị dưới đây giữ ĐÚNG hiện
+        # trạng đo trên prod, không mở/siết thêm ai.
+        "canEditSuppliers": True, "canEditCustomers": True,
     },
     "leader": {
         "canViewDashboard": True, "dashboardType": "team",
@@ -64,6 +69,7 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canCreateTasks": True, "canEditTasks": True,
         "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        "canEditSuppliers": False, "canEditCustomers": True,
     },
     "data_entry": {
         "canViewDashboard": True, "dashboardType": "personal",
@@ -79,6 +85,7 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         # trang Phân quyền hiện một đằng mà nhân viên trải nghiệm một nẻo.
         "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        "canEditSuppliers": False, "canEditCustomers": True,
     },
     "accountant": {
         "canViewDashboard": True, "dashboardType": "financial",
@@ -94,6 +101,7 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canCreateTasks": False, "canEditTasks": False,
         "canViewAttendance": True, "canViewKPI": False,
         "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        "canEditSuppliers": False, "canEditCustomers": True,
     },
     "executive": {
         "canViewDashboard": True, "dashboardType": "executive",
@@ -107,6 +115,7 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canCreateTasks": False, "canEditTasks": False,
         "canViewAttendance": False, "canViewKPI": True,
         "canViewApprovals": False, "canViewFeedback": True, "canViewSettings": True,
+        "canEditSuppliers": False, "canEditCustomers": False,
     },
     "supervisor": {
         "canViewDashboard": True, "dashboardType": "team",
@@ -120,11 +129,18 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
         "canCreateTasks": True, "canEditTasks": True,
         "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+        "canEditSuppliers": True, "canEditCustomers": False,
     },
 }
 
 # Nhãn tiếng Việt cho từng quyền — khớp ALL_PERMISSION_KEYS trong roles.ts
 # để câu báo 403 gọi đúng tên ô mà sếp thấy trên trang Phân quyền.
+# Quyền GHI lên dữ liệu dùng chung — vai trò tùy chỉnh phải được tích riêng,
+# không thừa kế từ khung nền data_entry (xem quyen_hieu_luc).
+_QUYEN_GHI_DU_LIEU_CHUNG: frozenset[str] = frozenset({
+    "canEditSuppliers", "canEditCustomers",
+})
+
 NHAN_QUYEN: dict[str, str] = {
     "canViewDashboard": "Xem Dashboard",
     "canViewLeads": "Xem Leads",
@@ -149,6 +165,8 @@ NHAN_QUYEN: dict[str, str] = {
     "canViewApprovals": "Xem Phê duyệt",
     "canViewFeedback": "Xem Góp ý (đọc + trả lời)",
     "canViewSettings": "Xem Cài đặt",
+    "canEditSuppliers": "Sửa Nhà cung cấp",
+    "canEditCustomers": "Sửa Khách hàng",
 }
 
 # ── Cache cấu hình (override + vai trò tùy chỉnh) ─────────────────────────
@@ -212,6 +230,13 @@ async def quyen_hieu_luc(user: User, db: AsyncSession) -> dict:
         # Vai trò tùy chỉnh: nền data_entry + quyền lưu trong định nghĩa role
         # (giống getPermissions trong roles.ts).
         perms = dict(_ROLE_PERMISSION_DEFAULTS["data_entry"])
+        # ...NHƯNG các quyền GHI lên dữ liệu dùng chung thì phải OPT-IN, không
+        # thừa kế từ khung nền. `data_entry` là vai sale nên có «Sửa Khách hàng»;
+        # nếu để thừa kế thì mọi vai trò tùy chỉnh (Thiết kế, Giám sát, Thu mua…)
+        # tự nhiên sửa được hồ sơ khách — đo prod 22/09 là ~37 người được thêm mà
+        # không ai bấm cấp. Vai trò tùy chỉnh muốn có thì tích ở trang Phân quyền.
+        for quyen in _QUYEN_GHI_DU_LIEU_CHUNG:
+            perms[quyen] = False
         perms.update(vai_tro_tuy_chinh.get("permissions") or {})
     else:
         perms = dict(

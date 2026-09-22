@@ -651,6 +651,7 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canCreateTasks": True, "canEditTasks": True,
             "canViewAttendance": True, "canViewKPI": True,
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+            "canEditSuppliers": False, "canEditCustomers": False,
         },
     },
     {
@@ -670,6 +671,7 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canCreateTasks": True, "canEditTasks": True,
             "canViewAttendance": True, "canViewKPI": True,
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+            "canEditSuppliers": False, "canEditCustomers": False,
         },
     },
     {
@@ -688,6 +690,7 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canCreateTasks": True, "canEditTasks": True,
             "canViewAttendance": True, "canViewKPI": True,
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+            "canEditSuppliers": False, "canEditCustomers": False,
         },
     },
     {
@@ -708,6 +711,7 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canViewAttendance": True, "canViewKPI": True,
             # Phê duyệt = nơi gửi đề xuất vật tư/mua hàng.
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+            "canEditSuppliers": True, "canEditCustomers": False,
         },
     },
     {
@@ -731,6 +735,7 @@ _VAI_TRO_PHONG_BAN: list[dict] = [
             "canCreateTasks": True, "canEditTasks": True,
             "canViewAttendance": True, "canViewKPI": True,
             "canViewApprovals": True, "canViewFeedback": False, "canViewSettings": False,
+            "canEditSuppliers": False, "canEditCustomers": False,
         },
     },
 ]

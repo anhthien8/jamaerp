@@ -26,6 +26,7 @@ export const RELEASES: Release[] = [
       'Form «Thêm Lead» có thêm ô Ngân sách 3 mức: dưới 200 triệu / 200–500 triệu / trên 500 triệu. Ô nhập số tiền chính xác vẫn giữ để dùng khi khách đã nói rõ.',
       'Dự án mới tạo sẽ gửi thông báo cho trưởng phòng các bộ phận CHƯA có người phụ trách, kèm link mở thẳng dự án để vào gắn PIC.',
       'Khối «Phân công phụ trách (PIC)» giờ chỉ hiện ô của bộ phận mình: Trưởng phòng Kinh doanh không còn thấy danh sách nhân sự Thiết kế. Ban Giám Đốc vẫn thấy cả 4 ô.',
+      'Trang Phân quyền có thêm 2 ô mới: «Sửa Nhà cung cấp» và «Sửa Khách hàng». Trước đây 2 quyền này bị khóa cứng trong hệ thống, không có ô nào để cấp hay thu — hệ quả là 8 nhân sự Thu mua KHÔNG sửa được nhà cung cấp dù đó là việc của họ, còn Admin CSKH thì không sửa được hồ sơ khách. Nay cấp được cho cả vai trò lẫn từng người riêng lẻ.',
     ],
     fixes: [
       'Sửa lỗi nút «Tạo dự án mới» KHÔNG tạo được cho mọi tài khoản — hệ thống đòi mã dự án mà form lại không có ô nhập mã, và thông báo lỗi bị che nên chỉ hiện «Lỗi khi tạo dự án». Nay mã tự sinh, và mọi lỗi đều hiện nguyên văn nguyên nhân.',
@@ -33,6 +34,8 @@ export const RELEASES: Release[] = [
       'Đổi vị trí cho một người thì phần chức năng cấp riêng được tính lại theo vị trí MỚI — trước đây họ bị giữ nguyên quyền của vị trí cũ.',
       'Mục Kho vật tư trước đây chặn theo vị trí cứng, phớt lờ ô «Xem Kho» trong trang Phân quyền. Nay đi theo đúng ô đã tích: 7 giám sát thi công và Trưởng phòng Vận hành vào được Kho như cấu hình vốn đã bật cho họ.',
       'Trang Phân quyền không lưu được ô «Xem Leads» cho vai trò thuộc bộ phận ngoài Kinh doanh nữa — hết cảnh giao diện hiện đã bật mà thực tế không xem được gì.',
+      'Mặc định 2 ô mới được đặt để GIỮ NGUYÊN hiện trạng — không ai tự nhiên được thêm hay mất quyền sau bản này. Riêng quyền ghi lên dữ liệu dùng chung (nhà cung cấp, hồ sơ khách) thì vai trò tùy chỉnh phải được tích riêng, không tự thừa kế — tránh việc bật cho sale mà cả Thiết kế/Giám sát/Thu mua cũng sửa được theo.',
+      'Ô «Nhà cung cấp» trên trang Phân quyền trước đây mượn ô «Kho vật tư», và ô «Khách hàng» thì bỏ trống vì chưa có quyền tương ứng. Nay cả hai có ô riêng đúng nghĩa.',
     ],
     test: [
       'Đăng nhập Trưởng phòng KD → Quy trình: phải thấy lead của cả 3 đội, không chỉ đội mình.',
@@ -41,6 +44,7 @@ export const RELEASES: Release[] = [
       'Dự án → «+ Dự án mới» → điền tên + tên khách → Lưu: phải tạo được và sinh mã PRJ-…',
       'Trưởng phòng Thiết kế mở dự án mới → khối PIC chỉ có ô Thiết kế; gắn người rồi Lưu, mở lại vẫn còn.',
       'Thêm Lead → chọn Khu vực + mức Ngân sách → Lưu → mở chi tiết phải thấy đủ 2 thông tin.',
+      'Phân quyền → tích «Sửa Nhà cung cấp» cho vai trò Thu mua → đăng nhập tài khoản Thu mua: phải thấy nút thêm/sửa nhà cung cấp và lưu được.',
     ],
   },
   {

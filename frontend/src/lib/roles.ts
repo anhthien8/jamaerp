@@ -89,6 +89,10 @@ export interface RolePermissions {
   canViewApprovals: boolean;        // approval management (pending queue)
   canViewFeedback: boolean;         // feedback admin (view all + reply)
   canViewSettings: boolean;         // system settings (admin sections)
+  // Thêm 22/09/2026: trước đây quyền sửa Nhà cung cấp / Khách hàng hardcode
+  // trong backend, KHÔNG có ô nào trong ma trận nên admin không cấp/thu được.
+  canEditSuppliers: boolean;
+  canEditCustomers: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -101,6 +105,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewReports: true, canViewPnL: true,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
     canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: true, canViewSettings: true,
+    canEditSuppliers: true, canEditCustomers: true,
   },
   leader: {
     canViewDashboard: true, dashboardType: 'team',
@@ -111,6 +116,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewReports: true, canViewPnL: false,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
     canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
+    canEditSuppliers: false, canEditCustomers: true,
   },
   data_entry: {
     canViewDashboard: true, dashboardType: 'personal',
@@ -124,6 +130,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     // sale (ROLE_ESSENTIALS) mà quyền lại tắt ⇒ bấm vào là bị đá về Tổng quan.
     // Kèm theo: sale thấy thẻ Bảng xếp hạng — top 5 hiện tên, còn lại ẩn danh "Nhân viên #n".
     canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
+    canEditSuppliers: false, canEditCustomers: true,
   },
   accountant: {
     canViewDashboard: true, dashboardType: 'financial',
@@ -134,6 +141,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewReports: true, canViewPnL: true,
     canCreateProjects: false, canCreateContracts: true, canCreateTasks: false, canEditTasks: false,
     canViewAttendance: true, canViewKPI: false, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
+    canEditSuppliers: false, canEditCustomers: true,
   },
   executive: {
     canViewDashboard: true, dashboardType: 'executive',
@@ -144,6 +152,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewReports: true, canViewPnL: true,
     canCreateProjects: true, canCreateContracts: false, canCreateTasks: false, canEditTasks: false,
     canViewAttendance: false, canViewKPI: true, canViewApprovals: false, canViewFeedback: true, canViewSettings: true,
+    canEditSuppliers: false, canEditCustomers: false,
   },
   supervisor: {
     canViewDashboard: true, dashboardType: 'team',
@@ -154,6 +163,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canViewReports: true, canViewPnL: false,
     canCreateProjects: true, canCreateContracts: true, canCreateTasks: true, canEditTasks: true,
     canViewAttendance: true, canViewKPI: true, canViewApprovals: true, canViewFeedback: false, canViewSettings: false,
+    canEditSuppliers: true, canEditCustomers: false,
   },
 };
 
@@ -329,8 +339,17 @@ export function getPermissions(role: UserRole): RolePermissions {
   // Vai trò custom: quyền lấy từ định nghĩa đã lưu (phủ lên khung data_entry
   // để không thiếu key) — KHÔNG được rơi thẳng về data_entry như trước.
   const custom = _customRoles[role as string];
+  // Quyền GHI lên dữ liệu dùng chung phải OPT-IN, không thừa kế từ khung nền
+  // data_entry — khớp _QUYEN_GHI_DU_LIEU_CHUNG ở backend. `data_entry` là vai
+  // sale nên có «Sửa Khách hàng»; để thừa kế thì mọi vai trò tùy chỉnh (Thiết
+  // kế, Giám sát, Thu mua…) tự nhiên sửa được hồ sơ khách.
+  const nenTuyChinh = {
+    ...ROLE_PERMISSIONS.data_entry,
+    canEditSuppliers: false,
+    canEditCustomers: false,
+  };
   const base = ROLE_PERMISSIONS[role]
-    || (custom ? ({ ...ROLE_PERMISSIONS.data_entry, ...custom.permissions } as RolePermissions) : ROLE_PERMISSIONS.data_entry);
+    || (custom ? ({ ...nenTuyChinh, ...custom.permissions } as RolePermissions) : ROLE_PERMISSIONS.data_entry);
   const overrides = _roleOverrides[role];
   if (overrides && Object.keys(overrides).length > 0) {
     return { ...base, ...overrides } as RolePermissions;
@@ -429,4 +448,6 @@ export const ALL_PERMISSION_KEYS: Array<{ key: keyof RolePermissions; label: str
   { key: 'canViewApprovals', label: 'Xem Phê duyệt' },
   { key: 'canViewFeedback', label: 'Xem Góp ý (đọc + trả lời)' },
   { key: 'canViewSettings', label: 'Xem Cài đặt' },
+  { key: 'canEditSuppliers', label: 'Sửa Nhà cung cấp' },
+  { key: 'canEditCustomers', label: 'Sửa Khách hàng' },
 ];

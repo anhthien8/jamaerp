@@ -22,8 +22,10 @@ export default function SuppliersPage() {
   // Backend chỉ cho admin + supervisor (mua hàng) thêm/sửa NCC (require_supplier_write).
   // Kế toán vẫn vào được trang này để tra giá, nên trước 12/08/2026 họ thấy nút "Thêm nhà
   // cung cấp" rồi nhập cả bảng xong mới ăn 403. Ẩn nút cho đúng quyền thật.
-  const { user } = useAuth();
-  const canEditSuppliers = user?.role === 'admin' || user?.role === 'supervisor';
+  const { effectivePermissions } = useAuth();
+  // 22/09: theo ô «Sửa Nhà cung cấp» trong ma trận thay vì hardcode 2 vai trò —
+  // nhân sự Thu mua được cấp là thấy nút ngay, không phải bấm rồi ăn 403.
+  const canEditSuppliers = effectivePermissions.canEditSuppliers;
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

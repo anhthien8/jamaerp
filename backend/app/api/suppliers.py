@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import quyen_hieu_luc
 from app.middleware.permissions import yeu_cau
 from app.models.user import User
 from app.models.supplier import Supplier, SupplierQuote, PriceComparison
@@ -27,12 +28,23 @@ def _escape_like(term: str) -> str:
     return term.replace("%", "\\%").replace("_", "\\_")
 
 
-def require_supplier_write(current_user: User = Depends(get_current_user)) -> User:
-    """Only admin and supervisor (purchasing) can create/edit suppliers."""
-    if current_user.role not in ("admin", "supervisor"):
+async def require_supplier_write(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Gate sửa Nhà cung cấp qua ô «Sửa Nhà cung cấp» trong ma trận Phân quyền.
+
+    Bản cũ hardcode `role in (admin, supervisor)`. Đo prod 22/09: chỉ 6 người
+    sửa được (4 admin + 2 supervisor), còn TOÀN BỘ 8 nhân sự Thu mua
+    (thu_mua/du_toan/dutoan_thumua_leader) thì không — dù cập nhật nhà cung cấp
+    đúng là việc của họ. Không có ô nào trong ma trận nên admin cũng chẳng cấp
+    được. Nay có ô, cấp/thu bằng trang Phân quyền.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canEditSuppliers"):
         raise HTTPException(
             status_code=403,
-            detail="Không có quyền chỉnh sửa thông tin nhà cung cấp",
+            detail="Bạn không có quyền «Sửa Nhà cung cấp» — xem trang Phân quyền",
         )
     return current_user
 

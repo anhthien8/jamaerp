@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 import { api, Customer, fetchAllPages } from '@/lib/api';
-import { getPermissions, UserRole } from '@/lib/roles';
 
 const TYPE_LABELS: Record<string, string> = {
   individual: 'Cá nhân',
@@ -80,7 +79,7 @@ function AccessDenied() {
 }
 
 export default function CustomersPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -155,13 +154,13 @@ export default function CustomersPage() {
     );
   }
 
-  const perms = getPermissions(user.role as UserRole);
+  const perms = effectivePermissions;
   if (!perms?.canViewProjects) return <AccessDenied />;
 
-  // Backend require_customer_write: admin / kế toán / trưởng nhóm / nhập liệu. Giám sát và
-  // các vai trò tùy chỉnh (VD Điều phối KD) xem được nhưng KHÔNG sửa được — trước 12/08/2026
-  // vẫn thấy nút "+ Thêm khách hàng" rồi nhập xong mới ăn 403.
-  const canEditCustomers = ['admin', 'accountant', 'leader', 'data_entry'].includes(user.role);
+  // 22/09: theo ô «Sửa Khách hàng» trong ma trận thay vì danh sách vai trò cứng.
+  // Giữ được mục đích cũ (không hiện nút cho người sẽ ăn 403) nhưng nay admin
+  // cấp/thu được ở trang Phân quyền — kể cả cấp riêng cho đúng một người.
+  const canEditCustomers = perms.canEditCustomers;
 
   const openCreate = () => {
     setEditing(null);

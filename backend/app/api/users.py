@@ -563,6 +563,7 @@ async def create_custom_role(
         "canCreateTasks": True, "canEditTasks": True,
         "canViewAttendance": True, "canViewKPI": True,
         "canViewApprovals": True, "canViewFeedback": True, "canViewSettings": True,
+        "canEditSuppliers": True, "canEditCustomers": True,
     }
 
     new_role = {

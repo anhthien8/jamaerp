@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.customer import Customer
 from app.models.project import Project
@@ -30,12 +31,23 @@ def _mask_phone(phone: str | None, current_user=None) -> str | None:
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
-def require_customer_write(current_user: User = Depends(get_current_user)) -> User:
-    """Only admin, accountant, sales (data_entry/leader) can create/update customers."""
-    if current_user.role not in ("admin", "accountant", "sales", "data_entry", "leader"):
+async def require_customer_write(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Gate sửa Khách hàng qua ô «Sửa Khách hàng» trong ma trận Phân quyền.
+
+    Bản cũ hardcode `role in (admin, accountant, sales, data_entry, leader)` —
+    trong đó "sales" KHÔNG phải vai trò tồn tại. Hệ quả đo trên prod 22/09: 17
+    người sửa được, nhưng 4 tài khoản Admin CSKH (chính nhóm chăm khách) thì
+    không, còn `leader` phòng Thiết kế lại có — vì luật xét VAI TRÒ chứ không
+    xét bộ phận. Nay có ô riêng để admin tự quyết.
+    """
+    perms = await quyen_hieu_luc(current_user, db)
+    if not perms.get("canEditCustomers"):
         raise HTTPException(
             status_code=403,
-            detail="Không có quyền chỉnh sửa thông tin khách hàng",
+            detail="Bạn không có quyền «Sửa Khách hàng» — xem trang Phân quyền",
         )
     return current_user
 
