@@ -61,8 +61,23 @@ class TestExecutiveOverdueTasks:
         assert resp.status_code == 200, resp.text
         dash_keys = [k for k in cache._store if k.startswith("dashboard")]
         assert dash_keys, "cache /dashboard/executive phải có key sau request"
-        assert any(k.endswith(":admin") for k in dash_keys), (
+        assert any(":admin" in k for k in dash_keys), (
             f"key phải tách theo role (key_fn) — nhận: {dash_keys}"
+        )
+
+        # 22/09: khóa phải tách theo CẢ KỲ đang lọc. Thiếu `tu`/`den` trong khóa
+        # thì mọi kỳ dùng chung một bản cache — đổi bộ lọc mà số không nhúc nhích.
+        resp = await client.get(
+            "/api/v1/dashboard/executive?tu=2026-09-01&den=2026-09-30",
+            headers=auth_header(admin_user),
+        )
+        assert resp.status_code == 200, resp.text
+        keys_sau = [k for k in cache._store if k.startswith("dashboard")]
+        assert len(keys_sau) > len(dash_keys), (
+            f"lọc kỳ khác phải sinh key cache RIÊNG — nhận: {keys_sau}"
+        )
+        assert any("2026-09-01" in k for k in keys_sau), (
+            f"khóa cache phải chứa mốc kỳ — nhận: {keys_sau}"
         )
 
 

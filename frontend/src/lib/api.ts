@@ -884,6 +884,17 @@ function xuLyHetPhien(endpoint: string) {
   }
 }
 
+/** Đuôi query cho bộ lọc kỳ của Tổng quan. Backend nhận `tu`/`den` dạng
+ *  YYYY-MM-DD theo giờ VN rồi tự quy đổi UTC. */
+function _duoiKy(ky?: { from: string; to: string } | null): string {
+  if (!ky) return '';
+  const p = new URLSearchParams();
+  if (ky.from) p.set('tu', ky.from);
+  if (ky.to) p.set('den', ky.to);
+  const q = p.toString();
+  return q ? `?${q}` : '';
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -1154,12 +1165,13 @@ class ApiClient {
   }
 
   // Dashboard
-  async getExecutiveDashboard() {
-    return this.request<DashboardExecutive>('/dashboard/executive');
+  /** `ky` = khoảng ngày theo giờ VN (YYYY-MM-DD). Bỏ trống = toàn bộ lịch sử. */
+  async getExecutiveDashboard(ky?: { from: string; to: string } | null) {
+    return this.request<DashboardExecutive>(`/dashboard/executive${_duoiKy(ky)}`);
   }
 
-  async getPersonalDashboard() {
-    return this.request<DashboardPersonal>('/dashboard/personal');
+  async getPersonalDashboard(ky?: { from: string; to: string } | null) {
+    return this.request<DashboardPersonal>(`/dashboard/personal${_duoiKy(ky)}`);
   }
 
   // AI

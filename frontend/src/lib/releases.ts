@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '22/09/2026',
+    title: 'Tổng quan: thêm bộ lọc xem số liệu theo kỳ',
+    tag: 'MỚI',
+    news: [
+      'Trang Tổng quan có ô chọn kỳ ở góc phải: Hôm nay · Hôm qua · 7 ngày qua · 30 ngày qua · Tháng này · Tháng trước · Quý này · Năm nay · Tùy chọn (chọn từ ngày đến ngày). Trước đây mọi con số đều cộng dồn TOÀN BỘ lịch sử, không có cách xem riêng một khoảng thời gian.',
+      'Bộ lọc tính theo NGÀY TẠO của lead và dự án, và áp cho tất cả: Tổng Lead, Giá trị pipeline, Tỉ lệ chuyển đổi, Dự án đang chạy, Hợp đồng, Phễu quy trình, Hiệu suất đội, và cả 2 thẻ cảnh báo quá hạn — để không thẻ nào âm thầm mang nghĩa khác các thẻ bên cạnh.',
+      'Khi đang lọc, phía trên hiện một dòng nhắc rõ đang xem kỳ nào, kèm nút «Bỏ lọc». Mặc định vẫn là «Mọi lúc» nên ai không cần lọc thì màn hình không đổi gì.',
+      'Ngày được cắt theo GIỜ VIỆT NAM: lead tạo lúc 1h sáng vẫn tính vào đúng ngày hôm đó, không rớt sang hôm trước.',
+      'Trang Quy trình cũng có thêm 3 mốc mới trong bộ lọc ngày: Tháng trước, Quý này, Năm nay.',
+    ],
+    test: [
+      'Tổng quan → chọn «Hôm nay»: các con số phải giảm xuống, và có dòng nhắc kỳ đang xem.',
+      'Chọn «Tùy chọn» rồi nhập ngày đến trước ngày từ: hệ thống tự đảo cho đúng thứ tự.',
+      'Bấm «Bỏ lọc»: số liệu quay về như ban đầu.',
+    ],
+  },
+  {
+    date: '22/09/2026',
     title: 'Form Tạo Lead: gọn lại 2 trường, Khu vực đổi thành 34 tỉnh/thành sau sáp nhập',
     tag: 'MỚI',
     news: [

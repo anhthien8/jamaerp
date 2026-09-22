@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
+import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
 import {  } from '@/lib/roles';
 
 // Spec 07 A3 — role → phòng ban nhận việc theo giai đoạn dự án
@@ -23,6 +24,19 @@ export default function DashboardPage() {
   const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
   const [leaderCounts, setLeaderCounts] = useState<{ approvals: number; ot: number } | null>(null);
   const [error, setError] = useState('');
+  // Bộ lọc theo kỳ (22/09/2026) — trước đây Tổng quan luôn cộng dồn toàn bộ
+  // lịch sử Quy trình + Dự án, không có cách xem riêng một khoảng thời gian.
+  // Mặc định 'all' để giữ nguyên hành vi cũ cho người không cần lọc.
+  const [datePreset, setDatePreset] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const ky = resolveDateRange(datePreset, dateFrom, dateTo);
+  const kyKey = ky ? `${ky.from}_${ky.to}` : 'all';
+  const tenKy = nhanKy(datePreset, dateFrom, dateTo);
+  // Suy ra trạng thái đang tải bằng cách so kỳ ĐANG CHỌN với kỳ ĐÃ TẢI XONG —
+  // gọi setState đồng bộ ngay trong effect sẽ gây render dây chuyền (eslint bắt).
+  const [kyDaTai, setKyDaTai] = useState<string | null>(null);
+  const dangTai = kyDaTai !== null && kyDaTai !== kyKey;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,11 +47,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       const fetchFn = user.role === 'executive' || user.role === 'admin'
-        ? api.getExecutiveDashboard()
-        : api.getPersonalDashboard();
+        ? api.getExecutiveDashboard(ky)
+        : api.getPersonalDashboard(ky);
       fetchFn
-        .then(setData)
-        .catch((e) => setError(e.message));
+        .then(d => { setData(d); setError(''); })
+        .catch((e) => setError(e.message))
+        .finally(() => setKyDaTai(kyKey));
 
       // Kế toán: thẻ Tổng Thu/Tổng Chi lấy từ sổ kế toán thật (không dùng pipeline_value)
       if (user.role === 'accountant') {
@@ -58,7 +73,10 @@ export default function DashboardPage() {
           .catch(() => setLeaderCounts(null));
       }
     }
-  }, [user]);
+    // Phụ thuộc `kyKey` (chuỗi) chứ KHÔNG phải object `ky` — `resolveDateRange`
+    // trả object mới mỗi lần render nên để `ky` vào đây là gọi API vô hạn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, kyKey]);
 
   if (loading) return (
     <Sidebar>
@@ -101,7 +119,7 @@ export default function DashboardPage() {
     <Sidebar>
       <div className="p-6 space-y-6 animate-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">
               Xin chào, <span className="gold-gradient">{user.full_name}</span>
@@ -110,7 +128,59 @@ export default function DashboardPage() {
               {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
+
+          {/* Bộ lọc theo kỳ — lọc theo NGÀY TẠO của lead và dự án */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Số liệu:</span>
+            <select
+              aria-label="Lọc số liệu Tổng quan theo kỳ"
+              value={datePreset}
+              onChange={e => setDatePreset(e.target.value)}
+              className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none cursor-pointer"
+              style={datePreset !== 'all' ? { borderColor: 'rgba(201,169,110,0.5)', color: '#C9A96E' } : undefined}
+            >
+              {DATE_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+            {datePreset === 'custom' && (
+              <>
+                <input
+                  type="date" aria-label="Từ ngày" value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+                />
+                <span className="text-xs text-[var(--text-muted)]">→</span>
+                <input
+                  type="date" aria-label="Đến ngày" value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none"
+                />
+              </>
+            )}
+            {datePreset !== 'all' && (
+              <button
+                type="button"
+                onClick={() => { setDatePreset('all'); setDateFrom(''); setDateTo(''); }}
+                className="text-xs px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Bỏ lọc
+              </button>
+            )}
+            {dangTai && <span className="text-xs text-[var(--text-muted)] animate-pulse">đang tải…</span>}
+          </div>
         </div>
+
+        {/* Nói rõ phạm vi đang xem: người dùng bấm «Tháng này» rồi thấy «Việc quá
+            hạn» tụt từ 40 xuống 3 mà không có dòng này sẽ tưởng việc đã xong hết. */}
+        {tenKy && (
+          <div className="px-3 py-2 rounded-xl text-xs flex items-center gap-2"
+               style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.25)', color: '#C9A96E' }}>
+            <span>📅</span>
+            <span>
+              Mọi số liệu bên dưới chỉ tính <b>lead và dự án phát sinh trong kỳ «{tenKy}»</b> —
+              gồm cả 2 thẻ cảnh báo quá hạn. Bấm <b>Bỏ lọc</b> để xem lại toàn bộ.
+            </span>
+          </div>
+        )}
 
         {/* Chế độ Tập luyện đã nghỉ hẳn 12/08/2026 → KHÔNG còn dữ liệu mẫu để rơi về.
             Banner cũ ghi "Đang hiển thị demo data" khiến người dùng tưởng số 0 là số giả
@@ -144,7 +214,7 @@ export default function DashboardPage() {
             <KPICard
               title="Tổng Lead"
               value={data?.total_leads ?? '—'}
-              subtitle={`Tháng này: ${data?.total_leads_month ?? 0}`}
+              subtitle={tenKy ? `Kỳ: ${tenKy}` : `Tháng này: ${data?.total_leads_month ?? 0}`}
               icon="👥"
               color="#C9A96E"
               onClick={() => router.push('/leads')}
@@ -254,7 +324,7 @@ export default function DashboardPage() {
             <KPICard
               title="Tổng Lead"
               value={data?.total_leads ?? '—'}
-              subtitle={data?.total_leads_month != null ? `Tháng này: ${data.total_leads_month}` : 'Xem chi tiết ở Leads'}
+              subtitle={tenKy ? `Kỳ: ${tenKy}` : (data?.total_leads_month != null ? `Tháng này: ${data.total_leads_month}` : 'Xem chi tiết ở Leads')}
               icon="👥"
               color="var(--stage-new)"
               onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}

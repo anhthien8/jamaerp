@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, TAG_COLORS, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
+import { DATE_PRESETS, dayKey, formatDayKey, resolveDateRange, toDayKey } from '@/lib/date-filter';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
@@ -68,57 +69,6 @@ const DATE_FIELDS: Record<string, { label: string; short: string; pick: (l: Lead
   updated_at: { label: 'Ngày cập nhật', short: 'Cập nhật', pick: l => l.updated_at },
   last_contacted_at: { label: 'Ngày liên hệ cuối', short: 'Liên hệ cuối', pick: l => l.last_contacted_at },
 };
-const DATE_PRESETS: { value: string; label: string }[] = [
-  { value: 'all', label: 'Mọi lúc' },
-  { value: 'today', label: 'Hôm nay' },
-  { value: 'yesterday', label: 'Hôm qua' },
-  { value: '7d', label: '7 ngày qua' },
-  { value: '30d', label: '30 ngày qua' },
-  { value: 'this_month', label: 'Tháng này' },
-  { value: 'custom', label: 'Tùy chọn…' },
-];
-
-function dayKey(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-function toDayKey(value?: string | null): string | null {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : dayKey(d);
-}
-
-function daysAgoKey(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return dayKey(d);
-}
-
-function formatDayKey(key: string): string {
-  const [y, m, d] = key.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-/** Đổi preset + 2 ô ngày tùy chọn thành khoảng [from, to] dạng YYYY-MM-DD. null = không lọc. */
-function resolveDateRange(preset: string, from: string, to: string): { from: string; to: string } | null {
-  const today = dayKey(new Date());
-  switch (preset) {
-    case 'today': return { from: today, to: today };
-    case 'yesterday': { const y = daysAgoKey(1); return { from: y, to: y }; }
-    case '7d': return { from: daysAgoKey(6), to: today };
-    case '30d': return { from: daysAgoKey(29), to: today };
-    case 'this_month': { const n = new Date(); return { from: dayKey(new Date(n.getFullYear(), n.getMonth(), 1)), to: today }; }
-    case 'custom': {
-      if (!from && !to) return null;
-      // Nhập ngược (từ > đến) thì tự đảo, khỏi ra bảng trống mà không hiểu vì sao.
-      if (from && to && from > to) return { from: to, to: from };
-      return { from: from || '0000-01-01', to: to || '9999-12-31' };
-    }
-    default: return null;
-  }
-}
-
 type SortKey = 'newest' | 'updated' | 'budget' | 'ai_score' | 'deal_value';
 
 function getLeadTimestamp(lead: Lead) {

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import select, func, case, or_
+from sqlalchemy import select, func, case, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,71 +13,146 @@ from app.models.lead import Lead, Activity
 from app.api.leads import STAGE_LABELS
 from app.models.project import Project, Task
 from app.cache import cache, cached
+from app.services.attendance_service import VN_TZ
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+# ── Bộ lọc theo kỳ (22/09/2026) ──────────────────────────────────────────────
+# Trước đây Tổng quan luôn cộng dồn TOÀN BỘ lịch sử, không có cách xem một
+# khoảng thời gian. Nay nhận `tu`/`den` dạ ng YYYY-MM-DD.
+#
+# Cắt ngày theo GIỜ VIỆT NAM, không theo UTC — đúng quy ước đã dùng ở module
+# chấm công (`app/models/attendance.py`). Lấy mốc UTC thẳng thì lead tạo lúc
+# 0h–7h sáng VN sẽ bị tính sang ngày hôm trước.
+#
+# `den` là mốc CUỐI ngày: quy đổi thành 00:00 của ngày kế tiếp rồi so sánh `<`,
+# khỏi phải nghĩ tới 23:59:59.999 và mất bản ghi trong nửa giây cuối.
+
+def _mot_ngay(gia_tri: str, ten: str) -> datetime:
+    try:
+        return datetime.strptime(gia_tri, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ngày «{ten}» phải theo dạng YYYY-MM-DD, nhận được: {gia_tri!r}",
+        )
+
+
+def khoang_ngay(tu: str | None, den: str | None) -> tuple[datetime | None, datetime | None]:
+    """'YYYY-MM-DD' (ngày theo giờ VN) → cặp mốc UTC [đầu kỳ, hết kỳ).
+
+    Nhập ngược (tu > den) thì tự đảo — giống resolveDateRange ở frontend, để
+    người dùng không nhận về bảng trống mà không hiểu vì sao.
+    """
+    a = _mot_ngay(tu, "từ ngày") if tu else None
+    b = _mot_ngay(den, "đến ngày") if den else None
+    if a and b and a > b:
+        a, b = b, a
+    dau = a.replace(tzinfo=VN_TZ).astimezone(timezone.utc) if a else None
+    het = (
+        (b + timedelta(days=1)).replace(tzinfo=VN_TZ).astimezone(timezone.utc)
+        if b else None
+    )
+    return dau, het
+
+
+def trong_ky(q, cot, dau: datetime | None, het: datetime | None):
+    """Chèn điều kiện kỳ vào truy vấn. Không có kỳ thì trả nguyên truy vấn."""
+    if dau is not None:
+        q = q.where(cot >= dau)
+    if het is not None:
+        q = q.where(cot < het)
+    return q
 
 
 # LƯU Ý thứ tự decorator: @router.get phải nằm TRÊN @cached — decorator áp từ
 # dưới lên, đặt ngược lại thì router đăng ký hàm gốc và cache thành mã chết
 # trên đường HTTP (bug vá 09/09/2026, cùng lớp với pl.py).
 @router.get("/executive")
-@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [kw.get("current_user").role if kw.get("current_user") else "anon"])
+# Khóa cache PHẢI gồm cả kỳ đang lọc — thiếu `tu`/`den` thì mọi kỳ dùng chung
+# một bản cache và người dùng đổi bộ lọc mà số không nhúc nhích (22/09).
+@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [
+    kw.get("current_user").role if kw.get("current_user") else "anon",
+    kw.get("tu") or "-", kw.get("den") or "-",
+])
 async def executive_dashboard(
+    tu: str | None = Query(None, description="Từ ngày YYYY-MM-DD (giờ VN)"),
+    den: str | None = Query(None, description="Đến ngày YYYY-MM-DD (giờ VN)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Executive dashboard with company-wide metrics."""
+    """Executive dashboard with company-wide metrics.
+
+    `tu`/`den` lọc theo NGÀY TẠO của lead và dự án. Bỏ trống = toàn bộ lịch sử
+    (đúng như hành vi trước 22/09). Mọi con số trong bảng đều theo cùng một kỳ
+    để không có thẻ nào âm thầm mang nghĩa khác các thẻ bên cạnh.
+    """
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    dau, het = khoang_ngay(tu, den)
+
+    def loc_lead(q):
+        return trong_ky(q, Lead.created_at, dau, het)
+
+    def loc_du_an(q):
+        return trong_ky(q, Project.created_at, dau, het)
 
     # Total leads
-    total = (await db.execute(select(func.count(Lead.id)))).scalar() or 0
+    total = (await db.execute(loc_lead(select(func.count(Lead.id))))).scalar() or 0
     total_month = (await db.execute(
         select(func.count(Lead.id)).where(Lead.created_at >= month_start)
     )).scalar() or 0
 
     # Pipeline value
-    pipeline_value = (await db.execute(
+    pipeline_value = (await db.execute(loc_lead(
         select(func.sum(Lead.estimated_budget)).where(
             Lead.stage.notin_(["lost", "dormant"])
         )
-    )).scalar() or 0
+    ))).scalar() or 0
 
     # Conversion
-    signed = (await db.execute(
+    signed = (await db.execute(loc_lead(
         select(func.count(Lead.id)).where(Lead.stage == "signed_design")
-    )).scalar() or 0
+    ))).scalar() or 0
     conversion_rate = round((signed / total * 100) if total > 0 else 0, 1)
 
     # Projects
-    active_projects = (await db.execute(
+    active_projects = (await db.execute(loc_du_an(
         select(func.count(Project.id)).where(Project.status == "active")
-    )).scalar() or 0
-    avg_progress = (await db.execute(
+    ))).scalar() or 0
+    avg_progress = (await db.execute(loc_du_an(
         select(func.avg(Project.progress)).where(Project.status == "active")
-    )).scalar() or 0
+    ))).scalar() or 0
 
     # Stage funnel
-    stage_q = select(Lead.stage, func.count(Lead.id)).group_by(Lead.stage)
+    stage_q = loc_lead(select(Lead.stage, func.count(Lead.id))).group_by(Lead.stage)
     stage_result = await db.execute(stage_q)
     stage_funnel = {s: c for s, c in stage_result.all()}
 
     # Contract values
-    total_contract_value = (await db.execute(
+    total_contract_value = (await db.execute(loc_du_an(
         select(func.sum(Project.total_value))
-    )).scalar() or 0
-    total_contracts = (await db.execute(
+    ))).scalar() or 0
+    total_contracts = (await db.execute(loc_du_an(
         select(func.count(Project.id))
-    )).scalar() or 0
+    ))).scalar() or 0
 
-    # Team performance
+    # Team performance — điều kiện kỳ phải nằm trong ON của outerjoin, KHÔNG
+    # phải WHERE: để ở WHERE thì đội không có lead nào trong kỳ bị loại khỏi
+    # bảng thay vì hiện 0 lead.
+    dieu_kien_join = [Lead.team_id == Team.id]
+    if dau is not None:
+        dieu_kien_join.append(Lead.created_at >= dau)
+    if het is not None:
+        dieu_kien_join.append(Lead.created_at < het)
     team_q = (
         select(
             Team.name,
             func.count(Lead.id).label("total"),
             func.sum(case((Lead.stage == "signed_design", 1), else_=0)).label("signed_count"),
         )
-        .outerjoin(Lead, Lead.team_id == Team.id)
+        .outerjoin(Lead, and_(*dieu_kien_join))
         .where(Team.department == "SALES")
         .group_by(Team.name)
     )
@@ -93,20 +168,20 @@ async def executive_dashboard(
 
     # Overdue (no contact in 3 days for active leads)
     overdue_cutoff = now - timedelta(days=3)
-    overdue = (await db.execute(
+    overdue = (await db.execute(loc_lead(
         select(func.count(Lead.id)).where(
             Lead.stage.notin_(["lost", "dormant", "signed_design"]),
             (Lead.last_contacted_at < overdue_cutoff) | (Lead.last_contacted_at.is_(None))
         )
-    )).scalar() or 0
+    ))).scalar() or 0
 
     # Việc quá hạn toàn công ty — trước 13/08/2026 FE hiển thị số 0 cứng cho thẻ này
-    overdue_tasks = (await db.execute(
+    overdue_tasks = (await db.execute(trong_ky(
         select(func.count(Task.id)).where(
             Task.due_date < now,
             Task.status.notin_(["done", "completed"]),
-        )
-    )).scalar() or 0
+        ), Task.created_at, dau, het,
+    ))).scalar() or 0
 
     return {
         "total_leads": total,
@@ -128,16 +203,24 @@ async def executive_dashboard(
 
 @router.get("/personal")
 async def personal_dashboard(
+    tu: str | None = Query(None, description="Từ ngày YYYY-MM-DD (giờ VN)"),
+    den: str | None = Query(None, description="Đến ngày YYYY-MM-DD (giờ VN)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Personal dashboard for current user."""
-    now = datetime.now(timezone.utc)
+    """Personal dashboard for current user.
 
-    q = select(Lead).where(
+    `tu`/`den` lọc lead theo NGÀY TẠO (bỏ trống = toàn bộ, như trước 22/09).
+    KPI tuần cố ý KHÔNG theo bộ lọc: nó vốn là chỉ tiêu của tuần hiện tại, đổi
+    theo kỳ thì cái tên «KPI tuần này» thành sai.
+    """
+    now = datetime.now(timezone.utc)
+    dau, het = khoang_ngay(tu, den)
+
+    q = trong_ky(select(Lead).where(
         Lead.assigned_to == current_user.id,
         Lead.stage.notin_(["lost", "dormant"]),
-    )
+    ), Lead.created_at, dau, het)
     result = await db.execute(q)
     leads = result.scalars().all()
 
@@ -225,13 +308,13 @@ async def personal_dashboard(
     overdue_task_conds = [TaskModel.assigned_to == current_user.id]
     if proj_ids:
         overdue_task_conds.append(TaskModel.project_id.in_(proj_ids))
-    overdue_tasks_count = (await db.execute(
+    overdue_tasks_count = (await db.execute(trong_ky(
         select(sql_func.count(TaskModel.id)).where(
             or_(*overdue_task_conds),
             TaskModel.due_date < now,
             TaskModel.status.notin_(["done", "completed"]),
-        )
-    )).scalar() or 0
+        ), TaskModel.created_at, dau, het,
+    ))).scalar() or 0
 
     # 3. Pending material requests (for PMs)
     from app.api.telegram_workflow import MaterialRequest as MatReq
