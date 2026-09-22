@@ -81,9 +81,14 @@ class TestInventoryStockDeduction:
     async def test_inventory_rbac_blocks_unauthorized(
         self, client: AsyncClient, sales_user
     ):
-        """data_entry user (role=data_entry, dept=SALES) cannot access inventory."""
+        """data_entry user (role=data_entry, dept=SALES) cannot access inventory.
+
+        22/09: guard chuyển từ hardcode vai trò sang ô «Xem Kho» của ma trận
+        Phân quyền, nên câu báo lỗi cũng theo mẫu chung của các endpoint gate
+        bằng ma trận. Hành vi giữ nguyên: data_entry vẫn bị 403.
+        """
         headers = auth_header(sales_user)
 
         resp = await client.get("/api/v1/inventory", headers=headers)
         assert resp.status_code == 403
-        assert "Không có quyền" in resp.json()["detail"]
+        assert "Xem Kho" in resp.json()["detail"]

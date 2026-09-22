@@ -23,6 +23,7 @@ class LeadCreate(BaseModel):
     property_class: str | None = None
     price_per_sqm: float | None = None
     region: str | None = None
+    ngan_sach_khoang: str | None = None
     segment: str | None = None
     plan_type: str | None = None
     tags: str | None = None
@@ -52,6 +53,7 @@ class LeadUpdate(BaseModel):
     property_class: str | None = None
     price_per_sqm: float | None = None
     region: str | None = None
+    ngan_sach_khoang: str | None = None
     segment: str | None = None
     plan_type: str | None = None
     tags: str | None = None
@@ -86,6 +88,7 @@ class LeadResponse(BaseModel):
     property_class: str | None = None
     price_per_sqm: float | None = None
     region: str | None = None
+    ngan_sach_khoang: str | None = None
     segment: str | None = None
     plan_type: str | None = None
     tags: str | None = None

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { RolePermissions } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
 
 /**
@@ -10,9 +10,10 @@ import LineIcon from '@/components/ui/LineIcon';
  * Tối đa 5 mục theo quyền — đưa thao tác hay dùng nhất vào tầm ngón cái.
  * Chỉ hiện < lg (desktop đã có sidebar).
  */
-export default function BottomNav({ role }: { role: string }) {
+export default function BottomNav({ perms }: { perms: RolePermissions }) {
+  // Nhận sẵn quyền HIỆU LỰC từ Sidebar (đã gồm quyền riêng của người này + chặn
+  // cứng theo bộ phận) — trước đây tự tính lại từ role nên lệch với sidebar.
   const pathname = usePathname();
-  const perms = getPermissions(role as UserRole);
 
   const items: { href: string; label: string; icon: string }[] = [
     { href: '/', label: 'Tổng quan', icon: 'home' },

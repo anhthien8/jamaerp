@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, User } from '@/lib/api';
-import { fetchMyPermissions, getEffectivePermissions, loadCustomRoles, RolePermissions, SYSTEM_ROLES, UserRole } from '@/lib/roles';
+import { duocXemLead, fetchMyPermissions, getEffectivePermissions, loadCustomRoles, RolePermissions, SYSTEM_ROLES, UserRole } from '@/lib/roles';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // Demo mode — single shared password for all accounts (training/offline only)
@@ -120,7 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void customRolesVersion; // đổi khi cache vai trò tùy chỉnh vừa nạp xong → tính lại
     if (!user) return getEffectivePermissions('data_entry');
     const local = getEffectivePermissions(user.role as UserRole, user.custom_permissions);
-    return serverPerms ? ({ ...local, ...serverPerms } as RolePermissions) : local;
+    const tron = serverPerms ? ({ ...local, ...serverPerms } as RolePermissions) : local;
+    // Chặn CỨNG theo bộ phận, áp sau cùng để không override nào mở lại được:
+    // «trừ bộ phận kinh doanh và nhân sự thuộc ban giám đốc, không ai được quyền
+    // thấy lead» (chốt 22/09). Khớp duoc_xem_lead() ở backend.
+    if (tron.canViewLeads && !duocXemLead(user.role, user.department)) {
+      return { ...tron, canViewLeads: false, leadsScope: 'none' } as RolePermissions;
+    }
+    return tron;
   }, [user, serverPerms, customRolesVersion]);
 
   // Nạp quyền backend cho phiên hiện tại. role truyền qua tham số vì lúc restore,

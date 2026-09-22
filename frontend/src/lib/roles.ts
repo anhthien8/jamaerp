@@ -338,6 +338,53 @@ export function getPermissions(role: UserRole): RolePermissions {
   return base;
 }
 
+/** Bộ phận được tiếp cận module Lead — phải khớp BO_PHAN_XEM_LEAD ở backend
+ *  (app/middleware/rbac.py). Chốt 22/09/2026: «trừ bộ phận kinh doanh và nhân
+ *  sự thuộc ban giám đốc, không ai được quyền thấy lead». */
+export const BO_PHAN_XEM_LEAD = ['SALES', 'EXEC'];
+
+export function duocXemLead(role?: string | null, department?: string | null): boolean {
+  if (role === 'admin' || role === 'executive') return true;
+  return BO_PHAN_XEM_LEAD.includes((department || '').toUpperCase());
+}
+
+/** Vai trò TRƯỞNG PHÒNG theo bộ phận — khớp VAI_TRO_TRUONG_PHONG backend. */
+export const VAI_TRO_TRUONG_PHONG: Record<string, string[]> = {
+  DESIGN: ['leader'],
+  OPS: ['operation_leader'],
+  PURCHASING: ['dutoan_thumua_leader'],
+  SALES: ['leader'],
+};
+
+/** Vai trò TRƯỞNG NHÓM / CHỦ TRÌ — khớp VAI_TRO_TRUONG_NHOM backend. */
+export const VAI_TRO_TRUONG_NHOM: Record<string, string[]> = {
+  SALES: [SALE_LEADER_ROLE],
+  DESIGN: ['design_leader', '2d_leader'],
+};
+
+export function laTruongPhong(user?: { role?: string | null; department?: string | null } | null): boolean {
+  const dept = (user?.department || '').toUpperCase();
+  return !!user?.role && (VAI_TRO_TRUONG_PHONG[dept] || []).includes(user.role);
+}
+
+export function laTruongNhom(user?: { role?: string | null; department?: string | null } | null): boolean {
+  const dept = (user?.department || '').toUpperCase();
+  return !!user?.role && (VAI_TRO_TRUONG_NHOM[dept] || []).includes(user.role);
+}
+
+/** Phạm vi dữ liệu của một người — khớp pham_vi_du_lieu() backend.
+ *  Kiêm nhiệm thì lấy tầng CAO NHẤT (trưởng phòng trước trưởng nhóm). */
+export function phamViDuLieu(
+  user?: { role?: string | null; department?: string | null; team_id?: string | null } | null,
+): 'tat_ca' | 'phong_ban' | 'nhom' | 'ca_nhan' {
+  if (user?.role === 'admin' || user?.role === 'executive' || user?.role === 'accountant') return 'tat_ca';
+  if (laTruongPhong(user)) return 'phong_ban';
+  // Ngoài KD, `teams` là cả phòng chứ không phải nhóm con → chủ trì tụt về «của
+  // mình» (xem PHONG_CO_NHOM_THAT backend).
+  if (laTruongNhom(user) && (user?.department || '').toUpperCase() === 'SALES' && user?.team_id) return 'nhom';
+  return 'ca_nhan';
+}
+
 /**
  * Merge role defaults with per-user custom overrides.
  * Custom overrides take precedence over role defaults.

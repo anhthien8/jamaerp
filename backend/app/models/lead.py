@@ -11,6 +11,14 @@ from app.database import Base
 
 # Stage values — 6 active stages + 2 end states
 LEAD_STAGES = ["new", "interested", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
+
+# Ba mức ngân sách trên form thêm lead (chủ dự án chốt 22/09/2026). Lưu KHÓA
+# chứ không lưu nhãn — đổi cách gọi trên giao diện thì khỏi migration dữ liệu.
+NGAN_SACH_KHOANG: dict[str, str] = {
+    "duoi_200": "Dưới 200 triệu",
+    "tu_200_500": "Từ 200–500 triệu",
+    "tren_500": "Trên 500 triệu",
+}
 LEAD_SOURCES = ["facebook", "zalo", "website", "referral", "tiktok", "other"]
 # Kênh phân bổ: phân biệt với Source (platform). Source = từ đâu, Channel = kênh nào bán/giới thiệu
 LEAD_CHANNELS = ["kenh_a", "kenh_b", "kenh_chinh", "kenh_sale", "kenh_affiliate", "khac"]
@@ -49,6 +57,10 @@ class Lead(Base):
     property_class: Mapped[str | None] = mapped_column(String(20), nullable=True)  # luxury/mid_range/budget
     price_per_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)  # VND/m²
     region: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Khu vực
+    # Ngân sách theo MỨC (chủ dự án yêu cầu 22/09) — xem NGAN_SACH_KHOANG.
+    # Cố ý đứng riêng với `estimated_budget` (số tiền, 79/615 lead prod đã có
+    # số thật và báo giá/hợp đồng đang dùng): mức để lọc & phân khúc, số để tính.
+    ngan_sach_khoang: Mapped[str | None] = mapped_column(String(20), nullable=True)
     segment: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Phân khúc
     plan_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # online/offline/survey/none
     tags: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of tags

@@ -1888,6 +1888,7 @@ export interface Lead {
   property_class?: 'luxury' | 'mid_range' | 'budget';
   price_per_sqm?: number;
   region?: string;
+  ngan_sach_khoang?: string | null;
   segment?: string;
   plan_type?: 'online' | 'offline' | 'survey' | 'none';
   tags?: string[];

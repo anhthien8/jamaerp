@@ -10,7 +10,7 @@ import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
-import { getPermissions, getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
+import { getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
@@ -92,7 +92,7 @@ const ROLE_MAIN_ROUTE: Record<string, string> = {
 export default function Sidebar({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isDemo, mode, setMode } = useAuth();
+  const { user, logout, isDemo, mode, setMode, effectivePermissions } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [outdoorTheme, setOutdoorTheme] = useState(false);
@@ -148,7 +148,11 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   }, []);
 
   // KISS: Split nav into essential items (always visible) + extra items (expandable)
-  const perms = user ? getPermissions(user.role as UserRole) : null;
+  // effectivePermissions (KHÔNG phải getPermissions(role) trần): quyền riêng của
+  // từng người phải hiện ra MENU, không thì admin tích thêm chức năng cho ai đó
+  // mà họ vẫn không thấy mục nào — đúng lỗi user báo 22/09 «cập nhật chức năng
+  // tài khoản thì không sử dụng được».
+  const perms = user ? effectivePermissions : null;
   const [showMore, setShowMore] = useState(false);
 
   const { essentialItems, extraItems } = useMemo(() => {
@@ -444,7 +448,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       <GuidedTour />
 
       {/* Bottom nav mobile — thao tác chính trong tầm ngón cái */}
-      <BottomNav role={user.role} />
+      <BottomNav perms={effectivePermissions} />
     </div>
   );
 }

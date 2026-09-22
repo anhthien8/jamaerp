@@ -140,6 +140,18 @@ export const PLAN_TYPE_LABELS: Record<string, { label: string; color: string }> 
   none: { label: 'Chưa có', color: '#6B7280' },
 };
 
+/** Ba mức ngân sách của lead — PHẢI khớp NGAN_SACH_KHOANG ở backend
+ *  (app/models/lead.py). Chốt 22/09/2026. */
+export const NGAN_SACH_OPTIONS = [
+  { value: 'duoi_200', label: 'Dưới 200 triệu' },
+  { value: 'tu_200_500', label: 'Từ 200–500 triệu' },
+  { value: 'tren_500', label: 'Trên 500 triệu' },
+];
+
+export const NGAN_SACH_LABELS: Record<string, string> = Object.fromEntries(
+  NGAN_SACH_OPTIONS.map(o => [o.value, o.label]),
+);
+
 export const REGION_OPTIONS = [
   'Long An', 'Q7', 'Bình Chánh', 'Q1', 'Q2', 'Q9', 'Gò Vấp', 'Phú Nhuận', 'Thủ Đức', 'Quận khác',
 ];

@@ -17,7 +17,10 @@ from app.middleware.permissions import (  # noqa: F401 — re-export có chủ �
     quyen_hieu_luc,
     xoa_cache_quyen,
 )
-from app.middleware.rbac import can_assign_leads, is_sales_coordinator, is_team_lead
+from app.middleware.rbac import (
+    BO_PHAN_XEM_LEAD, can_assign_leads, is_sales_coordinator, is_team_lead,
+    pham_vi_du_lieu,
+)
 from app.models.user import User, Team
 from app.models.lead import Lead
 from app.models.notification import SystemSetting
@@ -83,11 +86,21 @@ async def list_users(
         raise HTTPException(status_code=403, detail="Không có quyền xem danh sách nhân viên")
 
     q = select(User).order_by(User.full_name)
-    if current_user.role != "admin" and is_team_lead(current_user):
-        if current_user.team_id is None:
-            q = q.where(User.id == current_user.id)
-        else:
-            q = q.where((User.team_id == current_user.team_id) | (User.id == current_user.id))
+    # Phạm vi danh sách nhân sự — cùng thước đo 3 tầng với lead/dự án (22/09):
+    # trưởng phòng xem cả BỘ PHẬN mình, trưởng nhóm xem NHÓM mình, còn lại chỉ
+    # mình. Trước đây trưởng phòng bị bó theo đội y như trưởng nhóm, và ngược
+    # lại các vai trò tùy chỉnh có canViewHR (vd operation_leader) lại thấy
+    # TOÀN BỘ 56 nhân sự mọi phòng — hai đầu đều lệch với «nhân sự của mình».
+    pham_vi_ns = pham_vi_du_lieu(current_user)
+    if pham_vi_ns == "phong_ban":
+        q = q.where(
+            (func.upper(func.coalesce(User.department, "")) == (current_user.department or "").upper())
+            | (User.id == current_user.id)
+        )
+    elif pham_vi_ns == "nhom":
+        q = q.where((User.team_id == current_user.team_id) | (User.id == current_user.id))
+    elif pham_vi_ns != "tat_ca":
+        q = q.where(User.id == current_user.id)
     if role:
         q = q.where(User.role == role)
     if department:
@@ -499,6 +512,24 @@ async def get_custom_roles(
     return {"roles": roles}
 
 
+def _sieu_chinh_quyen_lead(perms: dict, department: str | None) -> dict:
+    """Bộ phận ngoài Kinh doanh/BGĐ thì «Xem Leads» luôn TẮT.
+
+    Nguyên tắc chủ dự án 22/09: «trừ bộ phận kinh doanh và nhân sự thuộc ban
+    giám đốc, không ai được quyền thấy lead». Backend đã chặn cứng ở tầng API
+    (rbac.duoc_xem_lead), nhưng nếu trang Phân quyền vẫn LƯU được ô tích thì
+    giao diện hiện một đằng, trải nghiệm một nẻo — đúng kiểu nhầm lẫn đã xảy ra
+    với vai `operation_leader` trên prod. Nên chuẩn hóa ngay lúc lưu.
+    """
+    if not perms:
+        return perms
+    if (department or "").upper() in BO_PHAN_XEM_LEAD:
+        return perms
+    if perms.get("canViewLeads") or perms.get("leadsScope") not in (None, "none"):
+        perms = {**perms, "canViewLeads": False, "leadsScope": "none"}
+    return perms
+
+
 @router.post("/roles")
 async def create_custom_role(
     data: CustomRoleCreate,
@@ -538,7 +569,7 @@ async def create_custom_role(
         "role_key": key,
         "role_name": data.role_name.strip(),
         "department": data.department,
-        "permissions": perms,
+        "permissions": _sieu_chinh_quyen_lead(perms, data.department),
     }
     existing.append(new_role)
 
@@ -654,7 +685,9 @@ async def set_role_permissions(
             raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
         custom_perms = data.get("permissions", {})
         if custom_perms:
-            target["permissions"] = {**target.get("permissions", {}), **custom_perms}
+            target["permissions"] = _sieu_chinh_quyen_lead(
+                {**target.get("permissions", {}), **custom_perms}, target.get("department")
+            )
             setting = await db.get(SystemSetting, "custom_roles")
             if setting:
                 setting.value = json.dumps(customs, ensure_ascii=False)

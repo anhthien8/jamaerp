@@ -604,6 +604,23 @@ export default function UsersPage() {
                       };
                       const custom = customRoles.find(r => r.role_key === newRole);
                       const dept = builtInDept[newRole] || custom?.department || form.department;
+                      // Quyền riêng được lưu dạng PHẦN LỆCH so với mặc định của vị
+                      // trí. Đổi vị trí mà giữ nguyên phần lệch cũ thì người đó bị
+                      // đóng băng theo vị trí cũ — đúng lỗi user báo 22/09. Nên
+                      // quy phần lệch về giá trị tuyệt đối rồi tính lệch lại theo
+                      // vị trí MỚI: ô nào vị trí mới đã có sẵn thì phần lệch tự mất.
+                      if (customPermsLoaded) {
+                        const cuOi = getPermissions(form.role as UserRole);
+                        const moi = getPermissions(newRole as UserRole);
+                        setCustomPerms(prev => {
+                          const lech: Record<string, boolean> = {};
+                          ALL_PERMISSION_KEYS.forEach(({ key }) => {
+                            const dangCo = key in prev ? prev[key] : Boolean(cuOi[key]);
+                            if (dangCo !== Boolean(moi[key])) lech[key] = dangCo;
+                          });
+                          return lech;
+                        });
+                      }
                       setForm({ ...form, role: newRole, department: dept });
                     }} className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
                       {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}

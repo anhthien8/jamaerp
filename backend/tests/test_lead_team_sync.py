@@ -44,6 +44,18 @@ async def _tao_user(client, db_session, admin, *, email, role, department="SALES
     return (await db_session.execute(select(User).where(User.id == uid))).scalar_one()
 
 
+async def _tao_vai_tro_truong_nhom(client, admin):
+    """`sale_leader` là vai trò TÙY CHỈNH (seed idempotent trên prod) nên DB test
+    chưa có — phải tạo trước khi gán, không thì POST /users trả 400."""
+    resp = await client.post(
+        "/api/v1/users/roles",
+        json={"role_key": "sale_leader", "role_name": "Trưởng nhóm Kinh doanh",
+              "department": "SALES", "permissions": {"canViewLeads": True}},
+        headers=auth_header(admin),
+    )
+    assert resp.status_code == 200, resp.text
+
+
 async def _tao_doi(client, admin, *, name, code, leader_id=None):
     resp = await client.post(
         "/api/v1/users/teams",
@@ -112,8 +124,11 @@ async def test_xep_vao_doi_sau_thi_lead_cu_van_ve_dung_doi(client, db_session, a
 
 @pytest.mark.asyncio
 async def test_chuyen_doi_thi_lead_theo_nguoi(client, db_session, admin_user):
-    leader1 = await _tao_user(client, db_session, admin_user, email="leader1@test.com", role="leader")
-    leader2 = await _tao_user(client, db_session, admin_user, email="leader2@test.com", role="leader")
+    # `sale_leader` = trưởng NHÓM (phạm vi đội). `leader` giờ là trưởng PHÒNG
+    # nên không dùng được để kiểm ranh giới đội nữa (đổi 22/09).
+    await _tao_vai_tro_truong_nhom(client, admin_user)
+    leader1 = await _tao_user(client, db_session, admin_user, email="leader1@test.com", role="sale_leader")
+    leader2 = await _tao_user(client, db_session, admin_user, email="leader2@test.com", role="sale_leader")
     sale = await _tao_user(client, db_session, admin_user, email="sale@test.com", role="data_entry")
 
     doi1 = await _tao_doi(client, admin_user, name="Đội KD 1", code="KD1", leader_id=leader1.id)
@@ -127,10 +142,17 @@ async def test_chuyen_doi_thi_lead_theo_nguoi(client, db_session, admin_user):
     await _xep_thanh_vien(client, admin_user, doi2, [sale.id])
     assert await _lead_team_id(db_session, lead_id) == doi2
 
-    # Trưởng nhóm đội cũ KHÔNG còn thấy data của người đã rời đi
+    # Trưởng NHÓM đội cũ KHÔNG còn thấy data của người đã rời đi
     resp = await client.get("/api/v1/leads", headers=auth_header(leader1))
     assert lead_id not in {l["id"] for l in resp.json()["items"]}
     resp = await client.get("/api/v1/leads", headers=auth_header(leader2))
+    assert lead_id in {l["id"] for l in resp.json()["items"]}
+
+    # …nhưng TRƯỞNG PHÒNG thì thấy bất kể lead nằm ở đội nào trong bộ phận
+    # (chốt 22/09: trưởng phòng xem toàn bộ dữ liệu nhân sự bộ phận mình).
+    truong_phong = await _tao_user(
+        client, db_session, admin_user, email="tpkd@test.com", role="leader")
+    resp = await client.get("/api/v1/leads", headers=auth_header(truong_phong))
     assert lead_id in {l["id"] for l in resp.json()["items"]}
 
 
@@ -140,7 +162,9 @@ async def test_chuyen_doi_thi_lead_theo_nguoi(client, db_session, admin_user):
 
 @pytest.mark.asyncio
 async def test_go_khoi_doi_thi_lead_mat_nhan(client, db_session, admin_user):
-    leader = await _tao_user(client, db_session, admin_user, email="leader@test.com", role="leader")
+    # trưởng NHÓM: gỡ người khỏi đội thì mất luôn phạm vi với lead của người đó
+    await _tao_vai_tro_truong_nhom(client, admin_user)
+    leader = await _tao_user(client, db_session, admin_user, email="leader@test.com", role="sale_leader")
     sale = await _tao_user(client, db_session, admin_user, email="sale@test.com", role="data_entry")
     team_id = await _tao_doi(client, admin_user, name="Đội KD 1", code="KD1", leader_id=leader.id)
     await _xep_thanh_vien(client, admin_user, team_id, [sale.id])
@@ -203,7 +227,8 @@ async def test_lead_chua_giao_ai_khong_bi_gan_doi(client, db_session, admin_user
 
 @pytest.mark.asyncio
 async def test_truong_nhom_thay_lead_cua_ca_nhom(client, db_session, admin_user):
-    leader = await _tao_user(client, db_session, admin_user, email="leader@test.com", role="leader")
+    await _tao_vai_tro_truong_nhom(client, admin_user)
+    leader = await _tao_user(client, db_session, admin_user, email="leader@test.com", role="sale_leader")
     sale1 = await _tao_user(client, db_session, admin_user, email="sale1@test.com", role="data_entry")
     sale2 = await _tao_user(client, db_session, admin_user, email="sale2@test.com", role="data_entry")
     ngoai_doi = await _tao_user(client, db_session, admin_user, email="ngoai@test.com", role="data_entry")
@@ -220,4 +245,11 @@ async def test_truong_nhom_thay_lead_cua_ca_nhom(client, db_session, admin_user)
     assert resp.status_code == 200, resp.text
     ids = {l["id"] for l in resp.json()["items"]}
     assert {lead1, lead2, lead_leader} <= ids, "phải thấy lead của cả nhóm, không chỉ của mình"
-    assert lead_ngoai not in ids, "không được thấy lead ngoài nhóm"
+    assert lead_ngoai not in ids, "trưởng NHÓM không được thấy lead ngoài nhóm"
+
+    # Trưởng PHÒNG thì thấy cả lead ngoài đội, miễn cùng bộ phận (22/09)
+    truong_phong = await _tao_user(
+        client, db_session, admin_user, email="tpkd@test.com", role="leader")
+    resp = await client.get("/api/v1/leads", headers=auth_header(truong_phong))
+    ids_tp = {l["id"] for l in resp.json()["items"]}
+    assert {lead1, lead2, lead_leader, lead_ngoai} <= ids_tp, "trưởng phòng xem cả bộ phận"

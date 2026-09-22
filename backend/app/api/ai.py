@@ -12,7 +12,7 @@ from app.agents.sales_copilot import (
 )
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.middleware.rbac import can_modify_lead, can_view_lead
+from app.middleware.rbac import duoc_sua_lead_nay, duoc_xem_lead_nay
 from app.models.ai_memory import (
     AGENT_SALES_COPILOT,
     OUTCOMES,
@@ -140,7 +140,7 @@ async def _lay_lead_xem_duoc(lead_id: str, db: AsyncSession, current_user: User)
     lead = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
-    if not can_view_lead(current_user, lead):
+    if not await duoc_xem_lead_nay(db, current_user, lead):
         raise HTTPException(status_code=403, detail="Bạn không xem được lead này")
     return lead
 
@@ -204,7 +204,7 @@ async def ghi_nhan_ket_qua(
     # Gợi ý gắn với lead nào thì phải có quyền sửa lead đó mới được ghi nhận
     if ban.scope_type == SCOPE_LEAD and ban.scope_id:
         lead = (await db.execute(select(Lead).where(Lead.id == ban.scope_id))).scalar_one_or_none()
-        if lead is not None and not can_modify_lead(current_user, lead):
+        if lead is not None and not await duoc_sua_lead_nay(db, current_user, lead):
             raise HTTPException(status_code=403, detail="Bạn không sửa được lead này")
 
     note = data.get("note")

@@ -15,6 +15,7 @@ NOTIFICATION_TYPES = [
     "lead_assigned",       # lead được giao
     "payment_reminder",    # nhắc hẹn thanh toán
     "contract_signed",     # khách ký HĐ → tạo dự án
+    "project_created",     # dự án mới → nhắc trưởng phòng gắn PIC (22/09/2026)
     "bod_report",          # báo cáo BOD
     "system",
 ]

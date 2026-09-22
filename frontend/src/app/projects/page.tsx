@@ -65,6 +65,21 @@ const canTakeTask = (u: { role?: string; department?: string | null }, dept: str
   return !!allowed && allowed.includes((u.department || '').toUpperCase());
 };
 
+/** Ô PIC ứng với bộ phận của người đang đăng nhập (22/09/2026).
+ *  Luồng chốt: tạo dự án → thông báo trưởng phòng → trưởng phòng gắn PIC cho
+ *  BỘ PHẬN MÌNH. «Trưởng phòng Kinh Doanh không thấy/show nhân sự phòng Thiết
+ *  Kế» — nên mỗi người chỉ thấy đúng ô của phòng mình. Ban Giám Đốc (admin /
+ *  executive) thấy cả 4 ô vì họ điều phối chéo phòng. */
+const PIC_CUA_BO_PHAN: Record<string, string> = {
+  OPS: 'pm_id',
+  DESIGN: 'designer_id',
+  PURCHASING: 'purchasing_id',
+  SALES: 'sales_id',
+};
+
+const laBanGiamDoc = (u?: { role?: string } | null): boolean =>
+  u?.role === 'admin' || u?.role === 'executive';
+
 // ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
 const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'paused'] as const;
 const STAGE_SHORT: Record<string, string> = {
@@ -546,8 +561,15 @@ export default function ProjectsPage() {
       }
       setShowProjectForm(false);
       refreshData();
-    } catch {
-      toast(editingProject ? 'Lỗi khi cập nhật dự án' : 'Lỗi khi tạo dự án', 'error');
+    } catch (e: unknown) {
+      // Trước 22/09 khối này là `catch {}` trống: nút «Tạo dự án mới» trả 422
+      // «thiếu mã dự án» cho MỌI tài khoản mà người dùng chỉ thấy «Lỗi khi tạo
+      // dự án» — không ai lần ra được nguyên nhân.
+      const chiTiet = (e as Error)?.message?.trim();
+      toast(
+        chiTiet || (editingProject ? 'Lỗi khi cập nhật dự án' : 'Lỗi khi tạo dự án'),
+        'error',
+      );
     } finally {
       setSavingProject(false);
     }
@@ -1623,7 +1645,12 @@ export default function ProjectsPage() {
                     { key: 'designer_id', nhan: '🎨 Thiết kế', dept: 'design' },
                     { key: 'purchasing_id', nhan: '🧾 Báo giá – Thu mua', dept: 'quotation' },
                     { key: 'sales_id', nhan: '💼 Kinh doanh', dept: 'sales' },
-                  ] as const).map(o => {
+                  ] as const).filter(o =>
+                    // Ban Giám Đốc điều phối chéo phòng → thấy cả 4 ô.
+                    // Còn lại chỉ thấy ô của bộ phận mình (chốt 22/09).
+                    laBanGiamDoc(user) ||
+                    PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] === o.key
+                  ).map(o => {
                     const ungVien = users.filter(u => canTakeTask(u, o.dept));
                     return (
                       <div key={o.key}>
@@ -1646,6 +1673,12 @@ export default function ProjectsPage() {
                       </div>
                     );
                   })}
+                  {!laBanGiamDoc(user) && !PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] && (
+                    <p className="text-[11px] sm:col-span-2" style={{ color: '#F59E0B' }}>
+                      Bộ phận của bạn không phụ trách PIC dự án. Trưởng phòng Thiết kế /
+                      Giám sát / Báo giá–Thu mua / Kinh doanh sẽ gắn người cho phòng mình.
+                    </p>
+                  )}
                 </div>
               </div>
 

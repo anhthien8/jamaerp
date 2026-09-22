@@ -213,7 +213,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Ai thấy mục này: khối Kinh doanh (nhân viên KD, Trưởng nhóm KD, Điều phối KD/CSKH) và Quản trị viên. Ban Quản Trị, Kế toán, Giám sát không thấy menu «Quy trình»."
+        "text": "Ai thấy mục này: **chỉ bộ phận Kinh doanh và Ban Giám Đốc** (siết từ 22/09). Thiết kế, Giám sát, Báo giá–Thu mua, Kế toán KHÔNG thấy menu «Quy trình» — và kể cả khi được tích thêm ô «Xem Leads» thì vẫn không xem được, vì hệ thống chặn theo bộ phận. Muốn ai xem lead thì phải chuyển bộ phận của họ sang Kinh doanh trong mục Tài khoản."
       },
       {
         "type": "p",
@@ -314,7 +314,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Phạm vi nhìn thấy: CSKH thấy **tất cả** lead để phân chia. Trưởng nhóm chỉ thấy lead **của nhóm mình** (kèm lead giao cho chính mình). Sale chỉ thấy lead **được giao cho mình**. Không thấy lead của người khác là đúng thiết kế, không phải lỗi."
+        "text": "Phạm vi nhìn thấy (3 tầng, từ 22/09): **Trưởng phòng Kinh doanh** thấy lead của **mọi nhân sự trong phòng**, kể cả các đội khác. **Trưởng nhóm** thấy lead **của nhóm mình** (kèm lead giao cho chính mình). **Sale** chỉ thấy lead **được giao cho mình**. CSKH thấy **tất cả** để phân chia. Ai kiêm cả trưởng phòng lẫn trưởng nhóm thì lấy quyền cao nhất là trưởng phòng. Không thấy lead của người khác là đúng thiết kế, không phải lỗi."
       },
       {
         "type": "tip",
@@ -445,7 +445,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Mọi vai trò chuẩn đều thấy mục **Dự án** trong menu. Ở chế độ **Danh sách**, bạn chỉ thấy các dự án **liên quan đến mình**: dự án bạn được phân công phụ trách (PIC) hoặc được giao ít nhất 1 đầu việc. (Chế độ Kanban hiện vẫn hiển thị đủ mọi dự án cho tất cả mọi người.) Trưởng phòng thấy thêm mọi dự án có người phòng mình phụ trách. Giám đốc, Ban Quản Trị và Kế toán thấy toàn bộ. Riêng dự án **chưa phân công ai** thì mọi người đều thấy."
+        "text": "Mọi vai trò chuẩn đều thấy mục **Dự án** trong menu. Khi tạo dự án mới, hệ thống **tự sinh mã** và **gửi thông báo cho trưởng phòng** các bộ phận chưa có người phụ trách để họ vào gắn PIC — mỗi trưởng phòng chỉ thấy ô PIC của **bộ phận mình** (Ban Giám Đốc thấy cả 4 ô). Ở chế độ **Danh sách**, bạn chỉ thấy các dự án **liên quan đến mình**: dự án bạn được phân công phụ trách (PIC) hoặc được giao ít nhất 1 đầu việc. (Chế độ Kanban hiện vẫn hiển thị đủ mọi dự án cho tất cả mọi người.) Trưởng phòng thấy thêm mọi dự án có người phòng mình phụ trách. Giám đốc, Ban Quản Trị và Kế toán thấy toàn bộ. Riêng dự án **chưa phân công ai** thì mọi người đều thấy."
       },
       {
         "type": "h3",

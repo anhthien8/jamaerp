@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON
+from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -178,3 +178,25 @@ class TaskActivity(Base):
 
     def __repr__(self) -> str:
         return f"<TaskActivity on task {self.task_id}>"
+
+
+async def sinh_ma_du_an(db) -> str:
+    """Sinh mã dự án PRJ-<năm>-<4 số> chưa trùng.
+
+    Trước 22/09 logic này chỉ nằm trong luồng «Deal thắng» của lead, còn
+    `ProjectCreate.code` thì bắt buộc — nên nút «Tạo dự án mới» trên màn Dự án
+    gửi payload không có `code` và trả 422 cho MỌI tài khoản (đo prod 22/09:
+    153 dự án đều sinh tự động từ lead, chưa ai tạo tay được lần nào). Nay dùng
+    chung một hàm để hai đường đi không lệch định dạng mã.
+    """
+    import random
+    import uuid as _uuid
+
+    nam = datetime.now(timezone.utc).year
+    for _ in range(100):
+        ma = f"PRJ-{nam}-{random.randint(1000, 9999)}"
+        trung = await db.execute(select(Project).where(Project.code == ma))
+        if trung.scalar_one_or_none() is None:
+            return ma
+    # 100 lần vẫn trùng (kho 9000 mã gần cạn) → rơi về mã dài, chắc chắn duy nhất
+    return f"PRJ-{nam}-{_uuid.uuid4().hex[:8]}"

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
-import { getPermissions, UserRole } from '@/lib/roles';
+import {  } from '@/lib/roles';
 
 // Spec 07 A3 — role → phòng ban nhận việc theo giai đoạn dự án
 const ROLE_DEPT: Record<string, 'DESIGN' | 'PM' | 'PURCHASING'> = {
@@ -16,7 +16,7 @@ const ROLE_DEPT: Record<string, 'DESIGN' | 'PM' | 'PURCHASING'> = {
 type DeptProject = Project & { pending_tasks: number; days_left: number | null };
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [acctSummary, setAcctSummary] = useState<AccountingSummary | null>(null);
@@ -92,7 +92,7 @@ export default function DashboardPage() {
     </Sidebar>
   );
 
-  const perms = getPermissions(user.role as UserRole);
+  const perms = effectivePermissions;
   const isFinancial = perms.dashboardType === 'financial';
   const isPersonal = perms.dashboardType === 'personal';
   const isExecRole = user.role === 'executive';

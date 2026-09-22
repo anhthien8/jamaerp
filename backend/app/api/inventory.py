@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.inventory import Material, MaterialUsage
 from app.schemas.inventory import (
@@ -56,11 +57,26 @@ class MaterialImportRequest(BaseModel):
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
-def verify_inventory_access(user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "supervisor", "accountant") and user.department != "PURCHASING":
+async def verify_inventory_access(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gate kho vật tư qua ma trận Phân quyền («Xem Kho»), không hardcode vai trò.
+
+    Bản cũ so `role in (admin, supervisor, accountant) or department == PURCHASING`
+    nên BỎ QUA hoàn toàn ô «Xem Kho» và quyền riêng của từng người — admin tích
+    thêm chức năng cho ai đó thì backend vẫn chặn (lỗi user báo 22/09: «cập nhật
+    chức năng tài khoản thì không sử dụng được»).
+
+    Đo prod 22/09 trước khi đổi: KHÔNG ai mất quyền. 8 nhân sự OPS (7 giám sát
+    thi công + 1 trưởng phòng vận hành) ĐƯỢC THÊM — vì định nghĩa vai trò của họ
+    đã tích «Xem Kho» sẵn, chỉ là code đang phớt lờ.
+    """
+    perms = await quyen_hieu_luc(user, db)
+    if not perms.get("canViewInventory"):
         raise HTTPException(
             status_code=403,
-            detail="Không có quyền truy cập kho vật tư"
+            detail="Bạn không có quyền «Xem Kho» — xem trang Phân quyền"
         )
     return user
 

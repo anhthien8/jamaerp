@@ -5,16 +5,11 @@ import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
-import {
-  STAGE_CONFIG, formatCurrency, timeAgo, cn,
-  formatPricePerSqm, formatDealValue,
-  PROPERTY_CLASS_LABELS, PLAN_TYPE_LABELS, NEEDS_LABELS,
-  REGION_OPTIONS, TAG_COLORS,
-} from '@/lib/utils';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, REGION_OPTIONS, STAGE_CONFIG, TAG_COLORS, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
-import { getPermissions, canAssignLeads, canWriteCskhNote, isSalesCoordinator, isTeamLead, UserRole } from '@/lib/roles';
+import { canAssignLeads, canWriteCskhNote, isSalesCoordinator, phamViDuLieu } from '@/lib/roles';
 
 const PROPERTY_LABELS: Record<string, string> = {
   townhouse: 'Nhà phố', apartment: 'Căn hộ', villa: 'Biệt thự',
@@ -282,9 +277,9 @@ function LostReasonSelector({ isOpen, setIsOpen, onConfirm, onCancel }: {
 
 function LeadsContent() {
 
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
-  const perms = getPermissions((user?.role || 'data_entry') as UserRole);
+  const perms = effectivePermissions;
   // Admin/leader/điều phối KD (CSKH) được gắn/đổi người phụ trách — khớp can_assign_leads() backend.
   const canAssign = canAssignLeads(user);
 
@@ -454,28 +449,26 @@ function LeadsContent() {
         ...lead,
         tags: typeof lead.tags === 'string' ? (() => { try { return JSON.parse(lead.tags); } catch { return []; } })() : lead.tags || [],
       }));
-      // Apply role-based scope filtering.
-      // Hai vai trò phải ép phạm vi tay vì `leadsScope` không nằm trong ma trận
-      // checkbox của vai trò tùy chỉnh — mọi vai trò custom đều thừa kế 'own' của
-      // data_entry, nên bản cũ NÉM BỎ chính số lead backend đã trả đúng:
-      //   - Điều phối KD (CSKH): phải thấy TẤT CẢ để phân chia.
-      //   - Trưởng nhóm KD (leader + sale_leader): phải thấy lead cả nhóm. Đây là
-      //     lỗi user báo 27/08 «leader chỉ xem được lead gắn cho mình».
-      const scope = isSalesCoordinator(user?.role, user?.department)
-        ? 'all'
-        : isTeamLead(user?.role)
-          ? 'team'
-          : perms.leadsScope;
+      // Phạm vi phía trình duyệt PHẢI soi gương _loc_pham_vi_lead() backend.
+      // `leadsScope` không nằm trong ma trận checkbox của vai trò tùy chỉnh (mọi
+      // vai trò custom thừa kế 'own' của data_entry), nên bản cũ NÉM BỎ chính số
+      // lead backend đã trả đúng. Đây đúng là lỗi user báo với tài khoản Nguyễn
+      // Văn Toàn: backend trả 467 lead cả phòng KD, frontend cắt lại còn 141 của
+      // đội anh vì `isTeamLead('leader')` ép về 'team' (sửa 22/09).
+      const pv = isSalesCoordinator(user?.role, user?.department) ? 'tat_ca' : phamViDuLieu(user);
       let filtered = allLeads;
-      if (scope === 'own') {
-        filtered = allLeads.filter(l => l.assigned_to === user?.id);
-      } else if (scope === 'team') {
-        // Soi gương _team_lead_lead_scope() backend: lead nhóm mình HOẶC lead giao
-        // cho chính mình (trưởng nhóm chưa xếp đội vẫn thấy data của mình).
+      if (pv === 'ca_nhan') {
+        // Nhân viên: chỉ lead của mình. Nếu vai trò của họ vốn 'all'/'team' theo
+        // ma trận thì tôn trọng ma trận, không siết thêm.
+        if (perms.leadsScope === 'own') {
+          filtered = allLeads.filter(l => l.assigned_to === user?.id);
+        }
+      } else if (pv === 'nhom') {
         filtered = allLeads.filter(l =>
           (!!user?.team_id && l.team_id === user.team_id) || l.assigned_to === user?.id
         );
       }
+      // pv === 'phong_ban' | 'tat_ca': backend đã lọc đúng phạm vi, KHÔNG cắt thêm.
       // Apply client-side filters for region and property_class
       if (filterRegion !== 'all') {
         filtered = filtered.filter(l => l.region === filterRegion);
@@ -491,7 +484,7 @@ function LeadsContent() {
     } finally {
       setLoadingLeads(false);
     }
-  }, [filterSource, filterPriority, filterRegion, filterPropertyClass, perms.leadsScope, user?.id, user?.team_id, user?.role, user?.department]);
+  }, [filterSource, filterPriority, filterRegion, filterPropertyClass, perms.leadsScope, user, user?.id, user?.team_id, user?.role, user?.department]);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchLeads);
@@ -1681,7 +1674,18 @@ function LeadsContent() {
                   </div>
                   <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                     <p className="text-xs text-[var(--text-muted)]">Ngân sách</p>
-                    <p className="text-sm font-semibold mt-1 text-[#C9A96E]">{formatCurrency(selectedLead.estimated_budget)}</p>
+                    {/* Ưu tiên MỨC (sale nào cũng chọn được ngay), số chính xác
+                        hiện thêm bên dưới nếu khách đã nói rõ (chốt 22/09). */}
+                    <p className="text-sm font-semibold mt-1 text-[#C9A96E]">
+                      {selectedLead.ngan_sach_khoang
+                        ? NGAN_SACH_LABELS[selectedLead.ngan_sach_khoang] || selectedLead.ngan_sach_khoang
+                        : formatCurrency(selectedLead.estimated_budget)}
+                    </p>
+                    {selectedLead.ngan_sach_khoang && !!selectedLead.estimated_budget && (
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                        {formatCurrency(selectedLead.estimated_budget)}
+                      </p>
+                    )}
                   </div>
                   <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                     <p className="text-xs text-[var(--text-muted)]">Giá trị hợp đồng</p>

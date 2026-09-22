@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api, Team, User } from '@/lib/api';
-import { REGION_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
+import { REGION_OPTIONS, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 
 interface CreateLeadForm {
@@ -14,6 +14,7 @@ interface CreateLeadForm {
   property_type: string;
   area_sqm: string;
   estimated_budget: string;
+  ngan_sach_khoang: string;
   source: string;
   needs: string;
   priority: string;
@@ -27,7 +28,7 @@ interface CreateLeadForm {
 
 const INITIAL: CreateLeadForm = {
   name: '', phone: '', email: '', address: '',
-  property_type: 'townhouse', area_sqm: '', estimated_budget: '',
+  property_type: 'townhouse', area_sqm: '', estimated_budget: '', ngan_sach_khoang: '',
   source: 'zalo', needs: '', priority: 'medium',
   property_class: 'mid_range', price_per_sqm: '', region: '', segment: 'thi_cong_noi_that',
   plan_type: 'none', tags: [],
@@ -106,6 +107,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
       property_type: initialData.property_type || 'townhouse',
       area_sqm: initialData.area_sqm ? String(initialData.area_sqm) : '',
       estimated_budget: initialData.estimated_budget ? String(initialData.estimated_budget) : '',
+      ngan_sach_khoang: '',
       source: initialData.source || 'zalo',
       needs: initialData.needs || '',
       priority: 'medium',
@@ -211,6 +213,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
         property_type: form.property_type,
         area_sqm: form.area_sqm ? Number(form.area_sqm) : undefined,
         estimated_budget: form.estimated_budget ? Number(form.estimated_budget) : undefined,
+        ngan_sach_khoang: form.ngan_sach_khoang || undefined,
         source: form.source,
         needs: form.needs || undefined,
         priority: form.priority,
@@ -305,9 +308,15 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
             </Field>
           </div>
 
-          {/* Budget + Source */}
+          {/* Ngân sách: mức (bắt buộc chọn nhanh) + số chính xác nếu biết */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ngân sách (nghìn đồng)">
+            <Field label="Ngân sách">
+              <select value={form.ngan_sach_khoang} onChange={set('ngan_sach_khoang')} className="input">
+                <option value="">Chọn mức ngân sách</option>
+                {NGAN_SACH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Ngân sách chính xác (nghìn đồng) — nếu khách đã nói rõ">
               <MoneyInput
                 valueDong={form.estimated_budget}
                 onChangeDong={v => setForm(f => ({ ...f, estimated_budget: v }))}
@@ -315,6 +324,8 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
                 className="input pr-24"
               />
             </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Nguồn lead">
               <select value={form.source} onChange={set('source')} className="input">
                 {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

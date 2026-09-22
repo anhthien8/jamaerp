@@ -5,7 +5,9 @@ from datetime import datetime
 
 
 class ProjectCreate(BaseModel):
-    code: str
+    # Bỏ trống thì server tự sinh (sinh_ma_du_an). Bắt buộc như trước làm nút
+    # «Tạo dự án mới» trên màn Dự án trả 422 cho mọi tài khoản — form không có ô mã.
+    code: str | None = None
     name: str
     lead_id: str | None = None
     client_name: str

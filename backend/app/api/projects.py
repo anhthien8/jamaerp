@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
-from app.models.project import Project, Task, TaskActivity, task_department_for_stage
+from app.models.project import (
+    Project, Task, TaskActivity, sinh_ma_du_an, task_department_for_stage,
+)
 from app.middleware.rbac import (
-    PIC_THEO_PHONG_BAN, la_pic_du_an, la_truong_phong, pham_vi_du_an,
+    PIC_THEO_PHONG_BAN, VAI_TRO_TRUONG_PHONG, la_pic_du_an, la_truong_phong, pham_vi_du_an,
 )
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.notification import Notification
@@ -72,13 +74,15 @@ async def require_project_access(
         return current_user
     if la_pic_du_an(current_user, project):
         return current_user
-    if pham_vi == "phong_ban":
+    if pham_vi in ("phong_ban", "nhom"):
         # Trưởng phòng: dự án nào có PIC thuộc bộ phận mình thì xem được.
+        # Trưởng nhóm: hẹp hơn một bậc — PIC phải cùng NHÓM với mình (22/09).
         cot = PIC_THEO_PHONG_BAN.get((current_user.department or "").upper())
         if cot and getattr(project, cot, None):
             nguoi = await db.get(User, getattr(project, cot))
             if nguoi and (nguoi.department or "").upper() == (current_user.department or "").upper():
-                return current_user
+                if pham_vi == "phong_ban" or nguoi.team_id == current_user.team_id:
+                    return current_user
     # Được giao đầu việc trong dự án cũng phải xem được dự án đó
     co_task = (await db.execute(
         select(func.count(Task.id)).where(
@@ -264,15 +268,20 @@ async def list_projects(
             # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
             _dieu_kien_chua_phan_cong(),
         ]
-        if pham_vi == "phong_ban":
-            # Trưởng phòng: thêm mọi dự án có PIC thuộc bộ phận mình.
+        if pham_vi in ("phong_ban", "nhom"):
+            # Trưởng phòng: mọi dự án có PIC thuộc BỘ PHẬN mình.
+            # Trưởng nhóm: hẹp hơn một bậc — PIC phải cùng NHÓM (22/09).
             dept = (current_user.department or "").upper()
             cot = PIC_THEO_PHONG_BAN.get(dept)
             if cot:
-                nguoi_cung_phong = select(User.id).where(
+                nguoi_trong_pham_vi = select(User.id).where(
                     func.upper(func.coalesce(User.department, "")) == dept
                 )
-                dieu_kien.append(getattr(Project, cot).in_(nguoi_cung_phong))
+                if pham_vi == "nhom":
+                    nguoi_trong_pham_vi = nguoi_trong_pham_vi.where(
+                        User.team_id == current_user.team_id
+                    )
+                dieu_kien.append(getattr(Project, cot).in_(nguoi_trong_pham_vi))
         q = q.where(or_(*dieu_kien))
 
     # Count total (before pagination)
@@ -425,10 +434,56 @@ async def create_project(
     perms = await quyen_hieu_luc(current_user, db)
     if not perms.get("canCreateProjects"):
         raise HTTPException(status_code=403, detail="Bạn không có quyền «Tạo Dự án» — xem trang Phân quyền")
-    project = Project(**data.model_dump())
+    truong = data.model_dump()
+    if not truong.get("code"):
+        truong["code"] = await sinh_ma_du_an(db)
+    elif (await db.execute(select(Project).where(Project.code == truong["code"]))).scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Mã dự án {truong['code']} đã tồn tại")
+    project = Project(**truong)
     db.add(project)
     await db.flush()
+    await _thong_bao_du_an_moi(db, project, current_user)
     return _mask_project_response(ProjectResponse.model_validate(project), current_user)
+
+
+async def _thong_bao_du_an_moi(db: AsyncSession, project: Project, nguoi_tao: User) -> None:
+    """Dự án mới → nhắc TRƯỞNG PHÒNG của các bộ phận còn thiếu PIC vào gắn người.
+
+    Luồng chốt 22/09: tạo dự án → thông báo trưởng phòng → trưởng phòng gắn PIC.
+    Trước đây `create_project` không gửi thông báo nào, nên dự án nằm im không ai
+    biết mà vào phân công.
+
+    Chỉ nhắc bộ phận CHƯA có PIC: nhắc cả 4 phòng kể cả phòng đã gán xong thì
+    thông báo thành tiếng ồn, và người ta bỏ qua luôn những cái cần đọc.
+    """
+    thieu = [dept for dept, cot in PIC_THEO_PHONG_BAN.items() if not getattr(project, cot, None)]
+    if not thieu:
+        return
+    dieu_kien = [
+        and_(
+            func.upper(func.coalesce(User.department, "")) == dept,
+            User.role.in_(tuple(VAI_TRO_TRUONG_PHONG[dept])),
+        )
+        for dept in thieu
+        if VAI_TRO_TRUONG_PHONG.get(dept)
+    ]
+    if not dieu_kien:
+        return
+    truong_phong = (await db.execute(
+        select(User).where(User.is_active == True, or_(*dieu_kien))  # noqa: E712
+    )).scalars().all()
+    for nguoi in truong_phong:
+        if nguoi.id == nguoi_tao.id:
+            continue  # tự tạo thì khỏi tự nhắc mình
+        db.add(Notification(
+            user_id=nguoi.id,
+            type="project_created",
+            title=f"Dự án mới cần phân công: {project.name}",
+            body=(f"{nguoi_tao.full_name} vừa tạo dự án {project.code} "
+                  f"({project.client_name}). Vào gắn PIC cho bộ phận của bạn."),
+            link=f"/projects?id={project.id}",
+            ref_id=project.id,
+        ))
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)

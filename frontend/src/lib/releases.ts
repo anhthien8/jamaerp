@@ -15,6 +15,35 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '22/09/2026',
+    title: 'Phân quyền 3 tầng: Trưởng phòng — Trưởng nhóm — Nhân viên; siết dữ liệu lead về Kinh doanh',
+    tag: 'MỚI',
+    news: [
+      'TRƯỞNG PHÒNG (Kinh doanh, Thiết kế, Giám sát, Báo giá–Thu mua) nay xem được TOÀN BỘ lead & dự án của mọi nhân sự trong bộ phận mình — kể cả của các đội khác. Trước đây trưởng phòng bị bó trong đội của chính mình y như trưởng nhóm: tài khoản Trưởng phòng KD chỉ thấy 141 lead của đội mình thay vì 467 lead của cả 3 đội.',
+      'TRƯỞNG NHÓM Kinh doanh (và Chủ trì bên Thiết kế) xem dữ liệu của nhóm mình. NHÂN VIÊN xem của mình. Ai kiêm cả hai vai thì lấy quyền cao nhất — trưởng phòng.',
+      'Trưởng phòng thấy đủ số điện thoại khách trong phạm vi bộ phận (trước chỉ đủ số trong đội).',
+      'NGUYÊN TẮC MỚI VỀ LEAD: chỉ bộ phận Kinh doanh và Ban Giám Đốc được xem dữ liệu lead. Thiết kế / Giám sát / Báo giá–Thu mua / Kế toán không còn vào được mục Quy trình, kể cả khi ô «Xem Leads» được tích — muốn ai xem lead thì chuyển bộ phận của họ sang Kinh doanh.',
+      'Form «Thêm Lead» có thêm ô Ngân sách 3 mức: dưới 200 triệu / 200–500 triệu / trên 500 triệu. Ô nhập số tiền chính xác vẫn giữ để dùng khi khách đã nói rõ.',
+      'Dự án mới tạo sẽ gửi thông báo cho trưởng phòng các bộ phận CHƯA có người phụ trách, kèm link mở thẳng dự án để vào gắn PIC.',
+      'Khối «Phân công phụ trách (PIC)» giờ chỉ hiện ô của bộ phận mình: Trưởng phòng Kinh doanh không còn thấy danh sách nhân sự Thiết kế. Ban Giám Đốc vẫn thấy cả 4 ô.',
+    ],
+    fixes: [
+      'Sửa lỗi nút «Tạo dự án mới» KHÔNG tạo được cho mọi tài khoản — hệ thống đòi mã dự án mà form lại không có ô nhập mã, và thông báo lỗi bị che nên chỉ hiện «Lỗi khi tạo dự án». Nay mã tự sinh, và mọi lỗi đều hiện nguyên văn nguyên nhân.',
+      'Sửa lỗi cập nhật chức năng cho một tài khoản rồi mà người đó vẫn không dùng được: menu bên trái và thanh dưới trước đây chỉ đọc quyền theo VỊ TRÍ, bỏ qua phần chức năng cấp riêng cho từng người. Nay cấp thêm chức năng là menu hiện ra ngay.',
+      'Đổi vị trí cho một người thì phần chức năng cấp riêng được tính lại theo vị trí MỚI — trước đây họ bị giữ nguyên quyền của vị trí cũ.',
+      'Mục Kho vật tư trước đây chặn theo vị trí cứng, phớt lờ ô «Xem Kho» trong trang Phân quyền. Nay đi theo đúng ô đã tích: 7 giám sát thi công và Trưởng phòng Vận hành vào được Kho như cấu hình vốn đã bật cho họ.',
+      'Trang Phân quyền không lưu được ô «Xem Leads» cho vai trò thuộc bộ phận ngoài Kinh doanh nữa — hết cảnh giao diện hiện đã bật mà thực tế không xem được gì.',
+    ],
+    test: [
+      'Đăng nhập Trưởng phòng KD → Quy trình: phải thấy lead của cả 3 đội, không chỉ đội mình.',
+      'Đăng nhập Trưởng nhóm KD → chỉ thấy lead nhóm mình; mở lead đội khác phải bị chặn.',
+      'Đăng nhập một bạn Thiết kế/Thu mua → KHÔNG còn mục Quy trình trong menu.',
+      'Dự án → «+ Dự án mới» → điền tên + tên khách → Lưu: phải tạo được và sinh mã PRJ-…',
+      'Trưởng phòng Thiết kế mở dự án mới → khối PIC chỉ có ô Thiết kế; gắn người rồi Lưu, mở lại vẫn còn.',
+      'Thêm Lead → chọn Khu vực + mức Ngân sách → Lưu → mở chi tiết phải thấy đủ 2 thông tin.',
+    ],
+  },
+  {
     date: '09/09/2026',
     title: 'Hồ sơ nhân viên 360° + chấm công văn phòng «✓VP» + trưởng nhóm KD duyệt OT',
     tag: 'RELEASE',

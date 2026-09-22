@@ -3,24 +3,26 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, or_, false as sqlalchemy_false
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import (
-    can_view_lead, can_modify_lead, can_assign_leads, can_assign_lead_to,
-    can_touch_lead_assignment, can_write_cskh_note, is_sales_coordinator,
-    is_team_lead, SYSTEM_ROLES,
+    can_assign_leads, can_assign_lead_to, can_write_cskh_note,
+    duoc_xem_lead, duoc_xem_lead_nay, duoc_sua_lead_nay, duoc_doi_phan_cong_lead,
+    is_sales_coordinator, is_team_lead, la_truong_phong, pham_vi_du_lieu,
+    SYSTEM_ROLES,
 )
 from app.models.user import User, Team
 from app.models.lead import (
     Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES, CSKH_ACTIVITY_TYPE,
+    NGAN_SACH_KHOANG,
 )
 from app.models.customer import Customer
 from app.cache import cache
-from app.models.project import Project, Task, task_department_for_stage
+from app.models.project import Project, Task, sinh_ma_du_an, task_department_for_stage
 from app.models.contract import Contract
 from app.models.notification import Notification
 import random
@@ -56,6 +58,11 @@ def _mask_phone(phone: str | None, current_user=None, lead: Lead | None = None) 
     # Admin always sees full
     if current_user.role == "admin":
         return phone
+    # Trưởng phòng: đủ SĐT trong phạm vi bộ phận mình. An toàn vì hàm này chỉ
+    # chạy trên lead ĐÃ qua bộ lọc phạm vi (_loc_pham_vi_lead) hoặc đã qua guard
+    # chi tiết — tới đây nghĩa là lead thuộc phạm vi của họ rồi.
+    if la_truong_phong(current_user):
+        return phone
     # Trưởng nhóm (leader hệ thống + sale_leader): đủ SĐT với lead nhóm mình
     # + lead giao cho CHÍNH mình (chưa xếp đội vẫn phải có số để gọi khách)
     if is_team_lead(current_user):
@@ -88,6 +95,7 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
         survey_date=lead.survey_date, survey_photos=lead.survey_photos,
         property_class=lead.property_class, price_per_sqm=lead.price_per_sqm,
         region=lead.region, segment=lead.segment,
+        ngan_sach_khoang=lead.ngan_sach_khoang,
         plan_type=lead.plan_type, tags=lead.tags, deal_value=lead.deal_value,
         stage=lead.stage, priority=lead.priority, lost_reason=lead.lost_reason,
         assigned_to=lead.assigned_to, team_id=lead.team_id,
@@ -98,6 +106,67 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
         assigned_user_name=user_name, team_name=team_name,
         activity_count=act_count,
     )
+
+
+def _kiem_ngan_sach_khoang(gia_tri: str | None) -> None:
+    """Chỉ nhận 3 mức đã chốt — sai khóa thì 400 rõ ràng chứ không lặng lẽ lưu rác."""
+    if gia_tri and gia_tri not in NGAN_SACH_KHOANG:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mức ngân sách không hợp lệ: {gia_tri}. Chọn một trong "
+                   + ", ".join(NGAN_SACH_KHOANG),
+        )
+
+
+def _chan_neu_khong_duoc_xem_lead(current_user: User) -> None:
+    """Nguyên tắc 22/09: trừ bộ phận Kinh doanh và Ban Giám Đốc, KHÔNG ai thấy lead.
+
+    Chặn cứng theo bộ phận, đứng trên ma trận 23 ô chức năng — tích «Xem Leads»
+    cho một bạn Thiết kế/Thu mua cũng không lọt được vào đây.
+    """
+    if not duoc_xem_lead(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ bộ phận Kinh doanh và Ban Giám Đốc được xem dữ liệu lead",
+        )
+
+
+def _loc_pham_vi_lead(q, current_user: User):
+    """Áp phạm vi xem lead lên một truy vấn — MỘT nguồn sự thật cho cả danh
+    sách / kanban / thống kê / xuất CSV.
+
+    Trước 22/09 bốn endpoint này chép tay cùng một đoạn `if`, nên mỗi lần đổi
+    luật là một chỗ bị bỏ sót. Bốn tầng:
+      tat_ca   — admin / giám đốc / điều phối KD (CSKH cần thấy hết để chia data)
+      phong_ban— trưởng phòng: lead của MỌI nhân sự cùng bộ phận
+      nhom     — trưởng nhóm: lead của nhóm mình
+      ca_nhan  — nhân viên: lead gắn cho mình
+    """
+    # Chặn cứng NGAY TRONG hàm lọc, không chỉ ở đầu endpoint: `operation_leader`
+    # là trưởng phòng của OPS nên tầng 'phong_ban' sẽ cho họ thấy lead của mọi
+    # nhân sự phòng Giám sát. Endpoint nào quên chặn thì ở đây vẫn ra rỗng.
+    if not duoc_xem_lead(current_user):
+        return q.where(sqlalchemy_false())
+    if is_sales_coordinator(current_user):
+        return q
+    pham_vi = pham_vi_du_lieu(current_user)
+    if pham_vi == "tat_ca":
+        return q
+    if pham_vi == "phong_ban":
+        cung_phong = select(User.id).where(
+            func.upper(func.coalesce(User.department, ""))
+            == (current_user.department or "").upper()
+        )
+        # Vế `assigned_to == mình` giữ cho trưởng phòng chưa gán bộ phận vẫn
+        # thấy data của chính mình thay vì màn hình trắng.
+        return q.where(
+            or_(Lead.assigned_to.in_(cung_phong), Lead.assigned_to == current_user.id)
+        )
+    if pham_vi == "nhom":
+        return q.where(
+            or_(Lead.team_id == current_user.team_id, Lead.assigned_to == current_user.id)
+        )
+    return q.where(Lead.assigned_to == current_user.id)
 
 
 @router.get("")
@@ -123,22 +192,10 @@ async def list_leads(
         .outerjoin(Team, Lead.team_id == Team.id)
     )
 
-    # RBAC filter — "tài khoản tên nào, chỉ xem tên đó" (feedback team KD 12/08/2026):
-    # sale thấy lead của mình; trưởng nhóm (leader/sale_leader) thấy lead nhóm mình;
-    # điều phối KD (CSKH) thấy tất cả để phân chia; vai trò tùy chỉnh NGOÀI bộ phận KD
-    # cũng chỉ thấy lead được gắn cho mình.
-    if current_user.role == "data_entry":
-        q = q.where(Lead.assigned_to == current_user.id)
-    elif is_team_lead(current_user):
-        # Chưa được xếp nhóm: chỉ thấy lead gắn cho chính mình (tránh team_id NULL khớp lead trôi nổi)
-        if current_user.team_id is None:
-            q = q.where(Lead.assigned_to == current_user.id)
-        else:
-            q = q.where(Lead.team_id == current_user.team_id)
-    elif current_user.role in ("accountant", "executive", "supervisor"):
+    # Bộ phận ngoài KD/BGĐ: trả rỗng thay vì 403 để trang không vỡ nếu menu còn hiện.
+    if not duoc_xem_lead(current_user):
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
-    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
-        q = q.where(Lead.assigned_to == current_user.id)
+    q = _loc_pham_vi_lead(q, current_user)
 
     if stage:
         q = q.where(Lead.stage == stage)
@@ -195,15 +252,7 @@ async def pipeline_stats(
 ):
     """Pipeline summary stats."""
     q = select(Lead.stage, func.count(Lead.id), func.sum(Lead.estimated_budget))
-    if current_user.role == "data_entry":
-        q = q.where(Lead.assigned_to == current_user.id)
-    elif is_team_lead(current_user):
-        if current_user.team_id is None:
-            q = q.where(Lead.assigned_to == current_user.id)
-        else:
-            q = q.where(Lead.team_id == current_user.team_id)
-    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
-        q = q.where(Lead.assigned_to == current_user.id)
+    q = _loc_pham_vi_lead(q, current_user)
     q = q.group_by(Lead.stage)
 
     result = await db.execute(q)
@@ -247,15 +296,7 @@ async def pipeline_kanban(
             .where(Lead.stage == stage)
             .order_by(Lead.updated_at.desc())
         )
-        if current_user.role == "data_entry":
-            q = q.where(Lead.assigned_to == current_user.id)
-        elif is_team_lead(current_user):
-            if current_user.team_id is None:
-                q = q.where(Lead.assigned_to == current_user.id)
-            else:
-                q = q.where(Lead.team_id == current_user.team_id)
-        elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
-            q = q.where(Lead.assigned_to == current_user.id)
+        q = _loc_pham_vi_lead(q, current_user)
 
         result = await db.execute(q)
         rows = result.all()
@@ -278,14 +319,21 @@ async def team_workload(
 ):
     """Team workload distribution — leads per user with pipeline value and overdue count.
     Admin, trưởng nhóm (leader/sale_leader) và điều phối KD."""
+    _chan_neu_khong_duoc_xem_lead(current_user)
     if not (
         current_user.role == "admin"
         or is_team_lead(current_user)
         or is_sales_coordinator(current_user)
     ):
         raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được xem phân công workload")
-    # Trưởng nhóm chưa được xếp nhóm: không có phạm vi để xem
-    if is_team_lead(current_user) and current_user.role != "admin" and current_user.team_id is None:
+    # Trưởng NHÓM chưa được xếp nhóm: không có phạm vi để xem. Trưởng PHÒNG thì
+    # phạm vi là bộ phận nên không cần team_id (22/09).
+    if (
+        is_team_lead(current_user)
+        and not la_truong_phong(current_user)
+        and current_user.role != "admin"
+        and current_user.team_id is None
+    ):
         return []
 
     # Overdue = active leads not contacted in >7 days (or never contacted)
@@ -323,9 +371,9 @@ async def team_workload(
         .order_by(func.count(Lead.id).desc())
     )
 
-    # RBAC: trưởng nhóm chỉ thấy workload nhóm mình; admin/điều phối KD thấy tất cả
-    if is_team_lead(current_user):
-        q = q.where(Lead.team_id == current_user.team_id)
+    # RBAC: dùng chung một thước đo với danh sách lead — trưởng phòng thấy cả bộ
+    # phận, trưởng nhóm thấy nhóm mình, admin/điều phối KD thấy tất cả.
+    q = _loc_pham_vi_lead(q, current_user)
 
     result = await db.execute(q)
     rows = result.all()
@@ -354,20 +402,12 @@ async def export_leads_csv(
     current_user: User = Depends(get_current_user),
 ):
     """Export leads as CSV — cùng phạm vi với danh sách lead của người xuất."""
-    if current_user.role in ("accountant", "executive", "supervisor"):
+    _chan_neu_khong_duoc_xem_lead(current_user)
+    if current_user.role == "executive":
+        # Giám đốc XEM được lead nhưng không xuất file ra ngoài (giữ nguyên luật cũ)
         raise HTTPException(status_code=403, detail="Không có quyền xuất dữ liệu lead")
 
-    q = select(Lead).order_by(Lead.created_at.desc())
-    if current_user.role == "data_entry":
-        q = q.where(Lead.assigned_to == current_user.id)
-    elif is_team_lead(current_user):
-        if current_user.team_id is None:
-            q = q.where(Lead.assigned_to == current_user.id)
-        else:
-            q = q.where(Lead.team_id == current_user.team_id)
-    elif current_user.role not in SYSTEM_ROLES and not is_sales_coordinator(current_user):
-        q = q.where(Lead.assigned_to == current_user.id)
-    # admin + điều phối KD (CSKH): toàn bộ
+    q = _loc_pham_vi_lead(select(Lead).order_by(Lead.created_at.desc()), current_user)
 
     result = await db.execute(q)
     leads = result.scalars().all()
@@ -410,7 +450,7 @@ async def get_lead(
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
 
     lead, user_name, team_name = row
-    if not can_view_lead(current_user, lead):
+    if not await duoc_xem_lead_nay(db, current_user, lead):
         raise HTTPException(status_code=403, detail="Không có quyền xem lead này")
     act_q = select(func.count(Activity.id)).where(Activity.lead_id == lead.id)
     act_count = (await db.execute(act_q)).scalar() or 0
@@ -424,6 +464,8 @@ async def create_lead(
     current_user: User = Depends(get_current_user),
 ):
     """Create new lead."""
+    _chan_neu_khong_duoc_xem_lead(current_user)
+    _kiem_ngan_sach_khoang(data.ngan_sach_khoang)
     # Gắn nhân viên KD ngay khi tạo (feedback team KD 12/08/2026: "thêm lead => Gắn Sale").
     # Không chọn ai → người tạo tự phụ trách như trước.
     assignee = current_user
@@ -448,6 +490,7 @@ async def create_lead(
         survey_date=data.survey_date, survey_photos=data.survey_photos,
         property_class=data.property_class, price_per_sqm=data.price_per_sqm,
         region=data.region, segment=data.segment,
+        ngan_sach_khoang=data.ngan_sach_khoang,
         plan_type=data.plan_type, tags=data.tags, deal_value=data.deal_value,
         priority=data.priority, notes=data.notes,
         assigned_to=assignee.id, team_id=assignee.team_id,
@@ -490,10 +533,12 @@ async def update_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
-    if not can_modify_lead(current_user, lead):
+    if not await duoc_sua_lead_nay(db, current_user, lead):
         raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
 
     update_fields = data.model_dump(exclude_unset=True)
+    if "ngan_sach_khoang" in update_fields:
+        _kiem_ngan_sach_khoang(update_fields["ngan_sach_khoang"])
     for k, v in update_fields.items():
         setattr(lead, k, v)
     lead.updated_at = datetime.now(timezone.utc)
@@ -514,7 +559,7 @@ async def change_stage(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
-    if not can_modify_lead(current_user, lead):
+    if not await duoc_sua_lead_nay(db, current_user, lead):
         raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
 
     valid = VALID_STAGE_TRANSITIONS.get(lead.stage, [])
@@ -565,18 +610,9 @@ async def change_stage(
         proj_res = await db.execute(proj_q)
         project = proj_res.scalar_one_or_none()
         if not project:
-            year = datetime.now(timezone.utc).year
-            # Ensure unique project code (max 100 attempts to avoid infinite loop)
-            code = None
-            for _attempt in range(100):
-                candidate = f"PRJ-{year}-{random.randint(1000, 9999)}"
-                code_q = select(Project).where(Project.code == candidate)
-                code_res = await db.execute(code_q)
-                if not code_res.scalar_one_or_none():
-                    code = candidate
-                    break
-            if not code:
-                code = f"PRJ-{year}-{uuid.uuid4().hex[:8]}"
+            # Dùng chung hàm sinh mã với nút «Tạo dự án mới» (22/09) để hai
+            # đường tạo dự án không lệch định dạng mã.
+            code = await sinh_ma_du_an(db)
 
             project = Project(
                 code=code,
@@ -747,6 +783,7 @@ async def bulk_assign_leads(
     người trong nhóm — lead ngoài phạm vi bị bỏ qua (trả về `skipped`).
     Lead nhận người phụ trách mới thì team_id cũng đi theo người đó.
     """
+    _chan_neu_khong_duoc_xem_lead(current_user)
     if not can_assign_leads(current_user):
         raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được giao lead hàng loạt")
 
@@ -763,7 +800,7 @@ async def bulk_assign_leads(
     leads = result.scalars().all()
     updated = 0
     for lead in leads:
-        if not can_touch_lead_assignment(current_user, lead):
+        if not await duoc_doi_phan_cong_lead(db, current_user, lead):
             continue
         lead.assigned_to = target_user.id
         lead.team_id = target_user.team_id
@@ -796,6 +833,7 @@ async def bulk_change_stage(
 
     Trưởng nhóm chỉ đổi được stage của lead thuộc nhóm mình — ngoài phạm vi bị bỏ qua.
     """
+    _chan_neu_khong_duoc_xem_lead(current_user)
     if not (
         current_user.role == "admin"
         or is_team_lead(current_user)
@@ -822,7 +860,7 @@ async def bulk_change_stage(
     leads = result.scalars().all()
     updated = 0
     for lead in leads:
-        if not can_modify_lead(current_user, lead):
+        if not await duoc_sua_lead_nay(db, current_user, lead):
             continue
         old_stage = lead.stage
         lead.stage = data.new_stage
@@ -851,7 +889,7 @@ async def assign_lead(
     if not can_assign_leads(current_user):
         raise HTTPException(status_code=403, detail="Chỉ admin/trưởng nhóm/điều phối KD được phân công lead")
     # Trưởng nhóm chỉ được phân công lead đã thuộc nhóm mình (CSKH giao về nhóm trước)
-    if not can_touch_lead_assignment(current_user, lead):
+    if not await duoc_doi_phan_cong_lead(db, current_user, lead):
         raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được phân công lead thuộc nhóm mình")
 
     # Get target user
@@ -900,6 +938,7 @@ async def list_activities(
     current_user: User = Depends(get_current_user),
 ):
     """Get activity history for a lead (paginated)."""
+    _chan_neu_khong_duoc_xem_lead(current_user)
     base_q = (
         select(Activity, User.full_name.label("user_name"))
         .outerjoin(User, Activity.user_id == User.id)
@@ -942,6 +981,7 @@ async def create_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Add activity to lead."""
+    _chan_neu_khong_duoc_xem_lead(current_user)
     # Verify lead exists
     result = await db.execute(select(Lead).where(Lead.id == lead_id))
     lead = result.scalar_one_or_none()
