@@ -83,6 +83,13 @@ async def require_project_access(
             if nguoi and (nguoi.department or "").upper() == (current_user.department or "").upper():
                 if pham_vi == "phong_ban" or nguoi.team_id == current_user.team_id:
                     return current_user
+        # Cột PIC của phòng mình còn TRỐNG ⇒ trưởng phòng phải vào được để gắn.
+        # Đây chính là việc hệ thống vừa gửi thông báo nhờ họ làm. Thiếu nhánh này
+        # thì chỉ cần MỘT bộ phận gắn PIC là dự án hết «chưa phân công» và các
+        # trưởng phòng còn lại bị 403 «Bạn không phụ trách dự án này» — dự án
+        # không bao giờ gắn đủ 4 PIC (lỗi user báo 22/09).
+        if pham_vi == "phong_ban" and await _phong_chua_co_pic(db, project, current_user):
+            return current_user
     # Được giao đầu việc trong dự án cũng phải xem được dự án đó
     co_task = (await db.execute(
         select(func.count(Task.id)).where(
@@ -121,6 +128,40 @@ def _dieu_kien_chua_phan_cong():
         # ra NULL và dự án trống PIC bị loại sạch, đúng cái đang muốn tránh.
         da_phan_cong.append(func.coalesce(getattr(Project, cot), "").in_(nhan_su_phong))
     return ~or_(*da_phan_cong)
+
+
+async def _phong_chua_co_pic(db: AsyncSession, project: Project, nguoi: User) -> bool:
+    """Cột PIC của bộ phận `nguoi` trên dự án này còn trống (theo nghĩa BỘ PHẬN).
+
+    «Trống» = NULL, hoặc đang trỏ vào người KHÔNG thuộc bộ phận đó — ví dụ 108/153
+    dự án trên prod có `sales_id` trỏ vào tài khoản admin (dấu vết lúc import),
+    trưởng phòng KD phải vào sửa lại được.
+    """
+    dept = (nguoi.department or "").upper()
+    cot = PIC_THEO_PHONG_BAN.get(dept)
+    if not cot:
+        return False
+    uid = getattr(project, cot, None)
+    if not uid:
+        return True
+    pic = await db.get(User, uid)
+    return pic is None or (pic.department or "").upper() != dept
+
+
+def _dieu_kien_phong_chua_co_pic(nguoi: User):
+    """Bản SQL của `_phong_chua_co_pic` — để danh sách khớp đúng guard chi tiết.
+
+    Không tìm thấy dự án trong danh sách thì không gắn PIC được, nên hai chỗ này
+    buộc phải cùng một luật (bài học 05/09).
+    """
+    dept = (nguoi.department or "").upper()
+    cot = PIC_THEO_PHONG_BAN.get(dept)
+    if not cot:
+        return None
+    nhan_su_phong = select(User.id).where(
+        func.upper(func.coalesce(User.department, "")) == dept
+    )
+    return ~func.coalesce(getattr(Project, cot), "").in_(nhan_su_phong)
 
 
 async def _chua_phan_cong_pic(db: AsyncSession, project: Project) -> bool:
@@ -282,6 +323,13 @@ async def list_projects(
                         User.team_id == current_user.team_id
                     )
                 dieu_kien.append(getattr(Project, cot).in_(nguoi_trong_pham_vi))
+        if pham_vi == "phong_ban":
+            # …và mọi dự án còn TRỐNG PIC của phòng mình — đó là danh sách việc
+            # cần làm của trưởng phòng. Thiếu nhánh này thì họ nhận được thông
+            # báo «dự án mới cần phân công» mà mở danh sách lại không thấy đâu.
+            thieu = _dieu_kien_phong_chua_co_pic(current_user)
+            if thieu is not None:
+                dieu_kien.append(thieu)
         q = q.where(or_(*dieu_kien))
 
     # Count total (before pagination)
@@ -501,6 +549,8 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
 
+    await _kiem_quyen_phan_cong_pic(db, current_user, data.model_dump(exclude_unset=True))
+
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(project, k, v)
     project.updated_at = datetime.now(timezone.utc)
@@ -513,6 +563,64 @@ async def update_project(
         cache.clear_prefix("dashboard")
 
     return _mask_project_response(ProjectResponse.model_validate(project), current_user)
+
+
+
+# Nhãn tiếng Việt của bộ phận — dùng trong thông báo lỗi để người dùng hiểu ngay.
+TEN_BO_PHAN: dict[str, str] = {
+    "OPS": "Giám sát",
+    "DESIGN": "Thiết kế",
+    "SALES": "Kinh doanh",
+    "PURCHASING": "Báo giá – Thu mua",
+}
+
+
+async def _kiem_quyen_phan_cong_pic(
+    db: AsyncSession, nguoi: User, thay_doi: dict
+) -> None:
+    """Ai được gắn PIC vào cột nào, và người được gắn phải thuộc bộ phận nào.
+
+    Chốt 22/09: «Trưởng phòng được quyền phân công nhân sự phụ trách dự án. Đó có
+    thể là chính họ, hoặc nhân sự trong phòng ban.» Nên:
+      - Chỉ TRƯỞNG PHÒNG (và Ban Giám Đốc) được gắn PIC.
+      - Trưởng phòng chỉ gắn vào cột CỦA PHÒNG MÌNH, và chỉ gắn người CÙNG PHÒNG.
+    Trước đây backend không kiểm gì — chỉ frontend ẩn ô, nên gọi API trực tiếp là
+    gắn được người phòng khác vào bất kỳ cột nào.
+
+    Ban Giám Đốc (admin/executive) KHÔNG bị giới hạn: họ điều phối chéo phòng và
+    còn phải sửa được 108/153 dự án cũ đang có `sales_id` trỏ vào tài khoản admin.
+    """
+    cot_pic = {cot: dept for dept, cot in PIC_THEO_PHONG_BAN.items()}
+    cot_dang_doi = {k: v for k, v in thay_doi.items() if k in cot_pic}
+    if not cot_dang_doi or nguoi.role in ("admin", "executive"):
+        return
+
+    if not la_truong_phong(nguoi):
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ Trưởng phòng (hoặc Ban Giám Đốc) được phân công PIC dự án",
+        )
+
+    dept_minh = (nguoi.department or "").upper()
+    for cot, uid in cot_dang_doi.items():
+        dept_cot = cot_pic[cot]
+        if dept_cot != dept_minh:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Bạn chỉ được phân công PIC cho bộ phận "
+                       f"{TEN_BO_PHAN.get(dept_minh, dept_minh)}",
+            )
+        if uid is None:
+            continue  # gỡ người khỏi dự án — hợp lệ
+        pic = await db.get(User, uid)
+        if pic is None or not pic.is_active:
+            raise HTTPException(status_code=400, detail="Nhân sự được gắn không tồn tại hoặc đã nghỉ")
+        if (pic.department or "").upper() != dept_cot:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{pic.full_name} không thuộc bộ phận "
+                       f"{TEN_BO_PHAN.get(dept_cot, dept_cot)} — chỉ gắn được nhân sự trong phòng",
+            )
 
 
 @router.get("/{project_id}/tasks", response_model=list[TaskResponse])

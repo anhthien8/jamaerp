@@ -16,6 +16,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '22/09/2026',
+    title: 'Sửa lỗi Trưởng phòng không gắn được PIC — «Bạn không phụ trách dự án này»',
+    tag: 'FIX',
+    fixes: [
+      'Trưởng phòng (Kinh doanh, Thiết kế, Giám sát, Báo giá–Thu mua) nay gắn được nhân sự phụ trách vào MỌI dự án còn trống PIC của phòng mình — cả dự án mới tạo lẫn dự án đã có sẵn trong hệ thống. Có thể gắn chính mình hoặc nhân sự trong phòng.',
+      'Nguyên nhân lỗi: hệ thống coi «dự án chưa phân công» là dự án chưa có PIC NÀO. Nên chỉ cần một phòng gắn người trước là các trưởng phòng còn lại vừa không thấy dự án trong danh sách, vừa bị chặn «Bạn không phụ trách dự án này» khi mở — dự án thành ngõ cụt, không bao giờ gắn đủ 4 PIC. Nay tính theo TỪNG PHÒNG: ô PIC của phòng bạn còn trống thì bạn vào được để gắn.',
+      'Danh sách Dự án của trưởng phòng nay gồm cả những dự án còn thiếu PIC phòng mình — đó là danh sách việc cần làm. Trước đây nhận thông báo «dự án mới cần phân công» mà mở danh sách lại không thấy dự án đâu.',
+      'Dự án đang gắn sai người ở ô Kinh doanh (dấu vết lúc chuyển dữ liệu cũ) nay Trưởng phòng Kinh doanh sửa lại được.',
+      'Siết lại cho đúng: chỉ Trưởng phòng và Ban Giám Đốc được phân công PIC; trưởng phòng chỉ gắn vào ô của phòng mình và chỉ chọn được nhân sự trong phòng. Trước đây máy chủ không kiểm gì — chỉ giao diện ẩn ô, nên gọi thẳng API là gắn được người phòng khác vào bất kỳ ô nào.',
+      'Người không có quyền phân công thì không còn thấy khối PIC để bấm rồi mới nhận lỗi.',
+    ],
+    test: [
+      'Đăng nhập Trưởng phòng Thu mua → mở một dự án đã có PIC Thiết kế → phải mở được và gắn được người Thu mua.',
+      'Lần lượt 4 trưởng phòng gắn PIC vào cùng một dự án: không ai bị chặn giữa đường.',
+      'Trưởng phòng Kinh doanh thử chọn nhân sự Thiết kế: giao diện không hiện ô đó; gọi API trực tiếp bị chặn.',
+    ],
+  },
+  {
+    date: '22/09/2026',
     title: 'Phân quyền 3 tầng: Trưởng phòng — Trưởng nhóm — Nhân viên; siết dữ liệu lead về Kinh doanh',
     tag: 'MỚI',
     news: [

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { laTruongPhong } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages } from '@/lib/api';
@@ -143,7 +143,7 @@ const taskStatusConfig: Record<string, { label: string; color: string; icon: str
 };
 
 export default function ProjectsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -624,7 +624,9 @@ export default function ProjectsPage() {
   }
 
 
-  const permissions = getPermissions(user.role as UserRole);
+  // effectivePermissions: gồm cả chức năng cấp riêng cho từng người (22/09),
+  // nếu dùng getPermissions(role) trần thì cấp thêm quyền mà nút không hiện.
+  const permissions = effectivePermissions;
   if (!permissions.canViewProjects) return <AccessDenied />;
 
   const activeCount = projects.filter(p => p.status === 'active').length;
@@ -1647,9 +1649,12 @@ export default function ProjectsPage() {
                     { key: 'sales_id', nhan: '💼 Kinh doanh', dept: 'sales' },
                   ] as const).filter(o =>
                     // Ban Giám Đốc điều phối chéo phòng → thấy cả 4 ô.
-                    // Còn lại chỉ thấy ô của bộ phận mình (chốt 22/09).
+                    // TRƯỞNG PHÒNG thấy đúng ô của bộ phận mình. Người khác không
+                    // thấy ô nào — backend cũng chỉ cho trưởng phòng gắn PIC, nên
+                    // hiện ô cho họ chỉ dẫn tới bấm rồi ăn 403 (chốt 22/09).
                     laBanGiamDoc(user) ||
-                    PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] === o.key
+                    (laTruongPhong(user) &&
+                      PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] === o.key)
                   ).map(o => {
                     const ungVien = users.filter(u => canTakeTask(u, o.dept));
                     return (
@@ -1673,10 +1678,10 @@ export default function ProjectsPage() {
                       </div>
                     );
                   })}
-                  {!laBanGiamDoc(user) && !PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] && (
+                  {!laBanGiamDoc(user) && !laTruongPhong(user) && (
                     <p className="text-[11px] sm:col-span-2" style={{ color: '#F59E0B' }}>
-                      Bộ phận của bạn không phụ trách PIC dự án. Trưởng phòng Thiết kế /
-                      Giám sát / Báo giá–Thu mua / Kinh doanh sẽ gắn người cho phòng mình.
+                      Chỉ Trưởng phòng được phân công PIC cho bộ phận mình. Nhờ Trưởng phòng
+                      Thiết kế / Giám sát / Báo giá–Thu mua / Kinh doanh gắn người giúp.
                     </p>
                   )}
                 </div>

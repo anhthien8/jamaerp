@@ -152,11 +152,22 @@ async def test_nhan_vien_chi_thay_du_an_cua_minh(client, bo_may, nguoi, du_an_cu
     ("tk_tp", "tk"), ("gs_tp", "gs"), ("tm_tp", "tm"),
 ])
 async def test_truong_phong_thay_du_an_ca_bo_phan(client, bo_may, tp, du_an_phong):
+    """Trưởng phòng thấy dự án của quân mình — VÀ mọi dự án còn trống PIC phòng mình.
+
+    Vế sau đổi ngày 22/09 theo yêu cầu «trưởng phòng được quyền phân công nhân sự
+    phụ trách dự án, kể cả các dự án đang có trong hệ thống». Bản cũ khẳng định
+    trưởng phòng KHÔNG thấy dự án bộ phận khác, nhưng như vậy thì chỉ cần một bộ
+    phận gắn PIC trước là các trưởng phòng còn lại vừa không thấy vừa bị 403 khi
+    mở — dự án không bao giờ gắn đủ 4 PIC. Phạm vi HẸP vẫn giữ cho nhân viên và
+    trưởng nhóm (xem test_nhan_vien_chi_thay_du_an_cua_minh).
+    """
     u, p = bo_may["u"], bo_may["p"]
     thay = await _ma_du_an_thay_duoc(client, u[tp])
     assert p[du_an_phong] in thay, "trưởng phòng phải thấy dự án của quân mình"
     khac = [v for k, v in p.items() if k not in (du_an_phong, "trong")]
-    assert not (set(khac) & thay), "nhưng KHÔNG thấy dự án bộ phận khác"
+    assert set(khac) <= thay, (
+        "dự án bộ phận khác nhưng CÒN TRỐNG PIC phòng mình ⇒ vẫn phải thấy để vào gắn"
+    )
 
 
 @pytest.mark.asyncio
