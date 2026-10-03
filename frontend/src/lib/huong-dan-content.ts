@@ -1142,7 +1142,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "Điền hồ sơ: mở tab **Hồ sơ & HĐLĐ** → bấm **Sửa** → điền → **Lưu**.",
-          "Tải ảnh CCCD/HĐLĐ: kéo xuống khối **Giấy tờ** → bấm **+ CCCD mặt trước** (hoặc loại khác) → chọn ảnh — app tự nén JPG cho nhẹ, không cần chỉnh gì.",
+          "Tải ảnh CCCD/HĐLĐ: kéo xuống khối **Giấy tờ** → bấm **+ CCCD mặt trước** (hoặc loại khác) → chọn ảnh — app tự nén JPG cho nhẹ, không cần chỉnh gì. Ảnh tải lên hiện ngay thành hình thu nhỏ, bấm vào ảnh để xem lớn.",
           "Nhập **Ngày hết hạn** hợp đồng để hệ thống nhắc gia hạn (HĐ không thời hạn thì để trống)."
         ]
       },

@@ -98,6 +98,8 @@ function NhanVienContent() {
   const [handovers, setHandovers] = useState<{ given: HandoverItem[]; received: HandoverItem[] } | null>(null);
   const [auditRows, setAuditRows] = useState<{ id: string; action: string; actor_name: string | null; note: string | null; created_at: string }[] | null>(null);
   const [docView, setDocView] = useState<{ filename: string; src: string } | null>(null);
+  // Ảnh thu nhỏ khối Giấy tờ — ảnh nằm trong DB nên mỗi ảnh là 1 lần gọi API, cache theo id
+  const [docThumbs, setDocThumbs] = useState<Record<string, string>>({});
   const [tabLoading, setTabLoading] = useState(false);
   // Trưởng nhóm xem lính: backend trả view rút gọn (limited) — ẩn tab Hồ sơ,
   // mở thẳng tab Chấm công cho đúng việc họ cần
@@ -128,7 +130,27 @@ function NhanVienContent() {
     }
   }, [targetId]);
 
+  // Đổi người đang xem (?id=): dọn giấy tờ + cache ảnh cũ, kẻo effect dưới fetch lệch cặp id người cũ/mới
+  useEffect(() => { setDocs([]); setDocThumbs({}); }, [targetId]);
+
   useEffect(() => { void loadProfile(); }, [loadProfile]);
+
+  // Tự tải ảnh thu nhỏ khi vào tab Hồ sơ (song song; ảnh lỗi ghi '' để khỏi refetch — ô đổi chữ, bấm vẫn xem được)
+  useEffect(() => {
+    if (tab !== 'ho-so') return;
+    const missing = docs.filter(d => docThumbs[d.id] === undefined);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async d => {
+      try {
+        const data = await api.getEmployeeDocument(targetId, d.id);
+        return [d.id, `data:${data.mime};base64,${data.data_base64}`] as [string, string];
+      } catch { return [d.id, ''] as [string, string]; }
+    })).then(entries => {
+      if (!cancelled) setDocThumbs(t => ({ ...t, ...Object.fromEntries(entries) }));
+    });
+    return () => { cancelled = true; };
+  }, [docs, tab, targetId, docThumbs]);
 
   const openTab = async (key: string) => {
     setTab(key);
@@ -179,10 +201,12 @@ function NhanVienContent() {
       return;
     }
     try {
-      await api.uploadEmployeeDocument(targetId, {
+      const res = await api.uploadEmployeeDocument(targetId, {
         doc_type: docType, filename: file.name.replace(/\.[^.]+$/, '') + '.jpg',
         mime: compressed.mime, data_base64: compressed.base64,
       });
+      // Ảnh vừa nén đã có sẵn ở client — seed cache cho thumbnail hiện ngay, khỏi tải lại từ server
+      setDocThumbs(t => ({ ...t, [res.id]: `data:${compressed.mime};base64,${compressed.base64}` }));
       toast('Đã tải lên', 'success');
       await loadProfile();
     } catch (e) {
@@ -191,9 +215,13 @@ function NhanVienContent() {
   };
 
   const viewDoc = async (d: EmployeeDocumentMeta) => {
+    const cached = docThumbs[d.id];
+    if (cached) { setDocView({ filename: d.filename, src: cached }); return; }
     try {
       const data = await api.getEmployeeDocument(targetId, d.id);
-      setDocView({ filename: data.filename, src: `data:${data.mime};base64,${data.data_base64}` });
+      const src = `data:${data.mime};base64,${data.data_base64}`;
+      setDocThumbs(t => ({ ...t, [d.id]: src })); // ô từng tải lỗi tự lành, lần sau khỏi tải lại
+      setDocView({ filename: data.filename, src });
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Không mở được file', 'error');
     }
@@ -338,15 +366,32 @@ function NhanVienContent() {
 
             <div className="glass-card rounded-xl p-4 md:p-5">
               <h2 className="text-sm font-bold mb-1">Giấy tờ (CCCD, HĐLĐ scan)</h2>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Ảnh JPG — app tự nén khi chọn. Chỉ Admin/Kế toán và chính chủ xem được.</p>
-              <div className="space-y-2">
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Ảnh JPG — app tự nén khi chọn. Bấm vào ảnh để xem lớn. Chỉ Admin/Kế toán và chính chủ xem được.</p>
+              <div className="flex flex-wrap gap-3">
                 {docs.map(d => (
-                  <div key={d.id} className="flex items-center gap-2 text-sm flex-wrap">
-                    <button onClick={() => void viewDoc(d)} className="underline" style={{ color: '#60A5FA' }}>{labelOf(DOC_LABELS, d.doc_type)}</button>
-                    <span style={{ color: 'var(--text-muted)' }} className="text-xs">{d.filename} · {(d.size_bytes / 1024).toFixed(0)}KB · {d.uploaded_by_name || ''}</span>
-                    {canEdit && (
-                      <button onClick={() => { if (confirm(`Xóa ${d.filename}?`)) { void api.deleteEmployeeDocument(targetId, d.id).then(() => loadProfile()); } }} className="text-xs" style={{ color: '#F87171' }}>Xóa</button>
-                    )}
+                  <div key={d.id} className="w-36">
+                    <button
+                      onClick={() => void viewDoc(d)}
+                      className="block w-full rounded-lg overflow-hidden"
+                      style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-2)' }}
+                      title={`${d.filename} · ${(d.size_bytes / 1024).toFixed(0)}KB`}
+                    >
+                      {docThumbs[d.id] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={docThumbs[d.id]} alt={labelOf(DOC_LABELS, d.doc_type)} className="w-full h-24 object-cover" />
+                      ) : (
+                        <div className="w-full h-24 flex items-center justify-center text-xs px-2 text-center" style={{ color: 'var(--text-muted)' }}>
+                          {docThumbs[d.id] === '' ? 'Bấm để xem ảnh' : 'Đang tải…'}
+                        </div>
+                      )}
+                    </button>
+                    <div className="flex items-center justify-between gap-1 mt-1">
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>{labelOf(DOC_LABELS, d.doc_type)}</p>
+                      {canEdit && (
+                        <button onClick={() => { if (confirm(`Xóa ${labelOf(DOC_LABELS, d.doc_type)} (${d.filename})?`)) { void api.deleteEmployeeDocument(targetId, d.id).then(() => loadProfile()).catch(e => toast(e instanceof Error ? e.message : 'Xóa thất bại', 'error')); } }} className="text-xs shrink-0" style={{ color: '#F87171' }}>Xóa</button>
+                      )}
+                    </div>
+                    <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }} title={d.filename}>{(d.size_bytes / 1024).toFixed(0)}KB · {d.uploaded_by_name || ''}</p>
                   </div>
                 ))}
                 {docs.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chưa có giấy tờ nào.</p>}

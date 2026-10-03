@@ -15,6 +15,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '03/10/2026',
+    title: 'Hồ sơ nhân viên: ảnh CCCD/HĐLĐ hiện hình thu nhỏ ngay trên trang',
+    tag: 'MỚI',
+    news: [
+      'Khối «Giấy tờ» trong Hồ sơ nhân viên 360° nay hiển thị ẢNH THU NHỎ của từng giấy tờ ngay khi mở tab — không còn là dòng link chữ phải bấm mới biết ảnh gì.',
+      'Bấm vào ảnh để xem bản lớn; tên file, dung lượng và người tải lên vẫn hiện bên dưới mỗi ảnh (di chuột vào ảnh cũng thấy).',
+      'Ảnh vừa tải lên hiện hình ngay lập tức, nút «Xóa» giữ nguyên cho người có quyền sửa.',
+    ],
+    test: [
+      'Nhân sự → bấm một nhân viên → tab Hồ sơ & HĐLĐ → khối Giấy tờ: các ảnh đã tải phải hiện thành hình thu nhỏ.',
+      'Bấm vào một ảnh: ảnh phóng to giữa màn hình, bấm ngoài để đóng.',
+      'Tải thêm một ảnh mới: hình thu nhỏ của ảnh đó hiện ra ngay, không cần tải lại trang.',
+    ],
+  },
+  {
     date: '22/09/2026',
     title: 'Tổng quan: thêm bộ lọc xem số liệu theo kỳ',
     tag: 'MỚI',
