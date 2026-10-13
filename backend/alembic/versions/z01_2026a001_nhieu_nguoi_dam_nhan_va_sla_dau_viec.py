@@ -56,35 +56,53 @@ def upgrade() -> None:
         op.create_index("ix_task_assignees_task", "task_assignees", ["task_id"])
         op.create_index("ix_task_assignees_user", "task_assignees", ["user_id"])
 
-        # Backfill: mỗi việc đang có người làm → một dòng trong bảng mới. Dùng
-        # hex(randomblob) / gen_random_uuid tuỳ DB thì kém di động, nên sinh id
-        # bằng Python rồi chèn theo lô.
-        import uuid
-        from datetime import datetime, timezone
+    # Backfill: mỗi việc đang có người làm → một dòng trong bảng mới. Dùng
+    # hex(randomblob) / gen_random_uuid tuỳ DB thì kém di động, nên sinh id
+    # bằng Python rồi chèn theo lô.
+    #
+    # NẰM NGOÀI nhánh create_table ở trên: nếu bảng đã được dựng sẵn bằng đường
+    # khác (dev `create_all`, hoặc một lần chạy migration trước đã tạo bảng rồi
+    # vỡ ở bước chèn như trên prod 13/10/2026), bỏ backfill là mọi đầu việc cũ
+    # hiện «chưa có ai nhận» dù `assigned_to` vẫn còn tên người. Bỏ qua cặp đã
+    # có nên gọi lại bao nhiêu lần cũng an toàn.
+    import uuid
+    from datetime import datetime, timezone
 
-        rows = bind.execute(
-            sa.text("SELECT id, assigned_to FROM tasks WHERE assigned_to IS NOT NULL")
+    rows = bind.execute(
+        sa.text("SELECT id, assigned_to FROM tasks WHERE assigned_to IS NOT NULL")
+    ).fetchall()
+    # Người đã nghỉ việc bị xoá khỏi bảng users thì dòng cũ trong tasks vẫn
+    # trỏ tới id đó; chèn thẳng sẽ vỡ khoá ngoại nên lọc trước.
+    nguoi_that = {
+        r[0] for r in bind.execute(sa.text("SELECT id FROM users")).fetchall()
+    }
+    da_co = {
+        (r[0], r[1])
+        for r in bind.execute(
+            sa.text("SELECT task_id, user_id FROM task_assignees")
         ).fetchall()
-        # Người đã nghỉ việc bị xoá khỏi bảng users thì dòng cũ trong tasks vẫn
-        # trỏ tới id đó; chèn thẳng sẽ vỡ khoá ngoại nên lọc trước.
-        nguoi_that = {
-            r[0] for r in bind.execute(sa.text("SELECT id FROM users")).fetchall()
-        }
-        now = datetime.now(timezone.utc)
-        payload = [
-            {"id": str(uuid.uuid4()), "task_id": tid, "user_id": uid, "created_at": now}
-            for tid, uid in rows
-            if uid in nguoi_that
-        ]
-        if payload:
-            bang_moi = sa.table(
-                "task_assignees",
-                sa.column("id", sa.String),
-                sa.column("task_id", sa.String),
-                sa.column("user_id", sa.String),
-                sa.column("created_at", sa.DateTime),
-            )
-            op.bulk_insert(bang_moi, payload)
+    }
+    # Mốc PHẢI là naive UTC: cột là `TIMESTAMP WITHOUT TIME ZONE`, và đường chèn
+    # của alembic đẩy thẳng tham số xuống asyncpg → datetime có tzinfo làm vỡ
+    # «can't subtract offset-naive and offset-aware datetimes». SQLite im lặng bỏ
+    # tzinfo nên bản dev và test `upgrade head` không bắt được — prod 13/10/2026
+    # vỡ đúng chỗ này, migration rollback và `tasks.started_at` không bao giờ
+    # được thêm.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    payload = [
+        {"id": str(uuid.uuid4()), "task_id": tid, "user_id": uid, "created_at": now}
+        for tid, uid in rows
+        if uid in nguoi_that and (tid, uid) not in da_co
+    ]
+    if payload:
+        bang_moi = sa.table(
+            "task_assignees",
+            sa.column("id", sa.String),
+            sa.column("task_id", sa.String),
+            sa.column("user_id", sa.String),
+            sa.column("created_at", sa.DateTime),
+        )
+        op.bulk_insert(bang_moi, payload)
 
 
 def downgrade() -> None:
