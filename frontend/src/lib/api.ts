@@ -1174,6 +1174,26 @@ class ApiClient {
     return this.request<DashboardPersonal>(`/dashboard/personal${_duoiKy(ky)}`);
   }
 
+  // Bảng điều khiển Kinh doanh (13/10/2026) — một lần gọi trả cả màn hình.
+  // Bỏ trống `ky` thì BACKEND tự lấy tháng này (khác Tổng quan mặc định «toàn
+  // bộ»): mọi mục tiêu ở màn này là mục tiêu tháng.
+  async getSalesDashboard(ky?: { from: string; to: string } | null, teamId?: string | null) {
+    const duoi = _duoiKy(ky);
+    const them = teamId ? `${duoi ? '&' : '?'}team_id=${encodeURIComponent(teamId)}` : '';
+    return this.request<SalesDashboard>(`/dashboard/sales${duoi}${them}`);
+  }
+
+  async getSalesTargets() {
+    return this.request<SalesTargets>('/dashboard/sales/muc-tieu');
+  }
+
+  async saveSalesTargets(payload: SalesTargets) {
+    return this.request<SalesTargets>('/dashboard/sales/muc-tieu', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // AI
   async parseLead(text: string) {
     return this.request<LeadParseResult>('/ai/parse-lead', {
@@ -2131,6 +2151,129 @@ export interface DashboardPersonal {
 
 /** Unified dashboard type — all fields optional since exec/personal have different shapes */
 export type DashboardData = Partial<DashboardExecutive> & Partial<DashboardPersonal>;
+
+// ── Bảng điều khiển Kinh doanh (13/10/2026) ─────────────────────────────────
+// Khớp payload của GET /dashboard/sales. Tên trường để nguyên tiếng Việt như
+// backend trả — đổi tên ở FE là mở đường cho lệch âm thầm khi backend sửa.
+
+export interface SalesTargets {
+  doanh_thu_thang: number;
+  hd_thiet_ke_thang: number;
+  hd_thi_cong_thang: number;
+  khach_khao_sat_thang: number;
+  ty_le_lien_he_toi_thieu: number;
+  khu_vuc_trong_tam: string[];
+  theo_nhom: Record<string, Record<string, number>>;
+}
+
+export interface SalesKpiCard {
+  ma: 'doanh_thu' | 'hd_thiet_ke' | 'hd_thi_cong' | 'khach_khao_sat' | 'ty_le_lien_he';
+  thuc_te: number;
+  muc_tieu: number;
+  muc_tieu_thang: number;
+  /** Mục tiêu đã chia theo số ngày ĐÃ TRÔI QUA — phân biệt «mới ngày 14» với «đang chậm» */
+  muc_tieu_tien_do: number;
+  phan_tram: number;
+  ky_truoc: number;
+  delta_pct: number | null;
+  dat_tien_do: boolean | null;
+  don_vi: 'vnd' | 'hop_dong' | 'khach' | '%';
+  /** Ngưỡng sàn (tỷ lệ liên hệ) — không chia theo ngày, không nhân theo tháng */
+  la_nguong?: boolean;
+}
+
+export interface SalesFunnelStep {
+  ma: string;
+  nhan: string;
+  so_luong: number;
+  phan_tram_goc: number;
+  phan_tram_buoc_truoc: number | null;
+}
+
+export interface SalesTeamRow {
+  team_id: string | null;
+  nhom: string;
+  data_nhan: number;
+  dat_tieu_chuan: number;
+  pct_dat: number;
+  khach_tinh: number;
+  ngan_sach_thap: number;
+  khong_dat: number;
+  lien_he: number;
+  khao_sat: number;
+  bao_gia: number;
+  ky_hd: number;
+  doanh_so: number;
+  muc_tieu: number;
+  pct_muc_tieu: number | null;
+}
+
+export interface SalesPerson {
+  user_id: string;
+  ten: string;
+  nhom: string;
+  data: number;
+  lien_he: number;
+  khao_sat: number;
+  bao_gia: number;
+  ky_hd: number;
+  doanh_so: number;
+  pct_khao_sat: number;
+  pct_bao_gia: number;
+  pct_ky: number;
+  pct_muc_tieu: number;
+  ngay_cho_tb: number;
+  ton_qua_han: number;
+  van_de?: Array<{ ma: string; nhan: string; muc_do: 'gap' | 'canh_bao' }>;
+  van_de_chinh?: string;
+}
+
+export interface SalesDashboard {
+  ky: {
+    tu: string; den: string; so_ngay: number | null;
+    ky_truoc_tu: string | null; ky_truoc_den: string | null; he_so_thang: number;
+  };
+  team_id: string | null;
+  danh_sach_nhom: Array<{ id: string; ten: string }>;
+  cap_nhat_luc: string;
+  muc_tieu: SalesTargets;
+  kpi: SalesKpiCard[];
+  chu_ky_6_thang: {
+    tong: number; trung_binh: number; delta_pct: number | null;
+    cao_nhat: { nhan: string; thuc_te: number } | null;
+    thap_nhat: { nhan: string; thuc_te: number } | null;
+  };
+  doanh_so_theo_thang: Array<{ thang: string; nhan: string; thuc_te: number; muc_tieu: number }>;
+  chat_luong_data: {
+    tong: number; delta_pct: number | null;
+    ro: Array<{ ma: string; nhan: string; so_luong: number; phan_tram: number }>;
+  };
+  hieu_suat_nhom: SalesTeamRow[];
+  pheu: SalesFunnelStep[];
+  top_nhan_vien: SalesPerson[];
+  can_ho_tro: SalesPerson[];
+  canh_bao: Array<{
+    ma: string; tieu_de: string; so_luong: number;
+    nhan_hanh_dong: string; muc_do: 'gap' | 'canh_bao' | 'theo_doi';
+    metric: string | null;
+  }>;
+  // 6 khối đề xuất thêm
+  toc_do_pipeline: Array<{ stage: string; nhan: string; so_luong: number; tuoi_tb: number; tuoi_max: number }>;
+  ton_kho_lead: Array<{ nhan: string; so_luong: number; phan_tram: number; gia_tri: number }>;
+  theo_nguon: Array<{
+    nguon: string; tong: number; dat_chuan: number; khao_sat: number; ky_hd: number;
+    gia_tri: number; pct_dat_chuan: number; pct_ky: number;
+  }>;
+  du_bao: {
+    gia_tri_pipeline: number; du_bao_co_trong_so: number; con_thieu: number;
+    theo_buoc: Array<{ stage: string; nhan: string; so_luong: number; gia_tri: number; xac_suat: number; du_bao: number }>;
+  };
+  ly_do_mat: Array<{ ly_do: string; so_luong: number; phan_tram: number }>;
+  theo_ngan_sach: Array<{
+    muc: string; nhan: string; tong: number; phan_tram: number;
+    ky_hd: number; pct_ky: number; gia_tri: number;
+  }>;
+}
 
 export interface LeadParseResult {
   name?: string;

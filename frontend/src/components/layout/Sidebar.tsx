@@ -11,7 +11,7 @@ import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
-import { SHOW_DEMO_MODE } from '@/lib/features';
+import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -35,10 +35,19 @@ const Icon = {
   attendance: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
   approvals: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
   kpi: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /><line x1="4" y1="20" x2="20" y2="20" /></svg>,
+  salesDashboard: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 12l4-4" /><path d="M12 2v2" /><path d="M22 12h-2" /><path d="M4 12H2" /></svg>,
 };
 
+// Vai trò xem được Bảng điều khiển Kinh doanh. PHẢI khớp `VAI_TRO_XEM` trong
+// backend/app/api/sales_dashboard.py — lệch nhau là người ta thấy menu rồi nhận 403.
+const VAI_TRO_SALE_DASHBOARD = ['admin'];
+
 // ── All nav items (flat list) ────────────────────────────────────────
-const ALL_ITEMS = [
+// `perm` = gác theo ô ma trận phân quyền; `roles` = gác theo vai trò (dùng cho
+// màn đang thử nghiệm, chưa có ô ma trận riêng). Thiếu cả hai ⇒ ai cũng thấy.
+type NavItem = { href: string; label: string; icon: ReactNode; perm?: string; roles?: string[] };
+
+const ALL_ITEMS: NavItem[] = [
   { href: '/', label: 'Tổng quan', icon: Icon.dashboard },
   { href: '/attendance', label: 'Chấm công', icon: Icon.attendance },
   { href: '/approvals', label: 'Phê duyệt', icon: Icon.approvals },
@@ -55,6 +64,10 @@ const ALL_ITEMS = [
   // Trước 12/08/2026 mục này KHÔNG gán quyền nào ⇒ Kế toán (canViewKPI tắt) thấy menu
   // rồi bấm vào bị trang đá về Tổng quan. Gán quyền cho menu khớp với chốt của trang.
   { href: '/kpi', label: 'KPI', icon: Icon.kpi, perm: 'canViewKPI' },
+  // Bảng điều khiển Kinh doanh — bản thử nghiệm, chỉ admin (xem lib/features.ts)
+  ...(SHOW_SALES_DASHBOARD
+    ? [{ href: '/sale-dashboard', label: 'Bảng KD', icon: Icon.salesDashboard, roles: VAI_TRO_SALE_DASHBOARD }]
+    : []),
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   // Trước 13/08/2026 mục này gán 'canViewAccounting' ⇒ trưởng phòng/sale thấy menu
   // nhưng 4 API trang gọi đều gác canViewPnL → toàn 403. Menu phải khớp cổng backend.
@@ -158,6 +171,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   const { essentialItems, extraItems } = useMemo(() => {
     if (!perms) return { essentialItems: [], extraItems: [] };
     const allowed = ALL_ITEMS.filter(item => {
+      if (item.roles && !item.roles.includes(user?.role || '')) return false;
       if (!item.perm) return true;
       return (perms as unknown as Record<string, unknown>)[item.perm] === true;
     });

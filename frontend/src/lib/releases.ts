@@ -15,6 +15,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '13/10/2026',
+    title: 'Bảng điều khiển Kinh doanh (bản thử nghiệm — chỉ quản trị)',
+    tag: 'THỬ NGHIỆM',
+    news: [
+      'Thêm màn «Bảng KD» gom toàn bộ hiệu suất phòng kinh doanh về một chỗ: 5 thẻ chỉ tiêu (doanh thu, hợp đồng thiết kế, hợp đồng thi công, khách khảo sát, tỷ lệ liên hệ thành công), doanh số 6 tháng so với mục tiêu, chất lượng data marketing, phễu bán hàng 8 bước, bảng hiệu suất từng nhóm, top nhân viên, nhân viên cần hỗ trợ và danh sách việc cần làm.',
+      'Mục tiêu tháng (doanh thu, số hợp đồng, số khách khảo sát, ngưỡng tỷ lệ liên hệ, khu vực trọng tâm, mục tiêu riêng từng nhóm) sửa được ngay trên màn ở khối «Thiết lập mục tiêu» — hệ thống tự chia mục tiêu theo số ngày của kỳ đang xem, nên ngày 10 không bị so với chỉ tiêu cả tháng.',
+      'Thêm 6 khối phân tích chưa từng có: lead đang ứ ở bước nào, tồn kho lead theo tuổi, chuyển đổi theo nguồn data, dự báo doanh số có trọng số, lý do mất lead, và phân khúc theo mức ngân sách.',
+      'HIỆN CHỈ TÀI KHOẢN QUẢN TRỊ VÀO ĐƯỢC. Đây là bản thử nghiệm để chốt cấu trúc; Ban giám đốc và phòng kinh doanh sẽ được mở sau khi duyệt.',
+    ],
+    test: [
+      'Đăng nhập quản trị → menu trái mục «Bảng KD»: trang mở được, các thẻ có số.',
+      'Đổi ô chọn kỳ (Tháng này / Tháng trước / Quý này…) và ô chọn nhóm: mọi khối phải đổi số theo.',
+      'Mở «Thiết lập mục tiêu», sửa doanh thu tháng rồi lưu: phần trăm trên các thẻ đổi theo ngay.',
+      'Đăng nhập bằng tài khoản KHÁC quản trị: không được thấy mục «Bảng KD» trong menu.',
+    ],
+  },
+  {
     date: '03/10/2026',
     title: 'Hồ sơ nhân viên: ảnh CCCD/HĐLĐ hiện hình thu nhỏ ngay trên trang',
     tag: 'MỚI',
