@@ -143,9 +143,19 @@ const SERVER_NOTIF_ICONS: Record<string, string> = {
   payment_reminder: '💰',
   bod_report: '📊',
   system: '🔔',
+  // Đầu việc dự án (13/10/2026)
+  task_assigned: '👤',
+  task_overdue: '🔴',
+  task_sla_breach: '⚠',
+  task_escalated: '📣',
 };
 
-const SERVER_ACTION_TYPES = new Set(['followup_reminder', 'lead_recalled', 'payment_reminder']);
+// Nhóm «Cần xử lý» — đầu việc trễ hạn/vượt SLA phải nằm trên đầu danh sách,
+// không trộn vào «Gần đây» rồi trôi mất.
+const SERVER_ACTION_TYPES = new Set([
+  'followup_reminder', 'lead_recalled', 'payment_reminder',
+  'task_assigned', 'task_overdue', 'task_sla_breach', 'task_escalated',
+]);
 
 function isDemoMode(): boolean {
   if (typeof window === 'undefined') return false;

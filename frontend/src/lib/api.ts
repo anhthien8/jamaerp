@@ -1094,7 +1094,7 @@ class ApiClient {
     );
   }
 
-  async createTask(projectId: string, data: { title: string; stage: string; department?: string; assigned_to?: string }) {
+  async createTask(projectId: string, data: { title: string; stage: string; department?: string; assigned_to?: string; assignee_ids?: string[]; due_date?: string }) {
     return this.request<ProjectTask>(`/projects/${projectId}/tasks`, { method: 'POST', body: data });
   }
 
@@ -1131,9 +1131,27 @@ class ApiClient {
     });
   }
   async assignTask(projectId: string, taskId: string, userId: string) {
+    // KHÔNG gửi status: bản cũ gửi kèm `status: 'not_started'` nên thêm người vào
+    // một đầu việc «Đang làm» là tụt trạng thái về «Chưa bắt đầu».
     return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/assign`, {
       method: 'PUT',
-      body: { status: 'not_started', assigned_to: userId },
+      body: { assignee_ids: [userId] },
+    });
+  }
+
+  /** Đặt lại TOÀN BỘ nhóm đảm nhận. Mảng rỗng = gỡ hết người. */
+  async setTaskAssignees(projectId: string, taskId: string, userIds: string[]) {
+    return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/assign`, {
+      method: 'PUT',
+      body: { assignee_ids: userIds },
+    });
+  }
+
+  /** Đặt / bỏ hạn thoả thuận của đầu việc (mốc nhắc «quá hạn»). */
+  async setTaskDueDate(projectId: string, taskId: string, dueDate: string | null) {
+    return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/due-date`, {
+      method: 'PUT',
+      body: { due_date: dueDate },
     });
   }
 
@@ -1753,6 +1771,24 @@ class ApiClient {
   }>) {
     return this.request<AutomationSettings>('/automation/settings', { method: 'PUT', body: data });
   }
+  // SLA đầu việc (13/10/2026) — số ngày chuẩn cho từng đầu việc, sửa trong Cài đặt
+  async getTaskSla() {
+    return this.request<TaskSlaConfig>('/automation/task-sla');
+  }
+  async updateTaskSla(data: Partial<{
+    dau_viec: Record<string, number>;
+    phong_ban: Record<string, number>;
+    leo_thang_ngay: number;
+    bat: boolean;
+  }>) {
+    return this.request<TaskSlaConfig>('/automation/task-sla', { method: 'PUT', body: data });
+  }
+  async runTaskAlerts() {
+    return this.request<{ task_overdue: number; task_sla_breach: number }>(
+      '/automation/run/task-alerts', { method: 'POST' }
+    );
+  }
+
   async runAutomation(job: 'followups' | 'recall' | 'payments' | 'all') {
     return this.request<Record<string, unknown>>(`/automation/run/${job}`, { method: 'POST' });
   }
@@ -1982,9 +2018,17 @@ export interface ProjectTask {
   stage: string;
   department?: string; // design | quotation | procurement | construction | accounting | sales
   final_file_url?: string;
+  /** BẢN SAO của một người trong nhóm — nhóm thật là `assignee_ids` (13/10/2026). */
   assigned_to?: string;
+  /** Nhóm người đảm nhận, TẤT CẢ NGANG VAI (không chính/phụ). */
+  assignee_ids?: string[];
   order: number;
+  /** Hạn thoả thuận — trễ mốc này là «quá hạn». */
   due_date?: string;
+  /** Mốc bắt đầu làm; đồng hồ SLA chạy từ đây. */
+  started_at?: string;
+  /** Hạn theo chuẩn nội bộ — trễ mốc này là «vi phạm SLA». */
+  sla_due_at?: string;
   completed_at?: string;
   created_at: string;
 }
@@ -2547,6 +2591,17 @@ export interface AutomationSettings {
   bod_report_hour: string;
   telegram_group_chat_id: string;
   group_briefing_enabled: string;
+}
+
+/** Cấu hình SLA đầu việc — `dau_viec`/`phong_ban` là bản HIỆU LỰC (mặc định đã
+ *  trộn với phần admin sửa); `mac_dinh_*` để UI biết chỗ nào đang khác mặc định. */
+export interface TaskSlaConfig {
+  dau_viec: Record<string, number>;
+  phong_ban: Record<string, number>;
+  leo_thang_ngay: number;
+  bat: boolean;
+  mac_dinh_dau_viec: Record<string, number>;
+  mac_dinh_phong_ban: Record<string, number>;
 }
 
 // === Instant Quote ===

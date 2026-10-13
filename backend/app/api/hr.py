@@ -12,8 +12,9 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.lead import Lead, Activity
 from app.models.handover import HandoverRecord
-from app.models.project import Task, Project
+from app.models.project import Task, Project, dieu_kien_task_cua_nguoi
 from app.services.audit import log_action
+from app.services.task_assign import dat_nguoi_lam
 
 router = APIRouter(prefix="/hr", tags=["hr"])
 
@@ -107,7 +108,7 @@ async def resign_preview(
     tasks_result = await db.execute(
         select(Task, Project.name)
         .join(Project, Project.id == Task.project_id)
-        .where(Task.assigned_to == user.id)
+        .where(dieu_kien_task_cua_nguoi(user.id))
     )
     task_rows = tasks_result.all()
     tasks = [t for t, _ in task_rows]
@@ -203,7 +204,7 @@ async def resign(
 
     # --- Tasks ---
     tasks_result = await db.execute(
-        select(Task).where(Task.assigned_to == user.id)
+        select(Task).where(dieu_kien_task_cua_nguoi(user.id))
     )
     tasks = tasks_result.scalars().all()
 
@@ -225,7 +226,13 @@ async def resign(
                 target = proj.pm_id
         if not target:
             continue
-        task.assigned_to = target
+        # Nhóm mới = nhóm cũ BỎ người nghỉ, THÊM người nhận bàn giao. Gán thẳng
+        # `assigned_to = target` như trước sẽ bỏ sót bảng `task_assignees`: người
+        # nghỉ vẫn còn tên trong nhóm đảm nhận và vẫn nhận thông báo quá hạn.
+        nhom = [a.user_id for a in (task.assignees or []) if a.user_id != user.id]
+        if target not in nhom:
+            nhom.append(target)
+        await dat_nguoi_lam(db, task, nhom, current_user)
         db.add(HandoverRecord(
             from_user_id=user.id, from_user_name=user.full_name,
             to_user_id=target, to_user_name=await _user_name(target),

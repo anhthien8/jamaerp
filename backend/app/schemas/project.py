@@ -1,6 +1,6 @@
 """Pydantic schemas for projects, tasks, and task activities."""
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, computed_field, model_validator
 from datetime import datetime
 
 
@@ -116,6 +116,14 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TaskAssigneeOut(BaseModel):
+    """Một người trong nhóm đảm nhận đầu việc."""
+
+    user_id: str
+
+    model_config = {"from_attributes": True}
+
+
 class TaskResponse(BaseModel):
     id: str
     project_id: str
@@ -126,11 +134,21 @@ class TaskResponse(BaseModel):
     department: str | None = None
     final_file_url: str | None = None
     final_file_versions: list[dict] | None = None
+    # BẢN SAO của một người trong nhóm — giữ cho FE/truy vấn cũ. Nhóm thật nằm ở
+    # `assignee_ids` (13/10/2026, một việc nhiều người ngang vai).
     assigned_to: str | None = None
+    assignees: list[TaskAssigneeOut] = []
     order: int
-    due_date: datetime | None = None
+    due_date: datetime | None = None       # hạn thoả thuận
+    started_at: datetime | None = None     # mốc bắt đầu — đồng hồ SLA chạy từ đây
+    sla_due_at: datetime | None = None     # hạn theo chuẩn nội bộ
     completed_at: datetime | None = None
     created_at: datetime
+
+    @computed_field
+    @property
+    def assignee_ids(self) -> list[str]:
+        return [a.user_id for a in self.assignees]
 
     model_config = {"from_attributes": True}
 

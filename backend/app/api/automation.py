@@ -18,6 +18,13 @@ from app.services.automation import (
     run_all_automation,
 )
 from app.services.bod_report import send_bod_report, build_bod_report, send_group_briefing
+from app.services.task_sla import (
+    SLA_MAC_DINH_DAU_VIEC,
+    SLA_MAC_DINH_PHONG_BAN,
+    lay_cau_hinh_sla,
+    luu_cau_hinh_sla,
+    run_task_alerts,
+)
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
@@ -81,6 +88,66 @@ async def update_settings(
 
     await db.commit()
     return await get_automation_settings(db)
+
+
+# ---------------------------------------------------------------------------
+# SLA đầu việc (13/10/2026) — số ngày chuẩn sửa trong Cài đặt, không sửa code
+# ---------------------------------------------------------------------------
+
+class SlaUpdate(BaseModel):
+    dau_viec: dict[str, int] | None = None     # {"2D Concept": 3, ...}
+    phong_ban: dict[str, int] | None = None    # {"design": 5, ...}
+    leo_thang_ngay: int | None = None          # trễ mấy ngày thì báo trưởng phòng
+    bat: bool | None = None
+
+
+@router.get("/task-sla")
+async def read_task_sla(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_admin),
+):
+    """Cấu hình SLA hiệu lực + bản mặc định, để FE hiện được «đang khác mặc định»."""
+    return {
+        **await lay_cau_hinh_sla(db),
+        "mac_dinh_dau_viec": SLA_MAC_DINH_DAU_VIEC,
+        "mac_dinh_phong_ban": SLA_MAC_DINH_PHONG_BAN,
+    }
+
+
+@router.put("/task-sla")
+async def update_task_sla(
+    payload: SlaUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_admin),
+):
+    if payload.model_dump(exclude_none=True) == {}:
+        raise HTTPException(status_code=400, detail="Không có thay đổi nào")
+    for bang in (payload.dau_viec, payload.phong_ban):
+        for ten, ngay in (bang or {}).items():
+            if not (1 <= int(ngay) <= 180):
+                raise HTTPException(
+                    status_code=400, detail=f"Số ngày SLA của «{ten}» phải trong 1–180"
+                )
+    if payload.leo_thang_ngay is not None and not (0 <= payload.leo_thang_ngay <= 30):
+        raise HTTPException(status_code=400, detail="Số ngày leo thang phải trong 0–30")
+    cau_hinh = await luu_cau_hinh_sla(
+        db,
+        dau_viec=payload.dau_viec,
+        phong_ban=payload.phong_ban,
+        leo_thang_ngay=payload.leo_thang_ngay,
+        bat=payload.bat,
+    )
+    await db.commit()
+    return cau_hinh
+
+
+@router.post("/run/task-alerts")
+async def trigger_task_alerts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_admin),
+):
+    """Chạy tay hai job nhắc hạn đầu việc (quá hạn + vượt SLA)."""
+    return await run_task_alerts(db)
 
 
 # ---------------------------------------------------------------------------

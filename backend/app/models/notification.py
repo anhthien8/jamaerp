@@ -16,6 +16,11 @@ NOTIFICATION_TYPES = [
     "payment_reminder",    # nhắc hẹn thanh toán
     "contract_signed",     # khách ký HĐ → tạo dự án
     "project_created",     # dự án mới → nhắc trưởng phòng gắn PIC (22/09/2026)
+    # Đầu việc dự án (13/10/2026) — xem app/services/task_sla.py
+    "task_assigned",       # được gắn vào đầu việc (nhiều người/việc, ngang vai)
+    "task_overdue",        # trễ HẠN THOẢ THUẬN (tasks.due_date)
+    "task_sla_breach",     # vượt CHUẨN NỘI BỘ (tasks.sla_due_at)
+    "task_escalated",      # trễ quá lâu → leo thang lên trưởng phòng + PM
     "bod_report",          # báo cáo BOD
     "system",
 ]

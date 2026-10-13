@@ -197,7 +197,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo, **Chấm công văn phòng** — khai IP mạng công ty + tọa độ VP để bảng công gắn nhãn ✓VP, và nối máy chấm công qua API) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo». Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
+        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo, **Chấm công văn phòng** — khai IP mạng công ty + tọa độ VP để bảng công gắn nhãn ✓VP, và nối máy chấm công qua API) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo» và **«Chuẩn SLA đầu việc»**. Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
+      },
+      {
+        "type": "p",
+        "text": "**Chuẩn SLA đầu việc** (Admin + Ban giám đốc): khai số ngày tiêu chuẩn cho từng đầu việc trong 19 đầu việc mẫu, số ngày chuẩn theo phòng (dùng cho việc tự thêm, không nằm trong 19 việc mẫu), và **số ngày trễ thì nhắc lên cấp trên**. Có công tắc tắt/bật toàn bộ việc nhắc, và nút **«▶️ Quét & nhắc ngay»** để chạy thử xem hệ thống đang thấy bao nhiêu việc quá hạn, bao nhiêu việc vượt SLA."
       }
     ]
   },
@@ -480,10 +484,30 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "**Đổi trạng thái** ngay trên dòng đầu việc bằng ô nhỏ bên phải: Chưa bắt đầu → Đang làm → Xong.",
-          "Việc chưa có người làm sẽ hiện ô xanh **«👤 Đảm nhận»** — bấm vào và chọn tên. Danh sách **chỉ hiện người đúng phòng ban** của việc đó (việc thiết kế chỉ hiện người phòng Thiết kế...). Không thấy tên mình? Báo quản trị kiểm tra lại phòng ban trong mục Tài khoản.",
+          "Ô xanh **«👤 Đảm nhận»** để chọn người làm — bấm vào và chọn tên. Danh sách **chỉ hiện người đúng phòng ban** của việc đó (việc thiết kế chỉ hiện người phòng Thiết kế...). Không thấy tên mình? Báo quản trị kiểm tra lại phòng ban trong mục Tài khoản.",
+          "**Một đầu việc giao được nhiều người**, tất cả ngang vai (không có chính/phụ): gắn người thứ nhất xong, ô đó đổi thành **«👤 Thêm»** để chọn tiếp người thứ hai, thứ ba. Mỗi người được gắn đều nhận thông báo riêng và đều thấy đầu việc này trong việc của mình.",
+          "Muốn **gỡ người** ra khỏi việc: bấm tên đầu việc để mở chi tiết → khối **«👤 Người đảm nhận»** → bấm dấu ✕ cạnh tên.",
           "Nút **«+ Thêm công việc»**: chọn tiêu đề, giai đoạn, phòng ban và người phụ trách.",
           "Nút **«📦 Yêu cầu vật tư»**: chọn vật tư trong kho, số lượng, ghi chú rồi bấm «Gửi yêu cầu»."
         ]
+      },
+      {
+        "type": "h3",
+        "text": "Hạn chốt, chuẩn SLA và chuyện bị nhắc"
+      },
+      {
+        "type": "list",
+        "items": [
+          "**Hạn chốt** là hạn đã thống nhất với nhau cho đầu việc đó — sửa trong chi tiết việc, ô **«Hạn chốt»**. Quá ngày này là việc **quá hạn**.",
+          "**Chuẩn SLA** là số ngày tiêu chuẩn của công ty cho từng loại đầu việc (ví dụ 2D Concept 3 ngày, 3D Render 5 ngày). Đồng hồ SLA **chỉ bắt đầu chạy** khi việc có người nhận hoặc được chuyển sang «Đang làm» — không tính từ lúc mở dự án.",
+          "Trên dòng đầu việc có nhãn cho biết tình trạng: **🟠 Còn N ngày** (sắp tới hạn), **🔴 Quá hạn**, **⚠ Vượt SLA**.",
+          "Việc quá hạn hoặc vượt SLA: hệ thống **nhắc từng người đang làm việc đó** (trong app và Telegram nếu bạn đã liên kết). Trễ lâu quá — mặc định quá 2 ngày — thì nhắc tiếp lên **trưởng phòng** phụ trách và **chủ nhiệm dự án**.",
+          "Một việc trễ chỉ nhận **một** lời nhắc: đã báo quá hạn chốt thì không báo thêm vượt SLA nữa."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Hạn chốt lùi lại là chuyện bình thường khi khách đổi ý — nhưng **sửa ô «Hạn chốt» cho đúng thực tế** thì hệ thống mới thôi nhắc. Để nguyên hạn cũ rồi mặc nhắc thì trưởng phòng và chủ nhiệm dự án sẽ nhận cảnh báo oan."
       },
       {
         "type": "h3",

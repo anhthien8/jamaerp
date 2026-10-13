@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse } from '@/lib/api';
+import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, TaskSlaConfig } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
@@ -1130,6 +1130,171 @@ function AutomationSection() {
   );
 }
 
+// ── SLA đầu việc dự án (13/10/2026) ─────────────────────────────────────────
+// Số ngày chuẩn để hoàn thành từng đầu việc, tính từ lúc việc bắt đầu chạy
+// (có người nhận hoặc chuyển «Đang làm»). Trễ hơn → nhắc người làm, trễ quá
+// số ngày leo thang → nhắc thêm trưởng phòng & PM dự án.
+const SLA_PHONG_LABELS: Record<string, string> = {
+  design: 'Thiết kế',
+  quotation: 'Báo giá',
+  procurement: 'Thu mua',
+  construction: 'Thi công',
+  accounting: 'Kế toán',
+  sales: 'Kinh doanh',
+};
+
+function TaskSlaSection() {
+  const [cfg, setCfg] = useState<TaskSlaConfig | null>(null);
+  const [dauViec, setDauViec] = useState<Record<string, number>>({});
+  const [phongBan, setPhongBan] = useState<Record<string, number>>({});
+  const [leoThang, setLeoThang] = useState(2);
+  const [bat, setBat] = useState(true);
+  const [moRong, setMoRong] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    api.getTaskSla().then(c => {
+      setCfg(c);
+      setDauViec({ ...c.dau_viec });
+      setPhongBan({ ...c.phong_ban });
+      setLeoThang(c.leo_thang_ngay);
+      setBat(c.bat);
+    }).catch(() => {});
+  }, []);
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    setMessage('');
+    try {
+      const c = await api.updateTaskSla({
+        dau_viec: dauViec, phong_ban: phongBan, leo_thang_ngay: leoThang, bat,
+      });
+      setCfg(prev => prev ? { ...prev, ...c } : prev);
+      setMessage('✅ Đã lưu chuẩn SLA');
+    } catch (e) {
+      setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi lưu SLA'}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [dauViec, phongBan, leoThang, bat]);
+
+  const chayNgay = useCallback(async () => {
+    setMessage('⏳ Đang quét đầu việc trễ hạn...');
+    try {
+      const r = await api.runTaskAlerts();
+      setMessage(`✅ Đã nhắc: ${r.task_overdue} việc quá hạn · ${r.task_sla_breach} việc vượt SLA`);
+    } catch (e) {
+      setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi'}`);
+    }
+  }, []);
+
+  if (!cfg) return null;
+
+  const oNgay = (value: number, onChange: (v: number) => void, max = 180) => (
+    <input
+      type="number"
+      min={1}
+      max={max}
+      value={value}
+      onChange={e => onChange(Math.max(1, Math.min(max, parseInt(e.target.value, 10) || 1)))}
+      className="w-14 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+    />
+  );
+
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="clock" />Chuẩn thời gian đầu việc (SLA)</h2>
+      <p className="text-xs text-[var(--text-muted)] mb-4">
+        Số ngày chuẩn để làm xong một đầu việc, tính từ khi việc bắt đầu chạy. Trễ hơn chuẩn, hệ thống
+        nhắc người đảm nhận trong app + Telegram; trễ thêm {leoThang} ngày thì nhắc cả trưởng phòng và PM dự án.
+      </p>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Bật nhắc vượt SLA</p>
+            <p className="text-xs text-[var(--text-muted)]">Tắt thì chỉ còn nhắc «quá hạn chốt» theo hạn thoả thuận</p>
+          </div>
+          <button
+            onClick={() => setBat(!bat)}
+            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${bat ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
+            aria-checked={bat}
+            role="switch"
+          >
+            <span className={`absolute left-0.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${bat ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Leo thang lên trưởng phòng sau</p>
+            <p className="text-xs text-[var(--text-muted)]">Trễ bao nhiêu ngày thì trưởng phòng &amp; PM dự án cũng nhận thông báo</p>
+          </div>
+          {oNgay(leoThang, setLeoThang, 30)}
+        </div>
+
+        <div className="pt-3 border-t border-white/5">
+          <p className="text-sm mb-2">Theo phòng (dùng cho đầu việc tự đặt tên)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.keys(cfg.mac_dinh_phong_ban).map(k => (
+              <div key={k} className="flex items-center justify-between gap-2">
+                <span className="text-xs text-[var(--text-secondary)]">{SLA_PHONG_LABELS[k] || k}</span>
+                {oNgay(phongBan[k] ?? cfg.mac_dinh_phong_ban[k], v => setPhongBan(p => ({ ...p, [k]: v })))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-white/5">
+          <button
+            onClick={() => setMoRong(!moRong)}
+            className="text-sm flex items-center gap-2 hover:text-[#C9A96E]"
+          >
+            {moRong ? '▾' : '▸'} Từng đầu việc mẫu ({Object.keys(cfg.mac_dinh_dau_viec).length} việc)
+          </button>
+          {moRong && (
+            <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
+              {Object.keys(cfg.mac_dinh_dau_viec).map(ten => {
+                const ngay = dauViec[ten] ?? cfg.mac_dinh_dau_viec[ten];
+                const khacMacDinh = ngay !== cfg.mac_dinh_dau_viec[ten];
+                return (
+                  <div key={ten} className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-[var(--text-secondary)] truncate" title={ten}>
+                      {ten}
+                      {khacMacDinh && (
+                        <span className="text-[10px] text-[#C9A96E] ml-1">(mặc định {cfg.mac_dinh_dau_viec[ten]}n)</span>
+                      )}
+                    </span>
+                    {oNgay(ngay, v => setDauViec(p => ({ ...p, [ten]: v })))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-white/5 flex-wrap">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? 'Đang lưu...' : 'Lưu chuẩn SLA'}
+          </button>
+          <button
+            onClick={chayNgay}
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+          >
+            ▶️ Quét &amp; nhắc ngay
+          </button>
+          {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -1201,6 +1366,7 @@ export default function SettingsPage() {
           {groupLabel('shield', 'Hệ thống', 'tự động hóa, sao lưu, phiên bản')}
           <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
           {AUTOMATION_ROLES.includes(user.role) && <AutomationSection />}
+          {AUTOMATION_ROLES.includes(user.role) && <TaskSlaSection />}
           {user.role === 'admin' && <BackupSection />}
 
           {/* System */}

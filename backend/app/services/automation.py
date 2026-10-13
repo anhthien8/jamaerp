@@ -393,9 +393,20 @@ async def run_warranty_reminders(db: AsyncSession) -> dict:
 
 
 async def run_all_automation(db: AsyncSession) -> dict:
+    # Import muộn: task_sla gọi lại `_notify` của module này.
+    from app.services.task_sla import run_task_overdue_alerts, run_task_sla_alerts
+
     followups = await run_followup_reminders(db)
     recalls = await run_lead_recall(db)
     payments = await run_payment_reminders(db)
     warranties = await run_warranty_reminders(db)
+    # Nhắc hạn ĐẦU VIỆC dự án (13/10/2026) — đi cùng batch CSKH hằng ngày thay vì
+    # thêm một job riêng, để chỉ có MỘT nơi quyết định tần suất nhắc.
+    task_overdue = await run_task_overdue_alerts(db)
+    task_sla = await run_task_sla_alerts(db)
     await db.commit()
-    return {"followups": followups, "recalls": recalls, "payments": payments, "warranties": warranties}
+    return {
+        "followups": followups, "recalls": recalls, "payments": payments,
+        "warranties": warranties,
+        "task_overdue": task_overdue, "task_sla_breach": task_sla,
+    }

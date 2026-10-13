@@ -16,6 +16,27 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '13/10/2026',
+    title: 'Một đầu việc giao được nhiều người + tự nhắc khi quá hạn, vượt chuẩn SLA',
+    tag: 'MỚI',
+    news: [
+      'Khu vực «Người đảm nhận» của mỗi đầu việc trong Dự án nay gắn được NHIỀU người, tất cả ngang vai — không ai là chính, không ai là phụ. Trước đây gắn người thứ nhất là ô chọn biến mất, muốn thêm người thứ hai phải gỡ người cũ ra.',
+      'Ai được gắn vào việc cũng nhận thông báo riêng (trong app + Telegram nếu đã liên kết), ghi rõ việc gì, dự án nào, ai giao và hạn bao giờ. Người tự nhận việc của mình thì không bị thông báo lại cho chính mình.',
+      'Việc QUÁ HẠN CHỐT: hệ thống nhắc từng người đang làm việc đó. Trễ quá 2 ngày thì nhắc tiếp lên trưởng phòng phụ trách và chủ nhiệm dự án.',
+      'Việc VƯỢT CHUẨN SLA (quá số ngày tiêu chuẩn của đầu việc) cũng nhắc tương tự. Đồng hồ SLA chỉ chạy từ lúc việc có người nhận hoặc chuyển sang «Đang làm» — không tính từ lúc mở dự án, nên 19 đầu việc sinh cùng lúc không bị báo vi phạm ngay ngày đầu.',
+      'Một việc trễ chỉ nhận MỘT lời nhắc: nếu đã quá hạn chốt thì không nhắc thêm vì vượt SLA nữa.',
+      'Trong chi tiết đầu việc có thêm khối «Người đảm nhận» (thêm/gỡ từng người) và ô «Hạn chốt» sửa trực tiếp; danh sách việc hiện nhãn 🔴 Quá hạn / ⚠ Vượt SLA / 🟠 Còn N ngày để thấy ngay việc nào gấp.',
+      'Chuẩn SLA từng đầu việc (2D Concept 3 ngày, 3D Render 5 ngày…), chuẩn theo phòng và số ngày leo thang đều sửa được ở Cài đặt → «Chuẩn SLA đầu việc» (quản trị và Ban giám đốc). Ở đó cũng có nút «Quét & nhắc ngay» để chạy thử.',
+    ],
+    test: [
+      'Dự án → mở một dự án → một đầu việc: bấm ô «👤 Đảm nhận» chọn người thứ nhất, rồi bấm ô «👤 Thêm» chọn người thứ hai — cả hai tên phải cùng hiện trên dòng việc.',
+      'Đăng nhập bằng CẢ HAI người vừa gắn: mỗi người phải thấy thông báo «Bạn được giao việc…» và thấy đầu việc đó trong việc của mình.',
+      'Mở chi tiết đầu việc → khối «Người đảm nhận»: bấm ✕ gỡ một người, danh sách phải còn lại đúng người kia.',
+      'Vẫn trong chi tiết việc, sửa ô «Hạn chốt» về một ngày đã qua → Cài đặt → «Chuẩn SLA đầu việc» → bấm «Quét & nhắc ngay»: từng người đang làm việc đó phải nhận thông báo quá hạn.',
+      'Cài đặt → «Chuẩn SLA đầu việc»: đổi số ngày của một đầu việc rồi Lưu, mở lại trang phải thấy số mới. Tài khoản không phải quản trị/BGĐ không được thấy khối này.',
+    ],
+  },
+  {
+    date: '13/10/2026',
     title: 'Bảng điều khiển Kinh doanh (bản thử nghiệm — chỉ quản trị)',
     tag: 'THỬ NGHIỆM',
     news: [

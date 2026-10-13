@@ -3,7 +3,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON, select
+from sqlalchemy import (
+    String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON, UniqueConstraint, select,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -129,9 +131,21 @@ class Task(Base):
     final_file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     final_file_versions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # JSON array: [{"url": str, "version": int, "label": str|None, "uploaded_at": iso}]
+    # BẢN SAO của một người bất kỳ trong nhóm đảm nhận — nguồn sự thật là bảng
+    # `task_assignees` (13/10/2026, một việc nhiều người ngang vai). Giữ cột này
+    # để dữ liệu cũ và các truy vấn cũ không gãy; mọi chỗ ĐẾM người phải đi qua
+    # bảng kia, nếu không một việc 3 người sẽ chỉ tính cho 1.
     assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Mốc bắt đầu thật (lần đầu chuyển sang «Đang làm», hoặc lần đầu có người
+    # nhận việc). SLA đếm từ đây chứ không từ created_at: 19 đầu việc mẫu sinh
+    # cùng một lúc lúc «Deal thắng» nên đếm từ created_at thì việc nghiệm thu vi
+    # phạm SLA ngay ngày đầu tiên của dự án.
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Hạn theo CHUẨN NỘI BỘ = started_at + số ngày SLA của đầu việc. Khác
+    # `due_date` (hạn thoả thuận, có thể dài hơn) — xem app/services/task_sla.py.
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
@@ -140,6 +154,9 @@ class Task(Base):
     # Relationships
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User", foreign_keys=[assigned_to])
+    assignees = relationship(
+        "TaskAssignee", back_populates="task", lazy="selectin", cascade="all, delete-orphan"
+    )
     activities = relationship("TaskActivity", back_populates="task", order_by="TaskActivity.created_at.desc()")
 
     __table_args__ = (
@@ -154,6 +171,55 @@ class Task(Base):
 
     def __repr__(self) -> str:
         return f"<Task {self.title} ({self.status})>"
+
+
+class TaskAssignee(Base):
+    """Người đảm nhận một đầu việc — nhiều người/việc, TẤT CẢ NGANG VAI.
+
+    Chốt với chủ dự án 13/10/2026: không phân biệt người chính/người phụ. Hệ quả
+    phải nhớ khi đọc số: một đầu việc quá hạn sẽ tính là việc trễ của TỪNG người
+    trong nhóm, nên tổng «việc trễ» cộng theo người sẽ lớn hơn số đầu việc trễ.
+    """
+
+    __tablename__ = "task_assignees"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    task = relationship("Task", back_populates="assignees")
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        UniqueConstraint("task_id", "user_id", name="uq_task_assignee"),
+        Index("ix_task_assignees_task", "task_id"),
+        Index("ix_task_assignees_user", "user_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<TaskAssignee {self.user_id} → {self.task_id}>"
+
+
+def dieu_kien_task_cua_nguoi(user_id: str):
+    """Điều kiện SQL «đầu việc này của người đó» — dùng cho MỌI chỗ lọc/đếm việc
+    theo người (13/10/2026, một việc nhiều người ngang vai).
+
+    Phải xét CẢ HAI nguồn:
+    - `task_assignees` — nguồn sự thật của nhóm đảm nhận;
+    - `tasks.assigned_to` — bản sao; vẫn có dòng chỉ có cột này do seed, agent AI
+      và dữ liệu cũ ghi thẳng vào cột mà không qua `dat_nguoi_lam`.
+    Chỉ đọc một trong hai thì người thứ 2–3 của một đầu việc sẽ không thấy việc
+    của mình (và dự án tương ứng biến mất khỏi danh sách của họ).
+    """
+    from sqlalchemy import or_
+
+    return or_(
+        Task.assigned_to == user_id,
+        Task.id.in_(select(TaskAssignee.task_id).where(TaskAssignee.user_id == user_id)),
+    )
 
 
 class TaskActivity(Base):

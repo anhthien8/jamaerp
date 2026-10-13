@@ -87,6 +87,39 @@ const STAGE_SHORT: Record<string, string> = {
   construction: 'Thi công', acceptance: 'Nghiệm thu',
 };
 
+// ── Nhóm người đảm nhận đầu việc + nhãn trễ hạn (13/10/2026) ────────────────
+
+/** Nhóm người đảm nhận của một đầu việc. `assignee_ids` là nguồn sự thật; rơi về
+ *  `assigned_to` cho dữ liệu/cache cũ chưa có nhóm. */
+const nhomDamNhan = (t: { assignee_ids?: string[]; assigned_to?: string }): string[] =>
+  t.assignee_ids?.length ? t.assignee_ids : (t.assigned_to ? [t.assigned_to] : []);
+
+/** Tên gọi ngắn để badge không tràn hàng — người Việt gọi nhau bằng tên cuối. */
+const tenNgan = (full?: string): string => full?.trim().split(/\s+/).pop() || '✓';
+
+/** Nhãn trễ của đầu việc. Hạn thoả thuận (`due_date`) ưu tiên hơn chuẩn nội bộ
+ *  (`sla_due_at`): trễ cả hai thì chỉ hiện một nhãn, đúng như quy tắc gửi thông
+ *  báo ở backend (app/services/task_sla.py). */
+function nhanTreHan(t: { status: string; due_date?: string; sla_due_at?: string }):
+  { text: string; color: string; bg: string } | null {
+  if (t.status === 'done' || t.status === 'completed') return null;
+  const dHan = daysLeft(t.due_date);
+  if (dHan !== null && dHan < 0) {
+    return { text: `🔴 Quá hạn ${-dHan}n`, color: '#F87171', bg: 'rgba(248,113,113,0.18)' };
+  }
+  const dSla = daysLeft(t.sla_due_at);
+  if (dSla !== null && dSla < 0) {
+    return { text: `⚠ Vượt SLA ${-dSla}n`, color: '#FB923C', bg: 'rgba(251,146,60,0.18)' };
+  }
+  if (dHan !== null && dHan <= 2) {
+    return { text: `🟠 Còn ${dHan}n`, color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' };
+  }
+  return null;
+}
+
+/** `datetime-local` cần 'YYYY-MM-DDTHH:mm'; API trả ISO có giây + timezone. */
+const choOInputNgay = (iso?: string): string => (iso ? iso.slice(0, 10) : '');
+
 function daysLeft(target?: string | null): number | null {
   if (!target) return null;
   const end = new Date(target).getTime();
@@ -362,6 +395,35 @@ export default function ProjectsPage() {
       toast('Cập nhật trạng thái công việc thành công', 'success');
     } catch {
       toast('Lỗi khi cập nhật trạng thái', 'error');
+    }
+  };
+
+  // ── Người đảm nhận (nhiều người) + hạn chốt (13/10/2026) ───────────────────
+  // Mỗi lần đổi nhóm, backend thông báo in-app + Telegram cho TỪNG người mới.
+  const luuNhomDamNhan = async (taskId: string, ids: string[]) => {
+    if (!selectedProject) return;
+    try {
+      const updated = await api.setTaskAssignees(selectedProject.id, taskId, ids);
+      setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
+      setSelectedTask(prev => prev && prev.id === taskId ? updated : prev);
+      toast(ids.length ? 'Đã cập nhật người đảm nhận' : 'Đã gỡ hết người đảm nhận', 'success');
+    } catch {
+      toast('Lỗi khi cập nhật người đảm nhận', 'error');
+    }
+  };
+
+  const luuHanChot = async (taskId: string, ngay: string) => {
+    if (!selectedProject) return;
+    try {
+      // Ô <input type="date"> cho 'YYYY-MM-DD'; gửi cuối ngày để hạn tính hết ngày đó.
+      const updated = await api.setTaskDueDate(
+        selectedProject.id, taskId, ngay ? `${ngay}T17:00:00` : null
+      );
+      setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
+      setSelectedTask(prev => prev && prev.id === taskId ? updated : prev);
+      toast(ngay ? 'Đã đặt hạn chốt' : 'Đã bỏ hạn chốt', 'success');
+    } catch {
+      toast('Lỗi khi đặt hạn chốt', 'error');
     }
   };
 
@@ -1312,38 +1374,56 @@ export default function ProjectsPage() {
                                       </option>
                                     ))}
                                   </select>
-                                  {/* Đảm nhận button — hiện khi task chưa có người phụ trách */}
-                                  {!task.assigned_to && (
-                                    <select
-                                      className="min-w-0 text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
-                                      style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
-                                      title="Đảm nhận / Giao việc"
-                                      value=""
-                                      onClick={(e) => e.stopPropagation()}
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        if (e.target.value) {
-                                          handleTaskStatusChange(task.id, task.status); // refresh
-                                          // Assign via API
-                                          api.assignTask(selectedProject?.id || '', task.id, e.target.value).then(() => {
-                                            toast(`Đã giao việc cho ${users.find(u => u.id === e.target.value)?.full_name || 'nhân viên'}`, 'success');
-                                            refreshData();
-                                          }).catch(() => toast('Lỗi giao việc', 'error'));
-                                        }
-                                      }}
+                                  {/* Nhãn trễ hạn / vượt SLA (13/10/2026) */}
+                                  {(() => {
+                                    const nhan = nhanTreHan(task);
+                                    return nhan ? (
+                                      <span
+                                        className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded font-bold"
+                                        style={{ background: nhan.bg, color: nhan.color }}
+                                        title={task.due_date ? `Hạn ${new Date(task.due_date).toLocaleDateString('vi-VN')}` : 'Theo chuẩn nội bộ (SLA)'}
+                                      >
+                                        {nhan.text}
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                  {/* Nhóm người đảm nhận — NHIỀU người, tất cả ngang vai */}
+                                  {nhomDamNhan(task).map(uid => (
+                                    <span
+                                      key={uid}
+                                      className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]"
+                                      title={users.find(u => u.id === uid)?.full_name || ''}
                                     >
-                                      <option value="">👤 Đảm nhận</option>
-                                      {users.filter(u => canTakeTask(u, taskDeptOf(task))).map(u => (
+                                      {tenNgan(users.find(u => u.id === uid)?.full_name)}
+                                    </span>
+                                  ))}
+                                  {/* Thêm người đảm nhận — luôn hiện, vì một đầu việc có thể
+                                      nhiều người (trước 13/10 nút này biến mất ngay khi có
+                                      người đầu tiên nên không ai thêm được người thứ hai). */}
+                                  <select
+                                    className="min-w-0 text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
+                                    style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
+                                    title="Thêm người đảm nhận"
+                                    value=""
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      const uid = e.target.value;
+                                      if (!uid) return;
+                                      // Dùng chung đường lưu với ô trong chi tiết việc: cập nhật
+                                      // đúng một đầu việc trong state, không `refreshData()` —
+                                      // nạp lại cả dự án + việc + nhân sự chỉ để thêm một người
+                                      // làm cả bảng nhấp nháy và chậm trên danh sách dài.
+                                      luuNhomDamNhan(task.id, [...nhomDamNhan(task), uid]);
+                                    }}
+                                  >
+                                    <option value="">👤 {nhomDamNhan(task).length ? 'Thêm' : 'Đảm nhận'}</option>
+                                    {users
+                                      .filter(u => canTakeTask(u, taskDeptOf(task)) && !nhomDamNhan(task).includes(u.id))
+                                      .map(u => (
                                         <option key={u.id} value={u.id}>{u.full_name}</option>
                                       ))}
-                                    </select>
-                                  )}
-                                  {/* Assigned user display */}
-                                  {task.assigned_to && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]" title={users.find(u => u.id === task.assigned_to)?.full_name || ''}>
-                                      {users.find(u => u.id === task.assigned_to)?.full_name?.split(' ').pop() || '✓'}
-                                    </span>
-                                  )}
+                                  </select>
                                   <svg className="flex-shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                                 </div>
                               );
@@ -1413,11 +1493,84 @@ export default function ProjectsPage() {
                       onChange={e => handleTaskStatusChange(selectedTask.id, e.target.value)}
                       className="text-[10px] bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded px-1 text-[var(--text-primary)] cursor-pointer"
                     >
-                      <option value="todo">Chờ</option>
+                      {/* Giá trị phải là `not_started` — backend không có trạng thái
+                          «todo», chọn sai thì ô này hiện lệch với trạng thái thật. */}
+                      <option value="not_started">Chờ</option>
                       <option value="in_progress">Đang làm</option>
                       <option value="done">Hoàn thành</option>
                     </select>
+                    {(() => {
+                      const nhan = nhanTreHan(selectedTask);
+                      return nhan ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: nhan.bg, color: nhan.color }}>
+                          {nhan.text}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
+                </div>
+              </div>
+
+              {/* Người đảm nhận — NHIỀU người, tất cả ngang vai (13/10/2026).
+                  Thêm ai là người đó nhận thông báo trong app + Telegram ngay. */}
+              <div className="glass-card p-3.5 mb-4">
+                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">👤 Người đảm nhận</h4>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {nhomDamNhan(selectedTask).map(uid => (
+                    <span
+                      key={uid}
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                      style={{ background: 'var(--surface-3)', color: 'var(--text-primary)' }}
+                    >
+                      {users.find(u => u.id === uid)?.full_name || 'Nhân sự đã nghỉ'}
+                      <button
+                        type="button"
+                        title="Gỡ khỏi đầu việc"
+                        className="text-[var(--text-muted)] hover:text-red-400"
+                        onClick={() => luuNhomDamNhan(
+                          selectedTask.id,
+                          nhomDamNhan(selectedTask).filter(x => x !== uid),
+                        )}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  {nhomDamNhan(selectedTask).length === 0 && (
+                    <span className="text-[10px] text-[var(--text-muted)]">Chưa có ai nhận việc này</span>
+                  )}
+                  <select
+                    value=""
+                    className="text-[10px] px-2 py-1 rounded-lg cursor-pointer border"
+                    style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
+                    onChange={e => {
+                      if (!e.target.value) return;
+                      luuNhomDamNhan(selectedTask.id, [...nhomDamNhan(selectedTask), e.target.value]);
+                    }}
+                  >
+                    <option value="">➕ Thêm người</option>
+                    {users
+                      .filter(u => canTakeTask(u, taskDeptOf(selectedTask)) && !nhomDamNhan(selectedTask).includes(u.id))
+                      .map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name}</option>
+                      ))}
+                  </select>
+                </div>
+                {/* Hạn chốt (thoả thuận) vs hạn theo chuẩn nội bộ (SLA) */}
+                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <label className="text-[10px] text-[var(--text-muted)]">Hạn chốt</label>
+                  <input
+                    type="date"
+                    value={choOInputNgay(selectedTask.due_date)}
+                    onChange={e => luuHanChot(selectedTask.id, e.target.value)}
+                    className="text-[10px] px-2 py-1 rounded-lg text-white"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+                  />
+                  <span className="text-[10px] text-[var(--text-muted)]">
+                    {selectedTask.sla_due_at
+                      ? `Chuẩn nội bộ (SLA): ${new Date(selectedTask.sla_due_at).toLocaleDateString('vi-VN')}`
+                      : 'SLA chạy khi việc có người nhận hoặc chuyển «Đang làm»'}
+                  </span>
                 </div>
               </div>
 

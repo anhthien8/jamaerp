@@ -10,19 +10,21 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.project import (
-    Project, Task, TaskActivity, sinh_ma_du_an, task_department_for_stage,
+    Project, Task, TaskActivity, dieu_kien_task_cua_nguoi, sinh_ma_du_an,
+    task_department_for_stage,
 )
 from app.middleware.rbac import (
     PIC_THEO_PHONG_BAN, VAI_TRO_TRUONG_PHONG, la_pic_du_an, la_truong_phong, pham_vi_du_an,
 )
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.notification import Notification
+from app.services.task_assign import bat_dau_dong_ho_sla, dat_nguoi_lam
 from app.cache import cache
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectResponse, TaskResponse,
     TaskActivityCreate, TaskActivityResponse
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 _PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
 
@@ -93,7 +95,7 @@ async def require_project_access(
     # Được giao đầu việc trong dự án cũng phải xem được dự án đó
     co_task = (await db.execute(
         select(func.count(Task.id)).where(
-            Task.project_id == project.id, Task.assigned_to == current_user.id
+            Task.project_id == project.id, dieu_kien_task_cua_nguoi(current_user.id)
         )
     )).scalar() or 0
     if co_task:
@@ -185,8 +187,12 @@ class TaskCreate(BaseModel):
     stage: str = "design"
     department: str | None = None
     assigned_to: str | None = None
+    # Nhóm đảm nhận (13/10/2026). Gửi `assignee_ids` thì dùng cả nhóm; FE cũ chỉ
+    # gửi `assigned_to` thì coi như nhóm một người.
+    assignee_ids: list[str] | None = None
     order: int = 0
     status: str = "not_started"
+    due_date: datetime | None = None
 
 
 class TaskStatusUpdate(BaseModel):
@@ -199,16 +205,39 @@ class TaskAssignUpdate(BaseModel):
     Trước 12/08/2026 endpoint này dùng TaskStatusUpdate (chỉ có `status`), nên
     Pydantic loại bỏ `assigned_to` do FE gửi mà không báo lỗi: API trả 200, giao
     diện hiện "Đã giao việc cho X" nhưng task vẫn chưa có người làm.
+
+    13/10/2026: thêm `assignee_ids` cho nhóm nhiều người. Phải có ÍT NHẤT MỘT
+    trong hai trường — thiếu cả hai vẫn 422 như cũ. Gửi cả hai thì `assignee_ids`
+    thắng. `assignee_ids: []` = gỡ hết người khỏi đầu việc.
     """
-    assigned_to: str
+    assigned_to: str | None = None
+    assignee_ids: list[str] | None = None
     status: str | None = None
+
+    @model_validator(mode="after")
+    def _phai_co_nguoi_nhan(self):
+        if self.assigned_to is None and self.assignee_ids is None:
+            raise ValueError("Phải khai báo assigned_to hoặc assignee_ids")
+        return self
+
+
+class TaskDueDateUpdate(BaseModel):
+    """Đặt / bỏ HẠN THOẢ THUẬN của đầu việc.
+
+    Trước 13/10/2026 không có đường nào đặt hạn cho đầu việc: 19 đầu việc mẫu
+    sinh lúc «Deal thắng» đều để trống `due_date`, nên ô «Việc quá hạn» trên Tổng
+    quan luôn bằng 0 và không thể có thông báo quá hạn.
+    """
+    due_date: datetime | None = None
 
 class TaskFileUpdate(BaseModel):
     final_file_url: str | None = None
     version_label: str | None = None
 
 class BulkTaskAssign(BaseModel):
-    assignments: list[dict]  # each dict: {"task_id": str, "assigned_to": str}
+    # each dict: {"task_id": str, "assigned_to": str} hoặc
+    #            {"task_id": str, "assignee_ids": [str, ...]}  (13/10/2026)
+    assignments: list[dict]
 
 class ProjectKanbanStage(BaseModel):
     stage: str
@@ -299,7 +328,7 @@ async def list_projects(
     pham_vi = pham_vi_du_an(current_user)
     if pham_vi != "tat_ca":
         # Dự án mình là PIC, hoặc mình được giao ít nhất 1 đầu việc trong đó.
-        du_an_co_task = select(Task.project_id).where(Task.assigned_to == current_user.id)
+        du_an_co_task = select(Task.project_id).where(dieu_kien_task_cua_nguoi(current_user.id))
         dieu_kien = [
             Project.pm_id == current_user.id,
             Project.designer_id == current_user.id,
@@ -670,12 +699,23 @@ async def create_task(
         # Form bỏ trống phòng ban → suy từ giai đoạn, KHÔNG để NULL (NULL làm dropdown
         # «Đảm nhận» FE hiện toàn bộ nhân sự — QC 05/09).
         department=data.department or task_department_for_stage(data.stage),
-        assigned_to=data.assigned_to,
         order=data.order,
         status=data.status,
+        due_date=data.due_date,
     )
     db.add(task)
     await db.flush()
+    # Tạo việc kèm người làm cũng PHẢI thông báo — trước 13/10 đường này gán
+    # `assigned_to` thẳng vào model nên người được giao không hề hay biết.
+    nhom = data.assignee_ids if data.assignee_ids is not None else (
+        [data.assigned_to] if data.assigned_to else []
+    )
+    if nhom:
+        await dat_nguoi_lam(db, task, nhom, current_user)
+    else:
+        # Việc vừa tạo chưa nạp quan hệ `assignees`; để Pydantic tự đọc là
+        # lazy-load giữa async ⇒ MissingGreenlet.
+        await db.refresh(task, ["assignees"])
     return TaskResponse.model_validate(task)
 
 
@@ -846,6 +886,10 @@ async def update_task_status(
         task.completed_at = datetime.now(timezone.utc)
     else:
         task.completed_at = None
+    # «Đang làm» = đồng hồ SLA bắt đầu chạy (13/10/2026). SLA đo thời gian LÀM
+    # chứ không đo thời gian chờ tới lượt, nên không tính từ lúc tạo dự án.
+    if data.status == "in_progress":
+        await bat_dau_dong_ho_sla(db, task)
 
     await db.flush()
 
@@ -873,31 +917,23 @@ async def assign_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Assign a task to a user."""
+    """Đặt nhóm người đảm nhận cho một đầu việc (nhiều người, ngang vai)."""
     result = await db.execute(select(Task).where(Task.id == task_id, Task.project_id == project_id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Người nhận phải có thật — trước đây gán ID rác vẫn trả 200 rồi tạo thông báo mồ côi.
-    assignee = (await db.execute(select(User).where(User.id == data.assigned_to))).scalar_one_or_none()
-    if assignee is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy nhân sự được giao việc")
+    # Người nhận phải có thật — trước đây gán ID rác vẫn trả 200 rồi tạo thông báo
+    # mồ côi. `dat_nguoi_lam` kiểm tra và trả 404 / 400 (nghỉ việc) giúp.
+    nhom = data.assignee_ids if data.assignee_ids is not None else (
+        [data.assigned_to] if data.assigned_to else []
+    )
+    await dat_nguoi_lam(db, task, nhom, current_user)
 
-    task.assigned_to = assignee.id
     if data.status:
         task.status = data.status
-    await db.flush()
-
-    from app.models.notification import Notification
-    notif = Notification(
-        user_id=assignee.id,
-        type="system",
-        title="Bạn được giao task mới",
-        body=f"Task: {task.title}",
-        link="/projects",
-    )
-    db.add(notif)
+        if data.status == "in_progress":
+            await bat_dau_dong_ho_sla(db, task)
     await db.flush()
     return TaskResponse.model_validate(task)
 
@@ -919,10 +955,35 @@ async def update_task(
         task.title = data.title
     if data.description is not None:
         task.description = data.description
-    if data.assigned_to:
-        task.assigned_to = data.assigned_to
     if data.department:
         task.department = data.department
+    if data.due_date is not None:
+        task.due_date = data.due_date
+    # Sửa việc mà đổi người làm thì cũng phải thông báo — đường này trước 13/10
+    # gán thẳng vào cột, người mới không nhận được gì.
+    if data.assignee_ids is not None:
+        await dat_nguoi_lam(db, task, data.assignee_ids, current_user)
+    elif data.assigned_to:
+        await dat_nguoi_lam(db, task, [data.assigned_to], current_user)
+    await db.flush()
+    return TaskResponse.model_validate(task)
+
+
+@router.put("/{project_id}/tasks/{task_id}/due-date", response_model=TaskResponse)
+async def set_task_due_date(
+    project_id: str,
+    task_id: str,
+    data: TaskDueDateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_project_access),
+):
+    """Đặt / bỏ hạn thoả thuận của đầu việc → mốc để nhắc «quá hạn»."""
+    task = (await db.execute(
+        select(Task).where(Task.id == task_id, Task.project_id == project_id)
+    )).scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+    task.due_date = data.due_date
     await db.flush()
     return TaskResponse.model_validate(task)
 
@@ -957,12 +1018,18 @@ async def bulk_assign_tasks(
 
     updated = 0
     for assignment in data.assignments:
-        task_id = assignment.get("task_id")
-        assigned_to = assignment.get("assigned_to")
-        task = tasks_by_id.get(task_id)
-        if task:
-            task.assigned_to = assigned_to
-            updated += 1
+        task = tasks_by_id.get(assignment.get("task_id"))
+        if not task:
+            continue
+        nhom = assignment.get("assignee_ids")
+        if nhom is None:
+            mot_nguoi = assignment.get("assigned_to")
+            nhom = [mot_nguoi] if mot_nguoi else []
+        # Phân công hàng loạt cũng phải thông báo cho từng người (13/10/2026) —
+        # trước đây đây là đường im lặng nhất: gán cả 19 đầu việc một nhát, không
+        # ai nhận được gì.
+        await dat_nguoi_lam(db, task, nhom, current_user)
+        updated += 1
 
     await db.flush()
     return {"updated": updated}

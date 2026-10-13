@@ -282,7 +282,9 @@ async def personal_dashboard(
         })
 
     # 2. Tasks due or overdue in assigned projects
-    from app.models.project import Project as ProjectModel, Task as TaskModel
+    from app.models.project import (
+        Project as ProjectModel, Task as TaskModel, dieu_kien_task_cua_nguoi,
+    )
     proj_q = select(ProjectModel.id).where(
         (ProjectModel.pm_id == current_user.id) | (ProjectModel.designer_id == current_user.id),
         ProjectModel.status == "active",
@@ -305,7 +307,7 @@ async def personal_dashboard(
 
     # Việc quá hạn của chính user: task giao cho mình hoặc trong dự án mình phụ trách
     # (FE thẻ «Việc quá hạn» — trước 13/08/2026 hiển thị 0 cứng)
-    overdue_task_conds = [TaskModel.assigned_to == current_user.id]
+    overdue_task_conds = [dieu_kien_task_cua_nguoi(current_user.id)]
     if proj_ids:
         overdue_task_conds.append(TaskModel.project_id.in_(proj_ids))
     overdue_tasks_count = (await db.execute(trong_ky(
