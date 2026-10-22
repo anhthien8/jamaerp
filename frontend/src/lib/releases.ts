@@ -15,6 +15,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '23/10/2026',
+    title: 'Kho ảnh công trình: gửi ảnh từ web và Telegram không còn lỗi, khách xem ảnh tiến độ qua link',
+    tag: 'MỚI',
+    news: [
+      'Sửa lỗi gửi ảnh trong «Thêm cập nhật ghi chú & hình ảnh» bị từ chối hoặc vỡ ảnh (phản ánh ngày 21/10). Ảnh nay được nén gọn ngay trên máy rồi lưu vào Kho ảnh công trình, không còn giới hạn 5MB mỗi ảnh.',
+      'Ảnh gửi qua bot Telegram (/baocao, /suco) cũng lưu vào Kho ảnh và hiện đúng trên web. Gửi ảnh kèm chú thích «/baocao …» không còn làm bot báo lỗi.',
+      'Kho ảnh nằm trong nhóm Telegram nội bộ «JAMA Công trình», mỗi dự án một chủ đề (topic) do bot tự tạo. Chụp ở công trình rồi thả ảnh thẳng vào đúng topic dự án là xong, không cần gõ lệnh, bot thả 👍 khi đã ghi nhận.',
+      'Chi tiết dự án có khối mới «📷 Ảnh dự án»: xem toàn bộ ảnh của dự án, bấm để phóng to, thêm ảnh trực tiếp.',
+      'Mỗi ảnh có công tắc «👁 Khách thấy / 🙈 Nội bộ». Ảnh tiến độ mặc định cho khách thấy; ảnh sự cố, vật tư mặc định chỉ nội bộ.',
+      'Trang tiến độ cho khách (link portal) có thêm «📸 Nhật ký công trình»: ảnh xếp theo ngày, kèm người cập nhật. Khách chỉ thấy ảnh được bật «Khách thấy».',
+      'Mục «Tiến độ gần đây» trên trang của khách nay chỉ còn cập nhật tiến độ. Sự cố, yêu cầu vật tư, check-in của đội không còn hiện cho khách.',
+      'Quản trị: Cài đặt → Tự động hóa có ô «Nhóm Telegram Kho ảnh», xem tình trạng kho, nút «🧪 Thử gửi 1 ảnh». Nếu cấu hình Google Drive, ảnh tự sao thêm một bản sang Drive.',
+    ],
+    test: [
+      'Mở một đầu việc → «Đính kèm ảnh» chọn 2-3 ảnh chụp điện thoại → «Đăng cập nhật»: ảnh hiện trong Lịch sử cập nhật, bấm vào mở ảnh lớn.',
+      'Mở chi tiết dự án đó → khối «📷 Ảnh dự án»: thấy các ảnh vừa đăng. Bấm «👁 Khách thấy» để chuyển một ảnh sang «🙈 Nội bộ».',
+      'Mở link portal của khách dự án đó: «📸 Nhật ký công trình» có ảnh, ảnh vừa chuyển Nội bộ không hiện.',
+      'Telegram: gõ /baocao MÃ_DỰ_ÁN nội dung → gửi 1 ảnh → /done. Ảnh hiện trong topic dự án ở nhóm «JAMA Công trình» và trên web.',
+      'Thả 1 ảnh thẳng vào topic dự án (không gõ lệnh): bot thả 👍, ảnh hiện trong «📷 Ảnh dự án».',
+    ],
+  },
+  {
     date: '22/10/2026',
     title: 'Siết quyền theo ma trận V3 + vào ca văn phòng phải ở trong 20 m',
     tag: 'QUAN TRỌNG',

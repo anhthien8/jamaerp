@@ -40,6 +40,38 @@ class APIClient:
         token = self._tokens.get(telegram_user_id, "")
         return {"Authorization": f"Bearer {token}"}
 
+    async def _post_media(self, tg_user_id: int, path: str, data: dict) -> dict | None:
+        """POST tới /media/*. Bot vừa khởi động lại thì cache JWT rỗng → tự
+        đăng nhập lại bằng TG ID (một lần) thay vì bắt nhân viên /start."""
+        if tg_user_id not in self._tokens:
+            await self.authenticate(tg_user_id)
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                for lan in range(2):
+                    resp = await client.post(
+                        f"{self._base_url}{path}", json=data, headers=self._headers(tg_user_id),
+                    )
+                    if resp.status_code == 401 and lan == 0 and await self.authenticate(tg_user_id):
+                        continue
+                    break
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                try:
+                    detail = resp.json().get("detail", "Lỗi lưu ảnh")
+                except Exception:
+                    detail = "Lỗi lưu ảnh"
+                return {"error": detail, "status": resp.status_code}
+        except Exception:
+            return None
+
+    async def media_from_telegram(self, tg_user_id: int, data: dict) -> dict | None:
+        """Ảnh gửi trong /baocao, /suco → Kho ảnh (đăng lại vào topic dự án)."""
+        return await self._post_media(tg_user_id, "/media/from-telegram", data)
+
+    async def ingest_storage_photo(self, tg_user_id: int, data: dict) -> dict | None:
+        """Ảnh thả thẳng vào topic dự án trong nhóm Kho ảnh → ghi metadata."""
+        return await self._post_media(tg_user_id, "/media/ingest-telegram", data)
+
     async def parse_lead(self, tg_user_id: int, text: str) -> dict | None:
         """Parse raw text via AI."""
         try:

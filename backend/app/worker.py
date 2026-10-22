@@ -89,6 +89,7 @@ class BackgroundWorker:
         self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
         self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_contract_notify_date: str = ""  # "YYYY-MM-DD" (VN time) — nhắc hạn HĐLĐ
+        self._last_media_mirror: float = 0.0  # sao ảnh công trình sang Drive, mỗi 5 phút
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -310,6 +311,15 @@ class BackgroundWorker:
                     priority=TaskPriority.NORMAL,
                 )
 
+            # Sao ảnh công trình sang Drive — chưa đặt khoá thì job tự bỏ qua.
+            if now - self._last_media_mirror >= 300:
+                self._last_media_mirror = now
+                self.enqueue_task(
+                    "media_mirror",
+                    process_media_mirror,
+                    priority=TaskPriority.LOW,
+                )
+
     # ------------------------------------------------------------------
     # Health check loop (for Docker HEALTHCHECK / monitoring)
     # ------------------------------------------------------------------
@@ -505,6 +515,21 @@ async def process_backup() -> dict[str, Any]:
         return {"status": "completed", "result": result}
     except Exception as exc:
         logger.exception("Daily backup failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_media_mirror() -> dict[str, Any]:
+    """Sao ≤20 ảnh công trình đang chờ sang Google Drive công ty."""
+    try:
+        from app.database import async_session
+        from app.services.drive_mirror import da_cau_hinh, sao_anh_cho
+
+        if not da_cau_hinh():
+            return {"status": "skipped"}
+        async with async_session() as session:
+            return await sao_anh_cho(session)
+    except Exception as exc:
+        logger.exception("Media mirror failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

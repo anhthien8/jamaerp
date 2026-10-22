@@ -21,6 +21,7 @@ from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.models.ai_memory import AiRun
 from app.models.employee_profile import EmployeeProfile, EmployeeDocument
 from app.models.handover import HandoverRecord
+from app.models.media import MediaFile
 
 __all__ = [
     "User", "Team",
@@ -41,4 +42,5 @@ __all__ = [
     "AiRun",
     "EmployeeProfile", "EmployeeDocument",
     "HandoverRecord",
+    "MediaFile",
 ]

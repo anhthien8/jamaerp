@@ -30,7 +30,7 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 async def cmd_suco(message: types.Message, state: FSMContext):
     """Report a construction incident — parse project code + description."""
     # Expected: /suco [Mã_dự_án] [Mô_tả]
-    args = message.text.split(maxsplit=2)
+    args = (message.text or message.caption or "").split(maxsplit=2)
 
     if len(args) < 2:
         await message.answer(
@@ -101,13 +101,23 @@ async def process_incident_description(message: types.Message, state: FSMContext
 
 @router.message(IncidentState.collecting_photos, F.photo)
 async def collect_incident_photo(message: types.Message, state: FSMContext):
-    """Collect photos as evidence for the incident."""
+    """Ảnh bằng chứng → Kho ảnh (nội bộ, không chia sẻ khách); giữ media_id."""
     data = await state.get_data()
-    photos = data.get("photos", [])
-
-    # Use the largest available photo size
-    photo = message.photo[-1]
-    photos.append(photo.file_id)
+    photos = data.get("photos", [])  # media_id trong Kho ảnh
+    photo = message.photo[-1]  # cỡ lớn nhất
+    res = await api.media_from_telegram(message.from_user.id, {
+        "file_id": photo.file_id,
+        "file_unique_id": photo.file_unique_id,
+        "project_code": data.get("project_code"),
+        "kind": "su_co",
+        "caption": (message.caption or data.get("incident_description") or "")[:300] or None,
+    })
+    if not res or res.get("error"):
+        loi = res.get("error") if res else "Không kết nối được server"
+        await message.answer(f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh hoặc <code>/done</code> để gửi báo cáo không ảnh.")
+        return
+    if res["id"] not in photos:
+        photos.append(res["id"])
 
     await state.update_data(photos=photos)
     await message.answer(
@@ -136,7 +146,7 @@ async def finish_incident_report(message: types.Message, state: FSMContext):
         "description": description,
         "severity": "high",
         "reporter_tg_id": message.from_user.id,
-        "photos": photos,
+        "media_ids": photos,
     }
 
     result = await api.report_incident(message.from_user.id, incident_data)

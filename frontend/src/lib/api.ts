@@ -1110,11 +1110,63 @@ class ApiClient {
     return this.request<TaskActivity[]>(`/projects/tasks/${taskId}/activities`);
   }
 
-  async createTaskActivity(taskId: string, content: string, mediaUrl?: string) {
+  async createTaskActivity(taskId: string, content: string, mediaUrl?: string, kind?: ActivityKind) {
     return this.request<TaskActivity>(`/projects/tasks/${taskId}/activities`, {
       method: 'POST',
-      body: { content, media_url: mediaUrl },
+      body: { content, media_url: mediaUrl, kind },
     });
+  }
+
+  // ── Kho ảnh công trình (23/10/2026) ─────────────────────────────────────
+  // Ảnh nằm ở nhóm Telegram «JAMA Công trình», DB chỉ giữ metadata; link
+  // `/media/{id}/{sig}.jpg` đã ký nên <img> mở được không cần header.
+
+  /** Tải 1 ảnh lên Kho ảnh. Multipart nên không đi qua request() (header JSON). */
+  async uploadMedia(file: Blob, opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
+    }
+    const fd = new FormData();
+    fd.append('file', file, 'anh.jpg');
+    fd.append('project_id', opts.projectId);
+    if (opts.kind) fd.append('kind', opts.kind);
+    if (opts.caption) fd.append('caption', opts.caption);
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/media/upload`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Tải ảnh thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/media/upload');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<MediaFile & { deduped: boolean }>;
+  }
+
+  async listMedia(projectId: string, page = 1) {
+    return this.request<{ items: MediaFile[]; total: number; page: number }>('/media', {
+      params: { project_id: projectId, page: String(page) },
+    });
+  }
+
+  async patchMedia(id: string, data: { shared_with_customer?: boolean; caption?: string }) {
+    return this.request<MediaFile>(`/media/${id}`, { method: 'PATCH', body: data });
+  }
+
+  async getMediaStatus() {
+    return this.request<MediaStatus>('/media/status');
+  }
+
+  async testMedia() {
+    return this.request<{ chat_id: string; message_id: number }>('/media/test', { method: 'POST', body: {} });
+  }
+
+  async retryMediaMirror() {
+    return this.request<{ requeued: number }>('/media/mirror/retry', { method: 'POST', body: {} });
   }
 
   async updateTaskFinalFile(taskId: string, finalFileUrl: string | null) {
@@ -1773,6 +1825,7 @@ class ApiClient {
     bod_report_enabled: boolean;
     bod_report_hour: number;
     telegram_group_chat_id: string;
+    storage_telegram_chat_id: string;
     group_briefing_enabled: boolean;
   }>) {
     return this.request<AutomationSettings>('/automation/settings', { method: 'PUT', body: data });
@@ -2053,7 +2106,43 @@ export interface TaskActivity {
   user_name?: string;
   content: string;
   media_url?: string;
+  kind?: ActivityKind | null;
   created_at: string;
+}
+
+export type ActivityKind = 'tien_do' | 'su_co' | 'vat_tu' | 'cham_cong' | 'khac';
+
+export interface MediaFile {
+  id: string;
+  url: string;
+  width: number | null;
+  height: number | null;
+  caption: string | null;
+  kind: ActivityKind;
+  shared_with_customer: boolean;
+  project_id: string | null;
+  uploaded_by: string | null;
+  user_name: string | null;
+  mirror_status: string;
+  created_at: string | null;
+}
+
+export interface MediaStatus {
+  storage_chat_configured: boolean;
+  drive_configured: boolean;
+  total: number;
+  pending: number;
+  done: number;
+  error: number;
+  last_error: string | null;
+}
+
+/** Link ảnh từ backend: Kho ảnh trả đường dẫn tương đối `/media/...` → ghép
+ *  API_BASE. Ảnh cũ (data-URL, http) giữ nguyên. */
+export function mediaUrl(u?: string | null): string {
+  if (!u) return '';
+  if (u.startsWith('/media/')) return `${API_BASE}${u}`;
+  return u;
 }
 
 export interface Transaction {
@@ -2596,6 +2685,7 @@ export interface AutomationSettings {
   bod_report_enabled: string;
   bod_report_hour: string;
   telegram_group_chat_id: string;
+  storage_telegram_chat_id?: string;
   group_briefing_enabled: string;
 }
 

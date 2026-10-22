@@ -20,6 +20,8 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.project import Project, Task, TaskActivity
 from app.models.inventory import Material
+from app.models.media import MediaFile
+from app.services.media_gateway import url_media
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy model: MaterialRequest (pending approval workflow)
@@ -69,7 +71,10 @@ class MaterialRequest(Base):
 class SiteReportRequest(BaseModel):
     project_code: str
     content: str = Field(..., min_length=1, max_length=5000)
-    photos: list[str] = Field(default_factory=list, description="List of photo URLs or base64 strings")
+    # Cũ: file_id Telegram thô → ảnh vỡ trên web. Giữ để bot bản cũ không 422,
+    # nhưng không còn dùng làm link; ảnh đi qua Kho ảnh (`media_ids`).
+    photos: list[str] = Field(default_factory=list)
+    media_ids: list[str] = Field(default_factory=list, max_length=20)
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
 
 
@@ -88,6 +93,7 @@ class IncidentRequest(BaseModel):
     severity: str = Field(default="high", pattern=r"^(low|medium|high|critical)$")
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
     photos: list[str] = Field(default_factory=list)
+    media_ids: list[str] = Field(default_factory=list, max_length=20)
 
 
 class CheckinRequest(BaseModel):
@@ -123,6 +129,17 @@ async def _resolve_user_by_tg(tg_id: int, db: AsyncSession) -> User:
             detail=f"Không tìm thấy nhân viên với Telegram ID {tg_id}",
         )
     return user
+
+
+async def _anh_cua_du_an(db: AsyncSession, media_ids: list[str], project_id: str) -> list[MediaFile]:
+    """Ảnh bot đã đẩy vào Kho ảnh cho đúng dự án này, giữ thứ tự gửi."""
+    if not media_ids:
+        return []
+    rows = (await db.execute(
+        select(MediaFile).where(MediaFile.id.in_(media_ids), MediaFile.project_id == project_id)
+    )).scalars().all()
+    theo_id = {m.id: m for m in rows}
+    return [theo_id[i] for i in media_ids if i in theo_id]
 
 
 async def _resolve_project(code: str, db: AsyncSession) -> Project:
@@ -251,20 +268,17 @@ async def create_site_report(
     # Prefer an in_progress task
     target_task = next((t for t in tasks if t.status == "in_progress"), tasks[0])
 
-    # Build content with photo references
-    photo_refs = "\n".join(f"  [Anh {i+1}]: {url}" for i, url in enumerate(data.photos))
+    anh = await _anh_cua_du_an(db, data.media_ids, project.id)
     full_content = data.content
-    if photo_refs:
-        full_content = f"{data.content}\n\nAnh di dong:\n{photo_refs}"
-
-    # Store first photo URL as media_url for quick preview
-    first_photo = data.photos[0] if data.photos else None
+    if len(anh) > 1:
+        full_content = f"{data.content}\n\n📷 {len(anh)} ảnh — xem ở mục Ảnh dự án"
 
     activity = TaskActivity(
         task_id=target_task.id,
         user_id=reporter.id,
         content=full_content,
-        media_url=first_photo,
+        media_url=url_media(anh[0]) if anh else None,
+        kind="tien_do",
     )
     db.add(activity)
     await db.flush()
@@ -338,6 +352,7 @@ async def create_material_request(
                 task_id=linked_task.id,
                 user_id=requester.id,
                 content=f"Yeu cau vat tu: {data.material_name} x {data.quantity} {data.unit}",
+                kind="vat_tu",
             )
             db.add(activity)
             await db.flush()
@@ -378,6 +393,7 @@ async def report_incident(
     """
     project = await _resolve_project(data.project_code, db)
     reporter = await _resolve_user_by_tg(data.reporter_tg_id, db)
+    anh = await _anh_cua_du_an(db, data.media_ids, project.id)
 
     severity_label = {
         "low": "Thap",
@@ -413,7 +429,8 @@ async def report_incident(
         task_id=task.id,
         user_id=reporter.id,
         content=f"[Bao cao su co - {severity_label}] {data.description}",
-        media_url=None,
+        media_url=url_media(anh[0]) if anh else None,
+        kind="su_co",
     )
     db.add(activity)
     await db.flush()
@@ -477,6 +494,7 @@ async def gps_checkin(
         user_id=user.id,
         content=content,
         media_url=None,
+        kind="cham_cong",
     )
     db.add(activity)
 
@@ -541,6 +559,7 @@ async def gps_checkout(
         user_id=user.id,
         content=content,
         media_url=None,
+        kind="cham_cong",
     )
     db.add(activity)
 

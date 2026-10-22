@@ -81,5 +81,6 @@ DEFAULT_AUTOMATION_SETTINGS: dict[str, str] = {
     "bod_report_enabled": "true",
     "bod_report_hour": "8",            # giờ gửi báo cáo (Asia/Ho_Chi_Minh)
     "telegram_group_chat_id": "",      # chat_id nhóm Telegram công ty (vd -100123456789)
+    "storage_telegram_chat_id": "",    # nhóm Kho ảnh «JAMA Công trình» (bật Topics) — Đợt 2
     "group_briefing_enabled": "true",  # gửi briefing nhóm hàng ngày (không kèm tài chính)
 }

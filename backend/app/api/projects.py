@@ -839,6 +839,7 @@ async def create_task_activity(
         user_id=current_user.id,
         content=data.content,
         media_url=data.media_url,
+        kind=data.kind or ("tien_do" if data.media_url else "khac"),
     )
     db.add(act)
     await db.flush()
@@ -850,6 +851,7 @@ async def create_task_activity(
         user_name=current_user.full_name,
         content=act.content,
         media_url=act.media_url,
+        kind=act.kind,
         created_at=act.created_at,
     )
 

@@ -45,6 +45,7 @@ class SettingsUpdate(BaseModel):
     bod_report_enabled: bool | None = None
     bod_report_hour: int | None = None
     telegram_group_chat_id: str | None = None
+    storage_telegram_chat_id: str | None = None
     group_briefing_enabled: bool | None = None
 
 
@@ -71,12 +72,12 @@ async def update_settings(
             raise HTTPException(status_code=400, detail=f"Unknown setting: {key}")
         if isinstance(value, bool):
             str_value = "true" if value else "false"
-        elif key == "telegram_group_chat_id":
+        elif key in ("telegram_group_chat_id", "storage_telegram_chat_id"):
             str_value = str(value).strip()
             if str_value and not str_value.lstrip("-").isdigit():
                 raise HTTPException(
                     status_code=400,
-                    detail="telegram_group_chat_id must be a number (e.g. -100123456789)",
+                    detail="Chat ID nhóm phải là số, vd: -1001234567890 (gõ /id trong nhóm để lấy)",
                 )
         else:
             if key.endswith("_days") and not (1 <= int(value) <= 90):

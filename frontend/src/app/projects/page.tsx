@@ -5,7 +5,9 @@ import { useAuth } from '@/lib/auth';
 import { laTruongPhong } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages } from '@/lib/api';
+import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages, mediaUrl } from '@/lib/api';
+import { nenAnh, blobThanhDataUrl } from '@/lib/anh';
+import AnhDuAn from '@/components/projects/AnhDuAn';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
@@ -238,27 +240,20 @@ export default function ProjectsPage() {
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const kanbanAutoScrolled = useRef(false);
 
-  // Đọc ảnh thành base64 rồi xếp vào hàng chờ ghi chú (đường media THẬT về backend)
-  const addImagesToMedia = (files: File[]) => {
-    const validFiles = files.filter(f => {
-      if (f.size > 5 * 1024 * 1024) { toast(`${f.name}: tối đa 5MB`, 'error'); return false; }
-      return true;
-    });
-    if (validFiles.length === 0) return;
-    let loaded = 0;
+  // Nén ảnh (≤1600px JPG) rồi xếp vào hàng chờ ghi chú. Bấm «Đăng cập nhật»
+  // mới tải lên Kho ảnh. Trước 23/10/2026 ảnh đi base64 thẳng vào cột
+  // media_url 500 ký tự → Postgres từ chối, ảnh không bao giờ lưu được.
+  const addImagesToMedia = async (files: File[]) => {
     const results: string[] = [];
-    validFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        results.push(reader.result as string);
-        loaded++;
-        if (loaded === validFiles.length) {
-          setNewActivityMedia(prev => [...prev, ...results]);
-          toast(`Đã chọn ${results.length} ảnh — bấm «Đăng cập nhật» để lưu`, 'success');
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const f of files) {
+      if (f.size > 25 * 1024 * 1024) { toast(`${f.name}: ảnh quá lớn (tối đa 25MB)`, 'error'); continue; }
+      const blob = await nenAnh(f);
+      if (!blob) { toast(`${f.name}: không đọc được ảnh (HEIC? chụp lại ở chế độ JPG)`, 'error'); continue; }
+      results.push(await blobThanhDataUrl(blob));
+    }
+    if (results.length === 0) return;
+    setNewActivityMedia(prev => [...prev, ...results]);
+    toast(`Đã chọn ${results.length} ảnh — bấm «Đăng cập nhật» để lưu`, 'success');
   };
 
   // Dropzone trước 13/08/2026 chỉ setState — bytes không bao giờ rời trình duyệt
@@ -483,7 +478,16 @@ export default function ProjectsPage() {
       for (let i = 0; i < media.length; i++) {
         const caption = `📷 Ảnh ${i + 1}/${media.length}` + (content ? ' (kèm ghi chú trên)' : '');
         const body = i === 0 && content ? content : caption;
-        created.push(await api.createTaskActivity(selectedTask.id, body, media[i]));
+        let url: string | undefined;
+        if (media[i]) {
+          if (media.length > 1) toast(`Đang tải ảnh ${i + 1}/${media.length}…`, 'info');
+          const blob = await (await fetch(media[i]!)).blob();
+          const up = await api.uploadMedia(blob, {
+            projectId: selectedTask.project_id, kind: 'tien_do', caption: content || undefined,
+          });
+          url = up.url;
+        }
+        created.push(await api.createTaskActivity(selectedTask.id, body, url, url ? 'tien_do' : undefined));
       }
       setTaskActivities(prev => [...created.slice().reverse(), ...prev]);
       setNewActivityContent('');
@@ -494,7 +498,7 @@ export default function ProjectsPage() {
           : 'Thêm ghi chú thành công',
         'success',
       );
-    } catch {
+    } catch (err) {
       if (created.length > 0) {
         // Gửi được một phần: hiện phần đã lưu, giữ lại các ảnh chưa gửi để thử lại.
         // Nội dung đã đăng cùng ghi chú đầu → PHẢI xóa, không thì bấm thử lại
@@ -504,7 +508,7 @@ export default function ProjectsPage() {
         setNewActivityContent('');
         toast(`Đã lưu ${created.length}/${media.length} — các ảnh còn lại chưa gửi được, bấm Đăng cập nhật để thử lại`, 'error');
       } else {
-        toast('Lỗi khi thêm ghi chú', 'error');
+        toast(err instanceof Error && err.message ? err.message : 'Lỗi khi thêm ghi chú', 'error');
       }
     }
   };
@@ -1217,6 +1221,9 @@ export default function ProjectsPage() {
                 );
               })() : null}
 
+              {/* Ảnh công trình — Kho ảnh (Telegram «JAMA Công trình») */}
+              <AnhDuAn projectId={selectedProject.id} />
+
               {/* Bàn giao & bảo hành */}
               {selectedProject.handover_date && (
                 <div className="glass-card p-4">
@@ -1716,7 +1723,9 @@ export default function ProjectsPage() {
                         <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap">{act.content}</p>
                         {act.media_url && (
                           <div className="mt-1.5 max-w-[150px] rounded overflow-hidden border border-white/5">
-                            <img src={act.media_url} alt="Cập nhật" className="max-h-24 object-cover" />
+                            <a href={mediaUrl(act.media_url)} target="_blank" rel="noopener noreferrer">
+                              <img src={mediaUrl(act.media_url)} alt="Cập nhật" loading="lazy" className="max-h-24 object-cover" />
+                            </a>
                           </div>
                         )}
                       </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, TaskSlaConfig } from '@/lib/api';
+import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, TaskSlaConfig, MediaStatus } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
@@ -947,6 +947,79 @@ function AISettingsSection() {
   );
 }
 
+/** Kho ảnh công trình (23/10/2026): nhóm Telegram lưu ảnh + bản sao Drive. */
+function KhoAnhSection({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [st, setSt] = useState<MediaStatus | null>(null);
+  const [msg, setMsg] = useState('');
+
+  const loadStatus = useCallback(() => {
+    api.getMediaStatus().then(setSt).catch(() => {});
+  }, []);
+  useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  const thu = async () => {
+    setMsg('⏳ Đang gửi ảnh thử…');
+    try {
+      await api.testMedia();
+      setMsg('✅ Đã gửi 1 ảnh thử vào nhóm Kho ảnh — mở Telegram để xem');
+    } catch (e) {
+      setMsg(`❌ ${e instanceof Error ? e.message : 'Lỗi'}`);
+    }
+  };
+  const thuLaiDrive = async () => {
+    try {
+      const r = await api.retryMediaMirror();
+      setMsg(`✅ Đã xếp lại ${r.requeued} ảnh lỗi — worker sẽ sao lại trong ≤5 phút`);
+      loadStatus();
+    } catch (e) {
+      setMsg(`❌ ${e instanceof Error ? e.message : 'Lỗi'}`);
+    }
+  };
+
+  return (
+    <div className="pt-3 border-t border-white/5 space-y-2">
+      <div>
+        <p className="text-sm">📷 Nhóm Telegram Kho ảnh công trình</p>
+        <p className="text-xs text-[var(--text-muted)]">
+          Supergroup «JAMA Công trình» bật Chủ đề (Topics), bot là quản trị viên có quyền quản lý chủ đề.
+          Mỗi dự án 1 chủ đề, bot tự tạo. Lưu cài đặt rồi bấm «Thử gửi 1 ảnh».
+        </p>
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value.trim())}
+        placeholder="Chat ID nhóm Kho ảnh, vd: -1001234567890"
+        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
+      />
+      {st && (
+        <div className="text-xs text-[var(--text-muted)] space-y-0.5">
+          <p>
+            Kho ảnh: {st.storage_chat_configured ? '✅ đã gắn nhóm' : '⚠️ chưa gắn nhóm — tải ảnh sẽ báo lỗi'} · {st.total} ảnh
+          </p>
+          <p>
+            Bản sao Google Drive: {st.drive_configured
+              ? `✅ bật · đã sao ${st.done}, chờ ${st.pending}, lỗi ${st.error}`
+              : '⏸ chưa cấu hình (ảnh vẫn lưu ở Telegram)'}
+          </p>
+          {st.last_error && <p className="text-red-400 break-all">Lỗi gần nhất: {st.last_error}</p>}
+        </div>
+      )}
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={thu} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
+          🧪 Thử gửi 1 ảnh
+        </button>
+        {st && st.error > 0 && (
+          <button onClick={thuLaiDrive} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
+            🔁 Sao lại ảnh lỗi sang Drive
+          </button>
+        )}
+      </div>
+      {msg && <p className="text-xs">{msg}</p>}
+    </div>
+  );
+}
+
 function AutomationSection() {
   const [settings, setSettings] = useState<AutomationSettings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -959,6 +1032,7 @@ function AutomationSection() {
     bod_report_enabled: true,
     bod_report_hour: 8,
     telegram_group_chat_id: '',
+    storage_telegram_chat_id: '',
     group_briefing_enabled: true,
   });
 
@@ -973,6 +1047,7 @@ function AutomationSection() {
         bod_report_enabled: s.bod_report_enabled === 'true',
         bod_report_hour: parseInt(s.bod_report_hour, 10) || 8,
         telegram_group_chat_id: s.telegram_group_chat_id || '',
+        storage_telegram_chat_id: s.storage_telegram_chat_id || '',
         group_briefing_enabled: s.group_briefing_enabled !== 'false',
       });
     }).catch(() => {});
@@ -1128,6 +1203,11 @@ function AutomationSection() {
             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
           />
         </div>
+
+        <KhoAnhSection
+          value={form.storage_telegram_chat_id}
+          onChange={v => setForm(f => ({ ...f, storage_telegram_chat_id: v }))}
+        />
 
         <div className="flex items-center gap-2 pt-2 border-t border-white/5 flex-wrap">
           <button

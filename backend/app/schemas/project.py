@@ -1,6 +1,6 @@
 """Pydantic schemas for projects, tasks, and task activities."""
 
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 from datetime import datetime
 
 
@@ -155,7 +155,10 @@ class TaskResponse(BaseModel):
 
 class TaskActivityCreate(BaseModel):
     content: str
-    media_url: str | None = None
+    # Link ảnh qua Kho ảnh (/media/...). Trước 23/10 web nhét base64 vào đây
+    # → Postgres từ chối vì cột chỉ 500 ký tự; chặn sớm bằng 422 rõ ràng.
+    media_url: str | None = Field(default=None, max_length=500)
+    kind: str | None = Field(default=None, pattern=r"^(tien_do|su_co|vat_tu|cham_cong|khac)$")
 
 
 class TaskActivityResponse(BaseModel):
@@ -165,6 +168,7 @@ class TaskActivityResponse(BaseModel):
     user_name: str | None = None
     content: str
     media_url: str | None = None
+    kind: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

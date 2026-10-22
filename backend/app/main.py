@@ -287,3 +287,7 @@ app.include_router(estimations_router, prefix="/api/v1")
 # /dashboard/sales không bị route nào của dashboard bắt trước.
 from app.api.sales_dashboard import router as sales_dashboard_router
 app.include_router(sales_dashboard_router, prefix="/api/v1")
+
+# Kho ảnh công trình (Đợt 2, 23/10/2026).
+from app.api.media import router as media_router
+app.include_router(media_router, prefix="/api/v1")

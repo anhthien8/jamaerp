@@ -170,6 +170,10 @@ ROUTE_CONG_KHAI = {
     "/api/v1/portal/{token}/projects/{project_id}",
     "/api/v1/portal/{token}/projects/{project_id}/accept-stage",
     "/api/v1/portal/{token}/projects/{project_id}/activities",
+    "/api/v1/portal/{token}/projects/{project_id}/media",
+    # 23/10/2026 — ảnh Kho ảnh: <img> không gửi được header, nên link mang chữ
+    # ký HMAC(JWT_SECRET_KEY, id) 16 hex; sai chữ ký → 404.
+    "/api/v1/media/{media_id}/{sig}.jpg",
     "/api/v1/feedback/telegram",
     # 09/09/2026 — webhook máy chấm công: xác thực bằng khóa thiết bị trong header
     # X-Device-Key (so sánh constant-time với SystemSetting, mặc định TẮT cho tới

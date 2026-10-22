@@ -63,6 +63,11 @@ class Project(Base):
     # dự án và cũng không lọc được dự án của mình.
     purchasing_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
+    # Kho ảnh (Đợt 2, 23/10/2026): topic của dự án trong nhóm Telegram «JAMA
+    # Công trình» (bot tự tạo lần đầu có ảnh) + thư mục con trên Drive công ty.
+    telegram_topic_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    drive_folder_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # Timestamps
     start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     target_end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -230,6 +235,9 @@ class TaskActivity(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     media_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # tien_do | su_co | vat_tu | cham_cong | khac — portal khách chỉ hiện `tien_do`
+    # (trước 23/10 khách thấy cả sự cố, yêu cầu vật tư, check-in của thợ).
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="khac", server_default="khac")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )

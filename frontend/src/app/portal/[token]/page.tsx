@@ -32,9 +32,14 @@ interface TaskData {
 interface ActivityData {
   id: string;
   content: string;
-  media_url?: string;
   user_name: string;
   created_at: string;
+}
+
+/** Ảnh PIC đã bật «Khách thấy», gom theo ngày (giờ VN) — 23/10/2026. */
+interface PhotoDay {
+  date: string;
+  items: { id: string; url: string; caption?: string | null; user_name: string; created_at?: string | null }[];
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -54,6 +59,8 @@ export default function PortalPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [tasks, setTasks] = useState<TaskData[]>([]);
   const [activities, setActivities] = useState<ActivityData[]>([]);
+  const [photoDays, setPhotoDays] = useState<PhotoDay[]>([]);
+  const [zoom, setZoom] = useState<PhotoDay['items'][number] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -105,10 +112,15 @@ export default function PortalPage() {
       return;
     }
     try {
-      const [projRes, actRes] = await Promise.all([
+      const [projRes, actRes, mediaRes] = await Promise.all([
         fetch(`${API}/portal/${token}/projects/${project.id}`),
         fetch(`${API}/portal/${token}/projects/${project.id}/activities`),
+        fetch(`${API}/portal/${token}/projects/${project.id}/media`),
       ]);
+      if (mediaRes.ok) {
+        const data = await mediaRes.json();
+        setPhotoDays(data.days || []);
+      }
       if (projRes.ok) {
         const data = await projRes.json();
         setTasks(data.tasks || []);
@@ -201,7 +213,7 @@ export default function PortalPage() {
           </>
         ) : (
           <>
-            <button onClick={() => { setSelectedProject(null); setTasks([]); setActivities([]); }} className="text-xs mb-2" style={{ color: '#C9A96E' }}>← Quay lại danh sách</button>
+            <button onClick={() => { setSelectedProject(null); setTasks([]); setActivities([]); setPhotoDays([]); }} className="text-xs mb-2" style={{ color: '#C9A96E' }}>← Quay lại danh sách</button>
             <h2 className="text-sm font-semibold text-white">{selectedProject.code} — {selectedProject.name}</h2>
             <div className="flex items-center gap-2 text-[10px]" style={{ color: '#9BA7B4' }}>
               <span>Giai đoạn: <span className="text-white">{STAGE_LABELS[selectedProject.stage]}</span></span>
@@ -259,9 +271,40 @@ export default function PortalPage() {
                     <p className="text-[11px]" style={{ color: '#10B981' }}>Giai đoạn hiện tại đã được bạn xác nhận. Cảm ơn bạn!</p>
                   )}
                 </div>
+                {photoDays.length > 0 && (
+                  <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h3 className="text-xs font-semibold mb-3" style={{ color: '#9BA7B4' }}>📸 Nhật ký công trình</h3>
+                    <div className="space-y-4">
+                      {photoDays.map(d => (
+                        <div key={d.date}>
+                          <p className="text-[11px] font-semibold mb-1.5" style={{ color: '#C9A96E' }}>
+                            {new Date(d.date + 'T00:00:00').toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </p>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {d.items.map(p => (
+                              <button key={p.id} type="button" onClick={() => setZoom(p)} className="aspect-square rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <img src={`${API}${p.url}`} alt={p.caption || 'Ảnh công trình'} loading="lazy" className="w-full h-full object-cover" />
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] mt-1" style={{ color: '#6B7683' }}>
+                            Cập nhật bởi {Array.from(new Set(d.items.map(p => p.user_name))).join(', ')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {zoom && (
+                  <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={() => setZoom(null)}>
+                    <img src={`${API}${zoom.url}`} alt={zoom.caption || 'Ảnh công trình'} className="max-h-[82vh] max-w-full object-contain rounded" />
+                    {zoom.caption && <p className="mt-3 text-xs text-white text-center">{zoom.caption}</p>}
+                    <p className="mt-1 text-[10px]" style={{ color: '#9BA7B4' }}>Chạm để đóng</p>
+                  </div>
+                )}
                 {activities.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>📸 Hoạt động gần đây</h3>
+                    <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>📝 Tiến độ gần đây</h3>
                     {activities.map(a => (
                       <div key={a.id} className="py-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                         <p className="text-xs text-white">{(a.content || '').substring(0, 120)}{(a.content || '').length > 120 ? '...' : ''}</p>

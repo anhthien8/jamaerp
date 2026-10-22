@@ -25,6 +25,7 @@ from bot.handlers import (
     feedback,
     hr,
     estimation,
+    kho_anh,
 )
 
 load_dotenv()
@@ -81,6 +82,7 @@ async def main():
     dp.include_router(feedback.router)
     dp.include_router(hr.router)
     dp.include_router(estimation.router)
+    dp.include_router(kho_anh.router)  # ảnh thả vào topic nhóm Kho ảnh — cuối chuỗi
 
     logger.info("JAMA HOME CRM Bot starting...")
     await dp.start_polling(bot)

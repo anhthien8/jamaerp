@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # ngăn kẻ tấn công mạo danh nhân viên chỉ bằng telegram_user_id.
     TELEGRAM_AUTH_SECRET: str = ""
 
+    # Kho ảnh công trình (Đợt 2, 23/10/2026): bản sao ảnh sang Google Drive công
+    # ty bằng Service Account. GDRIVE_SA_JSON = nguyên nội dung file key JSON;
+    # GDRIVE_MEDIA_FOLDER_ID = thư mục gốc đã share quyền Editor cho email SA.
+    # Thiếu một trong hai → bỏ qua bước sao (ảnh vẫn nằm ở nhóm Telegram).
+    GDRIVE_SA_JSON: str = ""
+    GDRIVE_MEDIA_FOLDER_ID: str = ""
+
     # Zalo Listener (spec 09): bí mật chia sẻ giữa Ingest Service (zca-js) ↔ backend.
     # Ingest service BẮT BUỘC gửi header X-Zalo-Secret khớp khi đẩy QR/heartbeat/tin nhắn.
     ZALO_INGEST_SECRET: str = ""

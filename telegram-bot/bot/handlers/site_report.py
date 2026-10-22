@@ -23,7 +23,7 @@ class SiteReportState(StatesGroup):
 @router.message(Command("duan"))
 async def cmd_duan(message: types.Message):
     """Look up project by code — show info + task progress."""
-    args = message.text.split(maxsplit=1)
+    args = (message.text or message.caption or "").split(maxsplit=1)
     if len(args) < 2:
         await message.answer(
             "🔍 <b>Tra cứu dự án</b>\n\n"
@@ -115,7 +115,8 @@ async def cmd_duan(message: types.Message):
 @router.message(Command("baocao"))
 async def cmd_baocao(message: types.Message, state: FSMContext):
     """Start a site report — parse project code and content."""
-    args = message.text.split(maxsplit=2)
+    # Gửi ảnh kèm chú thích "/baocao ..." thì text rỗng, lệnh nằm ở caption
+    args = (message.text or message.caption or "").split(maxsplit=2)
     if len(args) < 2:
         await message.answer(
             "📝 <b>Báo cáo công trình</b>\n\n"
@@ -140,7 +141,7 @@ async def cmd_baocao(message: types.Message, state: FSMContext):
         return
 
     # Has content — start collecting photos
-    await state.update_data(project_code=project_code, report_content=content, photos=[])
+    await state.update_data(project_code=project_code, report_content=content, photos=[], media_ids=[])
     await state.set_state(SiteReportState.collecting_photos)
     await message.answer(
         f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
@@ -161,7 +162,7 @@ async def process_report_content(message: types.Message, state: FSMContext):
             await message.answer("🚫 Đã hủy báo cáo.")
         return
 
-    await state.update_data(report_content=text, photos=[])
+    await state.update_data(report_content=text, photos=[], media_ids=[])
     await state.set_state(SiteReportState.collecting_photos)
     await message.answer(
         "📸 Gửi ảnh hiện trường (có thể gửi nhiều ảnh).\n"
@@ -172,17 +173,26 @@ async def process_report_content(message: types.Message, state: FSMContext):
 
 @router.message(SiteReportState.collecting_photos, F.photo)
 async def collect_photo(message: types.Message, state: FSMContext):
-    """Collect photos for the report."""
+    """Nhận ảnh → lưu ngay vào Kho ảnh (topic dự án), giữ lại media_id."""
     data = await state.get_data()
-    photos = data.get("photos", [])
-
-    # Use the largest available photo size
-    photo = message.photo[-1]
-    photos.append(photo.file_id)
-
-    await state.update_data(photos=photos)
+    media_ids = data.get("media_ids", [])
+    photo = message.photo[-1]  # cỡ lớn nhất
+    res = await api.media_from_telegram(message.from_user.id, {
+        "file_id": photo.file_id,
+        "file_unique_id": photo.file_unique_id,
+        "project_code": data.get("project_code"),
+        "kind": "tien_do",
+        "caption": (message.caption or data.get("report_content") or "")[:300] or None,
+    })
+    if not res or res.get("error"):
+        loi = res.get("error") if res else "Không kết nối được server"
+        await message.answer(f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh hoặc <code>/done</code> để gửi báo cáo không ảnh.")
+        return
+    if res["id"] not in media_ids:
+        media_ids.append(res["id"])
+    await state.update_data(media_ids=media_ids)
     await message.answer(
-        f"✅ Đã nhận ảnh ({len(photos)} ảnh).\n"
+        f"✅ Đã lưu ảnh ({len(media_ids)} ảnh).\n"
         "Gửi thêm ảnh hoặc gửi <code>/done</code> để hoàn tất."
     )
 
@@ -193,7 +203,7 @@ async def finish_site_report(message: types.Message, state: FSMContext):
     data = await state.get_data()
     project_code = data.get("project_code", "")
     content = data.get("report_content", "")
-    photos = data.get("photos", [])
+    photos = data.get("media_ids", [])
 
     if not content:
         await message.answer("❌ Nội dung báo cáo trống. Hãy thử lại.")
@@ -205,7 +215,7 @@ async def finish_site_report(message: types.Message, state: FSMContext):
     report_data = {
         "project_code": project_code,
         "content": content,
-        "photos": photos,
+        "media_ids": photos,
         "reporter_tg_id": message.from_user.id,
     }
 

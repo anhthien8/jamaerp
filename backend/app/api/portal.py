@@ -1,7 +1,7 @@
 """Customer Portal — public access for customers (read + xác nhận nghiệm thu)."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -11,8 +11,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db
 from app.models.customer import Customer
+from app.models.media import MediaFile
 from app.models.project import Project, Task, TaskActivity
 from app.models.user import User
+from app.services.media_gateway import url_media
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 
@@ -192,7 +194,11 @@ async def portal_accept_stage(
 
 @router.get("/{token}/projects/{project_id}/activities")
 async def portal_activities(token: str, project_id: str, db: AsyncSession = Depends(get_db)):
-    """Activity feed for a project (last 20 items)."""
+    """Nhật ký tiến độ cho khách (20 dòng gần nhất).
+
+    Chỉ `kind == "tien_do"` — trước 23/10 khách thấy cả sự cố, yêu cầu vật
+    tư, check-in của thợ. Ảnh không đi theo dòng nhật ký (có thể là ảnh PIC
+    chưa cho khách xem); ảnh lấy ở /media, nơi tôn trọng cờ chia sẻ."""
     customer = await _get_customer_by_token(token, db)
 
     # Verify ownership
@@ -211,7 +217,7 @@ async def portal_activities(token: str, project_id: str, db: AsyncSession = Depe
     act_result = await db.execute(
         select(TaskActivity, User.full_name.label("user_name"))
         .outerjoin(User, TaskActivity.user_id == User.id)
-        .where(TaskActivity.task_id.in_(task_ids))
+        .where(TaskActivity.task_id.in_(task_ids), TaskActivity.kind == "tien_do")
         .order_by(desc(TaskActivity.created_at))
         .limit(20)
     )
@@ -220,9 +226,40 @@ async def portal_activities(token: str, project_id: str, db: AsyncSession = Depe
     for act, user_name in act_result.all():
         activities.append({
             "id": act.id, "content": act.content,
-            "media_url": act.media_url,
             "user_name": user_name or "Nhân viên JAMA",
             "created_at": act.created_at.isoformat(),
         })
 
     return {"activities": activities}
+
+
+@router.get("/{token}/projects/{project_id}/media")
+async def portal_media(token: str, project_id: str, db: AsyncSession = Depends(get_db)):
+    """Ảnh công trình PIC đã bật «Khách thấy», gom theo ngày (giờ VN), mới
+    nhất trước. Link ảnh đã ký HMAC nên `<img>` mở được không cần đăng nhập."""
+    customer = await _get_customer_by_token(token, db)
+    project = await db.get(Project, project_id)
+    if not project or not _customer_owns_project(project, customer):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+
+    rows = (await db.execute(
+        select(MediaFile, User.full_name)
+        .outerjoin(User, MediaFile.uploaded_by == User.id)
+        .where(MediaFile.project_id == project.id, MediaFile.shared_with_customer == True)
+        .order_by(desc(MediaFile.created_at))
+        .limit(300)
+    )).all()
+
+    ngay: dict[str, list[dict]] = {}
+    for m, ten in rows:
+        gio_vn = (m.created_at or datetime.now(timezone.utc).replace(tzinfo=None)) + timedelta(hours=7)
+        ngay.setdefault(gio_vn.date().isoformat(), []).append({
+            "id": m.id,
+            "url": url_media(m),
+            "width": m.width,
+            "height": m.height,
+            "caption": m.caption,
+            "user_name": ten or "Nhân viên JAMA",
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        })
+    return {"days": [{"date": d, "items": items} for d, items in ngay.items()], "total": len(rows)}

@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '22/10/2026';
+export const GUIDE_UPDATED = '23/10/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -197,7 +197,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo, **Chấm công văn phòng** — khai IP mạng công ty + tọa độ VP để bảng công gắn nhãn ✓VP, và nối máy chấm công qua API) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo» và **«Chuẩn SLA đầu việc»**. Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
+        "text": "**Ai thấy thêm gì:** Admin thấy thêm nhóm «Tích hợp» (Cấu hình AI, Zalo, **Chấm công văn phòng** — khai IP mạng công ty + tọa độ VP để bảng công gắn nhãn ✓VP, và nối máy chấm công qua API) và «Sao lưu dữ liệu»; Admin + Ban giám đốc thấy thêm «Tự động hóa CSKH & Báo cáo» (trong đó có ô **«Nhóm Telegram Kho ảnh»** — chat ID nhóm «JAMA Công trình», kèm tình trạng kho và nút «🧪 Thử gửi 1 ảnh») và **«Chuẩn SLA đầu việc»**. Nhân viên bình thường không thấy các mục này — không phải máy bạn lỗi đâu."
       },
       {
         "type": "p",
@@ -518,8 +518,20 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm vào tên đầu việc → mở cửa sổ chi tiết việc.",
           "Gõ nội dung vào ô **«Thêm cập nhật ghi chú & hình ảnh»**.",
-          "Bấm **«📷 Đính kèm ảnh»** để chọn ảnh (chọn được nhiều ảnh, mỗi ảnh tối đa **5MB**). Ảnh hiện trước ở dạng thu nhỏ, bấm dấu × để bỏ ảnh chọn nhầm.",
-          "Bấm **«Đăng cập nhật»** — ghi chú và ảnh vào mục «Lịch sử cập nhật công việc», cả đội cùng thấy. Nếu mạng yếu chỉ gửi được một phần, cứ bấm «Đăng cập nhật» lần nữa để gửi nốt ảnh còn lại."
+          "Bấm **«📷 Đính kèm ảnh»** để chọn ảnh (chọn được nhiều ảnh). App tự nén ảnh cho gọn nên ảnh chụp điện thoại cỡ nào cũng gửi được. Ảnh hiện trước ở dạng thu nhỏ, bấm dấu × để bỏ ảnh chọn nhầm.",
+          "Bấm **«Đăng cập nhật»** — ảnh được lưu vào **Kho ảnh công trình**, ghi chú và ảnh vào mục «Lịch sử cập nhật công việc», cả đội cùng thấy. Nếu mạng yếu chỉ gửi được một phần, cứ bấm «Đăng cập nhật» lần nữa để gửi nốt ảnh còn lại."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Khối «📷 Ảnh dự án» — kho ảnh của từng công trình"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Trong chi tiết dự án có khối **«📷 Ảnh dự án»**: toàn bộ ảnh của dự án, gửi từ web hay từ Telegram đều về đây. Bấm ảnh để phóng to, bấm **«＋ Thêm ảnh»** để đăng thêm.",
+          "Mỗi ảnh có công tắc **«👁 Khách thấy / 🙈 Nội bộ»**. Ảnh tiến độ mặc định **khách thấy** trên trang tiến độ của khách; ảnh sự cố, vật tư mặc định **nội bộ**.",
+          "Ảnh chưa đẹp, lộ đồ đạc riêng của chủ nhà, hay chụp lỗi thi công → bấm chuyển sang **«🙈 Nội bộ»** trước khi khách mở link."
         ]
       },
       {
@@ -602,7 +614,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Danh sách **dự án của chính khách đó** (không thấy dự án của khách khác), kèm % tiến độ và giai đoạn hiện tại.",
           "Bấm vào từng dự án: danh sách **đầu việc** với dấu ✅ xong / 🔄 đang làm / ⏳ chưa bắt đầu.",
-          "**«📸 Hoạt động gần đây»**: 20 cập nhật mới nhất mà đội thi công đăng trong đầu việc (ghi chú, tên người đăng, ngày) — nên viết ghi chú tử tế, khách đọc được đấy!",
+          "**«📸 Nhật ký công trình»**: ảnh công trình xếp theo ngày, kèm tên người cập nhật. Khách chỉ thấy ảnh đang bật **«👁 Khách thấy»** (xem khối «📷 Ảnh dự án» trong chi tiết dự án).",
+          "**«📝 Tiến độ gần đây»**: các cập nhật tiến độ mới nhất đội thi công đăng trong đầu việc — nên viết ghi chú tử tế, khách đọc được đấy! Sự cố, yêu cầu vật tư và check-in của đội **không** hiện cho khách.",
           "**«✍️ Nghiệm thu giai đoạn»**: khách bấm nút **«Xác nhận nghiệm thu»** khi hài lòng với giai đoạn hiện tại, ghi chú thêm nếu muốn."
         ]
       },
@@ -1310,6 +1323,18 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "Bot cũng **tự nhắn cho bạn** không cần gọi: báo kết quả khi đơn nghỉ phép/tạm ứng được duyệt hay từ chối, nhắc khách lâu chưa liên hệ lại, nhắc đợt thanh toán trễ hạn, và gửi tóm tắt công việc mỗi sáng vào nhóm chung của công ty."
+      },
+      {
+        "type": "h3",
+        "text": "Gửi ảnh công trình — vào Kho ảnh"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Ảnh gửi trong `/baocao` và `/suco` được lưu ngay vào **Kho ảnh công trình** (bot báo «✅ Đã lưu ảnh»), hiện trên web ở khối «📷 Ảnh dự án».",
+          "Nhanh nhất: vào nhóm **«JAMA Công trình»**, mở **đúng topic của dự án** (mỗi dự án một topic, tên dạng «MÃ · Tên dự án») rồi **thả ảnh vào, không cần gõ lệnh**. Bot thả 👍 là đã ghi nhận. Ghi chú thì gõ luôn vào chú thích ảnh.",
+          "Bot không thả 👍? Kiểm tra bạn đã liên kết Telegram với CRM (phần trên) và đang gửi đúng topic dự án, không phải mục «General»."
+        ]
       },
       {
         "type": "warn",
