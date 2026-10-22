@@ -82,7 +82,7 @@ async def bo_may(client, db_session, admin_user):
     assert resp.status_code == 200, resp.text
 
     designer = await _tao_user(client, db_session, admin_user, email="designer@test.com", role="data_entry", department="DESIGN")
-    ops = await _tao_user(client, db_session, admin_user, email="ops@test.com", role="supervisor", department="OPS")
+    ops = await _tao_user(client, db_session, admin_user, email="ops@test.com", role="data_entry", department="OPS")
     qlda = await _tao_user(client, db_session, admin_user, email="qlda@test.com", role="quan_ly_du_an", department="OPS")
     ktk = await _tao_user(client, db_session, admin_user, email="ktk@test.com", role="ke_toan_kho", department="ACCT")
 

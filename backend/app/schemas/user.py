@@ -11,6 +11,11 @@ VALID_ROLES = {
     "accountant", "supervisor",
 }
 
+# Vai trò NGỪNG CẤP MỚI (chốt V3 22/10/2026): `supervisor` gộp vào TP Giám sát
+# (`operation_leader`). Tài khoản cũ đang mang vai này vẫn chạy bình thường,
+# chỉ không tạo mới / không đổi sang được nữa.
+VAI_TRO_NGUNG_CAP = {"supervisor"}
+
 
 class UserLogin(BaseModel):
     email: str

@@ -5,6 +5,7 @@ import { useAuth, type AppMode } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { SHOW_DEMO_MODE } from '@/lib/features';
+import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', role: 'Admin' },
@@ -322,7 +323,7 @@ function LoginForm() {
 
           {/* Footer */}
           <p className="text-center text-xs font-medium mt-6" style={{ color: 'var(--text-secondary)' }}>
-            JAMA HOME <span style={{ opacity: 0.5 }}>·</span> Thiết kế cho cuộc sống mới
+            {BRAND_NAME} <span style={{ opacity: 0.5 }}>·</span> {BRAND_SLOGAN}
           </p>
         </div>
       </div>

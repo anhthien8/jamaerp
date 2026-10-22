@@ -10,6 +10,27 @@ from bot.api_client import api
 router = Router()
 
 
+def _ban_phim_vi_tri() -> types.ReplyKeyboardMarkup:
+    return types.ReplyKeyboardMarkup(
+        keyboard=[[types.KeyboardButton(text="📍 Gửi vị trí hiện tại", request_location=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def _can_gps(loi) -> bool:
+    """Backend báo thiếu GPS khi vào ca văn phòng (bán kính VP)."""
+    return "Cần bật vị trí" in str(loi or "")
+
+
+async def _bao_vao_ca_van_phong(message: types.Message, result: dict) -> None:
+    await message.answer(
+        f"✅ <b>{result.get('message', 'Điểm danh thành công!')}</b>\n\n"
+        f"👤 {result.get('user', '—')} · 🕐 {str(result.get('checkin_time', ''))[:16]}\n\n"
+        f"💡 Tại công trình? Dùng <code>/checkin [Mã dự án]</code> để điểm danh kèm GPS."
+    )
+
+
 class CheckinState(StatesGroup):
     """FSM states for GPS check-in flow."""
     waiting_location = State()
@@ -36,40 +57,34 @@ async def cmd_checkin(message: types.Message, state: FSMContext):
     args = message.text.split(maxsplit=1)
 
     if len(args) < 2:
-        # Chấm công văn phòng — không cần GPS
+        # Chấm công văn phòng — thử trước không GPS; backend đòi thì xin vị trí
         await api.authenticate(message.from_user.id, message.from_user.username)
         result = await api.office_checkin(message.from_user.id)
         if not result:
             await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
             return
         if result.get("error"):
+            if _can_gps(result["error"]):
+                await state.update_data(project_code="")
+                await state.set_state(CheckinState.waiting_location)
+                await message.answer(
+                    "📍 <b>Vào ca văn phòng</b>\n\n"
+                    "Cần vị trí GPS để xác nhận bạn đang ở văn phòng.\n"
+                    "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
+                    "💡 <i>Gửi /cancel để hủy</i>",
+                    reply_markup=_ban_phim_vi_tri(),
+                )
+                return
             await message.answer(f"❌ {result['error']}")
             return
-        await message.answer(
-            f"✅ <b>{result.get('message', 'Điểm danh thành công!')}</b>\n\n"
-            f"👤 {result.get('user', '—')} · 🕐 {str(result.get('checkin_time', ''))[:16]}\n\n"
-            f"💡 Tại công trình? Dùng <code>/checkin [Mã dự án]</code> để điểm danh kèm GPS."
-        )
+        await _bao_vao_ca_van_phong(message, result)
         return
 
     project_code = args[1].strip().upper()
 
     await state.update_data(project_code=project_code)
     await state.set_state(CheckinState.waiting_location)
-
-    # Build keyboard with location request
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                types.KeyboardButton(
-                    text="📍 Gửi vị trí hiện tại",
-                    request_location=True,
-                ),
-            ],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
+    keyboard = _ban_phim_vi_tri()
 
     await message.answer(
         f"📍 <b>Điểm danh — {project_code}</b>\n\n"
@@ -93,6 +108,19 @@ async def process_checkin_location(message: types.Message, state: FSMContext):
         "🔄 Đang điểm danh...",
         reply_markup=types.ReplyKeyboardRemove(),
     )
+
+    if not project_code:
+        # Vào ca văn phòng kèm GPS (backend kiểm bán kính)
+        result = await api.office_checkin(message.from_user.id, latitude, longitude)
+        await state.clear()
+        if not result:
+            await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+            return
+        if result.get("error"):
+            await message.answer(f"❌ {result['error']}")
+            return
+        await _bao_vao_ca_van_phong(message, result)
+        return
 
     checkin_data = {
         "project_code": project_code,
@@ -164,19 +192,7 @@ async def cmd_checkout(message: types.Message, state: FSMContext):
 
     await state.update_data(project_code=project_code)
     await state.set_state(CheckoutState.waiting_location)
-
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                types.KeyboardButton(
-                    text="📍 Gửi vị trí hiện tại",
-                    request_location=True,
-                ),
-            ],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
+    keyboard = _ban_phim_vi_tri()
 
     await message.answer(
         f"📍 <b>Tan ca — {project_code}</b>\n\n"

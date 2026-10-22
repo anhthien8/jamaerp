@@ -26,7 +26,7 @@ from app.models.lead import Lead
 from app.models.notification import SystemSetting
 from app.schemas.user import (
     UserCreate, UserUpdate, CustomRoleCreate, TeamCreate, TeamUpdate,
-    TeamMembersUpdate, VALID_ROLES,
+    TeamMembersUpdate, VALID_ROLES, VAI_TRO_NGUNG_CAP,
 )
 from app.services.audit import log_action
 
@@ -789,6 +789,8 @@ async def create_user(
     custom_role_keys = {r["role_key"] for r in custom_roles}
     if data.role not in VALID_ROLES and data.role not in custom_role_keys:
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+    if data.role in VAI_TRO_NGUNG_CAP:
+        raise HTTPException(status_code=400, detail="Vai trò Giám sát đã gộp vào TP Giám sát — chọn vai trò khác")
 
     # Check email exists
     existing = await db.execute(select(User).where(User.email == data.email.lower()))
@@ -845,6 +847,8 @@ async def update_user(
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi vai trò")
     if "is_active" in provided and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền thay đổi trạng thái")
+    if "role" in provided and data.role in VAI_TRO_NGUNG_CAP and data.role != user.role:
+        raise HTTPException(status_code=400, detail="Vai trò Giám sát đã gộp vào TP Giám sát — chọn vai trò khác")
     if "role" in provided and data.role not in VALID_ROLES:
         custom_roles = await _load_custom_roles(db)
         custom_role_keys = {r["role_key"] for r in custom_roles}

@@ -14,7 +14,8 @@ from app.models.project import (
     task_department_for_stage,
 )
 from app.middleware.rbac import (
-    PIC_THEO_PHONG_BAN, VAI_TRO_TRUONG_PHONG, la_pic_du_an, la_truong_phong, pham_vi_du_an,
+    PIC_THEO_PHONG_BAN, VAI_TRO_TRUONG_PHONG, la_pic_du_an, la_truong_nhom, la_truong_phong,
+    pham_vi_du_an,
 )
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.notification import Notification
@@ -305,6 +306,50 @@ async def _stage_progress_map(db: AsyncSession, project_ids: list[str]) -> dict[
     return progress
 
 
+def dieu_kien_pham_vi_du_an(current_user: User):
+    """Điều kiện SQL «dự án người này được thấy» — None nghĩa là thấy tất cả.
+
+    Dùng chung cho danh sách, Kanban (feedback 21/10: nhân viên thấy toàn bộ
+    dự án trên Kanban) và bot Telegram (chọn dự án bằng nút bấm).
+    """
+    pham_vi = pham_vi_du_an(current_user)
+    if pham_vi == "tat_ca":
+        return None
+    # Dự án mình là PIC, hoặc mình được giao ít nhất 1 đầu việc trong đó.
+    du_an_co_task = select(Task.project_id).where(dieu_kien_task_cua_nguoi(current_user.id))
+    dieu_kien = [
+        Project.pm_id == current_user.id,
+        Project.designer_id == current_user.id,
+        Project.sales_id == current_user.id,
+        Project.purchasing_id == current_user.id,
+        Project.id.in_(du_an_co_task),
+        # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
+        _dieu_kien_chua_phan_cong(),
+    ]
+    if pham_vi in ("phong_ban", "nhom"):
+        # Trưởng phòng: mọi dự án có PIC thuộc BỘ PHẬN mình.
+        # Trưởng nhóm: hẹp hơn một bậc — PIC phải cùng NHÓM (22/09).
+        dept = (current_user.department or "").upper()
+        cot = PIC_THEO_PHONG_BAN.get(dept)
+        if cot:
+            nguoi_trong_pham_vi = select(User.id).where(
+                func.upper(func.coalesce(User.department, "")) == dept
+            )
+            if pham_vi == "nhom":
+                nguoi_trong_pham_vi = nguoi_trong_pham_vi.where(
+                    User.team_id == current_user.team_id
+                )
+            dieu_kien.append(getattr(Project, cot).in_(nguoi_trong_pham_vi))
+    if pham_vi == "phong_ban":
+        # …và mọi dự án còn TRỐNG PIC của phòng mình — danh sách việc cần làm
+        # của trưởng phòng (thiếu nhánh này thì thông báo «dự án mới cần phân
+        # công» trỏ tới dự án họ không thấy).
+        thieu = _dieu_kien_phong_chua_co_pic(current_user)
+        if thieu is not None:
+            dieu_kien.append(thieu)
+    return or_(*dieu_kien)
+
+
 @router.get("")
 async def list_projects(
     status: str | None = None,
@@ -325,41 +370,9 @@ async def list_projects(
 
     # ── Phạm vi theo bộ phận (05/09/2026) ────────────────────────────────
     # Trước đây endpoint này KHÔNG lọc gì: mọi tài khoản thấy toàn bộ dự án.
-    pham_vi = pham_vi_du_an(current_user)
-    if pham_vi != "tat_ca":
-        # Dự án mình là PIC, hoặc mình được giao ít nhất 1 đầu việc trong đó.
-        du_an_co_task = select(Task.project_id).where(dieu_kien_task_cua_nguoi(current_user.id))
-        dieu_kien = [
-            Project.pm_id == current_user.id,
-            Project.designer_id == current_user.id,
-            Project.sales_id == current_user.id,
-            Project.purchasing_id == current_user.id,
-            Project.id.in_(du_an_co_task),
-            # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
-            _dieu_kien_chua_phan_cong(),
-        ]
-        if pham_vi in ("phong_ban", "nhom"):
-            # Trưởng phòng: mọi dự án có PIC thuộc BỘ PHẬN mình.
-            # Trưởng nhóm: hẹp hơn một bậc — PIC phải cùng NHÓM (22/09).
-            dept = (current_user.department or "").upper()
-            cot = PIC_THEO_PHONG_BAN.get(dept)
-            if cot:
-                nguoi_trong_pham_vi = select(User.id).where(
-                    func.upper(func.coalesce(User.department, "")) == dept
-                )
-                if pham_vi == "nhom":
-                    nguoi_trong_pham_vi = nguoi_trong_pham_vi.where(
-                        User.team_id == current_user.team_id
-                    )
-                dieu_kien.append(getattr(Project, cot).in_(nguoi_trong_pham_vi))
-        if pham_vi == "phong_ban":
-            # …và mọi dự án còn TRỐNG PIC của phòng mình — đó là danh sách việc
-            # cần làm của trưởng phòng. Thiếu nhánh này thì họ nhận được thông
-            # báo «dự án mới cần phân công» mà mở danh sách lại không thấy đâu.
-            thieu = _dieu_kien_phong_chua_co_pic(current_user)
-            if thieu is not None:
-                dieu_kien.append(thieu)
-        q = q.where(or_(*dieu_kien))
+    dieu_kien_pv = dieu_kien_pham_vi_du_an(current_user)
+    if dieu_kien_pv is not None:
+        q = q.where(dieu_kien_pv)
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())
@@ -399,7 +412,12 @@ async def project_kanban(
     priority = _priority_order(urgent, warning)
 
     # Lấy toàn bộ 1 lượt rồi group theo stage (tránh 6 query) + đổ tiến độ đầu việc (1 aggregate)
-    result = await db.execute(select(Project).order_by(*priority))
+    # Kanban theo đúng phạm vi như danh sách (feedback 21/10/2026).
+    q = select(Project).order_by(*priority)
+    dieu_kien_pv = dieu_kien_pham_vi_du_an(current_user)
+    if dieu_kien_pv is not None:
+        q = q.where(dieu_kien_pv)
+    result = await db.execute(q)
     all_projects = result.scalars().all()
     progress_map = await _stage_progress_map(db, [p.id for p in all_projects])
 
@@ -726,8 +744,8 @@ async def update_project_stage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_project_access),
 ):
-    """Update project current stage — admin, supervisor, leader only."""
-    if current_user.role not in ("admin", "supervisor", "leader"):
+    """Update project current stage — admin, trưởng phòng (kể cả TP Giám sát), supervisor cũ."""
+    if current_user.role not in ("admin", "supervisor", "leader") and not la_truong_phong(current_user):
         raise HTTPException(status_code=403, detail="Không có quyền cập nhật giai đoạn dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
@@ -836,6 +854,45 @@ async def create_task_activity(
     )
 
 
+async def _kiem_quyen_sua_task(
+    db: AsyncSession, nguoi: User, task: Task, *, phan_cong: bool
+) -> None:
+    """Ai được đổi một đầu việc (siết 22/10/2026 — trước đó MỌI tài khoản đăng
+    nhập đều đổi trạng thái / giao / sửa được đầu việc bất kỳ qua API).
+
+    Được phép:
+      - Ban Giám Đốc (admin/executive);
+      - PIC của dự án chứa đầu việc;
+      - Trưởng phòng / trưởng nhóm của ĐÚNG bộ phận phụ trách đầu việc;
+      - vai có ô «Sửa Công việc» trong ma trận Phân quyền;
+      - riêng việc cập nhật tiến độ (`phan_cong=False`): người đang đảm nhận.
+    """
+    if nguoi.role in ("admin", "executive"):
+        return
+    project = await db.get(Project, task.project_id)
+    if project is not None and la_pic_du_an(nguoi, project):
+        return
+    dept_task = (task.department or "").upper()
+    dept_minh = (nguoi.department or "").upper()
+    if (la_truong_phong(nguoi) or la_truong_nhom(nguoi)) and dept_task in ("", dept_minh):
+        return
+    perms = await quyen_hieu_luc(nguoi, db)
+    if perms.get("canEditTasks"):
+        return
+    if not phan_cong:
+        dang_lam = await db.execute(
+            select(Task.id).where(Task.id == task.id, dieu_kien_task_cua_nguoi(nguoi.id))
+        )
+        if dang_lam.first() is not None:
+            return
+    raise HTTPException(
+        status_code=403,
+        detail=("Chỉ người đảm nhận, PIC dự án hoặc trưởng phòng phụ trách được cập nhật đầu việc này"
+                if not phan_cong else
+                "Chỉ PIC dự án hoặc trưởng phòng phụ trách được giao / sửa đầu việc này"),
+    )
+
+
 @router.put("/tasks/{task_id}/final-file", response_model=TaskResponse)
 async def update_task_final_file(
     task_id: str,
@@ -848,6 +905,7 @@ async def update_task_final_file(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=False)
 
     # Update the main field (always points to latest)
     task.final_file_url = data.final_file_url
@@ -879,6 +937,7 @@ async def update_task_status(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=False)
 
     old_status = task.status
     task.status = data.status
@@ -922,6 +981,7 @@ async def assign_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=True)
 
     # Người nhận phải có thật — trước đây gán ID rác vẫn trả 200 rồi tạo thông báo
     # mồ côi. `dat_nguoi_lam` kiểm tra và trả 404 / 400 (nghỉ việc) giúp.
@@ -951,6 +1011,7 @@ async def update_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=True)
     if data.title:
         task.title = data.title
     if data.description is not None:
@@ -983,6 +1044,7 @@ async def set_task_due_date(
     )).scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=True)
     task.due_date = data.due_date
     await db.flush()
     return TaskResponse.model_validate(task)
@@ -995,8 +1057,8 @@ async def bulk_assign_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Bulk assign tasks to users — admin, supervisor, leader only."""
-    if current_user.role not in ("admin", "supervisor", "leader"):
+    """Bulk assign tasks to users — admin, trưởng phòng (kể cả TP Giám sát), supervisor cũ."""
+    if current_user.role not in ("admin", "supervisor", "leader") and not la_truong_phong(current_user):
         raise HTTPException(status_code=403, detail="Không có quyền phân công đầu việc")
 
     # Verify project exists

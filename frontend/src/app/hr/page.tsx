@@ -572,7 +572,6 @@ export default function HRPage() {
               <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
                 <option value="data_entry">Nhân viên Sale</option>
                 <option value="leader">Trưởng phòng</option>
-                <option value="supervisor">Giám sát (Thiết kế / Thu mua / Dự án)</option>
                 <option value="accountant">Kế toán / Nhân sự</option>
                 <option value="admin">Giám đốc</option>
                 <option value="executive">Ban Quản Trị</option>

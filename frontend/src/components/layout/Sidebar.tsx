@@ -12,6 +12,7 @@ import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
 import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
+import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -52,7 +53,8 @@ const ALL_ITEMS: NavItem[] = [
   { href: '/attendance', label: 'Chấm công', icon: Icon.attendance },
   { href: '/approvals', label: 'Phê duyệt', icon: Icon.approvals },
   { href: '/leads', label: 'Quy trình', icon: Icon.pipeline, perm: 'canViewLeads' },
-  { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations, perm: 'canViewLeads' },
+  // Chốt V3 22/10/2026: báo giá tức thì mở cho MỌI người (bảng giá vẫn chỉ Admin sửa).
+  { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
   { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
@@ -361,7 +363,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           </button>
         </div>
         <p className="text-center text-[9px] mt-2 leading-tight px-1" style={{ color: 'var(--text-muted)' }}>
-          JAMA HOME · Thiết kế cho cuộc sống mới
+          {BRAND_NAME} · {BRAND_SLOGAN}
         </p>
       </div>
     </>

@@ -336,11 +336,17 @@ class APIClient:
         except Exception:
             return None
 
-    async def office_checkin(self, tg_user_id: int) -> dict | None:
-        """Check-in văn phòng (không cần mã dự án/GPS)."""
+    async def office_checkin(
+        self, tg_user_id: int,
+        latitude: float | None = None, longitude: float | None = None,
+    ) -> dict | None:
+        """Check-in văn phòng; kèm GPS khi backend đòi (vào ca trong bán kính VP)."""
+        payload: dict = {"user_tg_id": tg_user_id}
+        if latitude is not None and longitude is not None:
+            payload["latitude"] = latitude
+            payload["longitude"] = longitude
         return await self._post(
-            tg_user_id, "/telegram/attendance/checkin",
-            {"user_tg_id": tg_user_id}, "Loi khi check-in",
+            tg_user_id, "/telegram/attendance/checkin", payload, "Loi khi check-in",
         )
 
     async def office_checkout(self, tg_user_id: int) -> dict | None:

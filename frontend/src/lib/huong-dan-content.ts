@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '09/09/2026';
+export const GUIDE_UPDATED = '22/10/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -373,7 +373,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Ai thấy mục này: giống menu «Quy trình» — khối Kinh doanh và Quản trị viên."
+        "text": "Ai thấy mục này: **mọi nhân viên** (mở từ 22/10) — ai đang nói chuyện với khách cũng tra giá nhanh được."
       },
       {
         "type": "p",
@@ -398,7 +398,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Nút **«📒 Xem bảng đơn giá»** ở góc phải trên mở bảng giá chuẩn để tra cứu. Chỉ Admin và Giám sát sửa được đơn giá — mọi người khác chỉ xem."
+        "text": "Nút **«📒 Xem bảng đơn giá»** ở góc phải trên mở bảng giá chuẩn để tra cứu. **Chỉ Giám đốc (tài khoản quản trị) sửa được đơn giá** (chốt 22/10) — mọi người khác chỉ xem. Trưởng phòng Báo giá thấy giá nào cần đổi thì báo quản trị."
       }
     ]
   },
@@ -449,7 +449,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Mọi vai trò chuẩn đều thấy mục **Dự án** trong menu. Khi tạo dự án mới, hệ thống **tự sinh mã** và **gửi thông báo cho trưởng phòng** các bộ phận chưa có người phụ trách để họ vào gắn PIC — mỗi trưởng phòng chỉ thấy ô PIC của **bộ phận mình** (Ban Giám Đốc thấy cả 4 ô). Ở chế độ **Danh sách**, bạn chỉ thấy các dự án **liên quan đến mình**: dự án bạn được phân công phụ trách (PIC) hoặc được giao ít nhất 1 đầu việc. (Chế độ Kanban hiện vẫn hiển thị đủ mọi dự án cho tất cả mọi người.) Trưởng phòng thấy thêm mọi dự án có người phòng mình phụ trách. Giám đốc, Ban Quản Trị và Kế toán thấy toàn bộ. Riêng dự án **chưa phân công ai** thì mọi người đều thấy."
+        "text": "Mọi vai trò chuẩn đều thấy mục **Dự án** trong menu. Khi tạo dự án mới, hệ thống **tự sinh mã** và **gửi thông báo cho trưởng phòng** các bộ phận chưa có người phụ trách để họ vào gắn PIC — mỗi trưởng phòng chỉ thấy ô PIC của **bộ phận mình** (Ban Giám Đốc thấy cả 4 ô). Ở **cả 2 chế độ Danh sách và Kanban** (Kanban siết từ 22/10), bạn chỉ thấy các dự án **liên quan đến mình**: dự án bạn được phân công phụ trách (PIC) hoặc được giao ít nhất 1 đầu việc. Trưởng phòng thấy thêm mọi dự án có người phòng mình phụ trách. Giám đốc, Ban Quản Trị và Kế toán thấy toàn bộ. Riêng dự án **chưa phân công ai** thì mọi người đều thấy. **Sửa một đầu việc** (đổi trạng thái, giao người, sửa nội dung) chỉ dành cho người được giao, PIC dự án, trưởng phòng hoặc vai có quyền «Sửa công việc»; người được giao đổi được trạng thái nhưng không tự dời hạn chốt."
       },
       {
         "type": "h3",
@@ -636,7 +636,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Bấm nút **+ Tạo hợp đồng mới** ở góc phải trên.",
+          "Bấm nút **+ Tạo hợp đồng mới** ở góc phải trên. Chỉ người có quyền **«Tạo hợp đồng»** mới tạo/sửa được (từ 22/10 vai trò tùy chỉnh phải được quản trị tick ô này trong Phân quyền).",
           "Nhập **Tiêu đề hợp đồng** (bắt buộc), chọn Dự án nếu có.",
           "Điền Giá trị hợp đồng, Số ngày thi công, Ngày bắt đầu, Ngày ký, Ghi chú.",
           "Bấm **Tạo hợp đồng** để lưu. Muốn sửa lại, bấm nút **Sửa** màu xanh ở cuối dòng hợp đồng đó."
@@ -662,7 +662,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "warn",
-        "text": "Nút **Xác nhận TT** chỉ hiện với **Kế toán, Giám đốc và Trưởng nhóm/phòng** (siết từ 29/08). Vai trò khác không thấy nút này — hệ thống cũng chặn ở máy chủ, có cố cũng không được. Xác nhận rồi thì đợt đó chuyển sang «Đã thanh toán», hãy chắc chắn tiền đã về tài khoản trước khi bấm."
+        "text": "Nút **Xác nhận TT** chỉ hiện với **Kế toán (Trưởng phòng Tài chính) và Giám đốc** (chốt 22/10 — Trưởng nhóm Kinh doanh không còn bấm được). Vai trò khác không thấy nút này — hệ thống cũng chặn ở máy chủ, có cố cũng không được. Xác nhận rồi thì đợt đó chuyển sang «Đã thanh toán», hãy chắc chắn tiền đã về tài khoản trước khi bấm."
       }
     ]
   },
@@ -709,7 +709,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "warn",
-        "text": "Nút **Duyệt báo giá** chỉ dành cho **Giám đốc, Trưởng nhóm/phòng và Giám sát**. Sale soạn và sửa được báo giá nhưng **không tự duyệt bản của mình** — máy chủ sẽ từ chối."
+        "text": "Nút **Duyệt báo giá** chỉ dành cho **Giám đốc và Trưởng phòng Báo giá** (chốt 22/10). Sale soạn và sửa được báo giá nhưng **không tự duyệt bản của mình** — máy chủ sẽ từ chối."
       }
     ]
   },
@@ -988,7 +988,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "list",
         "items": [
-          "**Cách nhanh nhất — qua Telegram:** nhắn `/checkin` cho bot khi bắt đầu làm, `/checkout` khi về. Đang ở công trường thì nhắn `/checkin` kèm mã dự án, bot sẽ ghi kèm vị trí GPS.",
+          "**Cách nhanh nhất — qua Telegram:** nhắn `/checkin` cho bot khi bắt đầu làm, `/checkout` khi về. Vào ca văn phòng mà bot đòi vị trí thì bấm nút **«📍 Gửi vị trí hiện tại»** bot hiện ra. Đang ở công trường thì nhắn `/checkin` kèm mã dự án, bot sẽ ghi kèm vị trí GPS.",
           "**Trên web:** vào trang Chấm công, bấm nút **Vào ca** (màu vàng) khi bắt đầu, bấm **Tan ca** khi về. Cách này dùng khi đang ngồi máy tính.",
           "**Mất mạng giữa chừng?** Cứ yên tâm — hệ thống tự gửi lại lần chấm công đó ngay khi có sóng."
         ]
@@ -1008,7 +1008,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "list",
         "items": [
-          "Bấm **Vào ca** trên web, app sẽ xin vị trí GPS (cho phép thì tốt, từ chối vẫn vào ca được). Nếu bạn đang ở văn phòng (đúng mạng công ty hoặc trong bán kính GPS), bảng công tự gắn nhãn **✓VP** — khỏi ai thắc mắc.",
+          "**Từ 22/10 vào ca văn phòng phải bật vị trí (GPS) và đứng trong bán kính 20 m** quanh văn phòng. Ngoài bán kính, màn hình báo bạn đang cách văn phòng bao nhiêu mét và không cho vào ca. Đang dùng wifi văn phòng thì không cần GPS. Nhân viên hiện trường (Giám sát, Quản lý dự án) và check-in tại công trình không bị giới hạn này. Vào ca hợp lệ thì bảng công gắn nhãn **✓VP**.",
+          "Thẻ hôm nay có đồng hồ **«Đang làm: 3h12»** tự chạy và dòng **«Ngày công tháng này: X / 22 (không gồm OT)»**. Đủ 8 tiếng/ngày là 1 công; làm quá thì phần dư tính OT riêng, chờ duyệt.",
           "Tăng ca (OT) sau khi được duyệt sẽ hiện rõ **ai duyệt, lúc mấy giờ** ngay trong bảng công của bạn.",
           "**Trưởng nhóm Kinh doanh** từ nay duyệt được OT của người trong nhóm mình (trước chỉ Trưởng phòng/Admin/Kế toán).",
           "Công ty có máy chấm công thì Admin nối máy vào hệ thống ở **Cài đặt → Chấm công văn phòng** — lượt quẹt máy tự đổ về bảng công (nguồn hiện «Máy chấm công»)."
@@ -1250,7 +1251,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "`/checkin [mã DA]` · `/checkout [mã DA]`",
-            "Chấm công vào/ra tại công trình, bot ghi nhận vị trí GPS"
+            "Chấm công vào/ra tại công trình, bot ghi nhận vị trí GPS. Gõ `/checkin` không kèm mã = vào ca văn phòng; bot đòi vị trí thì bấm nút «📍 Gửi vị trí hiện tại» (phải trong 20 m)"
           ],
           [
             "`/pipeline` · `/briefing`",
@@ -1365,10 +1366,6 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             "Thu chi, lương, xác nhận đã thu tiền hợp đồng, tài khoản nhân viên, P&L"
           ],
           [
-            "Giám sát",
-            "Dự án, báo giá, kho vật tư, chấm công"
-          ],
-          [
             "Quản lý dự án",
             "Điều phối dự án và đầu việc, kho, báo giá thi công, phê duyệt"
           ],
@@ -1378,7 +1375,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "Giám sát thi công",
-            "Đầu việc thi công, yêu cầu vật tư, chấm công GPS tại công trình"
+            "Đầu việc thi công, yêu cầu vật tư, chấm công GPS tại công trình. Vai «Giám sát» cũ đã gộp vào Trưởng phòng Giám sát (22/10)"
           ],
           [
             "Thu mua",

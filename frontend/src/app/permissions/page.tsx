@@ -10,7 +10,8 @@ import { useToast } from '@/components/ui/Toast';
 
 // 'executive' bị bỏ khỏi cột hiển thị từ 13/08/2026 — không ai mang vai trò này,
 // để cột thừa chỉ gây rối. Vẫn còn trong DEFAULTS bên dưới (tương thích dữ liệu cũ).
-const ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'supervisor', 'accountant'];
+// 'supervisor' bỏ khỏi cột từ 22/10/2026 (chốt V3: gộp vào TP Giám sát).
+const ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'accountant'];
 
 // Vai trò tùy chỉnh (admin tạo ở trang Tài khoản) — hiển thị thành cột riêng
 interface CustomRoleInfo {

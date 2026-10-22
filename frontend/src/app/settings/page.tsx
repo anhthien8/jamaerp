@@ -394,7 +394,9 @@ function OfficeCheckinSection() {
   const [networks, setNetworks] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
-  const [radius, setRadius] = useState('200');
+  const [radius, setRadius] = useState('20');
+  const [requireGps, setRequireGps] = useState(true);
+  const [fieldDepts, setFieldDepts] = useState('OPS, PM');
   const [deviceEnabled, setDeviceEnabled] = useState(false);
   const [keyMasked, setKeyMasked] = useState<string | null>(null);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -410,6 +412,8 @@ function OfficeCheckinSection() {
       setLat(cfg.office.lat != null ? String(cfg.office.lat) : '');
       setLng(cfg.office.lng != null ? String(cfg.office.lng) : '');
       setRadius(String(cfg.office.radius_m));
+      setRequireGps(cfg.office.require_gps ?? true);
+      setFieldDepts((cfg.office.field_departments ?? ['OPS', 'PM']).join(', '));
       setDeviceEnabled(cfg.device.enabled);
       setKeyMasked(cfg.device.api_key_masked);
       setWebhookPath(cfg.device.webhook_path);
@@ -427,7 +431,9 @@ function OfficeCheckinSection() {
         networks: networks.split('\n').map(s => s.trim()).filter(Boolean),
         lat: lat ? Number(lat) : null,
         lng: lng ? Number(lng) : null,
-        radius_m: Number(radius) || 200,
+        radius_m: Number(radius) || 20,
+        require_gps: requireGps,
+        field_departments: fieldDepts.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       });
       toast('Đã lưu cấu hình văn phòng', 'success');
     } catch (e) {
@@ -454,8 +460,9 @@ function OfficeCheckinSection() {
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="clock" />Chấm công văn phòng</h2>
       <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-        Nhân viên bấm Vào ca trên web: hệ thống tự đối chiếu IP mạng công ty + GPS điện thoại với
-        tọa độ văn phòng — trùng thì bảng công gắn nhãn <span style={{ color: '#34d399' }}>✓VP</span>. Không cấu hình = không đối chiếu (vẫn chấm công bình thường).
+        Nhân viên bấm Vào ca (web hoặc Telegram): hệ thống đối chiếu IP mạng công ty + GPS điện thoại với
+        tọa độ văn phòng — trùng thì bảng công gắn nhãn <span style={{ color: '#34d399' }}>✓VP</span>. Bật «Bắt buộc GPS» thì
+        <b> ngoài bán kính sẽ không vào ca được</b> (trừ bộ phận hiện trường và người dùng mạng văn phòng). Chưa lưu tọa độ = không chặn ai.
       </p>
       {!loaded ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Đang tải…</p> : loadFailed ? (
         <div className="text-sm flex items-center justify-between gap-2" style={{ color: 'var(--text-secondary)' }}>
@@ -481,8 +488,33 @@ function OfficeCheckinSection() {
             </div>
             <div>
               <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Bán kính (m)</label>
-              <input value={radius} onChange={e => setRadius(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} />
+              <input value={radius} onChange={e => setRadius(e.target.value)} inputMode="numeric" placeholder="20" className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} />
             </div>
+          </div>
+          <button type="button"
+            onClick={() => {
+              if (!navigator.geolocation) { toast('Trình duyệt không hỗ trợ định vị', 'error'); return; }
+              navigator.geolocation.getCurrentPosition(
+                pos => {
+                  setLat(pos.coords.latitude.toFixed(6));
+                  setLng(pos.coords.longitude.toFixed(6));
+                  toast(`Đã lấy vị trí (sai số ~${Math.round(pos.coords.accuracy)} m) — bấm Lưu để áp dụng`, 'success');
+                },
+                () => toast('Không lấy được vị trí — cho phép Vị trí cho trình duyệt rồi thử lại', 'error'),
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+              );
+            }}
+            className="text-xs px-3 py-1.5 rounded-lg"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+            📍 Lấy vị trí hiện tại làm tọa độ VP (đứng tại văn phòng rồi bấm)
+          </button>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={requireGps} onChange={e => setRequireGps(e.target.checked)} />
+            Bắt buộc GPS — ngoài bán kính không vào ca được
+          </label>
+          <div>
+            <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Bộ phận hiện trường — được vào ca ở bất kỳ đâu (mã bộ phận, cách nhau dấu phẩy)</label>
+            <input value={fieldDepts} onChange={e => setFieldDepts(e.target.value)} placeholder="OPS, PM" className="w-full px-3 py-2 rounded-lg text-sm outline-none font-mono" style={inputStyle} />
           </div>
           <button onClick={() => void save()} disabled={saving}
             className="w-full py-2.5 rounded-xl text-sm font-semibold min-h-[44px]"

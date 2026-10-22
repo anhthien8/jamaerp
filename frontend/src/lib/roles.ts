@@ -34,23 +34,23 @@ export function canAssignLeads(user?: { role?: string; department?: string } | n
 }
 
 /**
- * Ai được DUYỆT báo giá — chốt 29/08/2026: Giám đốc + Trưởng nhóm/phòng + Giám sát.
+ * Ai được DUYỆT báo giá — chốt V3 22/10/2026: Admin + TP Báo giá (dutoan_thumua_leader).
  * PHẢI khớp can_approve_quotation() trong backend/app/middleware/rbac.py.
  * Sale vẫn soạn/sửa báo giá, chỉ không tự duyệt bản của chính mình.
  */
 export function canApproveQuotation(user?: { role?: string } | null): boolean {
   if (!user) return false;
-  return user.role === 'admin' || isTeamLead(user.role) || user.role === 'supervisor';
+  return user.role === 'admin' || user.role === 'dutoan_thumua_leader';
 }
 
 /**
- * Ai được đánh dấu ĐÃ THU TIỀN một đợt thanh toán hợp đồng — chốt 29/08/2026:
- * Kế toán + Giám đốc + Trưởng nhóm/phòng.
+ * Ai được đánh dấu ĐÃ THU TIỀN một đợt thanh toán hợp đồng — chốt V3 22/10/2026:
+ * chỉ Admin + Kế toán (TP Tài chính).
  * PHẢI khớp can_confirm_payment() trong backend/app/middleware/rbac.py.
  */
 export function canConfirmPayment(user?: { role?: string } | null): boolean {
   if (!user) return false;
-  return user.role === 'admin' || user.role === 'accountant' || isTeamLead(user.role);
+  return user.role === 'admin' || user.role === 'accountant';
 }
 
 /**
@@ -347,6 +347,7 @@ export function getPermissions(role: UserRole): RolePermissions {
     ...ROLE_PERMISSIONS.data_entry,
     canEditSuppliers: false,
     canEditCustomers: false,
+    canCreateContracts: false,
   };
   const base = ROLE_PERMISSIONS[role]
     || (custom ? ({ ...nenTuyChinh, ...custom.permissions } as RolePermissions) : ROLE_PERMISSIONS.data_entry);

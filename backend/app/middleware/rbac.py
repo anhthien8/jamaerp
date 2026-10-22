@@ -155,7 +155,9 @@ def can_approve_quotation(user: User) -> bool:
     không tự duyệt bản của chính mình (trước QC 29/08 mọi tài khoản đăng nhập đều
     duyệt được — backend không kiểm, nút trên FE cũng không ẩn).
     """
-    return user.role == "admin" or is_team_lead(user) or user.role == "supervisor"
+    # Chốt V3 22/10/2026: người duyệt là TP Báo giá (`dutoan_thumua_leader`) —
+    # không còn trưởng nhóm KD/giám sát (họ không chịu trách nhiệm đơn giá).
+    return user.role in ("admin", "dutoan_thumua_leader")
 
 
 def can_confirm_payment(user: User) -> bool:
@@ -166,7 +168,9 @@ def can_confirm_payment(user: User) -> bool:
     mới → kiểm tra → tạo phiếu thu»); thêm trưởng nhóm để không tắc khi kế toán nghỉ.
     Sale vẫn XEM được trạng thái thanh toán, chỉ không tự tích.
     """
-    return user.role in ("admin", "accountant") or is_team_lead(user)
+    # Chốt V3 22/10/2026: chỉ TP Tài chính (accountant) + admin xác nhận tiền về —
+    # bỏ trưởng nhóm KD để người bán không tự xác nhận tiền của hợp đồng mình.
+    return user.role in ("admin", "accountant")
 
 
 def can_write_cskh_note(user: User) -> bool:

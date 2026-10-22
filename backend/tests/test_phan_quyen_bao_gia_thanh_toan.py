@@ -13,6 +13,10 @@ QC gọi thử endpoint bằng token vai trò thấp và phát hiện 3 lỗ:
 Chốt với chủ dự án 29/08: duyệt báo giá = Giám đốc + Trưởng nhóm + Giám sát;
 xác nhận thu tiền = Kế toán + Giám đốc + Trưởng nhóm. Sale vẫn SOẠN báo giá và
 XEM trạng thái thanh toán bình thường.
+
+Chốt lại theo ma trận V3 (22/10/2026): duyệt báo giá = Admin + TP Báo giá
+(`dutoan_thumua_leader`); xác nhận thu tiền = Admin + Kế toán. Trưởng nhóm KD
+và Giám sát không còn hai quyền này (xem tests/test_siet_quyen_v3.py).
 """
 
 import pytest
@@ -85,16 +89,18 @@ async def test_sale_khong_tu_duyet_bao_gia_cua_minh(client, sales_user):
 
 
 @pytest.mark.asyncio
-async def test_admin_va_supervisor_duyet_duoc(client, admin_user, purchasing_user):
+async def test_admin_duyet_duoc_supervisor_thi_khong(client, admin_user, purchasing_user):
     resp = await _tao_bao_gia(client, admin_user, "BG admin duyet")
     qt_id = resp.json()["id"]
+    resp = await client.post(f"/api/v1/quotations/{qt_id}/approve", headers=auth_header(purchasing_user))
+    assert resp.status_code == 403, "V3: Giám sát không còn duyệt báo giá"
     resp = await client.post(f"/api/v1/quotations/{qt_id}/approve", headers=auth_header(admin_user))
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "approved"
 
 
 # ---------------------------------------------------------------------------
-# 3. Xác nhận đã thu tiền: chỉ kế toán / giám đốc / trưởng nhóm
+# 3. Xác nhận đã thu tiền: chỉ kế toán / admin (V3)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture

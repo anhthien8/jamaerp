@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 
 interface CustomerData {
   name: string;
@@ -159,7 +160,7 @@ export default function PortalPage() {
             <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold" style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }}>J</div>
             <div>
               <h1 className="text-lg font-bold" style={{ color: '#C9A96E' }}>JAMA HOME</h1>
-              <p className="text-xs" style={{ color: '#9BA7B4' }}>Thiết kế cho cuộc sống mới</p>
+              <p className="text-xs" style={{ color: '#9BA7B4' }}>{BRAND_SLOGAN}</p>
             </div>
           </div>
         </div>
@@ -277,7 +278,7 @@ export default function PortalPage() {
         {/* Footer */}
         <footer className="text-center py-6 text-xs" style={{ color: '#6B7683' }}>
           <p>📞 Cần hỗ trợ? Gọi: <a href="tel:0705623456" style={{ color: '#C9A96E' }}>070.56.23456</a></p>
-          <p className="mt-1">JAMA HOME — Thiết kế cho cuộc sống mới</p>
+          <p className="mt-1">{BRAND_NAME} — {BRAND_SLOGAN}</p>
         </footer>
       </main>
     </div>

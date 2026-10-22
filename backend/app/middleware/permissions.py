@@ -139,6 +139,9 @@ _ROLE_PERMISSION_DEFAULTS: dict[str, dict] = {
 # không thừa kế từ khung nền data_entry (xem quyen_hieu_luc).
 _QUYEN_GHI_DU_LIEU_CHUNG: frozenset[str] = frozenset({
     "canEditSuppliers", "canEditCustomers",
+    # 22/10/2026: hợp đồng là việc của Kinh doanh (ma trận V3). Thừa kế từ
+    # khung sale thì vai Giám sát/Thiết kế/Dự toán tự nhiên tạo được hợp đồng.
+    "canCreateContracts",
 })
 
 NHAN_QUYEN: dict[str, str] = {

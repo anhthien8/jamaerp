@@ -18,6 +18,11 @@ from app.services.attendance_service import (
     DEVICE_SETTINGS_KEY,
     OFFICE_SETTINGS_KEY,
     VN_TZ,
+    STANDARD_DAYS_PER_MONTH,
+    LoiVaoCa,
+    cau_hinh_vao_ca,
+    get_or_none_today,
+    kiem_tra_vao_ca,
     _compute_hours,
     _empty_summary,
     get_setting_json,
@@ -132,7 +137,16 @@ async def checkin(
     current_user: User = Depends(get_current_user),
 ):
     ip = _client_ip(request)
-    ip_ok, gps_ok = await verify_office(db, ip=ip, lat=body.latitude, lng=body.longitude)
+    if await get_or_none_today(db, current_user.id) is None:
+        try:
+            ip_ok, gps_ok = await kiem_tra_vao_ca(
+                db, current_user, ip=ip, lat=body.latitude, lng=body.longitude,
+                project_id=body.project_id,
+            )
+        except LoiVaoCa as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        ip_ok, gps_ok = None, None
     record, created = await record_checkin(
         db, current_user, source="web",
         project_id=body.project_id, lat=body.latitude, lng=body.longitude,
@@ -187,6 +201,8 @@ async def my_attendance(
     period = period or period_of(vn_today())
     records = await month_records(db, current_user.id, period)
     summary = await month_summary(db, current_user.id, period)
+    # Công chuẩn tháng — UI hiện «Ngày công X / 22 (không gồm OT)» (22/10/2026)
+    summary = {**summary, "standard_days": STANDARD_DAYS_PER_MONTH}
     return {"summary": summary, "records": [_serialize(r) for r in records]}
 
 
@@ -364,7 +380,10 @@ class OfficeConfigBody(BaseModel):
     networks: list[str] = Field(default_factory=list, max_length=20)  # IP hoặc CIDR
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
-    radius_m: int = Field(default=200, ge=50, le=2000)
+    radius_m: int = Field(default=20, ge=10, le=2000)
+    # 22/10/2026: chặn vào ca ngoài bán kính, trừ bộ phận hiện trường
+    require_gps: bool = True
+    field_departments: list[str] = Field(default_factory=lambda: ["OPS", "PM"], max_length=20)
 
 
 class DeviceToggleBody(BaseModel):
@@ -395,7 +414,9 @@ async def get_office_config(
             "networks": office.get("networks") or [],
             "lat": office.get("lat"),
             "lng": office.get("lng"),
-            "radius_m": office.get("radius_m") or 200,
+            "radius_m": cau_hinh_vao_ca(office)["radius_m"],
+            "require_gps": cau_hinh_vao_ca(office)["require_gps"],
+            "field_departments": cau_hinh_vao_ca(office)["field_departments"],
         },
         "device": {
             "enabled": bool(device.get("enabled")),
@@ -418,6 +439,8 @@ async def update_office_config(
         "lat": body.lat,
         "lng": body.lng,
         "radius_m": body.radius_m,
+        "require_gps": body.require_gps,
+        "field_departments": [d.strip().upper() for d in body.field_departments if d.strip()],
     }
     await set_setting_json(db, OFFICE_SETTINGS_KEY, value)
     await log_action(

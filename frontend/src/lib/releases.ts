@@ -15,6 +15,34 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '22/10/2026',
+    title: 'Siết quyền theo ma trận V3 + vào ca văn phòng phải ở trong 20 m',
+    tag: 'QUAN TRỌNG',
+    news: [
+      'Kanban dự án nay chỉ hiện dự án của bạn hoặc của phòng bạn phụ trách. Trước đây ai đăng nhập cũng thấy toàn bộ dự án công ty (phản ánh ngày 21/10).',
+      'Chỉ người được giao việc, chủ nhiệm dự án, trưởng phòng hoặc người có quyền «Sửa công việc» mới đổi được trạng thái và nội dung một đầu việc. Người được giao vẫn cập nhật được trạng thái nhưng không tự dời hạn chốt.',
+      'Hợp đồng chỉ người có quyền «Tạo hợp đồng» mới tạo hoặc sửa được. Vai trò tùy chỉnh không còn tự có quyền này, quản trị phải tick ô «Tạo hợp đồng» trong Phân quyền nếu vai đó cần.',
+      'Dự toán: bạn xem được bản mình lập và bản thuộc dự án mình được vào. Chỉ người lập, trưởng phòng hoặc quản trị mới sửa và gửi được. Không gắn được dự toán vào dự án ngoài phạm vi của mình.',
+      'Danh sách khách hàng lọc theo phạm vi của bạn như danh sách dự án.',
+      'Người duyệt mới theo chốt: báo giá do Trưởng phòng Báo giá duyệt; xác nhận thanh toán do Kế toán (Trưởng phòng Tài chính) làm. Trưởng nhóm Kinh doanh không còn xác nhận thanh toán.',
+      'Báo giá tức thì mở cho MỌI nhân viên. Bảng đơn giá chỉ tài khoản quản trị sửa được.',
+      'Vai trò «Giám sát (supervisor)» ngừng cấp mới, gộp vào Trưởng phòng Giám sát. Tài khoản cũ còn vai này vẫn đăng nhập và làm việc bình thường.',
+      'Vào ca văn phòng phải bật vị trí (GPS) và đứng trong bán kính 20 m quanh văn phòng. Ngoài bán kính, màn hình báo bạn đang cách văn phòng bao nhiêu mét. Dùng mạng wifi văn phòng thì không cần GPS. Nhân viên hiện trường (Giám sát, Quản lý dự án) và check-in tại công trình không bị giới hạn này.',
+      'Telegram: gõ /checkin không kèm mã dự án, bot sẽ hiện nút «📍 Gửi vị trí hiện tại» nếu cần GPS.',
+      'Thẻ chấm công hôm nay có đồng hồ «Đang làm: 3h12» tự chạy, và dòng «Ngày công tháng này: X / 22 (không gồm OT)». Đủ 8 tiếng thì phần làm thêm được tính OT riêng, chờ duyệt.',
+      'Khẩu hiệu mới «Đẹp thấy mê, giá thấy cưng» trên màn đăng nhập, menu trái, trang tiến độ cho khách và nhật ký cập nhật.',
+    ],
+    test: [
+      'Đăng nhập tài khoản Kinh doanh hoặc Thiết kế → Dự án → Kanban: chỉ thấy dự án mình hoặc phòng mình phụ trách.',
+      'Mở một đầu việc KHÔNG giao cho mình, thử đổi trạng thái: phải báo không có quyền.',
+      'Chấm công → bấm Vào ca khi đứng xa văn phòng (hoặc tắt vị trí trên điện thoại): phải báo lỗi kèm khoảng cách hoặc hướng dẫn bật vị trí.',
+      'Đứng trong văn phòng, bật vị trí rồi bấm Vào ca: thành công, thẻ hiện đồng hồ «Đang làm».',
+      'Quản trị → Cài đặt → Chấm công văn phòng: bấm «📍 Lấy vị trí hiện tại làm tọa độ VP», đặt bán kính 20 rồi Lưu.',
+      'Telegram nhắn bot /checkin: bot hiện nút gửi vị trí, bấm nút thì vào ca thành công khi đang ở văn phòng.',
+      'Mở trang Nhân viên → Tạo tài khoản: ô vai trò không còn «Giám sát».',
+    ],
+  },
+  {
     date: '13/10/2026',
     title: 'Một đầu việc giao được nhiều người + tự nhắc khi quá hạn, vượt chuẩn SLA',
     tag: 'MỚI',

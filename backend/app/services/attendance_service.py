@@ -36,6 +36,12 @@ OT_MIN_HOURS = 0.5
 # Số công chuẩn/tháng — dùng khi tính lương (có thể chuyển vào SystemSetting sau)
 STANDARD_DAYS_PER_MONTH = 22.0
 
+# Chốt 22/10/2026: vào ca văn phòng phải ở trong 20 m (chặn cứng), trừ bộ phận
+# hiện trường. Admin đổi được ở Cài đặt → Chấm công.
+BAN_KINH_MAC_DINH_M = 20
+BO_PHAN_HIEN_TRUONG_MAC_DINH = ["OPS", "PM"]
+LOI_THIEU_GPS = "Cần bật vị trí (GPS) để vào ca tại văn phòng"
+
 
 def vn_now() -> datetime:
     return datetime.now(VN_TZ)
@@ -132,7 +138,7 @@ def gps_within_office(lat: float | None, lng: float | None, cfg: dict) -> bool |
     if o_lat is None or o_lng is None:
         return None
     try:
-        radius = float(cfg.get("radius_m") or 200)
+        radius = float(cfg.get("radius_m") or BAN_KINH_MAC_DINH_M)
         return _haversine_m(float(lat), float(lng), float(o_lat), float(o_lng)) <= radius
     except (TypeError, ValueError):
         # Cấu hình hỏng (radius/tọa độ không phải số) → coi như không đối chiếu
@@ -148,6 +154,64 @@ async def verify_office(
     if not cfg:
         return None, None
     return ip_in_networks(ip, cfg.get("networks") or []), gps_within_office(lat, lng, cfg)
+
+
+class LoiVaoCa(Exception):
+    """Vào ca văn phòng bị chặn — thông điệp hiển thị thẳng cho nhân viên."""
+
+
+def cau_hinh_vao_ca(cfg: dict) -> dict:
+    """Chuẩn hóa cấu hình văn phòng (bản ghi cũ thiếu khóa mới vẫn chạy)."""
+    try:
+        radius = int(float(cfg.get("radius_m") or BAN_KINH_MAC_DINH_M))
+    except (TypeError, ValueError):
+        radius = BAN_KINH_MAC_DINH_M
+    field = cfg.get("field_departments")
+    return {
+        "require_gps": bool(cfg.get("require_gps", True)),
+        "field_departments": list(field) if isinstance(field, list) else list(BO_PHAN_HIEN_TRUONG_MAC_DINH),
+        "radius_m": radius,
+        "co_toa_do": cfg.get("lat") is not None and cfg.get("lng") is not None,
+    }
+
+
+def la_nhan_vien_hien_truong(user: User, cfg: dict) -> bool:
+    return (user.department or "") in cau_hinh_vao_ca(cfg)["field_departments"]
+
+
+async def kiem_tra_vao_ca(
+    db: AsyncSession, user: User, *,
+    ip: str | None, lat: float | None, lng: float | None, project_id: str | None = None,
+) -> tuple[bool | None, bool | None]:
+    """Đối chiếu + CHẶN vào ca văn phòng ngoài bán kính. Trả (ip_ok, gps_ok).
+
+    Không chặn khi: admin chưa lưu tọa độ văn phòng, tắt «Bắt buộc GPS», người
+    thuộc bộ phận hiện trường, check-in công trình (có project_id), hoặc đang
+    dùng mạng văn phòng (máy bàn không có GPS — IP văn phòng là bằng chứng đủ).
+    """
+    cfg = await get_setting_json(db, OFFICE_SETTINGS_KEY)
+    if not cfg:
+        return None, None
+    ip_ok = ip_in_networks(ip, cfg.get("networks") or [])
+    gps_ok = gps_within_office(lat, lng, cfg)
+    ch = cau_hinh_vao_ca(cfg)
+    if (not ch["require_gps"] or not ch["co_toa_do"]
+            or user.department in ch["field_departments"] or ip_ok):
+        return ip_ok, gps_ok
+    if project_id:
+        # Check-in công trình chỉ miễn khi dự án có thật — chặn gửi mã bịa để né GPS
+        from app.models.project import Project
+        if await db.scalar(select(Project.id).where(Project.id == project_id)):
+            return ip_ok, gps_ok
+    if lat is None or lng is None:
+        raise LoiVaoCa(LOI_THIEU_GPS)
+    if gps_ok is False:
+        cach = _haversine_m(float(lat), float(lng), float(cfg["lat"]), float(cfg["lng"]))
+        raise LoiVaoCa(
+            f"Bạn đang cách văn phòng {round(cach)} m (cho phép {ch['radius_m']} m) — "
+            "lại gần văn phòng rồi vào ca lại"
+        )
+    return ip_ok, gps_ok
 
 
 async def record_checkin(

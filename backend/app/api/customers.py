@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.middleware.rbac import la_truong_phong
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -52,6 +53,29 @@ async def require_customer_write(
     return current_user
 
 
+async def _loc_pham_vi_khach(q, current_user: User, db: AsyncSession):
+    from app.api.leads import _loc_pham_vi_lead
+    from app.api.projects import dieu_kien_pham_vi_du_an
+    from app.middleware.rbac import is_sales_coordinator, pham_vi_du_lieu
+    from app.models.lead import Lead
+
+    if pham_vi_du_lieu(current_user) == "tat_ca" or is_sales_coordinator(current_user):
+        return q
+    if (await quyen_hieu_luc(current_user, db)).get("canEditCustomers"):
+        return q
+    dieu_kien = []
+    dk_du_an = dieu_kien_pham_vi_du_an(current_user)
+    if dk_du_an is None:
+        return q
+    du_an_thay = select(Project.customer_id).where(dk_du_an, Project.customer_id.is_not(None))
+    lead_du_an = select(Project.lead_id).where(dk_du_an, Project.lead_id.is_not(None))
+    dieu_kien.append(Customer.id.in_(du_an_thay))
+    dieu_kien.append(Customer.lead_id.in_(lead_du_an))
+    lead_thay = _loc_pham_vi_lead(select(Lead.id), current_user)
+    dieu_kien.append(Customer.lead_id.in_(lead_thay))
+    return q.where(or_(*dieu_kien))
+
+
 @router.get("")
 async def list_customers(
     type: str | None = None,
@@ -61,8 +85,14 @@ async def list_customers(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """List all customers."""
+    """List customers trong phạm vi người xem.
+
+    22/10 (feedback nhân viên): trước đây ai đăng nhập cũng thấy toàn bộ khách.
+    Nay: admin/BGĐ/kế toán, điều phối KD và người có ô «Sửa Khách hàng» xem hết;
+    còn lại chỉ thấy khách gắn với lead hoặc dự án mình được xem.
+    """
     q = select(Customer).order_by(Customer.created_at.desc())
+    q = await _loc_pham_vi_khach(q, current_user, db)
     if type:
         q = q.where(Customer.type == type)
     if search:
@@ -100,7 +130,7 @@ async def get_customer(
     current_user: User = Depends(get_current_user),
 ):
     """Get customer detail with linked projects."""
-    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "supervisor"):
+    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "supervisor") and not la_truong_phong(current_user):
         raise HTTPException(status_code=403, detail="Không có quyền xem thông tin khách hàng")
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalar_one_or_none()

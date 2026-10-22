@@ -19,8 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rbac import la_truong_phong, pham_vi_du_an
 from app.models.user import User
 from app.models.estimation import Estimation, EstimationItem
+from app.models.project import Project
 from app.services.instant_quote import RENO_TEMPLATE, _parse_qty_formula, RENO_CATEGORIES
 
 router = APIRouter(prefix="/estimations", tags=["estimations"])
@@ -112,6 +114,44 @@ async def _recalc_totals(db: AsyncSession, estimation_id: str) -> tuple[float, i
 
 
 # ---------------------------------------------------------------------------
+# Gác quyền (22/10 — feedback nhân viên: endpoint dự toán chưa gác gì)
+# ---------------------------------------------------------------------------
+# Xem: người tạo, hoặc ai vào được dự án gắn với bản dự toán.
+# Sửa/gửi: người tạo, trưởng phòng, admin/BGĐ — người khác chỉ xem.
+
+def _toan_quyen(user: User) -> bool:
+    return user.role in ("admin", "executive")
+
+
+async def _kiem_quyen_du_an(db: AsyncSession, user: User, project_id: str | None) -> None:
+    if not project_id or _toan_quyen(user):
+        return
+    from app.api.projects import require_project_access
+    await require_project_access(project_id=project_id, current_user=user, db=db)
+
+
+async def _lay_du_toan(db: AsyncSession, user: User, estimation_id: str, *, sua: bool) -> Estimation:
+    estimation = (await db.execute(
+        select(Estimation).where(Estimation.id == estimation_id)
+    )).scalar_one_or_none()
+    if not estimation:
+        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    if _toan_quyen(user) or estimation.created_by == user.id:
+        return estimation
+    if sua:
+        if la_truong_phong(user):
+            await _kiem_quyen_du_an(db, user, estimation.project_id)
+            return estimation
+        raise HTTPException(status_code=403, detail="Chỉ người lập hoặc trưởng phòng được sửa dự toán này")
+    if pham_vi_du_an(user) == "tat_ca":
+        return estimation
+    if not estimation.project_id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xem dự toán này")
+    await _kiem_quyen_du_an(db, user, estimation.project_id)
+    return estimation
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -122,6 +162,7 @@ async def create_estimation(
     current_user: User = Depends(get_current_user),
 ):
     """Tạo dự toán mới — tự động populate items từ renovation template."""
+    await _kiem_quyen_du_an(db, current_user, payload.project_id)
     estimation = Estimation(
         project_id=payload.project_id,
         estimation_type="manual",
@@ -167,6 +208,14 @@ async def list_estimations(
 ):
     """Danh sách dự toán — filter theo project_id hoặc status."""
     q = select(Estimation).order_by(Estimation.created_at.desc())
+    if not _toan_quyen(current_user) and pham_vi_du_an(current_user) != "tat_ca":
+        from app.api.projects import dieu_kien_pham_vi_du_an
+        dk = dieu_kien_pham_vi_du_an(current_user)
+        if dk is not None:
+            q = q.where(
+                (Estimation.created_by == current_user.id)
+                | Estimation.project_id.in_(select(Project.id).where(dk))
+            )
     if project_id:
         q = q.where(Estimation.project_id == project_id)
     if status:
@@ -209,10 +258,7 @@ async def get_estimation(
     current_user: User = Depends(get_current_user),
 ):
     """Chi tiết dự toán kèm items."""
-    result = await db.execute(select(Estimation).where(Estimation.id == estimation_id))
-    estimation = result.scalar_one_or_none()
-    if not estimation:
-        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    estimation = await _lay_du_toan(db, current_user, estimation_id, sua=False)
 
     items_result = await db.execute(
         select(EstimationItem)
@@ -265,10 +311,7 @@ async def update_estimation_items(
     current_user: User = Depends(get_current_user),
 ):
     """Cập nhật số lượng hàng loạt cho items trong dự toán."""
-    result = await db.execute(select(Estimation).where(Estimation.id == estimation_id))
-    estimation = result.scalar_one_or_none()
-    if not estimation:
-        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    estimation = await _lay_du_toan(db, current_user, estimation_id, sua=True)
     if estimation.status != "draft":
         raise HTTPException(status_code=400, detail="Chỉ cập nhật được dự toán ở trạng thái draft")
 
@@ -309,10 +352,7 @@ async def submit_estimation(
     current_user: User = Depends(get_current_user),
 ):
     """Chuyển dự toán sang trạng thái submitted."""
-    result = await db.execute(select(Estimation).where(Estimation.id == estimation_id))
-    estimation = result.scalar_one_or_none()
-    if not estimation:
-        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    estimation = await _lay_du_toan(db, current_user, estimation_id, sua=True)
     if estimation.status != "draft":
         raise HTTPException(status_code=400, detail=f"Không thể gửi dự toán ở trạng thái {estimation.status}")
 
@@ -335,10 +375,7 @@ async def create_from_text(
     current_user: User = Depends(get_current_user),
 ):
     """Tạo dự toán từ mô tả text — parse text, gợi ý items phù hợp."""
-    result = await db.execute(select(Estimation).where(Estimation.id == estimation_id))
-    estimation = result.scalar_one_or_none()
-    if not estimation:
-        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    estimation = await _lay_du_toan(db, current_user, estimation_id, sua=True)
     if estimation.status != "draft":
         raise HTTPException(status_code=400, detail="Chỉ cập nhật được dự toán ở trạng thái draft")
 
@@ -386,10 +423,7 @@ async def create_from_photo(
     current_user: User = Depends(get_current_user),
 ):
     """Tạo dự toán từ ảnh — placeholder, lưu URL ảnh và gợi ý items."""
-    result = await db.execute(select(Estimation).where(Estimation.id == estimation_id))
-    estimation = result.scalar_one_or_none()
-    if not estimation:
-        raise HTTPException(status_code=404, detail="Dự toán không tồn tại")
+    estimation = await _lay_du_toan(db, current_user, estimation_id, sua=True)
     if estimation.status != "draft":
         raise HTTPException(status_code=400, detail="Chỉ cập nhật được dự toán ở trạng thái draft")
 

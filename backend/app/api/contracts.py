@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import can_confirm_payment
+from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.contract import Contract
 from app.models.project import Project
@@ -16,6 +17,17 @@ from app.models.payroll import Commission
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
+
+
+async def _yeu_cau_quyen_hop_dong(nguoi: User, db: AsyncSession) -> None:
+    """Tạo/sửa hợp đồng phải có ô «Tạo Hợp đồng» trong ma trận (22/10/2026).
+
+    Trước đó backend không kiểm gì: frontend ẩn nút nhưng gọi API trực tiếp
+    là tạo/sửa được hợp đồng — kể cả đổi `status` sang «signed» để sinh hoa hồng.
+    """
+    perms = await quyen_hieu_luc(nguoi, db)
+    if not perms.get("canCreateContracts"):
+        raise HTTPException(status_code=403, detail="Bạn không có quyền «Tạo Hợp đồng» — xem trang Phân quyền")
 
 
 @router.get("")
@@ -72,6 +84,7 @@ async def create_contract(
     current_user: User = Depends(get_current_user),
 ):
     """Create new contract with default 4-installment payment terms."""
+    await _yeu_cau_quyen_hop_dong(current_user, db)
     contract = Contract(
         code=data.code,
         project_id=str(data.project_id),
@@ -104,6 +117,7 @@ async def update_contract(
     current_user: User = Depends(get_current_user),
 ):
     """Update contract."""
+    await _yeu_cau_quyen_hop_dong(current_user, db)
     result = await db.execute(select(Contract).where(Contract.id == contract_id))
     contract = result.scalar_one_or_none()
     if not contract:

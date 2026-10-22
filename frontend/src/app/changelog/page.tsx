@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { RELEASES } from '@/lib/releases';
+import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 
 /**
  * Trang "Có gì mới" — ghi chú thay đổi giữa các bản cập nhật, viết cho NHÂN VIÊN
@@ -76,7 +77,7 @@ export default function ChangelogPage() {
         </div>
 
         <p className="text-xs text-center mt-8" style={{ color: 'var(--text-muted)' }}>
-          JAMA HOME · Thiết kế cho cuộc sống mới
+          {BRAND_NAME} · {BRAND_SLOGAN}
         </p>
       </div>
     </Sidebar>

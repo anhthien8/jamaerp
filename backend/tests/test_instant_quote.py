@@ -201,7 +201,8 @@ class TestPriceBookAPI:
         )
         assert resp.status_code == 403
 
-    async def test_purchasing_can_edit_prices(self, client: AsyncClient, db_session, purchasing_user):
+    async def test_purchasing_khong_sua_duoc_bang_gia(self, client: AsyncClient, db_session, purchasing_user):
+        """Ma trận V3 (chốt 22/10/2026): bảng giá chỉ Admin sửa; TP Báo giá gửi yêu cầu."""
         await ensure_price_items(db_session)
         await db_session.commit()
         item = (await db_session.execute(select(PriceItem).limit(1))).scalars().first()
@@ -210,7 +211,7 @@ class TestPriceBookAPI:
             json={"price_basic": 200_000},
             headers=auth_header(purchasing_user),
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 403
 
     async def test_admin_can_create_item(self, client: AsyncClient, admin_user):
         resp = await client.post(

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.middleware.rbac import la_truong_phong
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.approval import ApprovalRequest
@@ -253,7 +254,7 @@ async def set_delegate(
     current_user: User = Depends(get_current_user),
 ):
     """Đặt/tắt ủy quyền duyệt (leader, accountant, pm, admin)."""
-    if current_user.role not in ("admin", "leader", "accountant", "supervisor"):
+    if current_user.role not in ("admin", "leader", "accountant", "supervisor") and not la_truong_phong(current_user):
         raise HTTPException(status_code=403, detail="Vai trò của bạn không có quyền duyệt để ủy quyền")
 
     if body.delegate_to:

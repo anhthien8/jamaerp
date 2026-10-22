@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.middleware.rbac import la_truong_phong
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.approval import ApprovalRequest
@@ -303,7 +304,7 @@ async def team_calendar(
     """Lịch nghỉ đã duyệt trong tháng (leader: team mình; admin/accountant: chọn team hoặc toàn bộ)."""
     if current_user.role == "leader":
         team_id = current_user.team_id
-    elif current_user.role not in ("admin", "accountant", "executive", "supervisor"):
+    elif current_user.role not in ("admin", "accountant", "executive", "supervisor") and not la_truong_phong(current_user):
         # nhân viên thường: chỉ xem team mình để sắp việc
         team_id = current_user.team_id
         if not team_id:

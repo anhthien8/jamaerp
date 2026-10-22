@@ -261,8 +261,9 @@ async def public_quote(
 # ---------------------------------------------------------------------------
 
 def _require_pricing_role(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("admin", "supervisor"):
-        raise HTTPException(status_code=403, detail="Chỉ Admin/Thu mua được quản lý đơn giá")
+    # Chốt V3 22/10/2026: bảng giá chỉ Admin sửa; TP Báo giá gửi yêu cầu sửa.
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Admin được sửa bảng đơn giá")
     return current_user
 
 

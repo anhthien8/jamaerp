@@ -20,7 +20,10 @@ interface CustomRole {
 // 'executive' bị bỏ khỏi dropdown từ 13/08/2026 — không ai mang vai trò này (backend
 // vẫn nhận để tương thích tài khoản cũ nếu có). DESIGN/PURCHASING thêm cùng đợt
 // 4 vai trò phòng ban (Thiết kế, Thu mua) để gán đúng phòng cho nhân sự mới.
-const BUILTIN_ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'accountant', 'supervisor'];
+// 'supervisor' ngừng cấp mới từ 22/10/2026 (chốt V3: gộp vào TP Giám sát `operation_leader`).
+// Tài khoản cũ còn vai này vẫn hiện đúng trong form sửa nhờ LEGACY_ROLES.
+const BUILTIN_ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'accountant'];
+const LEGACY_ROLES: UserRole[] = ['supervisor'];
 const DEPARTMENTS = ['EXEC', 'SALES', 'DESIGN', 'OPS', 'PURCHASING', 'ACCT'];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -624,6 +627,7 @@ export default function UsersPage() {
                       setForm({ ...form, role: newRole, department: dept });
                     }} className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]">
                       {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
+                      {LEGACY_ROLES.includes(form.role as UserRole) && <option value={form.role}>{getRoleLabel(form.role as UserRole)} (ngừng cấp)</option>}
                       {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Tùy chỉnh ──</option>}
                       {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
                     </select>

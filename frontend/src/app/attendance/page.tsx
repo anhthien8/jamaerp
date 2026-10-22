@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import {
-  api, AttendanceRecord, AttendanceSummary, TeamAttendanceRow,
+  api, ApiError, AttendanceRecord, AttendanceSummary, TeamAttendanceRow,
   LeaveItem, LeaveBalanceInfo, PayrollRow,
 } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
@@ -166,6 +166,12 @@ export default function AttendancePage() {
   const [teamRows, setTeamRows] = useState<TeamAttendanceRow[]>([]);
   const [pendingOT, setPendingOT] = useState<(AttendanceRecord & { full_name: string })[]>([]);
   const [busy, setBusy] = useState(false);
+  // Đồng hồ «Đang làm» trên thẻ hôm nay — nhảy mỗi phút
+  const [bayGio, setBayGio] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setBayGio(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Leave state
   const [balance, setBalance] = useState<LeaveBalanceInfo | null>(null);
@@ -249,8 +255,13 @@ export default function AttendancePage() {
       localStorage.removeItem(QUEUE_KEY);
       toast('✅ Đã gửi lại chấm công thành công (lúc trước mất mạng)', 'success');
       await loadAttendance();
-    } catch {
-      /* vẫn chưa có mạng — giữ queue, chờ lần sau */
+    } catch (e) {
+      // Server từ chối hẳn (vd. ngoài bán kính GPS văn phòng) → bỏ hàng đợi,
+      // báo rõ để nhân viên tự vào ca lại; lỗi mạng thì giữ queue chờ lần sau
+      if (e instanceof ApiError && e.status === 400) {
+        localStorage.removeItem(QUEUE_KEY);
+        toast(`Lần chấm công lúc mất mạng không gửi được: ${e.message}`, 'error');
+      }
     }
   }, [toast, loadAttendance]);
 
@@ -263,16 +274,17 @@ export default function AttendancePage() {
   const isNetworkError = (e: unknown) =>
     e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
 
-  // GPS để đối chiếu bán kính văn phòng (09/09) — người dùng từ chối/không có
-  // GPS thì vẫn vào ca bình thường, chỉ thiếu nhãn ✓VP.
+  // GPS để đối chiếu bán kính văn phòng. Chốt 22/10/2026: vào ca văn phòng phải
+  // trong 20 m (backend chặn; bộ phận hiện trường & mạng văn phòng được miễn) —
+  // nên xin vị trí CHÍNH XÁC và mới (20 m không chịu được vị trí cũ 2 phút).
   const layGPS = (): Promise<{ latitude?: number; longitude?: number }> =>
     new Promise(resolve => {
       if (!navigator.geolocation) return resolve({});
-      const timer = setTimeout(() => resolve({}), 4000);
+      const timer = setTimeout(() => resolve({}), 9000);
       navigator.geolocation.getCurrentPosition(
         pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
         () => { clearTimeout(timer); resolve({}); },
-        { enableHighAccuracy: false, timeout: 3500, maximumAge: 120000 },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
       );
     });
 
@@ -288,7 +300,13 @@ export default function AttendancePage() {
         localStorage.setItem(QUEUE_KEY, JSON.stringify({ type: 'checkin', at: Date.now() }));
         toast('📶 Mất mạng — sẽ tự vào ca lại khi có sóng. Hoặc dùng Telegram: /checkin', 'info');
       } else {
-        toast(`Vào ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        toast(
+          /GPS|vị trí|cách văn phòng/i.test(msg)
+            ? `📍 ${msg}. Nếu chưa bật: biểu tượng 🔒 cạnh địa chỉ web → Vị trí → Cho phép, rồi bấm lại.`
+            : `Vào ca lỗi: ${msg}`,
+          'error',
+        );
       }
     } finally { setBusy(false); }
   };
@@ -340,6 +358,9 @@ export default function AttendancePage() {
 
   const checkedIn = !!today?.check_in;
   const checkedOut = !!today?.check_out;
+  const phutDangLam = checkedIn && !checkedOut && today?.check_in
+    ? Math.max(0, Math.floor((bayGio - new Date(today.check_in).getTime()) / 60_000))
+    : null;
 
   return (
     <Sidebar>
@@ -375,6 +396,17 @@ export default function AttendancePage() {
                     {checkedOut && ` · Ra: ${fmtTimeVN(today?.check_out)} · ${today?.work_hours}h`}
                     {today && today.ot_hours > 0 && ` · OT ${today.ot_hours}h (${OT_BADGE[today.ot_status]?.label})`}
                   </div>
+                  {phutDangLam != null && (
+                    <div className="text-sm mt-0.5" style={{ color: 'var(--gold-500)' }}>
+                      ⏳ Đang làm: <b>{Math.floor(phutDangLam / 60)}h{String(phutDangLam % 60).padStart(2, '0')}</b>
+                      {phutDangLam >= 480 && <span style={{ color: 'var(--text-muted)' }}> · đủ 8h công, phần sau tính OT (chờ duyệt)</span>}
+                    </div>
+                  )}
+                  {summary && period === currentPeriod() && (
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      Ngày công tháng này: <b style={{ color: 'var(--text-primary)' }}>{summary.work_days_fraction.toLocaleString('vi-VN')} / {summary.standard_days ?? 22}</b> (không gồm OT)
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -392,7 +424,7 @@ export default function AttendancePage() {
                 </div>
               </div>
               <div className="text-xs mt-2 p-2 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)' }}>
-                ⭐ <b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Nút trên web dùng khi đang ngồi máy tính.
+                ⭐ <b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Vào ca văn phòng cần bật vị trí và đứng trong bán kính văn phòng (mặc định 20 m), hoặc dùng mạng văn phòng.
               </div>
             </div>
 
@@ -417,9 +449,9 @@ export default function AttendancePage() {
               />
               {summary && (
                 <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  <span>Công: <b style={{ color: 'var(--text-primary)' }}>{summary.work_days_fraction}</b></span>
+                  <span>Ngày công: <b style={{ color: 'var(--text-primary)' }}>{summary.work_days_fraction.toLocaleString('vi-VN')}{summary.standard_days ? ` / ${summary.standard_days}` : ''}</b> <span style={{ color: 'var(--text-muted)' }}>(không gồm OT)</span></span>
                   <span>Giờ: <b style={{ color: 'var(--text-primary)' }}>{summary.total_hours}h</b></span>
-                  <span>OT duyệt: <b style={{ color: 'var(--text-primary)' }}>{summary.ot_approved_hours}h</b></span>
+                  <span>OT đã duyệt (tính riêng): <b style={{ color: 'var(--text-primary)' }}>{summary.ot_approved_hours}h</b></span>
                   {summary.needs_review > 0 && <span style={{ color: '#fbbf24' }}>⚠️ {summary.needs_review} ca cần xác nhận</span>}
                 </div>
               )}

@@ -1528,11 +1528,17 @@ class ApiClient {
   // === Chấm công văn phòng + máy chấm công (09/09) ===
   async getOfficeConfig() {
     return this.request<{
-      office: { networks: string[]; lat: number | null; lng: number | null; radius_m: number };
+      office: {
+        networks: string[]; lat: number | null; lng: number | null; radius_m: number;
+        require_gps?: boolean; field_departments?: string[];
+      };
       device: { enabled: boolean; api_key_masked: string | null; webhook_path: string };
     }>('/attendance/office-config');
   }
-  async updateOfficeConfig(data: { networks: string[]; lat?: number | null; lng?: number | null; radius_m?: number }) {
+  async updateOfficeConfig(data: {
+    networks: string[]; lat?: number | null; lng?: number | null; radius_m?: number;
+    require_gps?: boolean; field_departments?: string[];
+  }) {
     return this.request<{ office: unknown }>('/attendance/office-config', { method: 'PUT', body: data });
   }
   async rotateDeviceKey() {
@@ -2758,6 +2764,8 @@ export interface AttendanceSummary {
   total_hours: number;
   ot_approved_hours: number;
   needs_review: number;
+  /** Công chuẩn tháng — chỉ có ở /attendance/me (22/10/2026) */
+  standard_days?: number;
 }
 
 export interface TeamAttendanceRow extends AttendanceSummary {

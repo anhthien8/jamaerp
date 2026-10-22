@@ -592,7 +592,8 @@ async def approve_material_request(
     approver = await _resolve_user_by_tg(data.approver_tg_id, db)
 
     # RBAC: only accountant, supervisor, or admin may approve
-    if approver.role not in ("admin", "accountant", "supervisor"):
+    # 22/10/2026: TP Giám sát (operation_leader) thay vai supervisor đã gộp.
+    if approver.role not in ("admin", "accountant", "supervisor", "operation_leader"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Chi ke toan / giam sat / admin moi co quyen duyet vat tu",
@@ -649,7 +650,8 @@ async def reject_material_request(
 
     approver = await _resolve_user_by_tg(data.approver_tg_id, db)
 
-    if approver.role not in ("admin", "accountant", "supervisor"):
+    # 22/10/2026: TP Giám sát (operation_leader) thay vai supervisor đã gộp.
+    if approver.role not in ("admin", "accountant", "supervisor", "operation_leader"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Chi ke toan / giam sat / admin moi co quyen tu choi vat tu",
@@ -697,11 +699,23 @@ async def office_checkin(
 
     Nhân viên hiện trường vẫn dùng /checkin [Mã dự án] như cũ (endpoint /checkin).
     """
-    from app.services.attendance_service import record_checkin
+    from app.services.attendance_service import (
+        LoiVaoCa, get_or_none_today, kiem_tra_vao_ca, record_checkin,
+    )
 
     user = await _resolve_user_by_tg(data.user_tg_id, db)
+    ip_ok = gps_ok = None
+    if await get_or_none_today(db, user.id) is None:
+        # Bot không có IP người dùng → chỉ đối chiếu GPS (chốt 22/10: ≤20 m)
+        try:
+            ip_ok, gps_ok = await kiem_tra_vao_ca(
+                db, user, ip=None, lat=data.latitude, lng=data.longitude,
+            )
+        except LoiVaoCa as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     record, created = await record_checkin(
         db, user, source="telegram", lat=data.latitude, lng=data.longitude,
+        ip_ok=ip_ok, gps_ok=gps_ok,
     )
     return {
         "attendance_id": record.id,
