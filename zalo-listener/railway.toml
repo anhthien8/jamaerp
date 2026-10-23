@@ -5,3 +5,6 @@ dockerfilePath = "Dockerfile"
 [deploy]
 startCommand = "node src/index.js"
 restartPolicyType = "always"
+
+[deploy.multiRegionConfig."asia-southeast1-eqsg3a"]
+numReplicas = 1
