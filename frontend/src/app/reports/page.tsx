@@ -9,6 +9,7 @@ import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { labelOf, TX_CATEGORY_LABELS } from '@/lib/labels';
 import { getPermissions, UserRole } from '@/lib/roles';
 import AccessDenied from '@/components/ui/AccessDenied';
+import LineIcon from '@/components/ui/LineIcon';
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();
@@ -59,7 +60,7 @@ export default function ReportsPage() {
 
         {failed.length > 0 && (
           <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center justify-between gap-4">
-            <span>⚠️ Chưa tải được số liệu {failed.join(' và ')} — các ô ghi &quot;chưa tải được&quot; là do lỗi, không phải công ty không có số.</span>
+            <span><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chưa tải được số liệu {failed.join(' và ')} — các ô ghi &quot;chưa tải được&quot; là do lỗi, không phải công ty không có số.</span>
             <button
               onClick={() => window.location.reload()}
               className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/15 transition-colors"
@@ -119,7 +120,7 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-4 mb-4">
                     <div className="relative w-24 h-24">
                       <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
-                        <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6" />
+                        <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border-default)" strokeWidth="6" />
                         <circle
                           cx="48" cy="48" r="40" fill="none"
                           stroke="#C9A96E"

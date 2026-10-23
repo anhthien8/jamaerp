@@ -8,6 +8,7 @@ import { api, User, Team, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
+import LineIcon from '@/components/ui/LineIcon';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Giám đốc', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
@@ -256,14 +257,14 @@ export default function HRPage() {
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Tổng nhân viên', value: users.length, icon: '👥', color: '#60a5fa' },
-          { label: 'Đội nhóm', value: teams.length, icon: '🏢', color: 'var(--gold-400)' },
-          { label: 'Phòng ban', value: Object.keys(byDept).length, icon: '📊', color: '#a78bfa' },
-          { label: 'Đang hoạt động', value: users.filter(u => u.is_active).length, icon: '✅', color: '#34d399' },
+          { label: 'Tổng nhân viên', value: users.length, icon: 'users', color: '#60a5fa' },
+          { label: 'Đội nhóm', value: teams.length, icon: 'building', color: 'var(--gold-400)' },
+          { label: 'Phòng ban', value: Object.keys(byDept).length, icon: 'chart', color: '#a78bfa' },
+          { label: 'Đang hoạt động', value: users.filter(u => u.is_active).length, icon: 'check', color: '#34d399' },
         ].map(card => (
           <div key={card.label} className="rounded-2xl p-4" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{card.icon}</span>
+              <LineIcon name={card.icon} size={18} />
               <span className="text-xs text-[var(--text-muted)]">{card.label}</span>
             </div>
             <p className="text-xl font-bold" style={{ color: card.color }}>{card.value}</p>
@@ -363,7 +364,7 @@ export default function HRPage() {
                     style={{ borderBottom: '1px solid var(--border-subtle)' }}
                     onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
                     title="Bấm để mở hồ sơ nhân viên"
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <td className="px-5 py-3.5">

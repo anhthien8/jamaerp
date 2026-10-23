@@ -316,7 +316,7 @@ export default function QuotationsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center pt-[6vh] px-4" onClick={() => setSelected(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[80vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
             <p className="font-mono text-xs text-[var(--gold-400)]">{selected.code}</p>
@@ -374,7 +374,7 @@ export default function QuotationsPage() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[6vh] px-4" onClick={() => { setShowForm(false); setEditing(null); }}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="relative w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+            <button onClick={() => { setShowForm(false); setEditing(null); }} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
             <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">

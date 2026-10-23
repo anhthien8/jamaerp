@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, FeedbackItem, laLoiThieuQuyen } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
+import LineIcon from '@/components/ui/LineIcon';
 
 const CATEGORY_LABELS: Record<string, string> = {
   bug: 'Bug / Lỗi', feature_request: 'Tính năng mới',
@@ -114,7 +115,7 @@ export default function FeedbackPage() {
           </table>
           {items.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-lg mb-1">📭 Chưa có góp ý nào</p>
+              <p className="text-lg mb-1"><LineIcon name="inbox" size={20} className="inline-block align-[-2px] mr-1.5" />Chưa có góp ý nào</p>
               <p className="text-sm text-[var(--text-muted)]">
                 Nhân viên gửi góp ý qua bot Telegram bằng lệnh <span className="font-mono">/feedback</span> — gửi xong sẽ hiện ở đây.
               </p>

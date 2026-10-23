@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { UserRole } from '@/lib/roles';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
+import LineIcon from '@/components/ui/LineIcon';
 
 const ROLE_PRIMARY_PAGE: Record<string, { path: string; label: string }> = {
   data_entry: { path: '/leads', label: 'Quy trình CRM' },
@@ -31,161 +32,161 @@ interface RoleCard {
 
 const ROLE_CARDS: Record<string, RoleCard[]> = {
   data_entry: [
-    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
-    { icon: '📋', title: 'Báo cáo', description: 'Xem hiệu suất cá nhân và thống kê', href: '/reports' },
-    { icon: '🤝', title: 'Dự án', description: 'Theo dõi tiến độ dự án đã ký', href: '/projects' },
+    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
+    { icon: 'clipboard', title: 'Báo cáo', description: 'Xem hiệu suất cá nhân và thống kê', href: '/reports' },
+    { icon: 'handshake', title: 'Dự án', description: 'Theo dõi tiến độ dự án đã ký', href: '/projects' },
   ],
   supervisor: [
-    { icon: '📋', title: 'Dự án', description: 'Điều phối & thi công dự án (Thiết kế/Thu mua/Dự án)', href: '/projects' },
-    { icon: '📦', title: 'Kho vật tư', description: 'Theo dõi vật tư và duyệt yêu cầu', href: '/inventory' },
-    { icon: '💬', title: 'Báo giá', description: 'Tạo và quản lý báo giá', href: '/quotations' },
+    { icon: 'clipboard', title: 'Dự án', description: 'Điều phối & thi công dự án (Thiết kế/Thu mua/Dự án)', href: '/projects' },
+    { icon: 'package', title: 'Kho vật tư', description: 'Theo dõi vật tư và duyệt yêu cầu', href: '/inventory' },
+    { icon: 'message', title: 'Báo giá', description: 'Tạo và quản lý báo giá', href: '/quotations' },
   ],
   accountant: [
-    { icon: '💰', title: 'Kế toán', description: 'Quản lý thu chi và báo cáo tài chính', href: '/accounting' },
-    { icon: '📊', title: 'P&L', description: 'Báo cáo lợi nhuận - lỗ', href: '/pl' },
-    { icon: '👥', title: 'Nhân sự', description: 'Quản lý lương và nhân viên', href: '/hr' },
+    { icon: 'money', title: 'Kế toán', description: 'Quản lý thu chi và báo cáo tài chính', href: '/accounting' },
+    { icon: 'chart', title: 'P&L', description: 'Báo cáo lợi nhuận - lỗ', href: '/pl' },
+    { icon: 'users', title: 'Nhân sự', description: 'Quản lý lương và nhân viên', href: '/hr' },
   ],
   admin: [
-    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan toàn hệ thống', href: '/' },
-    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý tất cả leads', href: '/leads' },
-    { icon: '⚙️', title: 'Cài đặt', description: 'Quản trị hệ thống', href: '/settings' },
+    { icon: 'chart', title: 'Tổng quan', description: 'Tổng quan toàn hệ thống', href: '/' },
+    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý tất cả leads', href: '/leads' },
+    { icon: 'settings', title: 'Cài đặt', description: 'Quản trị hệ thống', href: '/settings' },
   ],
   leader: [
-    { icon: '🔄', title: 'Quy trình CRM', description: 'Quản lý leads của team', href: '/leads' },
-    { icon: '📋', title: 'Dự án', description: 'Theo dõi dự án team', href: '/projects' },
-    { icon: '📊', title: 'Báo cáo', description: 'Báo cáo hiệu suất team', href: '/reports' },
+    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý leads của team', href: '/leads' },
+    { icon: 'clipboard', title: 'Dự án', description: 'Theo dõi dự án team', href: '/projects' },
+    { icon: 'chart', title: 'Báo cáo', description: 'Báo cáo hiệu suất team', href: '/reports' },
   ],
   executive: [
-    { icon: '📊', title: 'Tổng quan', description: 'Tổng quan điều hành', href: '/' },
-    { icon: '📈', title: 'P&L', description: 'Báo cáo lợi nhuận', href: '/pl' },
-    { icon: '📋', title: 'Báo cáo', description: 'Phân tích kinh doanh', href: '/reports' },
+    { icon: 'chart', title: 'Tổng quan', description: 'Tổng quan điều hành', href: '/' },
+    { icon: 'trendUp', title: 'P&L', description: 'Báo cáo lợi nhuận', href: '/pl' },
+    { icon: 'clipboard', title: 'Báo cáo', description: 'Phân tích kinh doanh', href: '/reports' },
   ],
   sale_leader: [
-    { icon: '🔄', title: 'Quy trình CRM', description: 'Nhận data từ CSKH và chia cho sale trong nhóm', href: '/leads' },
-    { icon: '👥', title: 'Đội nhóm', description: 'Sơ đồ đội của bạn (Nhân sự → nút Đội nhóm)', href: '/hr' },
-    { icon: '✅', title: 'Phê duyệt', description: 'Duyệt nghỉ phép, tăng ca của nhóm', href: '/approvals' },
+    { icon: 'refresh', title: 'Quy trình CRM', description: 'Nhận data từ CSKH và chia cho sale trong nhóm', href: '/leads' },
+    { icon: 'users', title: 'Đội nhóm', description: 'Sơ đồ đội của bạn (Nhân sự → nút Đội nhóm)', href: '/hr' },
+    { icon: 'check', title: 'Phê duyệt', description: 'Duyệt nghỉ phép, tăng ca của nhóm', href: '/approvals' },
   ],
   admin_cskh: [
-    { icon: '📥', title: 'Quy trình CRM', description: 'Nhập data marketing và giao cho các trưởng nhóm', href: '/leads' },
-    { icon: '📊', title: 'Báo cáo', description: 'Theo dõi data đã giao và tỷ lệ chuyển đổi', href: '/reports' },
-    { icon: '⏱️', title: 'Chấm công', description: 'Vào ca, nghỉ phép, phiếu lương', href: '/attendance' },
+    { icon: 'download', title: 'Quy trình CRM', description: 'Nhập data marketing và giao cho các trưởng nhóm', href: '/leads' },
+    { icon: 'chart', title: 'Báo cáo', description: 'Theo dõi data đã giao và tỷ lệ chuyển đổi', href: '/reports' },
+    { icon: 'clock', title: 'Chấm công', description: 'Vào ca, nghỉ phép, phiếu lương', href: '/attendance' },
   ],
   quan_ly_du_an: [
-    { icon: '🏗️', title: 'Dự án', description: 'Điều phối dự án và giao việc các phòng', href: '/projects' },
-    { icon: '📦', title: 'Kho vật tư', description: 'Theo dõi tồn kho, duyệt yêu cầu vật tư', href: '/inventory' },
-    { icon: '📋', title: 'Báo giá', description: 'Tạo báo giá thi công', href: '/quotations' },
+    { icon: 'crane', title: 'Dự án', description: 'Điều phối dự án và giao việc các phòng', href: '/projects' },
+    { icon: 'package', title: 'Kho vật tư', description: 'Theo dõi tồn kho, duyệt yêu cầu vật tư', href: '/inventory' },
+    { icon: 'clipboard', title: 'Báo giá', description: 'Tạo báo giá thi công', href: '/quotations' },
   ],
   thiet_ke: [
-    { icon: '🎨', title: 'Dự án', description: 'Việc thiết kế của bạn + upload bản vẽ', href: '/projects' },
-    { icon: '📋', title: 'Báo giá', description: 'Xem phạm vi khách đã chốt để thiết kế đúng', href: '/quotations' },
-    { icon: '⏱️', title: 'Chấm công', description: 'Vào ca, nghỉ phép, phiếu lương', href: '/attendance' },
+    { icon: 'palette', title: 'Dự án', description: 'Việc thiết kế của bạn + upload bản vẽ', href: '/projects' },
+    { icon: 'clipboard', title: 'Báo giá', description: 'Xem phạm vi khách đã chốt để thiết kế đúng', href: '/quotations' },
+    { icon: 'clock', title: 'Chấm công', description: 'Vào ca, nghỉ phép, phiếu lương', href: '/attendance' },
   ],
   giam_sat_thi_cong: [
-    { icon: '🏗️', title: 'Dự án', description: 'Cập nhật tiến độ thi công từng hạng mục', href: '/projects' },
-    { icon: '📦', title: 'Kho vật tư', description: 'Yêu cầu vật tư cho công trường', href: '/inventory' },
-    { icon: '📍', title: 'Chấm công', description: 'Telegram /checkin [Mã dự án] kèm GPS tại hiện trường', href: '/attendance' },
+    { icon: 'crane', title: 'Dự án', description: 'Cập nhật tiến độ thi công từng hạng mục', href: '/projects' },
+    { icon: 'package', title: 'Kho vật tư', description: 'Yêu cầu vật tư cho công trường', href: '/inventory' },
+    { icon: 'pin', title: 'Chấm công', description: 'Telegram /checkin [Mã dự án] kèm GPS tại hiện trường', href: '/attendance' },
   ],
   thu_mua: [
-    { icon: '📦', title: 'Kho vật tư', description: 'Tồn kho, nhập kho, duyệt yêu cầu vật tư', href: '/inventory' },
-    { icon: '🏬', title: 'Nhà cung cấp', description: 'So giá NCC và lịch sử giá', href: '/suppliers' },
-    { icon: '🏗️', title: 'Dự án', description: 'Việc thu mua trong từng dự án', href: '/projects' },
+    { icon: 'package', title: 'Kho vật tư', description: 'Tồn kho, nhập kho, duyệt yêu cầu vật tư', href: '/inventory' },
+    { icon: 'building', title: 'Nhà cung cấp', description: 'So giá NCC và lịch sử giá', href: '/suppliers' },
+    { icon: 'crane', title: 'Dự án', description: 'Việc thu mua trong từng dự án', href: '/projects' },
   ],
 };
 
 // Training checklist items per role — actionable tasks
 const TRAINING_CHECKLIST: Record<string, { id: string; icon: string; title: string; href: string }[]> = {
   data_entry: [
-    { id: 'view_pipeline', icon: '🔄', title: 'Xem Pipeline leads', href: '/leads' },
-    { id: 'create_lead', icon: '➕', title: 'Tạo lead mới', href: '/leads' },
-    { id: 'use_quote', icon: '⚡', title: 'Dùng báo giá tức thì', href: '/quote-tool' },
-    { id: 'view_project', icon: '📋', title: 'Xem tiến độ dự án', href: '/projects' },
-    { id: 'check_reports', icon: '📊', title: 'Xem báo cáo cá nhân', href: '/reports' },
+    { id: 'view_pipeline', icon: 'refresh', title: 'Xem Pipeline leads', href: '/leads' },
+    { id: 'create_lead', icon: 'plus', title: 'Tạo lead mới', href: '/leads' },
+    { id: 'use_quote', icon: 'zap', title: 'Dùng báo giá tức thì', href: '/quote-tool' },
+    { id: 'view_project', icon: 'clipboard', title: 'Xem tiến độ dự án', href: '/projects' },
+    { id: 'check_reports', icon: 'chart', title: 'Xem báo cáo cá nhân', href: '/reports' },
   ],
   supervisor: [
-    { id: 'view_projects', icon: '📋', title: 'Xem danh sách dự án', href: '/projects' },
-    { id: 'update_task', icon: '✅', title: 'Cập nhật trạng thái task', href: '/projects' },
-    { id: 'check_inventory', icon: '📦', title: 'Kiểm tra kho vật tư', href: '/inventory' },
-    { id: 'create_quotation', icon: '💬', title: 'Tạo báo giá', href: '/quotations' },
-    { id: 'check_in', icon: '⏰', title: 'Chấm công ngày', href: '/attendance' },
+    { id: 'view_projects', icon: 'clipboard', title: 'Xem danh sách dự án', href: '/projects' },
+    { id: 'update_task', icon: 'check', title: 'Cập nhật trạng thái task', href: '/projects' },
+    { id: 'check_inventory', icon: 'package', title: 'Kiểm tra kho vật tư', href: '/inventory' },
+    { id: 'create_quotation', icon: 'message', title: 'Tạo báo giá', href: '/quotations' },
+    { id: 'check_in', icon: 'alarm', title: 'Chấm công ngày', href: '/attendance' },
   ],
   accountant: [
-    { id: 'view_accounting', icon: '💰', title: 'Xem sổ kế toán', href: '/accounting' },
-    { id: 'create_transaction', icon: '➕', title: 'Tạo giao dịch mới', href: '/accounting' },
-    { id: 'view_pl', icon: '📊', title: 'Xem báo cáo P&L', href: '/pl' },
-    { id: 'check_payroll', icon: '💵', title: 'Kiểm tra lương', href: '/hr' },
-    { id: 'approve_transactions', icon: '✅', title: 'Duyệt giao dịch chờ', href: '/approvals' },
+    { id: 'view_accounting', icon: 'money', title: 'Xem sổ kế toán', href: '/accounting' },
+    { id: 'create_transaction', icon: 'plus', title: 'Tạo giao dịch mới', href: '/accounting' },
+    { id: 'view_pl', icon: 'chart', title: 'Xem báo cáo P&L', href: '/pl' },
+    { id: 'check_payroll', icon: 'cash', title: 'Kiểm tra lương', href: '/hr' },
+    { id: 'approve_transactions', icon: 'check', title: 'Duyệt giao dịch chờ', href: '/approvals' },
   ],
   admin: [
-    { id: 'view_dashboard', icon: '📊', title: 'Xem dashboard tổng quan', href: '/' },
-    { id: 'configure_ai', icon: '🧠', title: 'Cấu hình AI Model', href: '/settings' },
-    { id: 'manage_users', icon: '👥', title: 'Quản lý người dùng', href: '/users' },
-    { id: 'setup_automation', icon: '🤖', title: 'Cấu hình tự động hóa', href: '/settings' },
-    { id: 'create_lead', icon: '🔄', title: 'Tạo lead đầu tiên', href: '/leads' },
+    { id: 'view_dashboard', icon: 'chart', title: 'Xem dashboard tổng quan', href: '/' },
+    { id: 'configure_ai', icon: 'brain', title: 'Cấu hình AI Model', href: '/settings' },
+    { id: 'manage_users', icon: 'users', title: 'Quản lý người dùng', href: '/users' },
+    { id: 'setup_automation', icon: 'robot', title: 'Cấu hình tự động hóa', href: '/settings' },
+    { id: 'create_lead', icon: 'refresh', title: 'Tạo lead đầu tiên', href: '/leads' },
   ],
   leader: [
-    { id: 'view_pipeline', icon: '🔄', title: 'Xem pipeline team', href: '/leads' },
-    { id: 'assign_lead', icon: '👤', title: 'Phân công lead cho team', href: '/leads' },
-    { id: 'view_projects', icon: '📋', title: 'Theo dõi dự án team', href: '/projects' },
-    { id: 'check_approvals', icon: '✅', title: 'Duyệt yêu cầu chờ', href: '/approvals' },
-    { id: 'view_reports', icon: '📊', title: 'Xem báo cáo hiệu suất', href: '/reports' },
+    { id: 'view_pipeline', icon: 'refresh', title: 'Xem pipeline team', href: '/leads' },
+    { id: 'assign_lead', icon: 'user', title: 'Phân công lead cho team', href: '/leads' },
+    { id: 'view_projects', icon: 'clipboard', title: 'Theo dõi dự án team', href: '/projects' },
+    { id: 'check_approvals', icon: 'check', title: 'Duyệt yêu cầu chờ', href: '/approvals' },
+    { id: 'view_reports', icon: 'chart', title: 'Xem báo cáo hiệu suất', href: '/reports' },
   ],
   executive: [
-    { id: 'view_dashboard', icon: '📊', title: 'Xem tổng quan điều hành', href: '/' },
-    { id: 'view_pl', icon: '📈', title: 'Xem báo cáo P&L', href: '/pl' },
-    { id: 'check_projects', icon: '📋', title: 'Theo dõi dự án', href: '/projects' },
-    { id: 'view_reports', icon: '📊', title: 'Xem phân tích kinh doanh', href: '/reports' },
-    { id: 'review_feedback', icon: '💬', title: 'Xem feedback nhân sự', href: '/feedback' },
+    { id: 'view_dashboard', icon: 'chart', title: 'Xem tổng quan điều hành', href: '/' },
+    { id: 'view_pl', icon: 'trendUp', title: 'Xem báo cáo P&L', href: '/pl' },
+    { id: 'check_projects', icon: 'clipboard', title: 'Theo dõi dự án', href: '/projects' },
+    { id: 'view_reports', icon: 'chart', title: 'Xem phân tích kinh doanh', href: '/reports' },
+    { id: 'review_feedback', icon: 'message', title: 'Xem feedback nhân sự', href: '/feedback' },
   ],
   sale_leader: [
-    { id: 'view_pipeline', icon: '🔄', title: 'Xem pipeline nhóm', href: '/leads' },
-    { id: 'assign_lead', icon: '🤝', title: 'Giao lead cho sale trong nhóm', href: '/leads' },
-    { id: 'view_team_chart', icon: '👥', title: 'Xem sơ đồ Đội nhóm', href: '/hr' },
-    { id: 'check_approvals', icon: '✅', title: 'Duyệt yêu cầu chờ của nhóm', href: '/approvals' },
-    { id: 'view_kpi_team', icon: '📈', title: 'Xem KPI từng sale (tab Team)', href: '/kpi' },
+    { id: 'view_pipeline', icon: 'refresh', title: 'Xem pipeline nhóm', href: '/leads' },
+    { id: 'assign_lead', icon: 'handshake', title: 'Giao lead cho sale trong nhóm', href: '/leads' },
+    { id: 'view_team_chart', icon: 'users', title: 'Xem sơ đồ Đội nhóm', href: '/hr' },
+    { id: 'check_approvals', icon: 'check', title: 'Duyệt yêu cầu chờ của nhóm', href: '/approvals' },
+    { id: 'view_kpi_team', icon: 'trendUp', title: 'Xem KPI từng sale (tab Team)', href: '/kpi' },
   ],
   admin_cskh: [
-    { id: 'create_lead', icon: '➕', title: 'Nhập lead mới từ marketing', href: '/leads' },
-    { id: 'assign_lead', icon: '🤝', title: 'Giao data cho trưởng nhóm', href: '/leads' },
-    { id: 'view_pipeline', icon: '🔄', title: 'Theo dõi pipeline tổng', href: '/leads' },
-    { id: 'view_reports', icon: '📊', title: 'Xem báo cáo chuyển đổi', href: '/reports' },
-    { id: 'check_in', icon: '⏰', title: 'Chấm công ngày', href: '/attendance' },
+    { id: 'create_lead', icon: 'plus', title: 'Nhập lead mới từ marketing', href: '/leads' },
+    { id: 'assign_lead', icon: 'handshake', title: 'Giao data cho trưởng nhóm', href: '/leads' },
+    { id: 'view_pipeline', icon: 'refresh', title: 'Theo dõi pipeline tổng', href: '/leads' },
+    { id: 'view_reports', icon: 'chart', title: 'Xem báo cáo chuyển đổi', href: '/reports' },
+    { id: 'check_in', icon: 'alarm', title: 'Chấm công ngày', href: '/attendance' },
   ],
   quan_ly_du_an: [
-    { id: 'view_projects', icon: '🏗️', title: 'Xem danh sách dự án', href: '/projects' },
-    { id: 'update_task', icon: '✅', title: 'Đổi trạng thái một đầu việc', href: '/projects' },
-    { id: 'check_inventory', icon: '📦', title: 'Kiểm tra kho vật tư', href: '/inventory' },
-    { id: 'create_quotation', icon: '📋', title: 'Tạo báo giá thi công', href: '/quotations' },
-    { id: 'check_approvals', icon: '✅', title: 'Xem hàng chờ phê duyệt', href: '/approvals' },
+    { id: 'view_projects', icon: 'crane', title: 'Xem danh sách dự án', href: '/projects' },
+    { id: 'update_task', icon: 'check', title: 'Đổi trạng thái một đầu việc', href: '/projects' },
+    { id: 'check_inventory', icon: 'package', title: 'Kiểm tra kho vật tư', href: '/inventory' },
+    { id: 'create_quotation', icon: 'clipboard', title: 'Tạo báo giá thi công', href: '/quotations' },
+    { id: 'check_approvals', icon: 'check', title: 'Xem hàng chờ phê duyệt', href: '/approvals' },
   ],
   thiet_ke: [
-    { id: 'view_projects', icon: '🎨', title: 'Mở việc thiết kế của bạn', href: '/projects' },
-    { id: 'upload_design', icon: '📎', title: 'Upload bản vẽ vào đầu việc', href: '/projects' },
-    { id: 'update_task', icon: '✅', title: 'Đổi trạng thái việc đã xong', href: '/projects' },
-    { id: 'view_quotations', icon: '📋', title: 'Xem báo giá phạm vi đã bán', href: '/quotations' },
-    { id: 'check_in', icon: '⏰', title: 'Chấm công ngày', href: '/attendance' },
+    { id: 'view_projects', icon: 'palette', title: 'Mở việc thiết kế của bạn', href: '/projects' },
+    { id: 'upload_design', icon: 'upload', title: 'Upload bản vẽ vào đầu việc', href: '/projects' },
+    { id: 'update_task', icon: 'check', title: 'Đổi trạng thái việc đã xong', href: '/projects' },
+    { id: 'view_quotations', icon: 'clipboard', title: 'Xem báo giá phạm vi đã bán', href: '/quotations' },
+    { id: 'check_in', icon: 'alarm', title: 'Chấm công ngày', href: '/attendance' },
   ],
   giam_sat_thi_cong: [
-    { id: 'view_projects', icon: '🏗️', title: 'Xem việc thi công của bạn', href: '/projects' },
-    { id: 'update_task', icon: '✅', title: 'Cập nhật tiến độ hạng mục', href: '/projects' },
-    { id: 'check_inventory', icon: '📦', title: 'Tạo yêu cầu vật tư', href: '/inventory' },
-    { id: 'check_in', icon: '📍', title: 'Chấm công GPS qua Telegram', href: '/attendance' },
-    { id: 'check_approvals', icon: '✅', title: 'Xem đề xuất chờ duyệt', href: '/approvals' },
+    { id: 'view_projects', icon: 'crane', title: 'Xem việc thi công của bạn', href: '/projects' },
+    { id: 'update_task', icon: 'check', title: 'Cập nhật tiến độ hạng mục', href: '/projects' },
+    { id: 'check_inventory', icon: 'package', title: 'Tạo yêu cầu vật tư', href: '/inventory' },
+    { id: 'check_in', icon: 'pin', title: 'Chấm công GPS qua Telegram', href: '/attendance' },
+    { id: 'check_approvals', icon: 'check', title: 'Xem đề xuất chờ duyệt', href: '/approvals' },
   ],
   thu_mua: [
-    { id: 'check_inventory', icon: '📦', title: 'Xem tồn kho + cảnh báo', href: '/inventory' },
-    { id: 'import_stock', icon: '📥', title: 'Ghi một lần nhập kho', href: '/inventory' },
-    { id: 'compare_suppliers', icon: '🏬', title: 'So giá nhà cung cấp', href: '/suppliers' },
-    { id: 'view_projects', icon: '🏗️', title: 'Xem việc thu mua trong dự án', href: '/projects' },
-    { id: 'check_in', icon: '⏰', title: 'Chấm công ngày', href: '/attendance' },
+    { id: 'check_inventory', icon: 'package', title: 'Xem tồn kho + cảnh báo', href: '/inventory' },
+    { id: 'import_stock', icon: 'download', title: 'Ghi một lần nhập kho', href: '/inventory' },
+    { id: 'compare_suppliers', icon: 'building', title: 'So giá nhà cung cấp', href: '/suppliers' },
+    { id: 'view_projects', icon: 'crane', title: 'Xem việc thu mua trong dự án', href: '/projects' },
+    { id: 'check_in', icon: 'alarm', title: 'Chấm công ngày', href: '/attendance' },
   ],
 };
 
 // Việc chung MỌI vai trò đều cần làm trong tuần đầu (đối chiếu ghi chú QA 15/08:
 // chưa liên kết Telegram thì /checkin, nhắc việc lẫn «Quên mật khẩu?» đều không chạy)
 const COMMON_CHECKLIST: { id: string; icon: string; title: string; href: string }[] = [
-  { id: 'link_telegram', icon: '🔗', title: 'Liên kết Telegram: Cài đặt → nhắn /id cho bot → Lưu → /start', href: '/settings' },
-  { id: 'read_changelog', icon: '🔔', title: 'Đọc «Có gì mới» + cách báo lỗi (/feedback)', href: '/changelog' },
-  { id: 'read_guide', icon: '📘', title: 'Lướt qua Sổ tay sử dụng — đọc kỹ mục việc của bạn', href: '/huong-dan' },
+  { id: 'link_telegram', icon: 'link', title: 'Liên kết Telegram: Cài đặt → nhắn /id cho bot → Lưu → /start', href: '/settings' },
+  { id: 'read_changelog', icon: 'bell', title: 'Đọc «Có gì mới» + cách báo lỗi (/feedback)', href: '/changelog' },
+  { id: 'read_guide', icon: 'file', title: 'Lướt qua Sổ tay sử dụng — đọc kỹ mục việc của bạn', href: '/huong-dan' },
 ];
 
 const SHORTCUTS = [
@@ -196,10 +197,10 @@ const SHORTCUTS = [
 
 // Mẹo sống còn cho nhân viên mới — những thứ không thuộc trang nào cụ thể
 const SURVIVAL_TIPS = [
-  { icon: '🔑', text: 'Quên mật khẩu: nút «Quên mật khẩu?» ở trang đăng nhập gửi mã 6 số qua Telegram (phải liên kết trước)' },
-  { icon: '⚠️', text: 'Băng đỏ «Chưa tải được số liệu» = LỖI TẢI, không phải số 0 — bấm Tải lại trước khi hoảng' },
-  { icon: '🔔', text: 'Chuông góc trên phải: tab «Cần xử lý» / «Gần đây», số đỏ = chưa đọc' },
-  { icon: '📱', text: 'Cài app ra màn hình chính: Android bấm «Cài đặt» trên banner; iPhone: Chia sẻ ⬆️ → «Thêm vào MH chính»' },
+  { icon: 'key', text: 'Quên mật khẩu: nút «Quên mật khẩu?» ở trang đăng nhập gửi mã 6 số qua Telegram (phải liên kết trước)' },
+  { icon: 'alert', text: 'Băng đỏ «Chưa tải được số liệu» = LỖI TẢI, không phải số 0 — bấm Tải lại trước khi hoảng' },
+  { icon: 'bell', text: 'Chuông góc trên phải: tab «Cần xử lý» / «Gần đây», số đỏ = chưa đọc' },
+  { icon: 'smartphone', text: 'Cài app ra màn hình chính: Android bấm «Cài đặt» trên banner; iPhone: Chia sẻ ⬆️ → «Thêm vào MH chính»' },
 ];
 
 function getOnboardKey(role: string) {
@@ -294,7 +295,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
               </div>
               <span className="text-xs font-semibold text-[var(--text-muted)]">JAMA HOME</span>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>
+            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}>
               {step + 1} / 3
             </span>
           </div>
@@ -311,7 +312,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                   <Link key={card.href} href={card.href} onClick={() => close(true)}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all hover:opacity-80 group"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                    <span className="text-xl flex-shrink-0">{card.icon}</span>
+                    <LineIcon name={card.icon} size={20} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white group-hover:text-[#C9A96E] transition-colors">{card.title}</p>
                       <p className="text-xs text-[var(--text-muted)] truncate">{card.description}</p>
@@ -333,7 +334,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                 <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--surface-3)' }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${(completedItems.length / checklist.length) * 100}%`, background: 'linear-gradient(90deg, #C9A96E, #B8935A)' }} />
                 </div>
-                <span className="text-[10px] font-mono" style={{ color: '#C9A96E' }}>{completedItems.length}/{checklist.length}</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--gold-500)' }}>{completedItems.length}/{checklist.length}</span>
               </div>
               <div className="space-y-2 max-h-[240px] overflow-y-auto">
                 {checklist.map(item => {
@@ -346,7 +347,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                         style={{ background: done ? '#10B981' : 'var(--surface-3)', border: `1px solid ${done ? '#10B981' : 'var(--border-subtle)'}` }}>
                         {done && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
                       </div>
-                      <span className="text-xl flex-shrink-0">{item.icon}</span>
+                      <LineIcon name={item.icon} size={20} className="flex-shrink-0" />
                       <span className={`text-sm ${done ? 'line-through text-[var(--text-muted)]' : 'text-white'}`}>{item.title}</span>
                     </Link>
                   );
@@ -378,7 +379,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
               <div className="space-y-1.5 mb-4">
                 {SURVIVAL_TIPS.map((tip, i) => (
                   <div key={i} className="flex gap-2 text-xs text-[var(--text-secondary)] leading-relaxed">
-                    <span className="flex-shrink-0">{tip.icon}</span>
+                    <LineIcon name={tip.icon} size={14} className="flex-shrink-0 mt-0.5" />
                     <span>{tip.text}</span>
                   </div>
                 ))}
@@ -386,7 +387,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
               <button onClick={() => { close(true); startGuidedTour(); }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:opacity-90 group text-left"
                 style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}>
-                <span className="text-lg">🧭</span>
+                <LineIcon name="compass" size={18} />
                 <div className="flex-1">
                   <p className="text-sm font-bold text-[#C9A96E]">Bắt đầu hướng dẫn từng bước</p>
                   <p className="text-[10px] text-[var(--text-muted)]">Đi qua từng trang theo workflow của bạn</p>

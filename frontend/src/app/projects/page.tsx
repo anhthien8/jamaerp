@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import MoneyInput from '@/components/ui/MoneyInput';
+import LineIcon from '@/components/ui/LineIcon';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Đang thực hiện', color: '#10B981' },
@@ -107,14 +108,14 @@ function nhanTreHan(t: { status: string; due_date?: string; sla_due_at?: string 
   if (t.status === 'done' || t.status === 'completed') return null;
   const dHan = daysLeft(t.due_date);
   if (dHan !== null && dHan < 0) {
-    return { text: `🔴 Quá hạn ${-dHan}n`, color: '#F87171', bg: 'rgba(248,113,113,0.18)' };
+    return { text: `Quá hạn ${-dHan}n`, color: '#F87171', bg: 'rgba(248,113,113,0.18)' };
   }
   const dSla = daysLeft(t.sla_due_at);
   if (dSla !== null && dSla < 0) {
-    return { text: `⚠ Vượt SLA ${-dSla}n`, color: '#FB923C', bg: 'rgba(251,146,60,0.18)' };
+    return { text: `Vượt SLA ${-dSla}n`, color: '#FB923C', bg: 'rgba(251,146,60,0.18)' };
   }
   if (dHan !== null && dHan <= 2) {
-    return { text: `🟠 Còn ${dHan}n`, color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' };
+    return { text: `Còn ${dHan}n`, color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' };
   }
   return null;
 }
@@ -136,10 +137,10 @@ function DeadlineBadge({ project }: { project: Project }) {
     return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>Chưa đặt hạn</span>;
   }
   if (d < 0) {
-    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(248,113,113,0.18)', color: '#F87171' }}>🔴 Quá hạn {-d} ngày</span>;
+    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(248,113,113,0.18)', color: '#F87171' }}><span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />Quá hạn {-d} ngày</span>;
   }
   if (d <= 14) {
-    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(251,146,60,0.18)', color: '#FB923C' }}>🟠 Còn {d} ngày</span>;
+    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(251,146,60,0.18)', color: '#FB923C' }}><span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />Còn {d} ngày</span>;
   }
   return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF' }}>Còn {d} ngày</span>;
 }
@@ -153,7 +154,7 @@ function StageBlocks({ project }: { project: Project }) {
         const cell = progress[stage];
         const total = cell?.total ?? 0;
         const done = cell?.done ?? 0;
-        let bg = 'rgba(255,255,255,0.08)'; // chưa bắt đầu
+        let bg = 'var(--surface-3)'; // chưa bắt đầu
         if (total > 0 && done >= total) bg = '#10B981';       // xong
         else if (done > 0 || project.stage === stage) bg = '#F59E0B'; // đang làm
         return (
@@ -170,11 +171,11 @@ function StageBlocks({ project }: { project: Project }) {
 }
 
 const taskStatusConfig: Record<string, { label: string; color: string; icon: string }> = {
-  done: { label: 'Xong', color: '#10B981', icon: '✅' },
-  in_progress: { label: 'Đang làm', color: '#F59E0B', icon: '🔄' },
-  not_started: { label: 'Chưa bắt đầu', color: '#6B7280', icon: '⏳' },
-  todo: { label: 'Chờ', color: '#6B7280', icon: '⏳' },
-  completed: { label: 'Hoàn thành', color: '#3B82F6', icon: '✅' },
+  done: { label: 'Xong', color: '#10B981', icon: 'check' },
+  in_progress: { label: 'Đang làm', color: '#F59E0B', icon: 'refresh' },
+  not_started: { label: 'Chưa bắt đầu', color: '#6B7280', icon: 'hourglass' },
+  todo: { label: 'Chờ', color: '#6B7280', icon: 'hourglass' },
+  completed: { label: 'Hoàn thành', color: '#3B82F6', icon: 'check' },
 };
 
 function ProjectsPageInner() {
@@ -709,7 +710,7 @@ function ProjectsPageInner() {
       <Sidebar>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="glass-card p-8 text-center max-w-md">
-            <span className="text-4xl block mb-4">⚠️</span>
+            <LineIcon name="alert" size={40} className="block mx-auto mb-4" />
             <p className="text-[var(--text-primary)] mb-2">{error}</p>
             <button onClick={() => { setError(null); refreshData(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
           </div>
@@ -806,7 +807,7 @@ function ProjectsPageInner() {
                 viewMode === 'pipeline' ? "bg-[var(--gold-500)] text-white" : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
               )}
             >
-              📊 Kanban
+              <LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Kanban
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -815,7 +816,7 @@ function ProjectsPageInner() {
                 viewMode === 'list' ? "bg-[var(--gold-500)] text-white" : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
               )}
             >
-              📋 Danh sách
+              <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Danh sách
             </button>
           </div>
         </div>
@@ -982,7 +983,7 @@ function ProjectsPageInner() {
 
                       {/* Client + values */}
                       <div className="flex justify-between items-end text-[10px] text-[var(--text-muted)] pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <span className="truncate max-w-[55%]">👤 {project.client_name}</span>
+                        <span className="truncate max-w-[55%]"><LineIcon name="user" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{project.client_name}</span>
                         <span className="font-semibold text-[var(--text-secondary)]">{formatCurrency(project.total_value || (project.design_value || 0) + (project.construction_value || 0))}</span>
                       </div>
                     </div>
@@ -1015,7 +1016,7 @@ function ProjectsPageInner() {
             </div>
           <div ref={kanbanScrollRef} className="flex gap-4 overflow-x-auto pb-4 min-w-0 min-h-[60vh] select-none animate-fade-in">
             {kanbanData.map(col => (
-              <div key={col.stage} className="flex-shrink-0 w-[82vw] max-w-[20rem] sm:w-80 snap-start rounded-2xl p-3 flex flex-col" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-subtle)' }}>
+              <div key={col.stage} className="flex-shrink-0 w-[82vw] max-w-[20rem] sm:w-80 snap-start rounded-2xl p-3 flex flex-col" style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)' }}>
                 {/* Column Title */}
                 <div className="flex items-center justify-between mb-4 px-1">
                   <div className="flex items-center gap-2">
@@ -1073,7 +1074,7 @@ function ProjectsPageInner() {
 
                       {/* Client + Value */}
                       <div className="flex justify-between items-center text-[10px] text-[var(--text-muted)] pt-2 border-t border-white/5">
-                        <span className="truncate max-w-[55%]">👤 {proj.client_name}</span>
+                        <span className="truncate max-w-[55%]"><LineIcon name="user" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{proj.client_name}</span>
                         <span className="font-semibold text-white">{formatCurrency(proj.total_value || (proj.design_value || 0) + (proj.construction_value || 0))}</span>
                       </div>
                     </div>
@@ -1159,7 +1160,7 @@ function ProjectsPageInner() {
               {/* Pause Reason — hiển thị khi dự án tạm dừng */}
               {selectedProject.stage === 'paused' && (
                 <div className="p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                  <p className="text-xs font-semibold text-amber-400 mb-1">⏸️ Lý do tạm dừng:</p>
+                  <p className="text-xs font-semibold text-amber-400 mb-1"><LineIcon name="pause" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Lý do tạm dừng:</p>
                   <p className="text-sm text-[var(--text-secondary)]">{(selectedProject as unknown as Record<string, string>).pause_reason || 'Không ghi rõ'}</p>
                 </div>
               )}
@@ -1181,18 +1182,18 @@ function ProjectsPageInner() {
 
               {/* Team Assignment — Phân công bộ phận */}
               <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">👥 Phân công bộ phận</h3>
+                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3"><LineIcon name="users" size={16} className="inline-block align-[-2px] mr-1.5" />Phân công bộ phận</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { label: 'PM / Giám sát', id: selectedProject.pm_id, color: '#8B5CF6', icon: '📋' },
-                    { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: '🎨' },
-                    { label: 'Báo giá – Thu mua', id: selectedProject.purchasing_id, color: '#10B981', icon: '🧾' },
-                    { label: 'Kinh doanh', id: selectedProject.sales_id, color: '#3B82F6', icon: '💼' },
+                    { label: 'PM / Giám sát', id: selectedProject.pm_id, color: '#8B5CF6', icon: 'clipboard' },
+                    { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: 'palette' },
+                    { label: 'Báo giá – Thu mua', id: selectedProject.purchasing_id, color: '#10B981', icon: 'receipt' },
+                    { label: 'Kinh doanh', id: selectedProject.sales_id, color: '#3B82F6', icon: 'briefcase' },
                   ].map(m => {
                     const userName = m.id ? (users.find(u => u.id === m.id)?.full_name || '—') : '—';
                     return (
                       <div key={m.label} className="p-2 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                        <p className="text-lg mb-1">{m.icon}</p>
+                        <p className="mb-1 flex justify-center"><LineIcon name={m.icon} size={20} color={m.color} /></p>
                         <p className="text-[10px] font-medium text-[var(--text-muted)]">{m.label}</p>
                         <p className="text-xs font-semibold truncate" style={{ color: m.color }}>{userName}</p>
                       </div>
@@ -1205,9 +1206,9 @@ function ProjectsPageInner() {
               <div className="glass-card p-4">
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Thông tin khách hàng</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[var(--text-secondary)]">
-                  <p>👤 {selectedProject.client_name}</p>
-                  {selectedProject.client_phone && <p>📱 {selectedProject.client_phone}</p>}
-                  {selectedProject.address && <p className="md:col-span-2">📍 {selectedProject.address}</p>}
+                  <p><LineIcon name="user" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_name}</p>
+                  {selectedProject.client_phone && <p><LineIcon name="smartphone" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_phone}</p>}
+                  {selectedProject.address && <p className="md:col-span-2"><LineIcon name="pin" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.address}</p>}
                 </div>
               </div>
 
@@ -1244,7 +1245,7 @@ function ProjectsPageInner() {
                     <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
                       <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: barColor }} />
                     </div>
-                    {over && <p className="text-xs mt-2" style={{ color: '#F87171' }}>⚠ Vượt ngân sách {formatCurrency(spent - budget)} — cần rà soát chi phí</p>}
+                    {over && <p className="text-xs mt-2" style={{ color: '#F87171' }}><LineIcon name="alert" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Vượt ngân sách {formatCurrency(spent - budget)} — cần rà soát chi phí</p>}
                     {warn && <p className="text-xs mt-2" style={{ color: '#FBBF24' }}>Sắp chạm ngân sách — theo dõi sát các khoản chi tiếp theo</p>}
                   </div>
                 );
@@ -1302,7 +1303,7 @@ function ProjectsPageInner() {
                         onClick={openMaterialRequest}
                         className="text-xs px-3 py-1 rounded-lg font-medium bg-[#10B981] text-white hover:bg-[#059669] transition-all"
                       >
-                        📦 Yêu cầu vật tư
+                        <LineIcon name="package" size={16} className="inline-block align-[-2px] mr-1.5" />Yêu cầu vật tư
                       </button>
                     )}
                     {permissions?.canCreateTasks && (
@@ -1342,14 +1343,14 @@ function ProjectsPageInner() {
                         </div>
                         <div className="space-y-1.5 pl-3">
                           {group.tasks.map(task => {
-                            const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: '📌' };
+                            const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: 'pin' };
                             return (
                               <div
                                 key={task.id}
                                 className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
                                 onClick={() => openTaskDetail(task)}
                               >
-                                <span className="text-sm">{ts.icon}</span>
+                                <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
                                 <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{task.title}</span>
                                 <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${ts.color}20`, color: ts.color }}>{ts.label}</span>
                               </div>
@@ -1371,7 +1372,7 @@ function ProjectsPageInner() {
                           </h4>
                           <div className="space-y-1.5 pl-3">
                             {stageTasks.map(task => {
-                              const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: '📌' };
+                              const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: 'pin' };
                               const dept = task.department ? DEPT_LABELS[task.department] : null;
                               return (
                                 <div
@@ -1379,7 +1380,7 @@ function ProjectsPageInner() {
                                   className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
                                   onClick={() => openTaskDetail(task)}
                                 >
-                                  <span className="text-sm">{ts.icon}</span>
+                                  <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs font-medium truncate text-white">{task.title}</p>
                                     <div className="flex items-center gap-2 mt-0.5">
@@ -1389,7 +1390,7 @@ function ProjectsPageInner() {
                                         </span>
                                       )}
                                       {task.final_file_url && (
-                                        <span className="text-[9px] text-[var(--gold-400)]">📎</span>
+                                        <LineIcon name="link" size={11} className="shrink-0" />
                                       )}
                                     </div>
                                   </div>
@@ -1419,7 +1420,7 @@ function ProjectsPageInner() {
                                         style={{ background: nhan.bg, color: nhan.color }}
                                         title={task.due_date ? `Hạn ${new Date(task.due_date).toLocaleDateString('vi-VN')}` : 'Theo chuẩn nội bộ (SLA)'}
                                       >
-                                        {nhan.text}
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />{nhan.text}
                                       </span>
                                     ) : null;
                                   })()}
@@ -1453,7 +1454,7 @@ function ProjectsPageInner() {
                                       luuNhomDamNhan(task.id, [...nhomDamNhan(task), uid]);
                                     }}
                                   >
-                                    <option value="">👤 {nhomDamNhan(task).length ? 'Thêm' : 'Đảm nhận'}</option>
+                                    <option value="">{nhomDamNhan(task).length ? '+ Thêm' : 'Đảm nhận'}</option>
                                     {users
                                       .filter(u => canTakeTask(u, taskDeptOf(task)) && !nhomDamNhan(task).includes(u.id))
                                       .map(u => (
@@ -1481,7 +1482,7 @@ function ProjectsPageInner() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setShowPauseReason(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-md rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">⏸️ Tạm dừng dự án</h3>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1"><LineIcon name="pause" size={16} className="inline-block align-[-2px] mr-1.5" />Tạm dừng dự án</h3>
             <p className="text-xs text-[var(--text-muted)] mb-3">Nhập lý do tạm dừng để lần sau quay lại biết context:</p>
             <textarea
               value={pauseReason}
@@ -1517,7 +1518,7 @@ function ProjectsPageInner() {
 
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl">{(taskStatusConfig[selectedTask.status] || { icon: '📌' }).icon}</span>
+                <LineIcon name={(taskStatusConfig[selectedTask.status] || { icon: 'pin' }).icon} size={24} color={(taskStatusConfig[selectedTask.status] || { color: '#6B7280' }).color} className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-bold text-white truncate">{selectedTask.title}</h3>
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -1539,7 +1540,7 @@ function ProjectsPageInner() {
                       const nhan = nhanTreHan(selectedTask);
                       return nhan ? (
                         <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: nhan.bg, color: nhan.color }}>
-                          {nhan.text}
+                          <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />{nhan.text}
                         </span>
                       ) : null;
                     })()}
@@ -1550,7 +1551,7 @@ function ProjectsPageInner() {
               {/* Người đảm nhận — NHIỀU người, tất cả ngang vai (13/10/2026).
                   Thêm ai là người đó nhận thông báo trong app + Telegram ngay. */}
               <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">👤 Người đảm nhận</h4>
+                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="user" size={16} className="inline-block align-[-2px] mr-1.5" />Người đảm nhận</h4>
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {nhomDamNhan(selectedTask).map(uid => (
                     <span
@@ -1584,7 +1585,7 @@ function ProjectsPageInner() {
                       luuNhomDamNhan(selectedTask.id, [...nhomDamNhan(selectedTask), e.target.value]);
                     }}
                   >
-                    <option value="">➕ Thêm người</option>
+                    <option value="">+ Thêm người</option>
                     {users
                       .filter(u => canTakeTask(u, taskDeptOf(selectedTask)) && !nhomDamNhan(selectedTask).includes(u.id))
                       .map(u => (
@@ -1620,11 +1621,11 @@ function ProjectsPageInner() {
 
               {/* Final Result File (Upload or Paste Link) */}
               <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">📁 File kết quả giai đoạn (Final File)</h4>
+                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="layers" size={16} className="inline-block align-[-2px] mr-1.5" />File kết quả giai đoạn (Final File)</h4>
                 <label
                   className={`flex items-center justify-center gap-2 w-full py-2.5 mb-2 rounded-xl text-xs font-medium cursor-pointer transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] ${dangTaiFile ? 'opacity-60 pointer-events-none' : ''}`}
                 >
-                  {dangTaiFile ? 'Đang tải lên…' : '📤 Tải file lên (PDF, DWG, SKP, Excel… tối đa 50MB)'}
+                  {dangTaiFile ? 'Đang tải lên…' : <><LineIcon name="upload" size={14} color="currentColor" />Tải file lên (PDF, DWG, SKP, Excel… tối đa 50MB)</>}
                   <input
                     type="file"
                     className="hidden"
@@ -1657,10 +1658,11 @@ function ProjectsPageInner() {
                       rel="noopener noreferrer"
                       className="text-[var(--gold-400)] hover:underline truncate max-w-[70%]"
                     >
+                      <LineIcon name="link" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
                       {selectedTask.final_file_url.startsWith('data:')
-                        ? '📎 Xem ảnh đính kèm (Base64)'
+                        ? 'Xem ảnh đính kèm (Base64)'
                         : selectedTask.final_file_url.startsWith('/media/docs/')
-                          ? `📎 ${decodeURIComponent(selectedTask.final_file_url.split('/').pop() || 'Tài liệu')}`
+                          ? `${decodeURIComponent(selectedTask.final_file_url.split('/').pop() || 'Tài liệu')}`
                           : selectedTask.final_file_url}
                     </a>
                   </div>
@@ -1669,7 +1671,7 @@ function ProjectsPageInner() {
 
               {/* File Upload Zone — ảnh vào ghi chú bên dưới, tài liệu thành file kết quả phía trên. */}
               <div className="mt-4 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
-                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Chọn ảnh hoặc tài liệu</p>
+                <p className="text-xs text-[var(--text-muted)] mb-2"><LineIcon name="link" size={14} className="inline-block align-[-2px] mr-1.5" />Chọn ảnh hoặc tài liệu</p>
                 <input
                   type="file"
                   multiple
@@ -1684,7 +1686,7 @@ function ProjectsPageInner() {
 
               {/* Note and Media Attachment form */}
               <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">✍️ Thêm cập nhật ghi chú & hình ảnh</h4>
+                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="edit" size={14} className="inline-block align-[-2px] mr-1.5" />Thêm cập nhật ghi chú & hình ảnh</h4>
                 <div className="space-y-2">
                   <textarea
                     placeholder="Nhập thông tin cập nhật công việc..."
@@ -1703,7 +1705,7 @@ function ProjectsPageInner() {
                         type="button"
                         className="text-[10px] px-2.5 py-1 rounded bg-white/5 border border-white/10 text-white hover:bg-white/10 relative"
                       >
-                        📷 Đính kèm ảnh
+                        <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Đính kèm ảnh
                         {newActivityMedia.length > 0 && (
                           <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-[#C9A96E] text-black">
                             {newActivityMedia.length}
@@ -1749,7 +1751,7 @@ function ProjectsPageInner() {
 
               {/* History Timeline */}
               <div className="glass-card p-3.5 max-h-[22vh] overflow-y-auto">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">💬 Lịch sử cập nhật công việc</h4>
+                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3"><LineIcon name="message" size={16} className="inline-block align-[-2px] mr-1.5" />Lịch sử cập nhật công việc</h4>
                 {loadingActivities ? (
                   <p className="text-[10px] text-center text-[var(--text-disabled)]">Đang tải...</p>
                 ) : taskActivities.length === 0 ? (
@@ -1848,10 +1850,10 @@ function ProjectsPageInner() {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {([
-                    { key: 'pm_id', nhan: '📋 PM / Giám sát', dept: 'construction' },
-                    { key: 'designer_id', nhan: '🎨 Thiết kế', dept: 'design' },
-                    { key: 'purchasing_id', nhan: '🧾 Báo giá – Thu mua', dept: 'quotation' },
-                    { key: 'sales_id', nhan: '💼 Kinh doanh', dept: 'sales' },
+                    { key: 'pm_id', nhan: 'PM / Giám sát', icon: 'clipboard', dept: 'construction' },
+                    { key: 'designer_id', nhan: 'Thiết kế', icon: 'palette', dept: 'design' },
+                    { key: 'purchasing_id', nhan: 'Báo giá – Thu mua', icon: 'receipt', dept: 'quotation' },
+                    { key: 'sales_id', nhan: 'Kinh doanh', icon: 'briefcase', dept: 'sales' },
                   ] as const).filter(o =>
                     // Ban Giám Đốc điều phối chéo phòng → thấy cả 4 ô.
                     // TRƯỞNG PHÒNG thấy đúng ô của bộ phận mình. Người khác không
@@ -1864,7 +1866,7 @@ function ProjectsPageInner() {
                     const ungVien = users.filter(u => canTakeTask(u, o.dept));
                     return (
                       <div key={o.key}>
-                        <label className="text-[11px] text-[var(--text-muted)] block mb-1">{o.nhan}</label>
+                        <label className="text-[11px] text-[var(--text-muted)] block mb-1"><LineIcon name={o.icon} size={12} className="inline-block align-[-2px] mr-1" />{o.nhan}</label>
                         <select
                           value={projectForm[o.key]}
                           onChange={e => setProjectForm(f => ({ ...f, [o.key]: e.target.value }))}
@@ -2071,7 +2073,7 @@ function ProjectsPageInner() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">📦 Yêu cầu vật tư</h2>
+              <h2 className="text-lg font-bold text-white"><LineIcon name="package" size={16} className="inline-block align-[-2px] mr-1.5" />Yêu cầu vật tư</h2>
               <button onClick={() => setShowMaterialRequest(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
             </div>
 
@@ -2136,7 +2138,7 @@ function ProjectsPageInner() {
 
 export default function ProjectsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LineIcon name="hourglass" size={28} /></div>}>
       <ProjectsPageInner />
     </Suspense>
   );

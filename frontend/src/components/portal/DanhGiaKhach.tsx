@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import LineIcon from '@/components/ui/LineIcon';
 
 type Moc = { ma: string; ten: string; mo: boolean; da_cham: { so_sao: number; nhan_xet: string | null; luc: string | null } | null };
 type DuLieu = { bat: boolean; moc: Moc[]; doi_ngu: { id: string; ten: string; vai: string }[] };
@@ -57,7 +58,7 @@ export default function DanhGiaKhach({ api, token, projectId }: { api: string; t
 
   return (
     <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>⭐ Đánh giá của bạn</h3>
+      <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}><LineIcon name="star" size={14} color={VANG} className="inline-block align-[-2px] mr-1.5" />Đánh giá của bạn</h3>
 
       {daCham.length > 0 && (
         <div className="space-y-1 mb-3">

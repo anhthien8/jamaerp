@@ -50,7 +50,7 @@ export default function DiemJama({ userId }: { userId: string }) {
             <div key={ma} className="rounded-lg p-2" style={{ background: 'var(--surface-2)' }}>
               <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{nhan}</p>
               <p className="font-mono text-sm">{v == null ? '—' : v}</p>
-              <div className="h-1 rounded-full mt-1" style={{ background: 'rgba(255,255,255,.08)' }}>
+              <div className="h-1 rounded-full mt-1" style={{ background: 'var(--surface-3)' }}>
                 <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, v ?? 0))}%`, background: VANG }} />
               </div>
             </div>

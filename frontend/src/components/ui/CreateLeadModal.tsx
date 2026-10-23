@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import { api, Team, User } from '@/lib/api';
 import { TINH_THANH_TRUC_THUOC_TW, TINH_THANH_TINH, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
+import LineIcon from '@/components/ui/LineIcon';
 
 interface CreateLeadForm {
   name: string;
@@ -252,7 +253,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
           <div>
-            <h2 className="text-lg font-bold text-white">➕ Tạo Lead mới</h2>
+            <h2 className="text-lg font-bold text-white"><LineIcon name="plus" size={16} className="inline-block align-[-2px] mr-1.5" />Tạo Lead mới</h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">Thêm khách hàng tiềm năng</p>
           </div>
           <button onClick={handleClose} aria-label="Đóng cửa sổ tạo lead" className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]">✕</button>
@@ -359,12 +360,12 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
               {teamId && (
                 <p className="sm:col-span-2 -mt-1 text-[11px] text-[var(--text-muted)]">
                   {teamMembers.length === 0
-                    ? '⚠️ Đội này chưa có thành viên nào — xếp người vào đội ở trang Tài khoản trước.'
+                    ? <><LineIcon name="alert" size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />Đội này chưa có thành viên nào — xếp người vào đội ở trang Tài khoản trước.</>
                     : assignedTo
                       ? `Data sẽ vào thẳng ${teamMembers.find(u => u.id === assignedTo)?.full_name || 'nhân viên đã chọn'}.`
                       : selectedTeam?.leader_id
                         ? `Chưa chọn nhân viên → data giao cho ${selectedTeam.leader_name || 'trưởng nhóm'} để chia tiếp trong nhóm.`
-                        : '⚠️ Đội này chưa có trưởng nhóm — phải chọn một nhân viên cụ thể.'}
+                        : <><LineIcon name="alert" size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />Đội này chưa có trưởng nhóm — phải chọn một nhân viên cụ thể.</>}
                 </p>
               )}
             </div>
@@ -493,7 +494,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
               className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-600))', color: 'white' }}
             >
-              {submitting ? 'Đang tạo...' : '✅ Tạo Lead'}
+              {submitting ? 'Đang tạo...' : <><LineIcon name="check" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Tạo Lead</>}
             </button>
           </div>
         </div>

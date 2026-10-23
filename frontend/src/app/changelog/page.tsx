@@ -45,7 +45,7 @@ export default function ChangelogPage() {
           {RELEASES.map((rel, i) => (
             <div key={`${rel.date}-${i}`} className="glass-card p-6">
               <div className="flex items-center gap-3 flex-wrap mb-4">
-                <span className="text-sm font-mono px-2.5 py-1 rounded-lg" style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E' }}>{rel.date}</span>
+                <span className="text-sm font-mono px-2.5 py-1 rounded-lg" style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)' }}>{rel.date}</span>
                 <h2 className="text-lg font-semibold">{rel.title}</h2>
                 {rel.tag && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}>{rel.tag}</span>

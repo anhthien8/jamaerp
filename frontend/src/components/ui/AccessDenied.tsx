@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import LineIcon from '@/components/ui/LineIcon';
 
 interface AccessDeniedProps {
   message?: string;
@@ -13,7 +14,7 @@ export default function AccessDenied({ message = 'Bạn không có quyền truy 
     <Sidebar>
       <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
         <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
+          <LineIcon name="lock" size={48} className="block mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
           <p className="text-sm text-[var(--text-muted)] mb-6">
             {message}

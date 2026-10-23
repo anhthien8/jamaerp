@@ -7,6 +7,7 @@ import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ApprovalItem } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import LineIcon from '@/components/ui/LineIcon';
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
   pending: { label: 'Chờ duyệt', color: '#fbbf24' },
@@ -17,12 +18,12 @@ const STATUS_BADGE: Record<string, { label: string; color: string }> = {
 };
 
 const TYPE_ICON: Record<string, string> = {
-  leave: '🏖️',
-  advance: '💸',
-  payroll_period: '🧾',
-  expense: '🚗',
-  overtime: '⏰',
-  bonus_batch: '🏆',
+  leave: 'calendar',
+  advance: 'cash',
+  payroll_period: 'receipt',
+  expense: 'truck',
+  overtime: 'alarm',
+  bonus_batch: 'trophy',
 };
 
 type Tab = 'pending' | 'mine' | 'handled';
@@ -130,7 +131,7 @@ export default function ApprovalsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span>{TYPE_ICON[item.type] || '📋'}</span>
+            <LineIcon name={TYPE_ICON[item.type] || 'clipboard'} size={18} />
             <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-1)', color: 'var(--text-muted)' }}>
               {item.type_label}
             </span>
@@ -141,7 +142,7 @@ export default function ApprovalsPage() {
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>cấp {item.step}/{item.total_steps}</span>
             )}
             {item.delegated && <span className="text-xs" style={{ color: '#60a5fa' }}>(duyệt thay)</span>}
-            {isOverdue(item) && <span className="text-xs font-semibold" style={{ color: '#f87171' }}>⏰ QUÁ HẠN</span>}
+            {isOverdue(item) && <span className="text-xs font-semibold" style={{ color: '#f87171' }}><LineIcon name="alarm" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />QUÁ HẠN</span>}
           </div>
           <div className="font-medium mt-1.5" style={{ color: 'var(--text-primary)' }}>{item.title}</div>
           <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -156,11 +157,11 @@ export default function ApprovalsPage() {
             <>
               <button onClick={() => doApprove(item)} disabled={busy}
                 className="px-3 py-1.5 rounded-lg text-white text-sm font-semibold disabled:opacity-40" style={{ background: '#34d399' }}>
-                ✅ Duyệt
+                <LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Duyệt
               </button>
               <button onClick={() => { setRejectTarget(item); setRejectReason(''); }} disabled={busy}
                 className="px-3 py-1.5 rounded-lg text-white text-sm font-semibold disabled:opacity-40" style={{ background: '#f87171' }}>
-                ❌ Từ chối
+                <LineIcon name="xCircle" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Từ chối
               </button>
             </>
           )}
@@ -178,7 +179,7 @@ export default function ApprovalsPage() {
 
   const lists: Record<Tab, ApprovalItem[]> = { pending, mine, handled };
   const emptyText: Record<Tab, string> = {
-    pending: '🎉 Không có đơn nào chờ bạn duyệt',
+    pending: 'Không có đơn nào chờ bạn duyệt',
     mine: 'Bạn chưa tạo đơn nào',
     handled: 'Chưa có đơn đã xử lý',
   };
@@ -188,7 +189,7 @@ export default function ApprovalsPage() {
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            ✅ Phê duyệt
+            <LineIcon name="check" size={20} className="inline-block align-[-2px] mr-1.5" />Phê duyệt
             {pending.length > 0 && (
               <span className="ml-2 text-sm px-2 py-0.5 rounded-full text-white" style={{ background: '#f87171' }}>
                 {pending.length}

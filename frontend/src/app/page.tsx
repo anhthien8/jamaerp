@@ -10,6 +10,7 @@ import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
 import {  } from '@/lib/roles';
+import LineIcon from '@/components/ui/LineIcon';
 
 // Spec 07 A3 — role → phòng ban nhận việc theo giai đoạn dự án
 const ROLE_DEPT: Record<string, 'DESIGN' | 'PM' | 'PURCHASING'> = {
@@ -139,7 +140,7 @@ export default function DashboardPage() {
               value={datePreset}
               onChange={e => setDatePreset(e.target.value)}
               className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-              style={datePreset !== 'all' ? { borderColor: 'rgba(201,169,110,0.5)', color: '#C9A96E' } : undefined}
+              style={datePreset !== 'all' ? { borderColor: 'rgba(201,169,110,0.5)', color: 'var(--gold-500)' } : undefined}
             >
               {DATE_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -175,8 +176,8 @@ export default function DashboardPage() {
             hạn» tụt từ 40 xuống 3 mà không có dòng này sẽ tưởng việc đã xong hết. */}
         {tenKy && (
           <div className="px-3 py-2 rounded-xl text-xs flex items-center gap-2"
-               style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.25)', color: '#C9A96E' }}>
-            <span>📅</span>
+               style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.25)', color: 'var(--gold-500)' }}>
+            <LineIcon name="calendar" size={16} />
             <span>
               Mọi số liệu bên dưới chỉ tính <b>lead và dự án phát sinh trong kỳ «{tenKy}»</b> —
               gồm cả 2 thẻ cảnh báo quá hạn. Bấm <b>Bỏ lọc</b> để xem lại toàn bộ.
@@ -190,7 +191,7 @@ export default function DashboardPage() {
         {error && (
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start justify-between gap-4">
             <span>
-              ⚠️ Chưa tải được số liệu bảng điều khiển — các ô bên dưới đang trống, không phải bằng 0.
+              <LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chưa tải được số liệu bảng điều khiển — các ô bên dưới đang trống, không phải bằng 0.
               <span className="block mt-1 opacity-70 font-mono text-xs break-all">{error}</span>
             </span>
             <button
@@ -213,14 +214,14 @@ export default function DashboardPage() {
               title="Giá trị pipeline"
               value={formatCurrency(data?.pipeline_value)}
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
-              icon="📈"
+              icon="trendUp"
               color="var(--gold-500)"
             />
             <KPICard
               title="Tổng Lead"
               value={data?.total_leads ?? '—'}
               subtitle={tenKy ? `Kỳ: ${tenKy}` : `Tháng này: ${data?.total_leads_month ?? 0}`}
-              icon="👥"
+              icon="users"
               color="#C9A96E"
               onClick={() => router.push('/leads')}
             />
@@ -228,7 +229,7 @@ export default function DashboardPage() {
               title="Dự án Đang chạy"
               value={data?.active_projects ?? '—'}
               subtitle={`Tiến độ TB: ${data?.avg_project_progress ?? 0}%`}
-              icon="🏗️"
+              icon="crane"
               color="var(--stage-new)"
               onClick={() => router.push('/projects')}
             />
@@ -236,7 +237,7 @@ export default function DashboardPage() {
               title="Hợp đồng"
               value={data?.total_contracts ?? '—'}
               subtitle={formatCurrency(data?.total_contract_value)}
-              icon="📄"
+              icon="file"
               color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
@@ -248,7 +249,7 @@ export default function DashboardPage() {
               title="Tổng Thu"
               value={acctSummary ? formatCurrency(acctSummary.total_income) : '—'}
               subtitle="Doanh thu kỳ này (sổ kế toán)"
-              icon="💵"
+              icon="cash"
               color="var(--stage-potential)"
               onClick={() => router.push('/accounting')}
             />
@@ -259,7 +260,7 @@ export default function DashboardPage() {
                  tròn từng giao dịch. Làm tròn về triệu để không hiện "Lãi ròng: 2 đ" — thống
                  nhất với cách trang /accounting hiển thị số dư. */
               subtitle={acctSummary ? `Lãi ròng: ${formatCurrency(Math.round(acctSummary.net / 1_000_000) * 1_000_000)}` : 'Chi phí & lương'}
-              icon="💸"
+              icon="cash"
               color="#EF4444"
               onClick={() => router.push('/accounting')}
             />
@@ -269,7 +270,7 @@ export default function DashboardPage() {
               title="Dự án Đang chạy"
               value={data?.active_projects ?? '—'}
               subtitle={data?.avg_project_progress != null ? `Tiến độ TB: ${data.avg_project_progress}%` : 'Xem chi tiết ở Dự án'}
-              icon="🏗️"
+              icon="crane"
               color="#C9A96E"
               onClick={() => router.push('/projects')}
             />
@@ -277,7 +278,7 @@ export default function DashboardPage() {
               title="Hợp đồng"
               value={data?.total_contracts ?? '—'}
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
-              icon="📄"
+              icon="file"
               color="var(--stage-interested)"
               onClick={() => router.push('/contracts')}
             />
@@ -291,7 +292,7 @@ export default function DashboardPage() {
               title="Lead Của Tôi"
               value={data?.total_active_leads ?? data?.total_leads ?? 0}
               subtitle="lead đang xử lý"
-              icon="👥"
+              icon="users"
               color="var(--stage-new)"
               onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
@@ -299,7 +300,7 @@ export default function DashboardPage() {
               title="Giá trị pipeline"
               value={data?.pipeline_value ? formatCurrency(data.pipeline_value) : '—'}
               subtitle={`${data?.conversion_rate ?? 0}% chuyển đổi`}
-              icon="💰"
+              icon="money"
               color="#C9A96E"
               onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
@@ -307,7 +308,7 @@ export default function DashboardPage() {
               title="Hợp đồng"
               value={data?.total_contracts ?? 0}
               subtitle={data?.total_contract_value ? formatCurrency(data.total_contract_value) : '—'}
-              icon="📄"
+              icon="file"
               color="var(--stage-interested)"
               onClick={perms.canViewContracts ? () => router.push('/contracts') : undefined}
             />
@@ -315,7 +316,7 @@ export default function DashboardPage() {
               title="Hoa Hồng"
               value={data?.commission_month != null ? formatCurrency(data.commission_month) : '—'}
               subtitle="đã duyệt kỳ gần nhất"
-              icon="💎"
+              icon="gem"
               color="var(--stage-potential)"
               onClick={perms.canViewAccounting ? () => router.push('/accounting') : undefined}
             />
@@ -330,7 +331,7 @@ export default function DashboardPage() {
               title="Tổng Lead"
               value={data?.total_leads ?? '—'}
               subtitle={tenKy ? `Kỳ: ${tenKy}` : (data?.total_leads_month != null ? `Tháng này: ${data.total_leads_month}` : 'Xem chi tiết ở Leads')}
-              icon="👥"
+              icon="users"
               color="var(--stage-new)"
               onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
@@ -338,7 +339,7 @@ export default function DashboardPage() {
               title="Giá trị pipeline"
               value={formatCurrency(data?.pipeline_value)}
               subtitle={data?.conversion_rate != null ? `${data.conversion_rate}% chuyển đổi` : '—'}
-              icon="💰"
+              icon="money"
               color="#C9A96E"
               onClick={perms.canViewLeads ? () => router.push('/leads') : undefined}
             />
@@ -346,7 +347,7 @@ export default function DashboardPage() {
               title="Dự án Đang chạy"
               value={data?.active_projects ?? '—'}
               subtitle={data?.avg_project_progress != null ? `Tiến độ TB: ${data.avg_project_progress}%` : 'Xem chi tiết ở Dự án'}
-              icon="🏗️"
+              icon="crane"
               color="var(--stage-potential)"
               onClick={perms.canViewProjects ? () => router.push('/projects') : undefined}
             />
@@ -354,7 +355,7 @@ export default function DashboardPage() {
               title="Hợp đồng"
               value={data?.total_contracts ?? '—'}
               subtitle={formatCurrency(data?.total_contract_value)}
-              icon="📄"
+              icon="file"
               color="var(--stage-interested)"
               onClick={perms.canViewContracts ? () => router.push('/contracts') : undefined}
             />
@@ -374,7 +375,7 @@ export default function DashboardPage() {
             {/* Team Performance */}
             {data?.team_performance && (
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">🏆 Hiệu suất Đội</h2>
+              <h2 className="text-lg font-semibold mb-4"><LineIcon name="trophy" size={16} className="inline-block align-[-2px] mr-1.5" />Hiệu suất Đội</h2>
               <div className="space-y-3">
                 {(data?.team_performance ?? []).map((team: { team: string; total_leads: number; signed: number; conversion: number }, i: number) => (
                   <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
@@ -408,7 +409,7 @@ export default function DashboardPage() {
         {/* Spec 08 §2.4 — Điều hành nhanh cho leader/admin: 3 số + đi thẳng */}
         {leaderCounts && (leaderCounts.approvals > 0 || leaderCounts.ot > 0 || (data?.overdue_leads ?? 0) > 0) && (
           <div className="glass-card p-5">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">⚡ Cần xử lý ngay</h3>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3"><LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Cần xử lý ngay</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Vạch màu trái thay nền pastel nhiều màu (góp ý UI Designer A6) — màu ngữ nghĩa qua stage vars để hợp cả 2 theme */}
               <button onClick={() => router.push('/leads')}
@@ -437,7 +438,7 @@ export default function DashboardPage() {
         {ROLE_DEPT[user.role] && deptProjects.length > 0 && (
           <div className="glass-card p-5">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">
-              🏗️ Dự án đang đến phòng bạn
+              <LineIcon name="crane" size={16} className="inline-block align-[-2px] mr-1.5" />Dự án đang đến phòng bạn
               <span className="ml-2 text-[10px] font-normal text-[var(--text-muted)]">ưu tiên: quá hạn → cận hạn → hợp đồng lớn</span>
             </h3>
             <div className="space-y-2">
@@ -451,10 +452,10 @@ export default function DashboardPage() {
                   <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{p.name}</span>
                   <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0">{p.pending_tasks} việc chờ</span>
                   {p.days_left !== null && p.days_left < 0 && (
-                    <span className="text-[10px] font-bold text-red-400 flex-shrink-0">🔴 Quá hạn {-p.days_left}d</span>
+                    <span className="text-[10px] font-bold text-red-400 flex-shrink-0"><span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 mr-1 align-middle" />Quá hạn {-p.days_left}d</span>
                   )}
                   {p.days_left !== null && p.days_left >= 0 && p.days_left <= 14 && (
-                    <span className="text-[10px] font-bold text-orange-400 flex-shrink-0">🟠 Còn {p.days_left}d</span>
+                    <span className="text-[10px] font-bold text-orange-400 flex-shrink-0"><span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-400 mr-1 align-middle" />Còn {p.days_left}d</span>
                   )}
                   <span className="text-[10px] font-semibold text-white flex-shrink-0">{formatCurrency(p.total_value)}</span>
                 </div>
@@ -465,14 +466,14 @@ export default function DashboardPage() {
 
         {isPersonal && (
           <div className="glass-card p-5">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">📋 Việc cần làm hôm nay</h3>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3"><LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Việc cần làm hôm nay</h3>
             <div className="space-y-2">
               {/* Dynamic priorities from API */}
               {(data as Record<string, unknown>)?.priorities && Array.isArray((data as Record<string, unknown>).priorities) && ((data as Record<string, unknown>).priorities as Array<Record<string, string>>).length > 0 ? (
                 ((data as Record<string, unknown>).priorities as Array<Record<string, string>>).map((item: Record<string, string>, i: number) => (
                   <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/8 cursor-pointer transition-colors"
                     onClick={() => item.href && router.push(item.href)}>
-                    <span>{item.icon}</span>
+                    <LineIcon name={({ "🔴": "alert", "📋": "clipboard", "📦": "package" } as Record<string, string>)[item.icon] ?? item.icon} size={18} />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm text-[var(--text-primary)] block truncate">{item.title}</span>
                       <span className="text-[10px] text-[var(--text-muted)] block truncate">{item.subtitle}</span>
@@ -483,16 +484,16 @@ export default function DashboardPage() {
                 <>
                   {(data?.overdue_leads ?? 0) > 0 && (
                     <div className="flex items-center gap-3 p-2 rounded-lg bg-red-500/10">
-                      <span className="text-red-400">⚠️</span>
+                      <LineIcon name="alert" size={16} color="currentColor" className="text-red-400" />
                       <span className="text-sm text-red-400">{data?.overdue_leads ?? 0} leads quá hạn cần follow-up</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10">
-                    <span className="text-blue-400">🆕</span>
+                    <LineIcon name="sparkle" size={16} color="currentColor" className="text-blue-400" />
                     <span className="text-sm text-blue-400">Quy trình: {data?.total_leads ?? 0} leads đang quản lý</span>
                   </div>
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-500/10">
-                    <span className="text-emerald-400">💰</span>
+                    <LineIcon name="money" size={16} color="currentColor" className="text-emerald-400" />
                     <span className="text-sm text-emerald-400">Giá trị pipeline: {formatCurrency(data?.pipeline_value)}</span>
                   </div>
                 </>
@@ -504,14 +505,14 @@ export default function DashboardPage() {
         {/* Personal: Quick Actions */}
         {isPersonal && (
           <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-4">⚡ Hành động nhanh</h2>
+            <h2 className="text-lg font-semibold mb-4"><LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Hành động nhanh</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 onClick={() => router.push('/leads')}
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">🔄</span>
+                <LineIcon name="refresh" size={22} />
                 <p className="text-sm font-medium mt-2">Xem quy trình</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý leads của bạn</p>
               </button>
@@ -520,7 +521,7 @@ export default function DashboardPage() {
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">📄</span>
+                <LineIcon name="file" size={22} />
                 <p className="text-sm font-medium mt-2">Hợp đồng</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Xem hợp đồng đã ký</p>
               </button>
@@ -529,7 +530,7 @@ export default function DashboardPage() {
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">💰</span>
+                <LineIcon name="money" size={22} />
                 <p className="text-sm font-medium mt-2">Hoa Hồng</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Xem hoa hồng của bạn</p>
               </button>
@@ -540,14 +541,14 @@ export default function DashboardPage() {
         {/* Financial: Financial Summary */}
         {isFinancial && (
           <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-4">📊 Tổng quan Tài chính</h2>
+            <h2 className="text-lg font-semibold mb-4"><LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Tổng quan Tài chính</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 onClick={() => router.push('/accounting')}
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">💳</span>
+                <LineIcon name="wallet" size={22} />
                 <p className="text-sm font-medium mt-2">Giao dịch</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý thu chi chi tiết</p>
               </button>
@@ -556,7 +557,7 @@ export default function DashboardPage() {
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">📋</span>
+                <LineIcon name="clipboard" size={22} />
                 <p className="text-sm font-medium mt-2">Bảng lương</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý lương & hoa hồng</p>
               </button>
@@ -565,7 +566,7 @@ export default function DashboardPage() {
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
-                <span className="text-2xl">👥</span>
+                <LineIcon name="users" size={22} />
                 <p className="text-sm font-medium mt-2">Nhân sự</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý người dùng</p>
               </button>
@@ -576,7 +577,7 @@ export default function DashboardPage() {
         {/* SLA Alerts (admin/leader only) */}
         {!isFinancial && !isPersonal && !isExecRole && (
           <div className="glass-card p-6">
-            <h2 className="text-lg font-semibold mb-3">⚠️ Cảnh báo</h2>
+            <h2 className="text-lg font-semibold mb-3"><LineIcon name="alert" size={16} className="inline-block align-[-2px] mr-1.5" />Cảnh báo</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <AlertCard
                 count={data?.overdue_leads ?? 0}
@@ -611,7 +612,7 @@ export default function DashboardPage() {
             {/* Financial Analytics */}
             {data?.financial_summary && (
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">📊 Phân tích Tài chính</h2>
+              <h2 className="text-lg font-semibold mb-4"><LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Phân tích Tài chính</h2>
               <div className="space-y-3">
                 {(() => {
                   const fs = data?.financial_summary;
@@ -643,20 +644,20 @@ export default function DashboardPage() {
             {/* Growth Metrics */}
             {data?.growth_metrics && (
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">🚀 Chỉ số Tăng trưởng</h2>
+              <h2 className="text-lg font-semibold mb-4"><LineIcon name="trendUp" size={16} className="inline-block align-[-2px] mr-1.5" />Chỉ số Tăng trưởng</h2>
               <div className="space-y-3">
                 {(() => {
                   const gm = data?.growth_metrics;
                   return [
-                    { label: 'Tăng trưởng lead', value: gm ? `+${gm.lead_growth_rate}%` : '—', icon: '📈', color: 'var(--stage-potential)' },
-                    { label: 'Cải thiện tỷ lệ chốt', value: gm ? `+${gm.conversion_improvement}%` : '—', icon: '🎯', color: 'var(--stage-new)' },
-                    { label: 'Giá trị deal trung bình', value: formatCurrency(gm?.avg_deal_size), icon: '💎', color: '#C9A96E' },
-                    { label: 'Chi phí thu hút KH', value: formatCurrency(gm?.customer_acquisition_cost), icon: '📢', color: '#F59E0B' },
-                    { label: 'Giá trị vòng đời KH', value: formatCurrency(gm?.customer_lifetime_value), icon: '♻️', color: 'var(--stage-interested)' },
+                    { label: 'Tăng trưởng lead', value: gm ? `+${gm.lead_growth_rate}%` : '—', icon: 'trendUp', color: 'var(--stage-potential)' },
+                    { label: 'Cải thiện tỷ lệ chốt', value: gm ? `+${gm.conversion_improvement}%` : '—', icon: 'target', color: 'var(--stage-new)' },
+                    { label: 'Giá trị deal trung bình', value: formatCurrency(gm?.avg_deal_size), icon: 'gem', color: '#C9A96E' },
+                    { label: 'Chi phí thu hút KH', value: formatCurrency(gm?.customer_acquisition_cost), icon: 'megaphone', color: '#F59E0B' },
+                    { label: 'Giá trị vòng đời KH', value: formatCurrency(gm?.customer_lifetime_value), icon: 'refresh', color: 'var(--stage-interested)' },
                   ];
                 })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
-                    <span className="text-xl">{item.icon}</span>
+                    <LineIcon name={item.icon} size={20} />
                     <span className="flex-1 text-sm text-[var(--text-secondary)]">{item.label}</span>
                     <span className="text-sm font-bold" style={{ color: item.color }}>{item.value}</span>
                   </div>
@@ -673,20 +674,20 @@ export default function DashboardPage() {
             {/* Risk Hedging */}
             {data?.risk_hedging && (
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">🛡️ Phân tích Rủi ro</h2>
+              <h2 className="text-lg font-semibold mb-4"><LineIcon name="shield" size={16} className="inline-block align-[-2px] mr-1.5" />Phân tích Rủi ro</h2>
               <div className="space-y-3">
                 {(() => {
                   const rh = data?.risk_hedging;
                   const riskLabel = rh?.concentration_risk === 'high' ? 'Cao' : rh?.concentration_risk === 'low' ? 'Thấp' : 'Trung bình';
                   return [
-                    { label: 'Rủi ro tập trung KH', value: rh ? riskLabel : '—', detail: rh ? `KH lớn nhất chiếm ${rh.top_client_pct}%` : '', color: '#F59E0B', icon: '⚠️' },
-                    { label: 'Độ phủ pipeline', value: rh ? `${rh.pipeline_coverage}x` : '—', detail: 'Mục tiêu: 3.0x', color: 'var(--stage-new)', icon: '📊' },
-                    { label: 'Dự trữ tiền mặt', value: rh ? `${rh.cash_reserve_months} tháng` : '—', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: '🏦' },
-                    { label: 'Phải thu quá hạn', value: rh ? `${rh.overdue_receivable_pct}%` : '—', detail: 'Cần theo dõi', color: '#EF4444', icon: '⏰' },
+                    { label: 'Rủi ro tập trung KH', value: rh ? riskLabel : '—', detail: rh ? `KH lớn nhất chiếm ${rh.top_client_pct}%` : '', color: '#F59E0B', icon: 'alert' },
+                    { label: 'Độ phủ pipeline', value: rh ? `${rh.pipeline_coverage}x` : '—', detail: 'Mục tiêu: 3.0x', color: 'var(--stage-new)', icon: 'chart' },
+                    { label: 'Dự trữ tiền mặt', value: rh ? `${rh.cash_reserve_months} tháng` : '—', detail: 'Mục tiêu: 6 tháng', color: '#C9A96E', icon: 'bank' },
+                    { label: 'Phải thu quá hạn', value: rh ? `${rh.overdue_receivable_pct}%` : '—', detail: 'Cần theo dõi', color: '#EF4444', icon: 'alarm' },
                   ];
                 })().map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-colors">
-                    <span className="text-xl">{item.icon}</span>
+                    <LineIcon name={item.icon} size={20} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-[var(--text-secondary)]">{item.label}</p>
                       <p className="text-xs text-[var(--text-muted)]">{item.detail}</p>
@@ -701,7 +702,7 @@ export default function DashboardPage() {
             {/* Annual Forecast */}
             {data?.forecast && (
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">🔮 Dự báo Doanh thu</h2>
+              <h2 className="text-lg font-semibold mb-4"><LineIcon name="sparkle" size={16} className="inline-block align-[-2px] mr-1.5" />Dự báo Doanh thu</h2>
               <div className="space-y-4">
                 {(() => {
                   const fc = data?.forecast;
@@ -730,7 +731,7 @@ export default function DashboardPage() {
                 {data?.financial_summary?.yoy_growth != null && (
                 <div className="mt-4 p-3 rounded-xl bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.2)]">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">📈</span>
+                    <LineIcon name="trendUp" size={18} />
                     <div>
                       <p className="text-sm font-semibold text-[#10B981]">Tăng trưởng: +{data.financial_summary.yoy_growth}%</p>
                       <p className="text-xs text-[var(--text-muted)]">So với năm 2025 — xu hướng tích cực</p>
@@ -773,7 +774,7 @@ function KPICard({ title, value, subtitle, icon, color, onClick }: {
           <p className="text-2xl font-bold mt-1" style={{ color }}>{value}</p>
           <p className="text-xs text-[var(--text-secondary)] mt-1">{subtitle}</p>
         </div>
-        <span className="text-2xl">{icon}</span>
+        <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--surface-2)" }}><LineIcon name={icon} size={20} color={color} /></span>
       </div>
       {onClick && (
         <p className="text-[10px] text-[var(--text-disabled)] mt-2 flex items-center gap-1">

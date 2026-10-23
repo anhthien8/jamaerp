@@ -153,6 +153,11 @@
    Ràng buộc giữ nguyên: tương phản cao để giám sát/PM đọc được ngoài nắng HCM
    (chữ chính ≈ #1C1A15 trên ngà #F6F3EC — đậm hơn cả bản cũ). */
 [data-theme='outdoor'] {
+  /* Màu trạng thái đậm hơn để đọc được trên nền sáng (rà UI 23/10/2026) */
+  --success: #067647;
+  --warning: #93600A;
+  --danger: #B42318;
+  --info: #175CD3;
   --surface-0: #F6F3EC;
   --surface-1: #FFFFFF;
   --surface-2: #F1EDE2;
@@ -210,6 +215,38 @@
 [data-theme='outdoor'] .bg-white\/2 { background: rgba(74, 62, 40, 0.03) !important; }
 [data-theme='outdoor'] .border-white\/10 { border-color: rgba(74, 62, 40, 0.15) !important; }
 [data-theme='outdoor'] .border-white\/5 { border-color: rgba(74, 62, 40, 0.1) !important; }
+/* Rà UI 23/10/2026: các lớp trắng-mờ còn sót → nền/viền than ấm; chữ trắng-mờ → than */
+[data-theme='outdoor'] .bg-white\/3 { background: rgba(74, 62, 40, 0.04) !important; }
+[data-theme='outdoor'] .bg-white\/10 { background: rgba(74, 62, 40, 0.08) !important; }
+[data-theme='outdoor'] .bg-white\/15 { background: rgba(74, 62, 40, 0.12) !important; }
+[data-theme='outdoor'] .hover\:bg-white\/5:hover,
+[data-theme='outdoor'] .active\:bg-white\/5:active { background: rgba(74, 62, 40, 0.06) !important; }
+[data-theme='outdoor'] .hover\:bg-white\/8:hover,
+[data-theme='outdoor'] .hover\:bg-white\/10:hover { background: rgba(74, 62, 40, 0.09) !important; }
+[data-theme='outdoor'] .hover\:bg-white\/20:hover { background: rgba(74, 62, 40, 0.14) !important; }
+[data-theme='outdoor'] .border-white\/15,
+[data-theme='outdoor'] .border-white\/30 { border-color: rgba(74, 62, 40, 0.24) !important; }
+[data-theme='outdoor'] .divide-white\/5 > * + * { border-color: rgba(74, 62, 40, 0.1) !important; }
+[data-theme='outdoor'] .text-white\/80,
+[data-theme='outdoor'] .text-white\/70 { color: #403C34 !important; }
+[data-theme='outdoor'] .text-white\/50,
+[data-theme='outdoor'] .text-white\/40,
+[data-theme='outdoor'] .text-white\/30 { color: #665F52 !important; }
+[data-theme='outdoor'] .text-gray-300,
+[data-theme='outdoor'] .text-gray-400 { color: #59544A !important; }
+/* Chữ màu nhạt (300/400) dựng cho nền đen → không đọc nổi trên ngà: đẩy về sắc 700 */
+[data-theme='outdoor'] .text-red-300, [data-theme='outdoor'] .text-red-400 { color: #B42318 !important; }
+[data-theme='outdoor'] .text-orange-300, [data-theme='outdoor'] .text-orange-400 { color: #B54708 !important; }
+[data-theme='outdoor'] .text-amber-300, [data-theme='outdoor'] .text-amber-400,
+[data-theme='outdoor'] .text-yellow-300, [data-theme='outdoor'] .text-yellow-400 { color: #93600A !important; }
+[data-theme='outdoor'] .text-emerald-300, [data-theme='outdoor'] .text-emerald-400,
+[data-theme='outdoor'] .text-green-300, [data-theme='outdoor'] .text-green-400 { color: #067647 !important; }
+[data-theme='outdoor'] .text-blue-300, [data-theme='outdoor'] .text-blue-400,
+[data-theme='outdoor'] .text-sky-300, [data-theme='outdoor'] .text-sky-400,
+[data-theme='outdoor'] .text-cyan-300, [data-theme='outdoor'] .text-cyan-400 { color: #175CD3 !important; }
+[data-theme='outdoor'] .text-purple-300, [data-theme='outdoor'] .text-purple-400,
+[data-theme='outdoor'] .text-violet-300, [data-theme='outdoor'] .text-violet-400 { color: #6941C6 !important; }
+[data-theme='outdoor'] .text-pink-300, [data-theme='outdoor'] .text-pink-400 { color: #C11574 !important; }
 
 /* Thẻ trong theme sáng: hiệu ứng "kính" gần vô hình trên nền sáng → thay bằng
    thẻ trắng ấm + viền chỉ + bóng đổ ấm 2 lớp (chất khách sạn, chữ vẫn rõ). */
@@ -229,6 +266,10 @@
 [data-theme='outdoor'] .card { background: #FBF9F3; }
 [data-theme='outdoor'] ::-webkit-scrollbar-thumb { background: rgba(74, 62, 40, 0.25); }
 [data-theme='outdoor'] ::-webkit-scrollbar-thumb:hover { background: rgba(74, 62, 40, 0.4); }
+/* Chữ vàng #C9A96E viết cứng trong style inline (mảng cấu hình thẻ) → vàng đậm của theme sáng.
+   Chỉ bắt thuộc tính color, không bắt background-color. */
+[data-theme='outdoor'] [style^="color: rgb(201, 169, 110)"],
+[data-theme='outdoor'] [style*="; color: rgb(201, 169, 110)"] { color: var(--gold-500) !important; }
 
 /* === Base Layer === */
 @layer base {

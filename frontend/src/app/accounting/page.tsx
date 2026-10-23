@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS, ROLE_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
+import LineIcon from '@/components/ui/LineIcon';
 
 type Tab = 'overview' | 'transactions' | 'commissions' | 'payroll';
 
@@ -216,10 +217,10 @@ export default function AccountingPage() {
   if (!perms.canViewAccounting) return <AccessDenied />;
 
   const ALL_TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Tổng quan', icon: '📊' },
-    { key: 'transactions', label: 'Giao dịch', icon: '💳' },
-    { key: 'commissions', label: 'Hoa hồng', icon: '💰' },
-    { key: 'payroll', label: 'Bảng lương', icon: '📋' },
+    { key: 'overview', label: 'Tổng quan', icon: 'chart' },
+    { key: 'transactions', label: 'Giao dịch', icon: 'wallet' },
+    { key: 'commissions', label: 'Hoa hồng', icon: 'money' },
+    { key: 'payroll', label: 'Bảng lương', icon: 'clipboard' },
   ];
 
   // Filter tabs based on role permissions
@@ -293,7 +294,7 @@ export default function AccountingPage() {
         {/* Cảnh báo cục bộ: chỉ báo phần nào chưa tải được, KHÔNG che cả trang như trước. */}
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center justify-between gap-4">
-            <span>⚠️ {error}</span>
+            <span><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{error}</span>
             <button
               onClick={() => { setError(null); void fetchData(); }}
               className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/15 transition-colors"
@@ -316,7 +317,7 @@ export default function AccountingPage() {
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               )}
             >
-              {t.icon} {t.label}
+              <LineIcon name={t.icon} size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />{t.label}
             </button>
           ))}
         </div>
@@ -351,15 +352,15 @@ export default function AccountingPage() {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="glass-card p-5 border-l-2 border-l-emerald-500">
-                    <p className="text-xs text-[var(--text-muted)] mb-1">💵 Tổng thu</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="cash" size={16} className="inline-block align-[-2px] mr-1.5" />Tổng thu</p>
                     <p className="text-xl font-bold text-emerald-400">{formatCurrency(filteredIncome)}</p>
                   </div>
                   <div className="glass-card p-5 border-l-2 border-l-red-500">
-                    <p className="text-xs text-[var(--text-muted)] mb-1">💸 Tổng chi</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="cash" size={16} className="inline-block align-[-2px] mr-1.5" />Tổng chi</p>
                     <p className="text-xl font-bold text-red-400">{formatCurrency(filteredExpense)}</p>
                   </div>
                   <div className="glass-card p-5 border-l-2 border-l-blue-500">
-                    <p className="text-xs text-[var(--text-muted)] mb-1">📈 Lợi nhuận</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="trendUp" size={16} className="inline-block align-[-2px] mr-1.5" />Lợi nhuận</p>
                     <p className={cn('text-xl font-bold', filteredNet >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                       {formatCurrency(filteredNet)}
                     </p>
@@ -442,7 +443,7 @@ export default function AccountingPage() {
                             border: `1px solid ${txType === t ? (t === 'income' ? 'rgba(16,185,129,0.3)' : t === 'expense' ? 'rgba(239,68,68,0.3)' : 'rgba(201,169,110,0.3)') : 'var(--border-subtle)'}`,
                           }}
                         >
-                          {t === 'all' ? 'Tất cả' : t === 'income' ? '💵 Thu' : '💸 Chi'}
+                          {t === 'all' ? 'Tất cả' : <><LineIcon name="cash" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />{t === 'income' ? 'Thu' : 'Chi'}</>}
                         </button>
                       ))}
                     </div>
@@ -458,7 +459,7 @@ export default function AccountingPage() {
                           border: `1px solid ${txSort === 'date' ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
                         }}
                       >
-                        📅 Ngày {txSort === 'date' ? (txSortAsc ? '↑' : '↓') : ''}
+                        <LineIcon name="calendar" size={16} className="inline-block align-[-2px] mr-1.5" />Ngày {txSort === 'date' ? (txSortAsc ? '↑' : '↓') : ''}
                       </button>
                       <button
                         onClick={() => { setTxSort('amount'); setTxSortAsc(!txSortAsc); }}
@@ -469,7 +470,7 @@ export default function AccountingPage() {
                           border: `1px solid ${txSort === 'amount' ? 'rgba(201,169,110,0.3)' : 'var(--border-subtle)'}`,
                         }}
                       >
-                        💰 Số tiền {txSort === 'amount' ? (txSortAsc ? '↑' : '↓') : ''}
+                        <LineIcon name="money" size={16} className="inline-block align-[-2px] mr-1.5" />Số tiền {txSort === 'amount' ? (txSortAsc ? '↑' : '↓') : ''}
                       </button>
                     </div>
 
@@ -520,7 +521,7 @@ export default function AccountingPage() {
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                     >
-                      📥 Xuất bảng tính
+                      <LineIcon name="download" size={16} className="inline-block align-[-2px] mr-1.5" />Xuất bảng tính
                     </button>
                   </div>
 
@@ -731,7 +732,7 @@ export default function AccountingPage() {
                           {c.status === 'approved' && (
                             <button onClick={() => handleCommissionStatus(c.id, 'paid')}
                               className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px]" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
-                              💵 Đã chi trả
+                              <LineIcon name="cash" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Đã chi trả
                             </button>
                           )}
                         </div>
@@ -781,7 +782,7 @@ export default function AccountingPage() {
                               {c.status === 'approved' && (
                                 <button onClick={() => handleCommissionStatus(c.id, 'paid')}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
-                                  💵 Đã chi trả
+                                  <LineIcon name="cash" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Đã chi trả
                                 </button>
                               )}
                             </td>

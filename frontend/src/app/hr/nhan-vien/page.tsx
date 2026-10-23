@@ -31,6 +31,19 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 // Cột check_in/check_out lưu UTC naive — hiển thị +7
+/** Icon trạng thái duyệt/chi (thay emoji ✅❌⏳ để hợp cả chế độ Ngoài trời). */
+function TrangThaiIcon({ s }: { s?: string | null }) {
+  const m: Record<string, { name: string; color: string; title: string }> = {
+    paid: { name: 'check', color: '#34D399', title: 'Đã chi' },
+    deducted: { name: 'check', color: '#34D399', title: 'Đã trừ' },
+    approved: { name: 'check', color: '#34D399', title: 'Đã duyệt' },
+    rejected: { name: 'xCircle', color: '#F87171', title: 'Từ chối' },
+    cancelled: { name: 'xCircle', color: '#9CA3AF', title: 'Đã hủy' },
+  };
+  const v = m[s || ''] || { name: 'hourglass', color: '#FBBF24', title: 'Chờ duyệt' };
+  return <span title={v.title}><LineIcon name={v.name} size={14} color={v.color} className="inline-block align-[-2px]" /></span>;
+}
+
 function vnTime(s?: string | null): string {
   if (!s) return '—';
   const d = new Date(s.replace(' ', 'T') + 'Z');
@@ -273,7 +286,7 @@ function NhanVienContent() {
           <button onClick={() => router.push('/hr')} className="text-sm px-2.5 py-1.5 rounded-lg min-h-[36px]" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>← Nhân sự</button>
           {header && (
             <>
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold" style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}>
                 {header.full_name.charAt(0)}
               </div>
               <div>
@@ -295,7 +308,7 @@ function NhanVienContent() {
 
         {loadError && (
           <div className="rounded-xl px-4 py-3 text-sm flex items-center justify-between" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', color: 'var(--text-secondary)' }}>
-            <span>⚠️ {loadError}</span>
+            <span><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{loadError}</span>
             <button onClick={() => void loadProfile()} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)' }}>Tải lại</button>
           </div>
         )}
@@ -322,7 +335,7 @@ function NhanVienContent() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold">Thông tin cá nhân</h2>
                 {canEdit && !editing && (
-                  <button onClick={() => { setForm(profile); setEditing(true); }} className="text-xs px-3 py-1.5 rounded-lg font-semibold min-h-[32px]" style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}>Sửa</button>
+                  <button onClick={() => { setForm(profile); setEditing(true); }} className="text-xs px-3 py-1.5 rounded-lg font-semibold min-h-[32px]" style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)', border: '1px solid rgba(201,169,110,0.3)' }}>Sửa</button>
                 )}
                 {editing && (
                   <div className="flex gap-2">
@@ -444,7 +457,7 @@ function NhanVienContent() {
                         <td className="pr-3">{formatCurrency(p.bonus)}</td>
                         <td className="pr-3">{formatCurrency(p.ot_pay)}</td>
                         <td className="pr-3 font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(p.net)}</td>
-                        <td>{p.status === 'paid' ? '✅ Đã chi' : p.status === 'approved' ? 'Đã duyệt' : p.status}</td>
+                        <td>{p.status === 'paid' ? <><LineIcon name="check" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Đã chi</> : p.status === 'approved' ? 'Đã duyệt' : p.status}</td>
                       </tr>
                     ))}
                     {finance.payrolls.length === 0 && <tr><td colSpan={7} className="py-3 text-center" style={{ color: 'var(--text-muted)' }}>Chưa có kỳ lương nào</td></tr>}
@@ -460,7 +473,7 @@ function NhanVienContent() {
                   {finance.commissions.map(c => (
                     <div key={c.id} className="flex justify-between text-sm gap-2">
                       <span style={{ color: 'var(--text-secondary)' }}>{c.period || c.created_at.slice(0, 10)} · {c.type.includes('design') ? 'Thiết kế' : c.type.includes('construction') ? 'Thi công' : 'Override'}</span>
-                      <span className="whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(c.amount)} {c.status === 'paid' ? '✅' : c.status === 'approved' ? '🟡' : '⏳'}</span>
+                      <span className="whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(c.amount)} <TrangThaiIcon s={c.status} /></span>
                     </div>
                   ))}
                   {finance.commissions.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chưa có</p>}
@@ -472,7 +485,7 @@ function NhanVienContent() {
                   {finance.advances.map(a => (
                     <div key={a.id} className="flex justify-between text-sm gap-2">
                       <span style={{ color: 'var(--text-secondary)' }}>{a.created_at.slice(0, 10)} · {a.reason}</span>
-                      <span className="whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(a.amount)} {a.status === 'deducted' ? '✅ đã trừ' : a.status}</span>
+                      <span className="whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(a.amount)} {a.status === 'deducted' ? <><LineIcon name="check" size={14} color="#34D399" className="inline-block align-[-2px] mr-1" />đã trừ</> : a.status}</span>
                     </div>
                   ))}
                   {finance.advances.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chưa có</p>}
@@ -520,7 +533,7 @@ function NhanVienContent() {
                       <td className="pr-3 whitespace-nowrap">
                         {r.ot_hours > 0 ? (
                           <>
-                            {r.ot_hours}h {r.ot_status === 'approved' ? '✅' : r.ot_status === 'rejected' ? '❌' : '⏳'}
+                            {r.ot_hours}h <TrangThaiIcon s={r.ot_status} />
                             {r.ot_decided_by_name && (
                               <span className="block text-[10px]" style={{ color: 'var(--text-muted)' }}>
                                 {r.ot_status === 'approved' ? 'duyệt' : 'từ chối'} bởi {r.ot_decided_by_name} · {vnTime(r.ot_decided_at)}
@@ -531,9 +544,9 @@ function NhanVienContent() {
                       </td>
                       <td className="pr-3 whitespace-nowrap">
                         {r.source === 'leave' ? 'Nghỉ phép' : r.source === 'device' ? 'Máy chấm công' : r.source === 'telegram' ? 'Telegram' : 'Web'}
-                        {(r.ip_ok || r.gps_ok) && <span title={r.ip_ok ? 'Trùng mạng văn phòng' : 'GPS trong bán kính văn phòng'} style={{ color: '#34D399' }}> ✓VP</span>}
+                        {(r.ip_ok || r.gps_ok) && <span title={r.ip_ok ? 'Trùng mạng văn phòng' : 'GPS trong bán kính văn phòng'} style={{ color: 'var(--success)' }}> ✓VP</span>}
                       </td>
-                      <td className="text-xs">{r.needs_review ? '⚠️ ' : ''}{r.note || ''}</td>
+                      <td className="text-xs">{r.needs_review && <LineIcon name="alert" size={14} color="#fbbf24" className="inline-block align-[-2px] mr-1" />}{r.note || ''}</td>
                     </tr>
                   ))}
                   {attendance.records.length === 0 && <tr><td colSpan={7} className="py-3 text-center" style={{ color: 'var(--text-muted)' }}>Không có bản ghi trong kỳ</td></tr>}
@@ -556,7 +569,7 @@ function NhanVienContent() {
                   <span style={{ color: 'var(--text-secondary)' }}>
                     {new Date(r.start_date).toLocaleDateString('vi-VN')} → {new Date(r.end_date).toLocaleDateString('vi-VN')} · {r.days} ngày · {r.leave_type === 'annual' ? 'Phép năm' : r.leave_type === 'sick' ? 'Ốm' : 'Không lương'} · {r.reason}
                   </span>
-                  <span className="whitespace-nowrap">{r.status === 'approved' ? '✅' : r.status === 'rejected' ? '❌' : r.status === 'cancelled' ? '🚫' : '⏳'}</span>
+                  <span className="whitespace-nowrap"><TrangThaiIcon s={r.status} /></span>
                 </div>
               ))}
               {leaves.requests.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chưa có đơn nghỉ phép nào.</p>}
@@ -577,7 +590,7 @@ function NhanVienContent() {
                   {g.rows.map(h => (
                     <div key={h.id} className="text-sm border-t first:border-t-0 pt-2 first:pt-0" style={{ borderColor: 'var(--border-subtle)' }}>
                       <p style={{ color: 'var(--text-primary)' }}>
-                        {h.entity_type === 'lead' ? '👤' : '📋'} {h.entity_name}
+                        <LineIcon name={h.entity_type === 'lead' ? 'user' : 'clipboard'} size={14} className="inline-block align-[-2px] mr-1.5" />{h.entity_name}
                         <span className="text-xs ml-1.5" style={{ color: 'var(--text-muted)' }}>({h.entity_type === 'lead' ? 'khách' : 'đầu việc'})</span>
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -625,7 +638,7 @@ function NhanVienContent() {
 
 export default function NhanVienPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LineIcon name="hourglass" size={28} /></div>}>
       <NhanVienContent />
     </Suspense>
   );

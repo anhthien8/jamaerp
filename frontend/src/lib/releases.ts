@@ -15,6 +15,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '24/10/2026',
+    title: 'Giao diện Ngoài trời: icon nét thay emoji toàn app, chữ và màu rõ hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Toàn bộ biểu tượng emoji màu (💰 📊 ⚠️ ✅…) trên các trang và cửa sổ đã đổi sang icon nét cùng một kiểu, hiển thị rõ cả giao diện tối lẫn Ngoài trời. Giai đoạn lead, trạng thái phiếu lương/nghỉ phép, thẻ số liệu Tổng quan, Hợp đồng, Nhân sự… đều dùng icon mới.',
+      'Giao diện Ngoài trời: chữ vàng, chữ xanh/đỏ/cam và chữ xám nhạt được đổi sang tông đậm nên đọc được dưới nắng; Hũ thưởng hiện rõ viền hũ; nền dòng bảng, nút hover không còn trắng mờ vô hình.',
+      'Nút đổi giao diện Tối/Ngoài trời trên thanh bên dùng icon mặt trời/mặt trăng.',
+    ],
+    test: [
+      'Thanh bên → bật «Ngoài trời» → mở Tổng quan, Quy trình, Dự án, Chấm công, Kế toán: không còn emoji màu, chữ và icon đều đậm rõ.',
+    ],
+  },
+  {
     date: '23/10/2026',
     title: 'Bảng điều khiển Kinh doanh tính doanh số theo dự án thắng deal',
     tag: 'SỬA',

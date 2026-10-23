@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import DanhGiaKhach from '@/components/portal/DanhGiaKhach';
+import LineIcon from '@/components/ui/LineIcon';
 
 interface CustomerData {
   name: string;
@@ -162,7 +163,7 @@ export default function PortalPage() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[#C9A96E] border-t-transparent rounded-full"></div></div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><p className="text-red-400 text-lg mb-2">❌ {error}</p><p className="text-gray-500 text-sm">Vui lòng liên hệ JAMA HOME: 070.56.23456</p></div></div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><p className="text-red-400 text-lg mb-2"><LineIcon name="xCircle" size={18} color="currentColor" className="inline-block align-[-3px] mr-1.5" />{error}</p><p className="text-gray-500 text-sm">Vui lòng liên hệ JAMA HOME: 070.56.23456</p></div></div>;
 
   return (
     <div className="min-h-screen" style={{ background: '#0D1117', color: '#E6EDF3' }}>
@@ -191,7 +192,7 @@ export default function PortalPage() {
         {/* Projects list or project detail */}
         {!selectedProject ? (
           <>
-            <h2 className="text-sm font-semibold" style={{ color: '#9BA7B4' }}>📋 Dự án ({projects.length})</h2>
+            <h2 className="text-sm font-semibold" style={{ color: '#9BA7B4' }}><LineIcon name="clipboard" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Dự án ({projects.length})</h2>
             {projects.length === 0 ? (
               <p className="text-xs text-center py-8" style={{ color: '#6B7683' }}>Chưa có dự án nào</p>
             ) : projects.map(p => (
@@ -228,7 +229,7 @@ export default function PortalPage() {
                     <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>Tiến độ công việc</h3>
                     {tasks.map(t => (
                       <div key={t.id} className="flex items-center gap-2 py-1.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <span>{t.status === 'done' ? '✅' : t.status === 'in_progress' ? '🔄' : '⏳'}</span>
+                        <LineIcon name={t.status === 'done' ? 'check' : t.status === 'in_progress' ? 'refresh' : 'hourglass'} size={14} color={t.status === 'done' ? '#10B981' : t.status === 'in_progress' ? '#C9A96E' : '#6B7683'} />
                         <span className="text-xs text-white">{t.title}</span>
                       </div>
                     ))}
@@ -236,7 +237,7 @@ export default function PortalPage() {
                 )}
                 {/* Nghiệm thu giai đoạn — khách xác nhận, lưu timestamp làm bằng chứng */}
                 <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>✍️ Nghiệm thu giai đoạn</h3>
+                  <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}><LineIcon name="edit" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Nghiệm thu giai đoạn</h3>
                   {Object.keys(acceptances).length > 0 && (
                     <div className="space-y-1 mb-3">
                       {Object.entries(acceptances).map(([stg, a]) => (
@@ -276,7 +277,7 @@ export default function PortalPage() {
                 {!isDemoToken && <DanhGiaKhach api={API} token={token} projectId={selectedProject.id} />}
                 {photoDays.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <h3 className="text-xs font-semibold mb-3" style={{ color: '#9BA7B4' }}>📸 Nhật ký công trình</h3>
+                    <h3 className="text-xs font-semibold mb-3" style={{ color: '#9BA7B4' }}><LineIcon name="camera" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Nhật ký công trình</h3>
                     <div className="space-y-4">
                       {photoDays.map(d => (
                         <div key={d.date}>
@@ -307,7 +308,7 @@ export default function PortalPage() {
                 )}
                 {activities.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}>📝 Tiến độ gần đây</h3>
+                    <h3 className="text-xs font-semibold mb-2" style={{ color: '#9BA7B4' }}><LineIcon name="edit" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Tiến độ gần đây</h3>
                     {activities.map(a => (
                       <div key={a.id} className="py-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                         <p className="text-xs text-white">{(a.content || '').substring(0, 120)}{(a.content || '').length > 120 ? '...' : ''}</p>
@@ -323,7 +324,7 @@ export default function PortalPage() {
 
         {/* Footer */}
         <footer className="text-center py-6 text-xs" style={{ color: '#6B7683' }}>
-          <p>📞 Cần hỗ trợ? Gọi: <a href="tel:0705623456" style={{ color: '#C9A96E' }}>070.56.23456</a></p>
+          <p><LineIcon name="phone" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Cần hỗ trợ? Gọi: <a href="tel:0705623456" style={{ color: '#C9A96E' }}>070.56.23456</a></p>
           <p className="mt-1">{BRAND_NAME} — {BRAND_SLOGAN}</p>
         </footer>
       </main>

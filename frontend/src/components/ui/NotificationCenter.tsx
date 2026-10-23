@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Lead, Project } from '@/lib/api';
+import LineIcon from '@/components/ui/LineIcon';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         group: 'action_required',
         title: `Lead quá hạn: ${lead.name}`,
         description: `Chưa liên hệ ${days} ngày — ${lead.phone}${lead.address ? ' · ' + lead.address : ''}`,
-        icon: '⚠️',
+        icon: 'alert',
         href: `/leads?id=${lead.id}`,
         timestamp: lead.last_contacted_at || lead.updated_at,
         read: readIds.has(id),
@@ -85,7 +86,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         group: 'action_required',
         title: `Tiến độ thấp: ${proj.code}`,
         description: `${proj.name} — ${proj.progress}% hoàn thành`,
-        icon: '🚧',
+        icon: 'alert',
         href: `/projects?id=${proj.id}`,
         timestamp: proj.updated_at,
         read: readIds.has(id),
@@ -103,7 +104,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         group: 'recent',
         title: `Cập nhật: ${lead.name}`,
         description: `Quy trình ${lead.stage.replace(/_/g, ' ')} — ${lead.assigned_user_name || 'Chưa giao'}`,
-        icon: '🔵',
+        icon: 'info',
         href: `/leads?id=${lead.id}`,
         timestamp: lead.updated_at,
         read: readIds.has(id),
@@ -137,17 +138,17 @@ export function useNotificationCount(leads: Lead[], projects: Project[]): number
 }
 
 const SERVER_NOTIF_ICONS: Record<string, string> = {
-  followup_reminder: '⏰',
-  lead_recalled: '⚠️',
-  lead_assigned: '📥',
-  payment_reminder: '💰',
-  bod_report: '📊',
-  system: '🔔',
+  followup_reminder: 'alarm',
+  lead_recalled: 'alert',
+  lead_assigned: 'download',
+  payment_reminder: 'money',
+  bod_report: 'chart',
+  system: 'bell',
   // Đầu việc dự án (13/10/2026)
-  task_assigned: '👤',
-  task_overdue: '🔴',
-  task_sla_breach: '⚠',
-  task_escalated: '📣',
+  task_assigned: 'user',
+  task_overdue: 'alarm',
+  task_sla_breach: 'alert',
+  task_escalated: 'megaphone',
 };
 
 // Nhóm «Cần xử lý» — đầu việc trễ hạn/vượt SLA phải nằm trên đầu danh sách,
@@ -199,7 +200,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
             group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
             title: n.title,
             description: n.body ? n.body.split('\n')[0] : '',
-            icon: SERVER_NOTIF_ICONS[n.type] || '🔔',
+            icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
             href: n.link || '/',
             timestamp: n.created_at,
             read: n.read,
@@ -347,7 +348,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
       className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
       style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >
-      <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
+      <LineIcon name={n.icon} size={18} className="flex-shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{n.title}</p>
         <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{n.description}</p>
@@ -448,7 +449,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
       return (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
-            <span className="text-3xl block mb-2">🔔</span>
+            <LineIcon name="bell" size={26} className="block mb-2" />
             <p className="text-sm text-[var(--text-muted)]">Không có thông báo nào</p>
           </div>
         </div>

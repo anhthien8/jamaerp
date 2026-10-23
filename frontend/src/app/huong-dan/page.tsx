@@ -36,7 +36,7 @@ function GuideBlockView({ block }: { block: GuideBlock }) {
         <ul className="text-sm space-y-1.5 mb-3 pl-1">
           {(block.items || []).map((it, i) => (
             <li key={i} className="flex gap-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              <span style={{ color: '#C9A96E' }}>•</span><span>{renderInline(it)}</span>
+              <span style={{ color: 'var(--gold-500)' }}>•</span><span>{renderInline(it)}</span>
             </li>
           ))}
         </ul>
@@ -47,7 +47,7 @@ function GuideBlockView({ block }: { block: GuideBlock }) {
           {(block.items || []).map((it, i) => (
             <li key={i} className="flex gap-2.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               <span className="shrink-0 w-5 h-5 rounded-full text-[11px] font-semibold flex items-center justify-center"
-                style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>{i + 1}</span>
+                style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}>{i + 1}</span>
               <span>{renderInline(it)}</span>
             </li>
           ))}
@@ -80,14 +80,14 @@ function GuideBlockView({ block }: { block: GuideBlock }) {
       return (
         <div className="text-sm leading-relaxed rounded-lg px-3 py-2.5 mb-3 flex gap-2"
           style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.25)', color: 'var(--text-secondary)' }}>
-          <span>💡</span><span>{renderInline(block.text || '')}</span>
+          <LineIcon name="bulb" size={16} /><span>{renderInline(block.text || '')}</span>
         </div>
       );
     case 'warn':
       return (
         <div className="text-sm leading-relaxed rounded-lg px-3 py-2.5 mb-3 flex gap-2"
           style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', color: 'var(--text-secondary)' }}>
-          <span>⚠️</span><span>{renderInline(block.text || '')}</span>
+          <LineIcon name="alert" size={16} /><span>{renderInline(block.text || '')}</span>
         </div>
       );
     default:

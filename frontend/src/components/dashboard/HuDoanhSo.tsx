@@ -11,18 +11,18 @@ import { useEffect, useState } from 'react';
 import { api, CdtHu } from '@/lib/api';
 import { tien } from '@/lib/tien-gon';
 
-const VANG = '#C9A96E';
+// Theo biến theme: tối = vàng #C9A96E, Ngoài trời = đồng đậm (vàng nhạt không đọc nổi trên ngà)
+const VANG = 'var(--gold-500)';
 // Ký hiệu mốc kiểu Squid Game: ○ △ □ rồi lặp
 const KY_HIEU = ['circle', 'triangle', 'square'] as const;
 
 function KyHieu({ loai, dat, size = 18 }: { loai: (typeof KY_HIEU)[number]; dat: boolean; size?: number }) {
-  const mau = dat ? VANG : 'rgba(255,255,255,0.35)';
-  const fill = dat ? VANG : 'none';
+  const mau = dat ? VANG : 'var(--text-muted)';
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden>
-      {loai === 'circle' && <circle cx="10" cy="10" r="7.5" stroke={mau} strokeWidth="2" fill={fill} />}
-      {loai === 'triangle' && <path d="M10 2.5 L18 17 H2 Z" stroke={mau} strokeWidth="2" fill={fill} strokeLinejoin="round" />}
-      {loai === 'square' && <rect x="3" y="3" width="14" height="14" stroke={mau} strokeWidth="2" fill={fill} />}
+    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden style={{ color: mau }}>
+      {loai === 'circle' && <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="2" fill={dat ? 'currentColor' : 'none'} />}
+      {loai === 'triangle' && <path d="M10 2.5 L18 17 H2 Z" stroke="currentColor" strokeWidth="2" fill={dat ? 'currentColor' : 'none'} strokeLinejoin="round" />}
+      {loai === 'square' && <rect x="3" y="3" width="14" height="14" stroke="currentColor" strokeWidth="2" fill={dat ? 'currentColor' : 'none'} />}
     </svg>
   );
 }
@@ -31,7 +31,7 @@ function KyHieu({ loai, dat, size = 18 }: { loai: (typeof KY_HIEU)[number]; dat:
 function Hu({ pct }: { pct: number }) {
   const h = 104 * Math.max(0, Math.min(1, pct));
   return (
-    <svg viewBox="0 0 120 150" className="w-24 sm:w-28 h-auto shrink-0" aria-hidden>
+    <svg viewBox="0 0 120 150" className="w-24 sm:w-28 h-auto shrink-0" aria-hidden style={{ color: 'var(--text-primary)' }}>
       <defs>
         <clipPath id="hu-than"><path d="M28 30 Q20 34 20 48 V128 Q20 142 34 142 H86 Q100 142 100 128 V48 Q100 34 92 30 Z" /></clipPath>
         <linearGradient id="hu-vang" x1="0" y1="0" x2="0" y2="1">
@@ -43,9 +43,9 @@ function Hu({ pct }: { pct: number }) {
         <rect x="0" y={142 - h} width="120" height={h} fill="url(#hu-vang)" style={{ transition: 'all 1.2s cubic-bezier(.2,.8,.2,1)' }} />
         {h > 6 && <path d={`M20 ${142 - h} q10 -4 20 0 t20 0 t20 0 t20 0 t20 0`} stroke="#FFF3D6" strokeOpacity=".6" strokeWidth="2" fill="none" />}
       </g>
-      <path d="M28 30 Q20 34 20 48 V128 Q20 142 34 142 H86 Q100 142 100 128 V48 Q100 34 92 30" stroke="rgba(255,255,255,.55)" strokeWidth="3" fill="none" />
-      <rect x="32" y="14" width="56" height="14" rx="4" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.55)" strokeWidth="2" />
-      <path d="M32 50 V118" stroke="rgba(255,255,255,.18)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M28 30 Q20 34 20 48 V128 Q20 142 34 142 H86 Q100 142 100 128 V48 Q100 34 92 30" stroke="currentColor" strokeOpacity=".55" strokeWidth="3" fill="none" />
+      <rect x="32" y="14" width="56" height="14" rx="4" fill="currentColor" fillOpacity=".1" stroke="currentColor" strokeOpacity=".55" strokeWidth="2" />
+      <path d="M32 50 V118" stroke="currentColor" strokeOpacity=".18" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -143,7 +143,7 @@ export default function HuDoanhSo() {
                     <span className="font-mono shrink-0">{tien(r.doanh_so)}</span>
                   </div>
                   <div className="h-1 rounded-full bg-white/5 mt-1">
-                    <div className="h-full rounded-full" style={{ width: `${Math.max(3, (r.doanh_so / dauBang) * 100)}%`, background: i === 0 ? VANG : 'rgba(255,255,255,.35)' }} />
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(3, (r.doanh_so / dauBang) * 100)}%`, background: i === 0 ? VANG : 'var(--text-muted)' }} />
                   </div>
                 </div>
               </li>

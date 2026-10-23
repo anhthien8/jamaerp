@@ -2,16 +2,16 @@
 
 // Màu stage qua CSS var để mỗi theme tự chọn bảng phù hợp:
 // theme tối giữ bộ rực cũ; theme sáng (Ngoài trời) override sang bộ đất ấm luxury (globals.css).
-export const STAGE_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
-  new: { label: 'Tiếp nhận mới', color: 'var(--stage-new)', emoji: '🆕' },
-  interested: { label: 'Đang tư vấn', color: 'var(--stage-interested)', emoji: '💡' },
+export const STAGE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  new: { label: 'Tiếp nhận mới', color: 'var(--stage-new)', icon: 'sparkle' },
+  interested: { label: 'Đang tư vấn', color: 'var(--stage-interested)', icon: 'bulb' },
   // Đổi tên 05/09/2026 theo quy trình thật của team KD (key giữ nguyên — đổi key
   // là phải migrate toàn bộ lead + máy trạng thái, không đáng).
-  survey_scheduled: { label: 'Đã gửi báo giá', color: 'var(--stage-survey)', emoji: '📤' },
-  potential: { label: 'Đang đàm phán', color: 'var(--stage-potential)', emoji: '🤝' },
-  signed_design: { label: 'Deal đã thắng', color: 'var(--stage-signed)', emoji: '🏆' },
-  lost: { label: 'Mất', color: 'var(--stage-lost)', emoji: '❌' },
-  dormant: { label: 'Ngủ đông', color: 'var(--stage-dormant)', emoji: '😴' },
+  survey_scheduled: { label: 'Đã gửi báo giá', color: 'var(--stage-survey)', icon: 'send' },
+  potential: { label: 'Đang đàm phán', color: 'var(--stage-potential)', icon: 'handshake' },
+  signed_design: { label: 'Deal đã thắng', color: 'var(--stage-signed)', icon: 'trophy' },
+  lost: { label: 'Mất', color: 'var(--stage-lost)', icon: 'xCircle' },
+  dormant: { label: 'Ngủ đông', color: 'var(--stage-dormant)', icon: 'moon' },
 };
 
 export const SOURCE_LABELS: Record<string, string> = {

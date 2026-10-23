@@ -190,7 +190,7 @@ function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialT
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--text-secondary)]">Trạng thái</span>
           <span className="font-mono">
-            {linked ? <span className="text-emerald-400">✅ Đã liên kết ({linked})</span> : <span className="text-[var(--text-muted)]">— Chưa liên kết</span>}
+            {linked ? <span className="text-emerald-400"><LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Đã liên kết ({linked})</span> : <span className="text-[var(--text-muted)]">— Chưa liên kết</span>}
           </span>
         </div>
         <div className="flex gap-2">
@@ -281,7 +281,7 @@ function ZaloSection() {
     logged_out: { text: 'Chưa đăng nhập', color: 'var(--text-muted)' },
     awaiting_qr: { text: 'Đang chờ mã QR...', color: '#FBBF24' },
     qr_ready: { text: 'Quét mã QR bằng Zalo', color: '#FBBF24' },
-    logged_in: { text: 'Đã đăng nhập ✅', color: '#34D399' },
+    logged_in: { text: 'Đã đăng nhập', color: '#34D399' },
     error: { text: 'Lỗi', color: '#F87171' },
   };
   const st = session ? STATUS_LABEL[session.status] : STATUS_LABEL.logged_out;
@@ -387,7 +387,7 @@ function ZaloSection() {
             {signals.map(s => (
               <div key={s.id} className="flex items-start justify-between gap-2 p-2 rounded-lg text-xs" style={{ background: 'var(--surface-2)' }}>
                 <div className="min-w-0">
-                  <span className="font-semibold" style={{ color: '#C9A96E' }}>[{s.group_name}]</span> {s.summary}
+                  <span className="font-semibold" style={{ color: 'var(--gold-500)' }}>[{s.group_name}]</span> {s.summary}
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => api.zaloActSignal(s.id, 'actioned').then(load)} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}>✓</button>
@@ -400,7 +400,7 @@ function ZaloSection() {
       )}
 
       <p className="text-[10px] text-[var(--text-muted)] mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-        ⚠️ Automation Zalo vi phạm ToS — tài khoản có thể bị khóa. Dùng account phụ chuyên dụng, không dùng account thật. Xem <code>docs/specs/09</code>.
+        <LineIcon name="alert" size={16} className="inline-block align-[-2px] mr-1.5" />Automation Zalo vi phạm ToS — tài khoản có thể bị khóa. Dùng account phụ chuyên dụng, không dùng account thật. Xem <code>docs/specs/09</code>.
       </p>
     </div>
   );
@@ -478,12 +478,12 @@ function OfficeCheckinSection() {
       <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="clock" />Chấm công văn phòng</h2>
       <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
         Nhân viên bấm Vào ca (web hoặc Telegram): hệ thống đối chiếu IP mạng công ty + GPS điện thoại với
-        tọa độ văn phòng — trùng thì bảng công gắn nhãn <span style={{ color: '#34d399' }}>✓VP</span>. Bật «Bắt buộc GPS» thì
+        tọa độ văn phòng — trùng thì bảng công gắn nhãn <span style={{ color: 'var(--success)' }}>✓VP</span>. Bật «Bắt buộc GPS» thì
         <b> ngoài bán kính sẽ không vào ca được</b> (trừ bộ phận hiện trường và người dùng mạng văn phòng). Chưa lưu tọa độ = không chặn ai.
       </p>
       {!loaded ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Đang tải…</p> : loadFailed ? (
         <div className="text-sm flex items-center justify-between gap-2" style={{ color: 'var(--text-secondary)' }}>
-          <span>⚠️ Chưa tải được cấu hình — không cho lưu để khỏi ghi đè nhầm.</span>
+          <span><LineIcon name="alert" size={16} className="inline-block align-[-2px] mr-1.5" />Chưa tải được cấu hình — không cho lưu để khỏi ghi đè nhầm.</span>
           <button onClick={loadConfig} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>Tải lại</button>
         </div>
       ) : (
@@ -523,7 +523,7 @@ function OfficeCheckinSection() {
             }}
             className="text-xs px-3 py-1.5 rounded-lg"
             style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
-            📍 Lấy vị trí hiện tại làm tọa độ VP (đứng tại văn phòng rồi bấm)
+            <LineIcon name="pin" size={16} className="inline-block align-[-2px] mr-1.5" />Lấy vị trí hiện tại làm tọa độ VP (đứng tại văn phòng rồi bấm)
           </button>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={requireGps} onChange={e => setRequireGps(e.target.checked)} />
@@ -535,12 +535,12 @@ function OfficeCheckinSection() {
           </div>
           <button onClick={() => void save()} disabled={saving}
             className="w-full py-2.5 rounded-xl text-sm font-semibold min-h-[44px]"
-            style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}>
+            style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)', border: '1px solid rgba(201,169,110,0.3)' }}>
             {saving ? 'Đang lưu…' : 'Lưu cấu hình văn phòng'}
           </button>
 
           <div className="pt-3 mt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-            <p className="text-sm font-semibold mb-1">API máy chấm công {deviceEnabled ? '· 🟢 đang bật' : '· ⚪ chưa bật'}</p>
+            <p className="text-sm font-semibold mb-1">API máy chấm công · <span className={`inline-block w-2 h-2 rounded-full align-middle ${deviceEnabled ? 'bg-emerald-500' : 'bg-gray-400'}`} /> {deviceEnabled ? 'đang bật' : 'chưa bật'}</p>
             <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
               Máy chấm công (hoặc phần mềm trung gian) bắn từng lượt quẹt về hệ thống — nhiều lượt/ngày
               tự gộp: sớm nhất = vào ca, muộn nhất = tan ca.
@@ -553,14 +553,14 @@ function OfficeCheckinSection() {
             {newKey && (
               <div className="flex items-center gap-2 mb-2">
                 <button onClick={() => { navigator.clipboard.writeText(newKey); toast('Đã sao chép khóa', 'success'); }}
-                  className="text-xs px-3 py-1.5 rounded-lg font-semibold" style={{ background: '#C9A96E', color: '#1a1a1a' }}>📋 Sao chép khóa</button>
+                  className="text-xs px-3 py-1.5 rounded-lg font-semibold" style={{ background: '#C9A96E', color: '#1a1a1a' }}><LineIcon name="clipboard" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Sao chép khóa</button>
                 <span className="text-[10px]" style={{ color: '#F87171' }}>Khóa chỉ hiện một lần — rời trang là mất!</span>
               </div>
             )}
             <div className="flex gap-2">
               <button onClick={() => void rotate()} className="flex-1 py-2 rounded-lg text-xs font-semibold min-h-[36px]"
                 style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-                🔑 {keyMasked ? 'Tạo khóa mới (vô hiệu khóa cũ)' : 'Tạo khóa'}
+                <LineIcon name="key" size={16} className="inline-block align-[-2px] mr-1.5" />{keyMasked ? 'Tạo khóa mới (vô hiệu khóa cũ)' : 'Tạo khóa'}
               </button>
               {keyMasked && (
                 <button onClick={() => void api.toggleDevice(!deviceEnabled).then(r => { setDeviceEnabled(r.enabled); toast(r.enabled ? 'Đã bật API máy chấm công' : 'Đã tắt API máy chấm công', 'success'); })}
@@ -705,8 +705,8 @@ function BackupSection() {
             }}
           >
             Sao lưu gần nhất: {fmtVN(data.last_run_at)} — {data.last_status === 'success'
-              ? `✅ Thành công${data.last_size_mb != null ? ` (${data.last_size_mb} MB)` : ''}`
-              : `❌ ${data.last_detail || 'Thất bại'}`}
+              ? `Thành công${data.last_size_mb != null ? ` (${data.last_size_mb} MB)` : ''}`
+              : `${data.last_detail || 'Thất bại'}`}
           </div>
         )}
 
@@ -786,7 +786,7 @@ function BackupSection() {
             disabled={running}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 disabled:opacity-50"
           >
-            {running ? '⏳ Đang sao lưu...' : '💾 Sao lưu ngay'}
+            {running ? <><LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />Đang sao lưu...</> : <><LineIcon name="save" size={16} className="inline-block align-[-2px] mr-1.5" />Sao lưu ngay</>}
           </button>
           {message && <span className="text-xs" style={{ color: msgColor }}>{message}</span>}
         </div>
@@ -955,7 +955,7 @@ function AISettingsSection() {
             disabled={testing}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 disabled:opacity-50"
           >
-            🔌 Test kết nối
+            <LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Test kết nối
           </button>
         </div>
         {message && <p className="text-xs text-[var(--text-secondary)]">{message}</p>}
@@ -996,7 +996,7 @@ function KhoAnhSection({ value, onChange }: { value: string; onChange: (v: strin
   return (
     <div className="pt-3 border-t border-white/5 space-y-2">
       <div>
-        <p className="text-sm">📷 Nhóm Telegram Kho ảnh công trình</p>
+        <p className="text-sm"><LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Nhóm Telegram Kho ảnh công trình</p>
         <p className="text-xs text-[var(--text-muted)]">
           Supergroup «JAMA Công trình» bật Chủ đề (Topics), bot là quản trị viên có quyền quản lý chủ đề.
           Mỗi dự án 1 chủ đề, bot tự tạo. Lưu cài đặt rồi bấm «Thử gửi 1 ảnh».
@@ -1012,23 +1012,23 @@ function KhoAnhSection({ value, onChange }: { value: string; onChange: (v: strin
       {st && (
         <div className="text-xs text-[var(--text-muted)] space-y-0.5">
           <p>
-            Kho ảnh: {st.storage_chat_configured ? '✅ đã gắn nhóm' : '⚠️ chưa gắn nhóm — tải ảnh sẽ báo lỗi'} · {st.total} ảnh
+            Kho ảnh: {st.storage_chat_configured ? <><LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />đã gắn nhóm</> : <><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />chưa gắn nhóm — tải ảnh sẽ báo lỗi</>} · {st.total} ảnh
           </p>
           <p>
             Bản sao Google Drive: {st.drive_configured
-              ? `✅ bật · đã sao ${st.done}, chờ ${st.pending}, lỗi ${st.error}`
-              : '⏸ chưa cấu hình (ảnh vẫn lưu ở Telegram)'}
+              ? <><LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />bật · đã sao {st.done}, chờ {st.pending}, lỗi {st.error}</>
+              : <><LineIcon name="pause" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />chưa cấu hình (ảnh vẫn lưu ở Telegram)</>}
           </p>
           {st.last_error && <p className="text-red-400 break-all">Lỗi gần nhất: {st.last_error}</p>}
         </div>
       )}
       <div className="flex gap-2 flex-wrap">
         <button onClick={thu} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
-          🧪 Thử gửi 1 ảnh
+          <LineIcon name="sparkle" size={16} className="inline-block align-[-2px] mr-1.5" />Thử gửi 1 ảnh
         </button>
         {st && st.error > 0 && (
           <button onClick={thuLaiDrive} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10">
-            🔁 Sao lại ảnh lỗi sang Drive
+            <LineIcon name="refresh" size={16} className="inline-block align-[-2px] mr-1.5" />Sao lại ảnh lỗi sang Drive
           </button>
         )}
       </div>
@@ -1236,7 +1236,7 @@ function AutomationSection() {
         <div className="pt-3 border-t border-white/5">
           <div className="flex items-center justify-between gap-4 mb-2">
             <div>
-              <p className="text-sm">📢 Nhóm Telegram công ty</p>
+              <p className="text-sm"><LineIcon name="megaphone" size={16} className="inline-block align-[-2px] mr-1.5" />Nhóm Telegram công ty</p>
               <p className="text-xs text-[var(--text-muted)]">
                 Bot gửi briefing công việc hàng ngày vào nhóm (không kèm số liệu tài chính)
               </p>
@@ -1269,19 +1269,19 @@ function AutomationSection() {
             onClick={runNow}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
           >
-            ▶️ Chạy ngay
+            <LineIcon name="play" size={16} className="inline-block align-[-2px] mr-1.5" />Chạy ngay
           </button>
           <button
             onClick={sendReport}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
           >
-            📊 Gửi báo cáo ngày
+            <LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Gửi báo cáo ngày
           </button>
           <button
             onClick={sendGroupBriefing}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
           >
-            📢 Gửi briefing nhóm
+            <LineIcon name="megaphone" size={16} className="inline-block align-[-2px] mr-1.5" />Gửi briefing nhóm
           </button>
           {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
         </div>
@@ -1446,7 +1446,7 @@ function TaskSlaSection() {
             onClick={chayNgay}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
           >
-            ▶️ Quét &amp; nhắc ngay
+            <LineIcon name="play" size={16} className="inline-block align-[-2px] mr-1.5" />Quét &amp; nhắc ngay
           </button>
           {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
         </div>
@@ -1569,7 +1569,7 @@ export default function SettingsPage() {
             <button
               onClick={startGuidedTour}
               className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 min-h-[44px] flex items-center justify-center gap-2"
-              style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
+              style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)', border: '1px solid rgba(201,169,110,0.3)' }}
             >
               <LineIcon name="compass" size={16} color="#C9A96E" />Xem lại hướng dẫn từng bước theo vai trò
             </button>

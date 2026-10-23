@@ -7,15 +7,16 @@
  */
 
 import { useState, useCallback } from 'react';
+import LineIcon from '@/components/ui/LineIcon';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 const PROPERTY_TYPES = [
-  { value: 'apartment', label: '🏢 Căn hộ' },
-  { value: 'townhouse', label: '🏠 Nhà phố' },
-  { value: 'villa', label: '🏡 Biệt thự' },
-  { value: 'office', label: '💼 Văn phòng' },
-  { value: 'shophouse', label: '🏬 Shophouse' },
+  { value: 'apartment', label: 'Căn hộ' },
+  { value: 'townhouse', label: 'Nhà phố' },
+  { value: 'villa', label: 'Biệt thự' },
+  { value: 'office', label: 'Văn phòng' },
+  { value: 'shophouse', label: 'Shophouse' },
 ];
 
 interface PublicTier { label: string; range_low: number; range_high: number; per_sqm: number }
@@ -82,7 +83,7 @@ export default function PublicQuotePage() {
       <div className="max-w-2xl mx-auto px-5 py-12">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="text-5xl mb-3">🏠</div>
+          <div className="mb-3 flex justify-center"><LineIcon name="home" size={48} color="#C9A96E" /></div>
           <h1 className="text-3xl font-bold text-white mb-2">
             JAMA <span style={{ color: '#C9A96E' }}>HOME</span>
           </h1>
@@ -112,7 +113,7 @@ export default function PublicQuotePage() {
             <textarea placeholder="Mô tả thêm (phong cách yêu thích, yêu cầu đặc biệt...)" rows={2} value={form.note}
               onChange={e => setForm(f => ({ ...f, note: e.target.value }))} className={`${inputCls} mt-4`} />
 
-            {error && <p className="text-sm mt-3" style={{ color: '#F85149' }}>❌ {error}</p>}
+            {error && <p className="text-sm mt-3" style={{ color: '#F85149' }}><LineIcon name="xCircle" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{error}</p>}
 
             <button
               onClick={submit}
@@ -120,7 +121,7 @@ export default function PublicQuotePage() {
               className="w-full mt-5 py-3.5 rounded-xl text-base font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ background: '#C9A96E', color: '#12100B' }}
             >
-              {loading ? '⏳ Đang tính toán...' : '⚡ Nhận báo giá ngay'}
+              {loading ? 'Đang tính toán...' : <><LineIcon name="zap" size={16} color="currentColor" className="inline-block align-[-3px] mr-1.5" />Nhận báo giá ngay</>}
             </button>
             <p className="text-xs text-white/40 text-center mt-3">
               Miễn phí · Không ràng buộc · JAMA HOME liên hệ tư vấn trong 24h
@@ -130,7 +131,7 @@ export default function PublicQuotePage() {
           <div className="space-y-4">
             <div className="rounded-2xl p-6 text-center" style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.35)' }}>
               <p className="text-white/80 text-sm">
-                📐 {result.area_sqm}m² · {PROPERTY_TYPES.find(t => t.value === result.property_type)?.label}
+                <LineIcon name="ruler" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{result.area_sqm}m² · {PROPERTY_TYPES.find(t => t.value === result.property_type)?.label}
                 {result.bedrooms ? ` · ${result.bedrooms} phòng ngủ` : ''}
               </p>
             </div>
@@ -164,7 +165,7 @@ export default function PublicQuotePage() {
             </div>
 
             <div className="rounded-2xl p-6 text-center" style={{ background: 'rgba(63,185,80,0.1)', border: '1px solid rgba(63,185,80,0.3)' }}>
-              <p className="text-white font-semibold">✅ {result.message}</p>
+              <p className="text-white font-semibold"><LineIcon name="check" size={16} color="#3FB950" className="inline-block align-[-3px] mr-1.5" />{result.message}</p>
               <p className="text-xs text-white/50 mt-2">{result.disclaimer}</p>
             </div>
 

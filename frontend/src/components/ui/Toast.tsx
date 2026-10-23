@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, createContext, useContext, ReactNode } from 'react';
+import LineIcon from '@/components/ui/LineIcon';
 
 interface Toast {
   id: number;
@@ -41,10 +42,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   const icons: Record<string, string> = {
-    success: '✅',
-    info: 'ℹ️',
-    warning: '⚠️',
-    error: '❌',
+    success: 'check',
+    info: 'info',
+    warning: 'alert',
+    error: 'xCircle',
   };
 
   return (
@@ -69,7 +70,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               minWidth: 280,
             }}
           >
-            <span aria-hidden="true">{icons[t.type]}</span>
+            <LineIcon name={icons[t.type]} size={16} color="currentColor" />
             <span className="flex-1">{t.message}</span>
             {/* Dismiss button */}
             <button

@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { monthLabelVN } from '@/lib/labels';
+import LineIcon from '@/components/ui/LineIcon';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 // Kỳ theo GIỜ VN — toISOString là UTC, sáng sớm ngày 1 (00:00-06:59 VN) sẽ lùi nhầm kỳ tháng trước
@@ -83,7 +84,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
   const steps = [
     {
       key: 'review', label: `1. Rà ca cần xác nhận`, done: needsReview === 0,
-      detail: needsReview > 0 ? `⚠️ Còn ${needsReview} ca quên tan ca — sửa ở bảng công bên dưới` : 'Sạch',
+      detail: needsReview > 0 ? `Còn ${needsReview} ca quên tan ca — sửa ở bảng công bên dưới` : 'Sạch',
     },
     {
       key: 'ot', label: '2. Duyệt tăng ca tồn', done: otPending === 0,
@@ -110,8 +111,8 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
       key: 'submit', label: '4. Trình Giám đốc duyệt', done: !!status && status !== 'draft',
       detail: status === 'draft' ? 'Bảng lương đang ở bản nháp' :
               status === 'pending_approval' ? '⏳ Đang chờ Giám đốc duyệt (nhắc qua Telegram sau 72h)' :
-              status === 'approved' ? '✅ Đã duyệt — kỳ đã KHÓA' :
-              status === 'paid' ? '💵 Đã chi + phiếu lương đã gửi' : '—',
+              status === 'approved' ? 'Đã duyệt — kỳ đã KHÓA' :
+              status === 'paid' ? 'Đã chi + phiếu lương đã gửi' : '—',
       action: status === 'draft' && (
         <button disabled={busy} onClick={() => run(() => api.payrollSubmit(period), 'Đã trình duyệt — Giám đốc sẽ nhận thông báo')}
           className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
@@ -122,7 +123,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
     {
       key: 'pay', label: '5. Chi lương + gửi phiếu', done: status === 'paid',
       detail: status === 'approved' ? 'Sẵn sàng chi — phiếu lương sẽ gửi Telegram RIÊNG từng người' :
-              status === 'paid' ? '✅ Hoàn tất kỳ' : 'Chờ bước 4',
+              status === 'paid' ? 'Hoàn tất kỳ' : 'Chờ bước 4',
       action: status === 'approved' && (
         <button disabled={busy}
           onClick={() => run(() => api.payrollPay(period), 'Đã chi — phiếu lương đang gửi từng người')}
@@ -135,13 +136,13 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
 
   return (
     <div className="rounded-2xl p-4 border" style={{ background: 'rgba(201,169,110,0.05)', borderColor: 'rgba(201,169,110,0.3)' }}>
-      <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>🧾 Chốt sổ kỳ {monthLabelVN(period)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
+      <div className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}><LineIcon name="receipt" size={16} className="inline-block align-[-2px] mr-1.5" />Chốt sổ kỳ {monthLabelVN(period)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(dành cho Kế toán — đi từ trên xuống)</span></div>
       <div className="space-y-2">
         {steps.map(s => (
           <div key={s.key} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--surface-2)' }}>
             <div className="min-w-0">
               <div className="text-sm font-semibold" style={{ color: s.done ? '#34d399' : 'var(--text-primary)' }}>
-                {s.done ? '✅' : '○'} {s.label}
+                {s.done ? <LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" /> : <span className="inline-block w-3.5 h-3.5 rounded-full border align-[-2px] mr-1.5" style={{ borderColor: 'var(--border-strong)' }} />}{s.label}
               </div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.detail}</div>
             </div>
@@ -366,7 +367,7 @@ export default function AttendancePage() {
     <Sidebar>
       <div className="p-4 lg:p-6 max-w-6xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>⏱️ Chấm công & Nghỉ phép</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}><LineIcon name="clock" size={20} className="inline-block align-[-2px] mr-1.5" />Chấm công & Nghỉ phép</h1>
           <div className="flex gap-2">
             {(['attendance', 'leave', 'payslip'] as Tab[]).map(t => (
               <button
@@ -398,7 +399,7 @@ export default function AttendancePage() {
                   </div>
                   {phutDangLam != null && (
                     <div className="text-sm mt-0.5" style={{ color: 'var(--gold-500)' }}>
-                      ⏳ Đang làm: <b>{Math.floor(phutDangLam / 60)}h{String(phutDangLam % 60).padStart(2, '0')}</b>
+                      <LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />Đang làm: <b>{Math.floor(phutDangLam / 60)}h{String(phutDangLam % 60).padStart(2, '0')}</b>
                       {phutDangLam >= 480 && <span style={{ color: 'var(--text-muted)' }}> · đủ 8h công, phần sau tính OT (chờ duyệt)</span>}
                     </div>
                   )}
@@ -417,17 +418,17 @@ export default function AttendancePage() {
                     disabled={busy || checkedIn}
                     className={`${!checkedIn ? 'btn-primary' : 'btn-ghost'} w-full justify-center disabled:opacity-40`}
                     style={{ minHeight: 44 }}
-                  >✅ Vào ca</button>
+                  ><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Vào ca</button>
                   <button
                     onClick={doCheckout}
                     disabled={busy || !checkedIn || checkedOut}
                     className={`${checkedIn && !checkedOut ? 'btn-primary' : 'btn-ghost'} w-full justify-center disabled:opacity-40`}
                     style={{ minHeight: 44 }}
-                  >🏁 Tan ca</button>
+                  ><LineIcon name="flag" size={16} className="inline-block align-[-2px] mr-1.5" />Tan ca</button>
                 </div>
               </div>
               <div className="text-xs mt-2 p-2 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)' }}>
-                ⭐ <b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Vào ca văn phòng cần bật vị trí và đứng trong bán kính văn phòng (mặc định 20 m), hoặc dùng mạng văn phòng.
+                <LineIcon name="star" size={16} className="inline-block align-[-2px] mr-1.5" /><b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Vào ca văn phòng cần bật vị trí và đứng trong bán kính văn phòng (mặc định 20 m), hoặc dùng mạng văn phòng.
               </div>
             </div>
 
@@ -455,7 +456,7 @@ export default function AttendancePage() {
                   <span>Ngày công: <b style={{ color: 'var(--text-primary)' }}>{summary.work_days_fraction.toLocaleString('vi-VN')}{summary.standard_days ? ` / ${summary.standard_days}` : ''}</b> <span style={{ color: 'var(--text-muted)' }}>(không gồm OT)</span></span>
                   <span>Giờ: <b style={{ color: 'var(--text-primary)' }}>{summary.total_hours}h</b></span>
                   <span>OT đã duyệt (tính riêng): <b style={{ color: 'var(--text-primary)' }}>{summary.ot_approved_hours}h</b></span>
-                  {summary.needs_review > 0 && <span style={{ color: '#fbbf24' }}>⚠️ {summary.needs_review} ca cần xác nhận</span>}
+                  {summary.needs_review > 0 && <span style={{ color: '#fbbf24' }}><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{summary.needs_review} ca cần xác nhận</span>}
                 </div>
               )}
             </div>
@@ -480,7 +481,7 @@ export default function AttendancePage() {
                   {records.map(r => (
                     <tr key={r.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
-                        {fmtDateVN(r.work_date)}{r.needs_review && ' ⚠️'}
+                        {fmtDateVN(r.work_date)}{r.needs_review && <LineIcon name="alert" size={14} color="#fbbf24" className="inline-block align-[-2px] ml-1" />}
                       </td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_in)}</td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtTimeVN(r.check_out)}</td>
@@ -496,7 +497,7 @@ export default function AttendancePage() {
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>
                         {r.source}
                         {(r.ip_ok || r.gps_ok) && (
-                          <span title={r.ip_ok ? 'Trùng mạng văn phòng' : 'GPS trong bán kính văn phòng'} style={{ color: '#34d399' }}> ✓VP</span>
+                          <span title={r.ip_ok ? 'Trùng mạng văn phòng' : 'GPS trong bán kính văn phòng'} style={{ color: 'var(--success)' }}> ✓VP</span>
                         )}
                       </td>
                     </tr>
@@ -508,7 +509,7 @@ export default function AttendancePage() {
             {/* OT pending (approvers) */}
             {isApprover && pendingOT.length > 0 && (
               <div className="rounded-2xl p-4 border" style={{ borderColor: '#fbbf24', background: 'rgba(251,191,36,0.05)' }}>
-                <div className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>⏳ OT chờ duyệt ({pendingOT.length})</div>
+                <div className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}><LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />OT chờ duyệt ({pendingOT.length})</div>
                 <div className="space-y-2">
                   {pendingOT.map(r => (
                     <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -516,8 +517,8 @@ export default function AttendancePage() {
                         <b style={{ color: 'var(--text-primary)' }}>{r.full_name}</b> · {fmtDateVN(r.work_date)} · {r.ot_hours}h
                       </span>
                       <span className="flex gap-2">
-                        <button onClick={() => handleOT(r.id, true)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#34d399' }}>✅ Duyệt</button>
-                        <button onClick={() => handleOT(r.id, false)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#f87171' }}>❌ Từ chối</button>
+                        <button onClick={() => handleOT(r.id, true)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#34d399' }}><LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Duyệt</button>
+                        <button onClick={() => handleOT(r.id, false)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#f87171' }}><LineIcon name="xCircle" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Từ chối</button>
                       </span>
                     </div>
                   ))}
@@ -529,7 +530,7 @@ export default function AttendancePage() {
             {canSeeTeam && teamRows.length > 0 && (
               <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}>
-                  👥 Bảng công {['leader', 'sale_leader'].includes(user.role) ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
+                  <LineIcon name="users" size={16} className="inline-block align-[-2px] mr-1.5" />Bảng công {['leader', 'sale_leader'].includes(user.role) ? 'team' : 'toàn công ty'} — kỳ {monthLabelVN(period)}
                 </div>
                 <table className="w-full text-sm">
                   <thead>
@@ -671,7 +672,7 @@ export default function AttendancePage() {
         {tab === 'payslip' && (
           <div className="space-y-4">
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              🔒 Phiếu lương chỉ hiển thị các kỳ <b>đã chi</b> và chỉ của chính bạn. Phiếu chi tiết cũng được gửi qua Telegram chat riêng.
+              <LineIcon name="lock" size={16} className="inline-block align-[-2px] mr-1.5" />Phiếu lương chỉ hiển thị các kỳ <b>đã chi</b> và chỉ của chính bạn. Phiếu chi tiết cũng được gửi qua Telegram chat riêng.
             </div>
             {payslips.length === 0 && (
               <div className="rounded-2xl p-8 text-center border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>

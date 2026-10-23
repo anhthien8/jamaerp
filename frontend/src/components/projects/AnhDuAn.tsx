@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, MediaFile, mediaUrl } from '@/lib/api';
 import { nenAnh } from '@/lib/anh';
 import { useToast } from '@/components/ui/Toast';
+import LineIcon from '@/components/ui/LineIcon';
 
 const NHAN_LOAI: Record<string, string> = {
   tien_do: 'Tiến độ', su_co: 'Sự cố', vat_tu: 'Vật tư', cham_cong: 'Chấm công', khac: 'Khác',
@@ -74,7 +75,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
     <div className="glass-card p-4">
       <div className="flex items-center justify-between mb-3 gap-2">
         <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-          📷 Ảnh dự án {total > 0 && <span className="normal-case">({total})</span>}
+          <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Ảnh dự án {total > 0 && <span className="normal-case">({total})</span>}
         </h3>
         <input
           ref={fileRef} type="file" accept="image/*" multiple className="hidden"
@@ -110,7 +111,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
                   title={m.shared_with_customer ? 'Khách đang thấy ảnh này — bấm để ẩn' : 'Khách chưa thấy — bấm để chia sẻ'}
                   className={`absolute bottom-1 left-1 text-[10px] px-1.5 py-0.5 rounded ${m.shared_with_customer ? 'bg-emerald-500/90 text-black' : 'bg-black/70 text-white/70'}`}
                 >
-                  {m.shared_with_customer ? '👁 Khách thấy' : '🙈 Nội bộ'}
+                  <LineIcon name={m.shared_with_customer ? 'eye' : 'lock'} size={10} color="currentColor" className="inline-block align-[-1px] mr-0.5" />{m.shared_with_customer ? 'Khách thấy' : 'Nội bộ'}
                 </button>
                 {m.kind !== 'tien_do' && (
                   <span className="absolute top-1 left-1 text-[9px] px-1 rounded bg-black/70 text-amber-300">{NHAN_LOAI[m.kind] || m.kind}</span>
@@ -133,7 +134,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
             {xem.caption && <p>{xem.caption}</p>}
             <p>{xem.user_name || 'Nhân viên'} · {xem.created_at ? new Date(xem.created_at + (xem.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''}</p>
             <button type="button" onClick={() => doiChiaSe(xem)} className="px-3 py-1 rounded bg-white/10 hover:bg-white/20">
-              {xem.shared_with_customer ? '👁 Khách thấy — bấm để ẩn' : '🙈 Nội bộ — bấm để khách thấy'}
+              <LineIcon name={xem.shared_with_customer ? 'eye' : 'lock'} size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />{xem.shared_with_customer ? 'Khách thấy — bấm để ẩn' : 'Nội bộ — bấm để khách thấy'}
             </button>
           </div>
         </div>

@@ -30,8 +30,8 @@ const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: 'Thấp', color: '#6B7280' },
 };
 const ACTIVITY_ICONS: Record<string, string> = {
-  note: '📝', call: '📞', meeting: '🤝', email: '📧', sms: '💬',
-  stage_change: '🔄', assignment: '👤', system: '🤖', cskh: '🎧',
+  note: 'edit', call: 'phone', meeting: 'handshake', email: 'mail', sms: 'message',
+  stage_change: 'refresh', assignment: 'user', system: 'robot', cskh: 'users',
 };
 // Lognote CSKH — khớp CSKH_ACTIVITY_TYPE backend. Lưu chung bảng activities nên
 // mỗi mục tự có ngày giờ + tên người nhập; render ở khối riêng, tách khỏi timeline
@@ -177,7 +177,7 @@ function LostReasonSelector({ isOpen, setIsOpen, onConfirm, onCancel }: {
             border: '1px solid rgba(239,68,68,0.3)',
           }}
         >
-          🚫 Chuyển sang Mất lead
+          <LineIcon name="xCircle" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chuyển sang Mất lead
         </button>
       ) : (
         <div className="space-y-2">
@@ -750,7 +750,7 @@ function LeadsContent() {
       <Sidebar>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="glass-card p-8 text-center max-w-md">
-            <span className="text-4xl block mb-4">⚠️</span>
+            <LineIcon name="alert" size={40} className="block mx-auto mb-4" />
             <p className="text-[var(--text-primary)] mb-2">{error}</p>
             <button onClick={() => { setError(null); fetchLeads(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
           </div>
@@ -876,21 +876,21 @@ function LeadsContent() {
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
             <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-subtle)' }}>
               {([
-                { mode: 'kanban', label: '📋 Kanban' },
-                { mode: 'list', label: '📊 Danh sách' },
-                { mode: 'calendar', label: '📅 Lịch' },
+                { mode: 'kanban', icon: 'kanban', label: 'Kanban' },
+                { mode: 'list', icon: 'list', label: 'Danh sách' },
+                { mode: 'calendar', icon: 'calendar', label: 'Lịch' },
               ] as const).map((v, i, arr) => (
                 <button
                   key={v.mode}
                   onClick={() => setViewMode(v.mode)}
                   aria-pressed={viewMode === v.mode}
-                  className="px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+                  className="px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5"
                   style={{
                     background: viewMode === v.mode ? 'rgba(201,169,110,0.2)' : 'var(--surface-2)',
-                    color: viewMode === v.mode ? '#C9A96E' : 'var(--text-muted)',
+                    color: viewMode === v.mode ? 'var(--gold-500)' : 'var(--text-muted)',
                     borderRight: i < arr.length - 1 ? '1px solid var(--border-subtle)' : undefined,
                   }}
-                >{v.label}</button>
+                ><LineIcon name={v.icon} size={14} color="currentColor" />{v.label}</button>
               ))}
             </div>
             <button
@@ -926,10 +926,10 @@ function LeadsContent() {
           </select>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="all">Tất cả ưu tiên</option>
-            <option value="urgent">🔴 Khẩn cấp</option>
-            <option value="high">🟡 Cao</option>
-            <option value="medium">🔵 Trung bình</option>
-            <option value="low">⚪ Thấp</option>
+            <option value="urgent">Khẩn cấp</option>
+            <option value="high">Cao</option>
+            <option value="medium">Trung bình</option>
+            <option value="low">Thấp</option>
           </select>
           {/* Khu vực = 34 tỉnh/thành sau sáp nhập, KÈM các giá trị cũ đang thực
               sự có trong dữ liệu (96 lead đang lưu tên quận / tên tỉnh trước
@@ -1025,7 +1025,7 @@ function LeadsContent() {
           </div>
         ) : filteredByUrl.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
-            <p className="text-lg mb-2">📭 Không có lead phù hợp</p>
+            <p className="text-lg mb-2"><LineIcon name="inbox" size={18} className="inline-block align-[-3px] mr-1.5" />Không có lead phù hợp</p>
             <p className="text-sm">Hãy xóa bộ lọc hoặc kiểm tra lại dữ liệu lead</p>
           </div>
         ) : viewMode === 'list' ? (
@@ -1044,15 +1044,15 @@ function LeadsContent() {
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-white truncate">
                         {lead.name}
-                        {isOverdueLead(lead) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 ml-1">⚠️ Quá hạn</span>}
+                        {isOverdueLead(lead) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 ml-1"><LineIcon name="alert" size={10} color="currentColor" className="inline-block align-[-1px] mr-0.5" />Quá hạn</span>}
                       </p>
-                      <p className="text-xs text-[var(--text-muted)] mt-0.5">📱 {lead.phone || '—'}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5"><LineIcon name="smartphone" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{lead.phone || '—'}</p>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0" style={{
                       background: `${STAGE_CONFIG[lead.stage]?.color}20`,
                       color: STAGE_CONFIG[lead.stage]?.color,
                     }}>
-                      {STAGE_CONFIG[lead.stage]?.emoji} {STAGE_CONFIG[lead.stage]?.label || lead.stage}
+                      <LineIcon name={STAGE_CONFIG[lead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[lead.stage]?.label || lead.stage}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-1.5 text-[10px] text-[var(--text-muted)]">
@@ -1120,7 +1120,7 @@ function LeadsContent() {
                             <p className="font-medium text-[var(--text-primary)] truncate max-w-[180px]">
                               {lead.name}
                               {isOverdueLead(lead) && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1">⚠️ Quá hạn</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1"><LineIcon name="alert" size={10} color="currentColor" className="inline-block align-[-1px] mr-0.5" />Quá hạn</span>
                               )}
                             </p>
                             <p className="text-xs text-[var(--text-muted)]">{lead.phone || '—'}</p>
@@ -1132,7 +1132,7 @@ function LeadsContent() {
                           background: `${STAGE_CONFIG[lead.stage]?.color}20`,
                           color: STAGE_CONFIG[lead.stage]?.color,
                         }}>
-                          {STAGE_CONFIG[lead.stage]?.emoji} {STAGE_CONFIG[lead.stage]?.label || lead.stage}
+                          <LineIcon name={STAGE_CONFIG[lead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[lead.stage]?.label || lead.stage}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap" style={{ color: PRIORITY_LABELS[lead.priority]?.color || 'var(--text-secondary)' }}>
@@ -1339,7 +1339,7 @@ function LeadsContent() {
                             {lead.name}
                             {isOverdueLead(lead) && (
                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1">
-                                ⚠️ Quá hạn
+                                <LineIcon name="alert" size={16} className="inline-block align-[-2px] mr-1.5" />Quá hạn
                               </span>
                             )}
                           </h3>
@@ -1353,27 +1353,27 @@ function LeadsContent() {
                             </span>
                           ) : null}
                         </div>
-                        <p className="text-xs text-[var(--text-muted)] mt-1">📱 {lead.phone}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1"><LineIcon name="smartphone" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{lead.phone}</p>
                         {lead.last_contacted_at && (
                           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                            🕐 {timeAgo(lead.last_contacted_at)}
+                            <LineIcon name="clock" size={16} className="inline-block align-[-2px] mr-1.5" />{timeAgo(lead.last_contacted_at)}
                           </p>
                         )}
                         {lead.property_type && (
                           <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                            🏠 {PROPERTY_LABELS[lead.property_type] || lead.property_type} {lead.area_sqm ? `· ${lead.area_sqm}m²` : ''}
+                            <LineIcon name="home" size={16} className="inline-block align-[-2px] mr-1.5" />{PROPERTY_LABELS[lead.property_type] || lead.property_type} {lead.area_sqm ? `· ${lead.area_sqm}m²` : ''}
                           </p>
                         )}
                         {/* Region + Segment line */}
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {lead.region && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                              📍 {lead.region}
+                              <LineIcon name="pin" size={16} className="inline-block align-[-2px] mr-1.5" />{lead.region}
                             </span>
                           )}
                           {lead.segment && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                              🏷️ {NEEDS_LABELS[lead.segment] || lead.segment}
+                              <LineIcon name="flag" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />{NEEDS_LABELS[lead.segment] || lead.segment}
                             </span>
                           )}
                         </div>
@@ -1528,7 +1528,7 @@ function LeadsContent() {
                   background: `${STAGE_CONFIG[selectedLead.stage]?.color}20`,
                   color: STAGE_CONFIG[selectedLead.stage]?.color,
                 }}>
-                  {STAGE_CONFIG[selectedLead.stage]?.emoji} {STAGE_CONFIG[selectedLead.stage]?.label}
+                  <LineIcon name={STAGE_CONFIG[selectedLead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[selectedLead.stage]?.label}
                 </span>
                 <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
                   background: `${PRIORITY_LABELS[selectedLead.priority]?.color}20`,
@@ -1541,7 +1541,7 @@ function LeadsContent() {
                     background: `${PROPERTY_CLASS_LABELS[selectedLead.property_class].color}20`,
                     color: PROPERTY_CLASS_LABELS[selectedLead.property_class].color,
                   }}>
-                    🏷️ {PROPERTY_CLASS_LABELS[selectedLead.property_class].label}
+                    <LineIcon name="flag" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />{PROPERTY_CLASS_LABELS[selectedLead.property_class].label}
                   </span>
                 )}
                 {selectedLead.plan_type && selectedLead.plan_type !== 'none' && PLAN_TYPE_LABELS[selectedLead.plan_type] && (
@@ -1549,7 +1549,7 @@ function LeadsContent() {
                     background: `${PLAN_TYPE_LABELS[selectedLead.plan_type].color}20`,
                     color: PLAN_TYPE_LABELS[selectedLead.plan_type].color,
                   }}>
-                    📋 {PLAN_TYPE_LABELS[selectedLead.plan_type].label}
+                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />{PLAN_TYPE_LABELS[selectedLead.plan_type].label}
                   </span>
                 )}
                 {selectedLead.ai_score != null && selectedLead.ai_score > 0 && (
@@ -1557,7 +1557,7 @@ function LeadsContent() {
                     background: selectedLead.ai_score >= 80 ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
                     color: selectedLead.ai_score >= 80 ? '#10B981' : '#F59E0B',
                   }}>
-                    🤖 AI Score: {selectedLead.ai_score}/100
+                    <LineIcon name="robot" size={16} className="inline-block align-[-2px] mr-1.5" />AI Score: {selectedLead.ai_score}/100
                   </span>
                 )}
               </div>
@@ -1574,34 +1574,34 @@ function LeadsContent() {
                 <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Thông tin liên hệ</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-muted)]">📱</span>
+                    <LineIcon name="smartphone" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                     <span className="text-white font-medium">{selectedLead.phone}</span>
                   </div>
                   {selectedLead.email && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[var(--text-muted)]">📧</span>
+                      <LineIcon name="mail" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                       <span className="text-white">{selectedLead.email}</span>
                     </div>
                   )}
                   {selectedLead.address && (
                     <div className="flex items-center gap-2 md:col-span-2">
-                      <span className="text-[var(--text-muted)]">📍</span>
+                      <LineIcon name="pin" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                       <span className="text-[var(--text-secondary)]">{selectedLead.address}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-muted)]">📢</span>
+                    <LineIcon name="megaphone" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                     <span className="text-[var(--text-secondary)]">Nguồn: {SOURCE_LABELS[selectedLead.source || ''] || selectedLead.source}</span>
                   </div>
                   {selectedLead.region && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[var(--text-muted)]">🗺️</span>
+                      <LineIcon name="globe" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                       <span className="text-[var(--text-secondary)]">Khu vực: {selectedLead.region}</span>
                     </div>
                   )}
                   {/* Phụ trách — LUÔN hiển thị; admin/leader gắn/đổi nhân viên KD ngay tại đây */}
                   <div className="flex items-center gap-2 flex-wrap sm:col-span-2">
-                    <span className="text-[var(--text-muted)]">👤</span>
+                    <LineIcon name="user" size={16} color="currentColor" className="text-[var(--text-muted)]" />
                     <span className="text-[var(--text-secondary)]">
                       Phụ trách:{' '}
                       {selectedLead.assigned_user_name ? (
@@ -1642,7 +1642,7 @@ function LeadsContent() {
                           className="text-[11px] px-2 py-1 rounded-lg font-medium transition-all hover:opacity-80"
                           style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
                         >
-                          ✏️ Đổi
+                          <LineIcon name="edit" size={16} className="inline-block align-[-2px] mr-1.5" />Đổi
                         </button>
                       )
                     )}
@@ -1699,13 +1699,13 @@ function LeadsContent() {
                   {selectedLead.region && (
                     <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                       <p className="text-xs text-[var(--text-muted)]">Khu vực</p>
-                      <p className="text-sm font-semibold mt-1">📍 {selectedLead.region}</p>
+                      <p className="text-sm font-semibold mt-1"><LineIcon name="pin" size={14} className="inline-block align-[-2px] mr-1.5" />{selectedLead.region}</p>
                     </div>
                   )}
                 </div>
                 {selectedLead.needs && (
                   <div className="p-3 rounded-lg text-sm text-[var(--text-secondary)]" style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-xs text-[var(--text-muted)] mb-1">📋 Yêu cầu chi tiết:</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Yêu cầu chi tiết:</p>
                     {selectedLead.needs}
                   </div>
                 )}
@@ -1724,7 +1724,7 @@ function LeadsContent() {
               <div className="glass-card p-4">
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-                    🤖 Gợi ý AI
+                    <LineIcon name="robot" size={16} className="inline-block align-[-2px] mr-1.5" />Gợi ý AI
                   </h3>
                   <button
                     onClick={xinGoiY}
@@ -1756,7 +1756,7 @@ function LeadsContent() {
                     <p className="text-xs text-[var(--text-secondary)]">{goiY.reason}</p>
                     {goiY.message_template && (
                       <div className="p-3 rounded-lg text-xs text-[var(--text-secondary)] whitespace-pre-wrap" style={{ background: 'var(--surface-2)' }}>
-                        <p className="text-[10px] text-[var(--text-muted)] mb-1">💬 Mẫu tin nhắn:</p>
+                        <p className="text-[10px] text-[var(--text-muted)] mb-1"><LineIcon name="message" size={16} className="inline-block align-[-2px] mr-1.5" />Mẫu tin nhắn:</p>
                         {goiY.message_template}
                       </div>
                     )}
@@ -1767,14 +1767,14 @@ function LeadsContent() {
                           disabled={dangGhiNhan}
                           className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-[#10B981]/15 text-[#10B981] hover:bg-[#10B981]/25 disabled:opacity-40 transition-all min-h-[36px]"
                         >
-                          ✅ Đã làm
+                          <LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Đã làm
                         </button>
                         <button
                           onClick={() => ghiNhanGoiY('skipped')}
                           disabled={dangGhiNhan}
                           className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-40 transition-all min-h-[36px]"
                         >
-                          ⏭️ Bỏ qua
+                          <LineIcon name="arrowRight" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Bỏ qua
                         </button>
                       </div>
                     )}
@@ -1793,7 +1793,7 @@ function LeadsContent() {
                     {lichSuGoiY.map(ls => (
                       <div key={ls.run_id} className="flex items-start gap-2 text-xs">
                         <span className="flex-shrink-0">
-                          {ls.outcome === 'done' ? '✅' : ls.outcome === 'skipped' ? '⏭️' : '⏳'}
+                          <LineIcon name={ls.outcome === 'done' ? 'check' : ls.outcome === 'skipped' ? 'arrowRight' : 'hourglass'} size={14} />
                         </span>
                         <div className="flex-1">
                           <p className="text-[var(--text-secondary)]">{ls.action}</p>
@@ -1814,7 +1814,7 @@ function LeadsContent() {
               <div className="glass-card p-4">
                 <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                   <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-                    🎧 CSKH — Đánh giá chất lượng chăm sóc ({cskhNotes.length})
+                    <LineIcon name="users" size={14} className="inline-block align-[-2px] mr-1.5" />CSKH — Đánh giá chất lượng chăm sóc ({cskhNotes.length})
                   </h3>
                   {cskhNotes[0] && (
                     <span className="text-[10px] text-[var(--text-muted)]">
@@ -1863,7 +1863,7 @@ function LeadsContent() {
                       <div key={note.id} className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                         <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note.content}</p>
                         <p className="text-[10px] text-[var(--text-muted)] mt-1.5">
-                          🎧 {note.user_name || 'Admin CSKH'} · {formatDateTime(note.created_at)}
+                          <LineIcon name="users" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{note.user_name || 'Admin CSKH'} · {formatDateTime(note.created_at)}
                         </p>
                       </div>
                     ))}
@@ -1885,7 +1885,7 @@ function LeadsContent() {
                     {[...timelineActivities].reverse().map((act, i) => (
                       <div key={act.id || i} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <span className="text-sm">{ACTIVITY_ICONS[act.type] || '📌'}</span>
+                          <LineIcon name={ACTIVITY_ICONS[act.type] || 'pin'} size={16} className="shrink-0" />
                           {i < timelineActivities.length - 1 && (
                             <div className="w-px flex-1 mt-1" style={{ background: 'var(--border-subtle)' }} />
                           )}
@@ -1899,7 +1899,7 @@ function LeadsContent() {
                                   <a key={li} href={url} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-[#C9A96E] hover:underline text-xs mt-1"
                                   >
-                                    📎 {url.replace('https://drive.google.com/', 'drive.google.com/...')}
+                                    <LineIcon name="link" size={12} color="currentColor" />{url.replace('https://drive.google.com/', 'drive.google.com/...')}
                                   </a>
                                 );
                               }
@@ -1973,7 +1973,7 @@ function LeadsContent() {
                       aria-label="Đính ảnh"
                       className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-30 transition-all"
                     >
-                      📷
+                      <LineIcon name="camera" size={16} color="currentColor" />
                     </button>
                     <button
                       onClick={handleAddNote}
@@ -2028,7 +2028,7 @@ function LeadsContent() {
                         border: `1px solid ${STAGE_CONFIG[stage]?.color}30`,
                       }}
                     >
-                      {STAGE_CONFIG[stage]?.emoji} {STAGE_CONFIG[stage]?.label}
+                      <LineIcon name={STAGE_CONFIG[stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[stage]?.label}
                     </button>
                   ))}
                 </div>
@@ -2056,7 +2056,7 @@ function LeadsContent() {
                         style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
                         title="Khách tạm im lặng nhưng chưa mất — cất vào Ngủ đông, sau này đánh thức lại được"
                       >
-                        😴 Chuyển sang Ngủ đông
+                        <LineIcon name="moon" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chuyển sang Ngủ đông
                       </button>
                     ) : (
                       <div className="space-y-2">
@@ -2112,13 +2112,13 @@ function LeadsContent() {
                 onClick={() => { void loadAssignableUsers(); setBulkAssignOpen(true); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all whitespace-nowrap"
               >
-                👤 Giao cho…
+                <LineIcon name="user" size={16} className="inline-block align-[-2px] mr-1.5" />Giao cho…
               </button>
               <button
                 onClick={() => setBulkStageOpen(true)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 transition-all whitespace-nowrap"
               >
-                🔄 Đổi giai đoạn
+                <LineIcon name="refresh" size={16} className="inline-block align-[-2px] mr-1.5" />Đổi giai đoạn
               </button>
               <button
                 onClick={() => setSelectedLeadIds(new Set())}
@@ -2166,7 +2166,7 @@ function LeadsContent() {
                 {/* signed_design bị BE chặn (tự sinh KH+Dự án phải chạy từng lead),
                     lost thì hiện ra nhưng bắt nhập lý do ngay bên cạnh. */}
                 {['new', 'interested', 'survey_scheduled', 'potential', 'dormant', 'lost'].map(s => (
-                  <option key={s} value={s}>{STAGE_CONFIG[s]?.emoji} {STAGE_CONFIG[s]?.label || s}</option>
+                  <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
                 ))}
               </select>
               {bulkStageValue === 'lost' && (
@@ -2201,7 +2201,7 @@ function LeadsContent() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="signed-confirm-title">
           <div className="absolute inset-0 bg-black/70" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }} />
           <div className="relative w-full max-w-md rounded-2xl p-5 glass-card">
-            <h3 id="signed-confirm-title" className="text-base font-bold text-white">✅ Xác nhận deal đã thắng</h3>
+            <h3 id="signed-confirm-title" className="text-base font-bold text-white"><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Xác nhận deal đã thắng</h3>
             <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Đã ký — thiết kế» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
             <p className="mt-2 text-xs text-amber-400">Thao tác này không thể lùi lại. Chỉ xác nhận khi hợp đồng đã ký.</p>
             <div className="flex justify-end gap-2 mt-5">
@@ -2220,7 +2220,7 @@ function LeadsContent() {
 
 export default function LeadsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LineIcon name="hourglass" size={28} /></div>}>
       <LeadsContent />
     </Suspense>
   );

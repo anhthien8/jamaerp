@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { DEMO_PNL_SUMMARY } from '@/lib/demo-data';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
+import LineIcon from '@/components/ui/LineIcon';
 
 // ── Types ──────────────────────────────────────────────────
 interface ProjectPL {
@@ -264,7 +265,7 @@ function AccessDenied() {
     <Sidebar>
       <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
         <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
+          <LineIcon name="lock" size={48} className="block mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
           <p className="text-sm text-[var(--text-muted)] mb-6">
             Trang này chỉ dành cho Ban Giám đốc, Kế toán và Ban Quản trị.
@@ -533,14 +534,14 @@ export default function PLPage() {
 
         {plError && (
           <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
-            ⚠️ {plError}
+            <LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{plError}
           </div>
         )}
 
         {/* ── Date Filter Bar ── */}
         <div className="glass-card p-4">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mr-1">📅 Lọc theo:</span>
+            <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mr-1"><LineIcon name="calendar" size={14} className="inline-block align-[-2px] mr-1" />Lọc theo:</span>
             {(['all', 'month', 'quarter', 'year', 'custom'] as FilterType[]).map(ft => (
               <button
                 key={ft}
@@ -738,7 +739,7 @@ export default function PLPage() {
             {/* ── Visual Summary Bar ── */}
             <div className="glass-card p-4 md:p-5">
               <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Cơ cấu Thu - Chi</h3>
-              <div className="h-8 rounded-full overflow-hidden flex" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="h-8 rounded-full overflow-hidden flex" style={{ background: 'var(--surface-3)' }}>
                 <div
                   className="h-full transition-all duration-1000 rounded-l-full"
                   style={{
@@ -1068,12 +1069,12 @@ export default function PLPage() {
               <div className="space-y-2">
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Phân tích chi phí</div>
                 {[
-                  { label: '📦 Vật tư', value: detailProject.cost_breakdown.materials },
-                  { label: '🔨 Nhân công / giao dịch', value: detailProject.cost_breakdown.transactions },
-                  { label: '💰 Hoa hồng', value: detailProject.cost_breakdown.commissions },
+                  { label: 'Vật tư', icon: 'package', value: detailProject.cost_breakdown.materials },
+                  { label: 'Nhân công / giao dịch', icon: 'hammer', value: detailProject.cost_breakdown.transactions },
+                  { label: 'Hoa hồng', icon: 'money', value: detailProject.cost_breakdown.commissions },
                 ].map(row => (
                   <div key={row.label} className="flex justify-between text-sm">
-                    <span className="text-[var(--text-secondary)]">{row.label}</span>
+                    <span className="text-[var(--text-secondary)]"><LineIcon name={row.icon} size={14} className="inline-block align-[-2px] mr-1.5" />{row.label}</span>
                     <span className="font-medium text-[var(--text-primary)]">{formatCurrency(row.value)}</span>
                   </div>
                 ))}

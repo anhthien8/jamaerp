@@ -13,6 +13,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
+import LineIcon from '@/components/ui/LineIcon';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -316,7 +317,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           }}
           title={outdoorTheme ? 'Tắt chế độ Ngoài trời' : 'Bật chế độ Ngoài trời — dễ đọc dưới nắng'}
         >
-          <span className="text-sm">{outdoorTheme ? '☀️' : '\u{1F319}'}</span>
+          <LineIcon name={outdoorTheme ? 'sun' : 'moon'} size={14} color="currentColor" />
           <span>{outdoorTheme ? 'NGOÀI TRỜI' : 'TRONG NHÀ'}</span>
         </button>
       </div>
@@ -447,7 +448,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         {mode === 'demo' ? (
           <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
             <div className="flex items-center gap-2">
-              <span>🎯</span>
+              <LineIcon name="target" size={16} color="#FBBF24" />
               <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>CHẾ ĐỘ TẬP LUYỆN</span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu mẫu, dùng để demo cho nhân sự</span>
             </div>

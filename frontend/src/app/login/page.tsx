@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { SHOW_DEMO_MODE } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
+import LineIcon from '@/components/ui/LineIcon';
 
 const DEMO_CREDENTIALS = [
   { email: 'admin@jamahome.vn', role: 'Admin' },
@@ -137,7 +138,7 @@ function LoginForm() {
           <div className="mb-6">
             <div
               className="flex rounded-xl p-1 gap-1"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)' }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
             >
               <button
                 type="button"
@@ -261,7 +262,7 @@ function LoginForm() {
                   Quên mật khẩu?
                 </button>
               ) : (
-                <div className="p-4 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
+                <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-[var(--text-secondary)]">Đặt lại mật khẩu</p>
                     <button type="button" onClick={() => { setForgotOpen(false); setFpStep('request'); setFpMsg(''); }} className="text-xs text-[var(--text-muted)] hover:text-white">✕</button>
@@ -299,7 +300,7 @@ function LoginForm() {
 
           {/* Demo Credentials — only visible in demo mode */}
           {selectedMode === 'demo' && (
-            <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
+            <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
               <summary className="cursor-pointer px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors select-none flex items-center gap-2">
                 <span>&#x1F511;</span> Tài khoản demo
               </summary>
@@ -333,7 +334,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LineIcon name="hourglass" size={28} /></div>}>
       <LoginForm />
     </Suspense>
   );

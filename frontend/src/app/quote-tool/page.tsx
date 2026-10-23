@@ -5,13 +5,14 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, InstantQuoteResult, PriceItemDTO } from '@/lib/api';
+import LineIcon from '@/components/ui/LineIcon';
 
 const PROPERTY_TYPES = [
-  { value: 'apartment', label: '🏢 Căn hộ' },
-  { value: 'townhouse', label: '🏠 Nhà phố' },
-  { value: 'villa', label: '🏡 Biệt thự' },
-  { value: 'office', label: '💼 Văn phòng' },
-  { value: 'shophouse', label: '🏬 Shophouse' },
+  { value: 'apartment', label: 'Căn hộ' },
+  { value: 'townhouse', label: 'Nhà phố' },
+  { value: 'villa', label: 'Biệt thự' },
+  { value: 'office', label: 'Văn phòng' },
+  { value: 'shophouse', label: 'Shophouse' },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -22,9 +23,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const RENO_CATEGORY_LABELS: Record<string, string> = {
-  thao_do: '🔨 Tháo dỡ', ket_cau: '🏗️ Kết cấu', hoan_thien: '🧱 Hoàn thiện XD',
-  can_thang: '🪜 Cầu thang', cua: '🚪 Cửa', he_thong_ME: '⚡ Hệ thống M.E',
-  khac: '📋 Khác',
+  thao_do: 'Tháo dỡ', ket_cau: 'Kết cấu', hoan_thien: 'Hoàn thiện XD',
+  can_thang: 'Cầu thang', cua: 'Cửa', he_thong_ME: 'Hệ thống M.E',
+  khac: 'Khác',
 };
 
 function fmtVND(v: number): string {
@@ -127,7 +128,7 @@ export default function QuoteToolPage() {
             onClick={() => { setShowPriceBook(s => !s); if (!showPriceBook) loadPriceBook(); }}
             className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs hover:bg-white/10"
           >
-            📒 {showPriceBook ? 'Đóng bảng đơn giá' : 'Xem bảng đơn giá'}
+            <LineIcon name="list" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{showPriceBook ? 'Đóng bảng đơn giá' : 'Xem bảng đơn giá'}
           </button>
         </div>
         <p className="text-sm text-[var(--text-muted)] mb-6">
@@ -139,7 +140,7 @@ export default function QuoteToolPage() {
           <div className="glass-card p-5 mb-6 overflow-x-auto">
             <p className="text-xs text-[var(--text-muted)] mb-3">
               {canEditPrices
-                ? '⚠️ Đơn giá seed là số tham khảo — Thu mua cập nhật giá thật trước khi dùng.'
+                ? <><LineIcon name="alert" size={14} className="inline-block align-[-2px] mr-1.5" />Đơn giá seed là số tham khảo — Thu mua cập nhật giá thật trước khi dùng.</>
                 : 'Bảng đơn giá chuẩn (chỉ Admin/Thu mua được sửa).'}
             </p>
             <table className="w-full text-xs">
@@ -191,13 +192,13 @@ export default function QuoteToolPage() {
             onClick={() => switchQuoteMode('new')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'new' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
           >
-            🏗️ Xây mới
+            <LineIcon name="crane" size={16} className="inline-block align-[-2px] mr-1.5" />Xây mới
           </button>
           <button
             onClick={() => switchQuoteMode('renovation')}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'renovation' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
           >
-            🔨 Cải tạo
+            <LineIcon name="hammer" size={16} className="inline-block align-[-2px] mr-1.5" />Cải tạo
           </button>
         </div>
 
@@ -209,13 +210,13 @@ export default function QuoteToolPage() {
                 onClick={() => setInputMode('form')}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'form' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10'}`}
               >
-                📐 Nhập số liệu
+                <LineIcon name="ruler" size={16} className="inline-block align-[-2px] mr-1.5" />Nhập số liệu
               </button>
               <button
                 onClick={() => setInputMode('paste')}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'paste' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10'}`}
               >
-                🤖 Paste tin Zalo (AI)
+                <LineIcon name="robot" size={16} className="inline-block align-[-2px] mr-1.5" />Paste tin Zalo (AI)
               </button>
             </div>
           )}
@@ -276,7 +277,7 @@ export default function QuoteToolPage() {
               disabled={generating}
               className="px-6 py-2.5 rounded-xl bg-[#C9A96E] text-black text-sm font-bold hover:opacity-90 disabled:opacity-50"
             >
-              {generating ? '⏳ Đang tính...' : '⚡ Tạo báo giá'}
+              {generating ? 'Đang tính...' : <><LineIcon name="zap" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Tạo báo giá</>}
             </button>
             {message && <span className="text-sm text-[var(--text-secondary)]">{message}</span>}
           </div>
@@ -293,9 +294,9 @@ export default function QuoteToolPage() {
             {/* Result header */}
             <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] flex-wrap">
               {result.mode === 'renovation' ? (
-                <span>📐 {result.area_sqm}m² · Nhà phố {result.floors} tầng</span>
+                <span><LineIcon name="ruler" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{result.area_sqm}m² · Nhà phố {result.floors} tầng</span>
               ) : (
-                <span>📐 {result.area_sqm}m² · {PROPERTY_TYPES.find(t => t.value === result.property_type)?.label} · {result.bedrooms} PN</span>
+                <span><LineIcon name="ruler" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{result.area_sqm}m² · {PROPERTY_TYPES.find(t => t.value === result.property_type)?.label} · {result.bedrooms} PN</span>
               )}
               {result.customer_budget && result.customer_budget > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-xs">
@@ -373,7 +374,7 @@ export default function QuoteToolPage() {
                 {/* Material options */}
                 {result.material_options && result.material_options.length > 0 && (
                   <div className="glass-card p-5">
-                    <h3 className="text-sm font-semibold mb-3">🎨 Chọn vật liệu phù hợp ngân sách</h3>
+                    <h3 className="text-sm font-semibold mb-3"><LineIcon name="palette" size={16} className="inline-block align-[-2px] mr-1.5" />Chọn vật liệu phù hợp ngân sách</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {result.material_options.map(opt => (
                         <div key={opt.category} className="p-3 rounded-xl bg-white/3">
@@ -397,7 +398,7 @@ export default function QuoteToolPage() {
                 {/* Actions + disclaimer */}
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
-                    📋 Copy text gửi Zalo
+                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
                   </button>
                 </div>
                 <p className="text-xs text-[var(--text-muted)]">{result.disclaimer}</p>
@@ -433,7 +434,7 @@ export default function QuoteToolPage() {
                 {/* Actions */}
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
-                    📋 Copy text gửi Zalo
+                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
                   </button>
                 </div>
 

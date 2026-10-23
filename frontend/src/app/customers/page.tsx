@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 import { api, Customer, fetchAllPages } from '@/lib/api';
+import LineIcon from '@/components/ui/LineIcon';
 
 const TYPE_LABELS: Record<string, string> = {
   individual: 'Cá nhân',
@@ -60,7 +61,7 @@ function AccessDenied() {
     <Sidebar>
       <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
         <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
+          <LineIcon name="lock" size={48} className="block mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
           <p className="text-sm text-[var(--text-muted)] mb-6">
             Bạn không có quyền truy cập trang này.
@@ -145,7 +146,7 @@ export default function CustomersPage() {
       <Sidebar>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="glass-card p-8 text-center max-w-md">
-            <span className="text-4xl block mb-4">⚠️</span>
+            <LineIcon name="alert" size={40} className="block mx-auto mb-4" />
             <p className="text-[var(--text-primary)] mb-2">{error}</p>
             <button onClick={() => { setError(null); load(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
           </div>
@@ -252,7 +253,7 @@ export default function CustomersPage() {
             <div className="p-12 text-center text-[var(--text-muted)]">Đang tải...</div>
           ) : customers.length === 0 ? (
             <div className="text-center py-12">
-              <span className="text-4xl block mb-3">👥</span>
+              <LineIcon name="users" size={40} className="block mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Chưa có khách hàng</h3>
               <p className="text-sm text-[var(--text-muted)] mb-4">Khách hàng sẽ xuất hiện khi lead ký hợp đồng</p>
               {canEditCustomers && (
@@ -355,7 +356,7 @@ export default function CustomersPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]" onClick={() => setSelected(null)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative w-full max-w-lg rounded-2xl p-6" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <div className="flex items-center gap-4 mb-6">
@@ -384,7 +385,7 @@ export default function CustomersPage() {
               {/* Projects section */}
               <div className="mt-4">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
-                  <span>📋 Dự án</span>
+                  <span><LineIcon name="clipboard" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Dự án</span>
                   {customerDetail?.project_count != null && (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>
                       {customerDetail.project_count}

@@ -9,6 +9,7 @@ import { DEMO_MATERIALS } from '@/lib/demo-data';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { labelOf, MATERIAL_CATEGORY_LABELS } from '@/lib/labels';
+import LineIcon from '@/components/ui/LineIcon';
 
 function fmtVND(n?: number) {
   if (!n) return '—';
@@ -183,7 +184,7 @@ export default function InventoryPage() {
       <Sidebar>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="glass-card p-8 text-center max-w-md">
-            <span className="text-4xl block mb-4">⚠️</span>
+            <LineIcon name="alert" size={40} color="var(--danger)" className="block mx-auto mb-4" />
             <p className="text-[var(--text-primary)] mb-2">{error}</p>
             <button onClick={() => { setError(null); load(); }} className="mt-3 px-4 py-2 rounded-xl bg-[var(--gold-500)] text-white text-sm">Thử lại</button>
           </div>
@@ -200,7 +201,7 @@ export default function InventoryPage() {
       <Sidebar>
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="glass-card p-12 text-center max-w-md">
-            <span className="text-5xl block mb-4">🔒</span>
+            <LineIcon name="lock" size={48} className="block mx-auto mb-4" />
             <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
             <p className="text-sm text-[var(--text-muted)] mb-6">Chỉ Admin và bộ phận Thu mua được phép xem kho vật tư.</p>
             <button onClick={() => router.push('/')} className="px-6 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: '#fff' }}>
@@ -235,21 +236,21 @@ export default function InventoryPage() {
             className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}
           >
-            📥 Nhập từ file
+            <LineIcon name="download" size={16} className="inline-block align-[-2px] mr-1.5" />Nhập từ file
           </button>
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Tổng mặt hàng', value: materials.length, icon: '📦', color: '#60a5fa' },
-            { label: 'Giá trị tồn kho', value: fmtVND(totalValue), icon: '💎', color: 'var(--gold-400)' },
-            { label: 'Cảnh báo hết hàng', value: lowStock.length, icon: '⚠️', color: '#f87171' },
-            { label: 'Danh mục', value: categories.length - 1, icon: '🏷️', color: '#a78bfa' },
+            { label: 'Tổng mặt hàng', value: materials.length, icon: 'package', color: 'var(--info)' },
+            { label: 'Giá trị tồn kho', value: fmtVND(totalValue), icon: 'gem', color: 'var(--gold-400)' },
+            { label: 'Cảnh báo hết hàng', value: lowStock.length, icon: 'alert', color: 'var(--danger)' },
+            { label: 'Danh mục', value: categories.length - 1, icon: 'receipt', color: '#a78bfa' },
           ].map(card => (
             <div key={card.label} className="rounded-2xl p-4" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{card.icon}</span>
+                <LineIcon name={card.icon} size={18} color={card.color} />
                 <span className="text-xs text-[var(--text-muted)]">{card.label}</span>
               </div>
               <p className="text-xl font-bold" style={{ color: card.color }}>{card.value}</p>
@@ -260,7 +261,7 @@ export default function InventoryPage() {
         {/* Low stock alert */}
         {lowStock.length > 0 && (
           <div className="rounded-2xl p-4" style={{ background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.2)' }}>
-            <p className="text-sm font-semibold mb-2" style={{ color: '#f87171' }}>⚠️ Vật tư sắp hết</p>
+            <p className="text-sm font-semibold mb-2" style={{ color: 'var(--danger)' }}><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Vật tư sắp hết</p>
             <div className="flex flex-wrap gap-2">
               {lowStock.map(m => (
                 <span key={m.id} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
@@ -336,7 +337,7 @@ export default function InventoryPage() {
             <div className="p-12 text-center text-[var(--text-muted)]">Đang tải...</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
-              <span className="text-4xl block mb-3">📦</span>
+              <LineIcon name="package" size={40} color="var(--text-muted)" className="block mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Không tìm thấy vật tư</h3>
               <p className="text-sm text-[var(--text-muted)]">Thử đổi bộ lọc hoặc từ khóa tìm kiếm</p>
             </div>
@@ -359,7 +360,7 @@ export default function InventoryPage() {
                           <span className={`font-semibold ${isLow ? 'text-[#f87171]' : 'text-[var(--text-primary)]'}`}>
                             {fmtNum(m.quantity_in_stock)} {m.unit}
                           </span>
-                          {isLow && <span className="ml-1 text-[#f87171]">⚠</span>}
+                          {isLow && <LineIcon name="alert" size={14} color="currentColor" className="inline-block align-[-2px] ml-1 text-[#f87171]" />}
                         </div>
                         <div>
                           <span className="text-[var(--text-muted)]">Đơn giá: </span>
@@ -392,7 +393,7 @@ export default function InventoryPage() {
                           key={m.id}
                           className="transition-colors"
                           style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-elevated)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
                           <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{m.code}</td>
@@ -405,7 +406,7 @@ export default function InventoryPage() {
                               {fmtNum(m.quantity_in_stock)}
                             </span>
                             <span className="text-xs text-[var(--text-muted)] ml-1">{m.unit}</span>
-                            {isLow && <span className="ml-2 text-xs text-[#f87171]">⚠</span>}
+                            {isLow && <LineIcon name="alert" size={13} color="currentColor" className="inline-block align-[-2px] ml-2 text-[#f87171]" />}
                           </td>
                           <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price)}</td>
                           <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price * m.quantity_in_stock)}</td>
@@ -432,7 +433,7 @@ export default function InventoryPage() {
         <div className="fixed inset-0 z-[70] flex items-center justify-center px-4" onClick={() => !importing && setImportOpen(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-2xl rounded-2xl p-5 sm:p-6 max-h-[88vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-1 text-[var(--text-primary)]">📥 Nhập vật tư / báo giá NCC từ file</h3>
+            <h3 className="text-lg font-bold mb-1 text-[var(--text-primary)]"><LineIcon name="download" size={16} className="inline-block align-[-2px] mr-1.5" />Nhập vật tư / báo giá NCC từ file</h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
               File CSV (Excel: <b>Lưu dưới dạng → CSV UTF-8</b>). Cột bắt buộc: <b>Tên vật tư</b>; tùy chọn: Mã, Danh mục, Đơn vị, Đơn giá, NCC, Tồn kho, Tồn tối thiểu.
               Trùng Mã/Tên = cập nhật giá & NCC (báo giá mới); chưa có = tạo mới.{' '}
@@ -441,12 +442,12 @@ export default function InventoryPage() {
 
             <label className="block w-full p-6 rounded-xl text-center cursor-pointer transition-all hover:opacity-80 mb-3" style={{ border: '2px dashed var(--border-default)', color: 'var(--text-secondary)' }}>
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }} />
-              {importFileName ? <span className="text-sm font-medium">📄 {importFileName} — bấm để chọn file khác</span> : <span className="text-sm">Bấm để chọn file CSV</span>}
+              {importFileName ? <span className="text-sm font-medium"><LineIcon name="file" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />{importFileName} — bấm để chọn file khác</span> : <span className="text-sm">Bấm để chọn file CSV</span>}
             </label>
 
             {importIssues.length > 0 && (
               <div className="mb-3 p-3 rounded-xl text-xs space-y-1" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
-                {importIssues.slice(0, 6).map((iss, i) => <p key={i}>⚠️ {iss}</p>)}
+                {importIssues.slice(0, 6).map((iss, i) => <p key={i}><LineIcon name="alert" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />{iss}</p>)}
                 {importIssues.length > 6 && <p>… và {importIssues.length - 6} lỗi khác</p>}
               </div>
             )}

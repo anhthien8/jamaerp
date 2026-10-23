@@ -279,7 +279,7 @@ export default function PermissionsPage() {
                           {findCustom(role) ? (
                             <span
                               className="text-[10px] px-2 py-0.5 rounded-lg"
-                              style={{ background: 'rgba(201,169,110,0.12)', color: '#C9A96E' }}
+                              style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)' }}
                               title="Vai trò tùy chỉnh — tạo ở trang Tài khoản"
                             >
                               tùy chỉnh
@@ -308,13 +308,13 @@ export default function PermissionsPage() {
                       key={`${feature.key}-${idx}`}
                       style={{
                         borderBottom: '1px solid var(--border-subtle)',
-                        background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                        background: idx % 2 === 0 ? 'transparent' : 'var(--surface-2)',
                       }}
                     >
                       <td
                         className="px-4 py-2.5 font-medium sticky left-0 z-10"
                         style={{
-                          background: idx % 2 === 0 ? 'var(--surface-1)' : 'rgba(255,255,255,0.02)',
+                          background: idx % 2 === 0 ? 'var(--surface-1)' : 'var(--surface-2)',
                           color: 'var(--text-primary)',
                         }}
                       >

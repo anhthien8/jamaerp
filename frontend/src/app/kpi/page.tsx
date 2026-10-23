@@ -7,6 +7,7 @@ import { getPermissions, isSalesCoordinator, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, laLoiThieuQuyen } from '@/lib/api';
 import { monthLabelVN } from '@/lib/labels';
+import LineIcon from '@/components/ui/LineIcon';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 const currentPeriod = () => new Date().toISOString().slice(0, 7);
@@ -218,7 +219,7 @@ export default function KpiPage() {
         {/* Tab: My KPI — error state */}
         {!busy && kpiError && (
           <div className="glass-card p-8 flex flex-col items-center text-center">
-            <div className="text-4xl mb-3">⚠️</div>
+            <div className="mb-3"><LineIcon name="alert" size={40} color="#f87171" /></div>
             <p className="text-sm text-red-400 mb-2">{kpiError}</p>
             <button onClick={() => setKpiError(null)} className="text-xs px-3 py-1 rounded-lg bg-white/5">Thử lại</button>
           </div>
@@ -226,7 +227,7 @@ export default function KpiPage() {
         {/* Tab: My KPI — empty state */}
         {!busy && !kpiError && tab === 'me' && !myKpi && (
           <div className="glass-card p-10 flex flex-col items-center text-center">
-            <div className="text-4xl mb-3">📊</div>
+            <div className="mb-3"><LineIcon name="chart" size={40} /></div>
             <p className="text-sm text-[var(--text-secondary)] max-w-md">
               Chưa có dữ liệu KPI kỳ này — KPI sẽ hiện khi có lead/công trình được gán cho bạn
             </p>
@@ -275,7 +276,7 @@ export default function KpiPage() {
                 className={`glass-card p-4 flex items-center gap-4 ${entry.is_me ? 'ring-2 ring-[var(--gold-500)]' : ''}`}
               >
                 <span className="text-lg font-bold w-8 text-center" style={{ color: entry.rank <= 3 ? '#c9a96e' : 'var(--text-muted)' }}>
-                  {entry.rank <= 3 ? ['🥇', '🥈', '🥉'][entry.rank - 1] : `#${entry.rank}`}
+                  {entry.rank <= 3 ? <LineIcon name="award" size={22} color={['#c9a96e', '#9ca3af', '#b45309'][entry.rank - 1]} className="inline-block" /> : `#${entry.rank}`}
                 </span>
                 <div className="flex-1">
                   <span className={`font-medium ${entry.name ? 'text-white' : 'text-[var(--text-muted)]'}`}>

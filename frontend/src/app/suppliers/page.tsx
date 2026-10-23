@@ -5,6 +5,7 @@ import { api, type Supplier, type SupplierQuote, type PriceComparison } from '@/
 import { useAuth } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import PriceComparisonTable from '@/components/ui/PriceComparison';
+import LineIcon from '@/components/ui/LineIcon';
 
 const CATEGORY_LABELS: Record<string, string> = {
   wood: 'Gỗ', stone: 'Đá', metal: 'Kim loại', paint: 'Sơn',
@@ -160,7 +161,7 @@ export default function SuppliersPage() {
       {error && (
         <div className="p-3 rounded-xl text-sm flex items-center justify-between gap-4"
           style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
-          <span>⚠️ {error}</span>
+          <span><LineIcon name="alert" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{error}</span>
           <button onClick={() => { setError(null); loadSuppliers(); }} className="shrink-0 px-3 py-1.5 rounded-lg"
             style={{ border: '1px solid rgba(239,68,68,0.3)' }}>
             Thử lại

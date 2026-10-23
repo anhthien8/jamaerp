@@ -10,6 +10,7 @@ import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
 import { DEMO_SALARY_GRADES, DEMO_FIXED_COSTS, DEMO_VARIABLE_COSTS, DEMO_COMMISSION_STRUCTURES as DEMO_COMMISSIONS } from '@/lib/demo-data';
 import { labelOf, COMMISSION_TYPE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
+import LineIcon from '@/components/ui/LineIcon';
 
 type Tab = 'salary-grades' | 'fixed-costs' | 'variable-costs' | 'commissions';
 
@@ -103,10 +104,10 @@ export default function FinancePage() {
   const projectMap = projectsList.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {} as Record<string, string>);
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    ...(canViewSalary ? [{ key: 'salary-grades' as Tab, label: 'Bậc lương', icon: '💰' }] : []),
-    { key: 'fixed-costs', label: 'Chi phí cố định', icon: '🏢' },
-    { key: 'variable-costs', label: 'Chi phí biến phí', icon: '📊' },
-    { key: 'commissions', label: 'Cơ cấu hoa hồng', icon: '🎁' },
+    ...(canViewSalary ? [{ key: 'salary-grades' as Tab, label: 'Bậc lương', icon: 'money' }] : []),
+    { key: 'fixed-costs', label: 'Chi phí cố định', icon: 'building' },
+    { key: 'variable-costs', label: 'Chi phí biến phí', icon: 'chart' },
+    { key: 'commissions', label: 'Cơ cấu hoa hồng', icon: 'gift' },
   ];
 
   const totalFixedCosts = fixedCosts.reduce((s, c) => s + c.amount, 0);
@@ -121,27 +122,27 @@ export default function FinancePage() {
             <h1 className="text-2xl font-bold">Tài chính — Lương &amp; Hoa hồng</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Quản lý lương, chi phí, hoa hồng</p>
           </div>
-          {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>🎯 TẬP LUYỆN</span>}
+          {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}><LineIcon name="target" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />TẬP LUYỆN</span>}
         </div>
 
         {loadError && (
           <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#F87171' }}>
-            ⚠️ {loadError}
+            <LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{loadError}
           </div>
         )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="glass-card p-5 border-l-2 border-l-emerald-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">🏢 Chi phí cố định ({selectedMonth})</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="building" size={16} className="inline-block align-[-2px] mr-1.5" />Chi phí cố định ({selectedMonth})</p>
             <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalFixedCosts)}</p>
           </div>
           <div className="glass-card p-5 border-l-2 border-l-amber-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">📊 Chi phí biến phí ({selectedMonth})</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Chi phí biến phí ({selectedMonth})</p>
             <p className="text-xl font-bold text-amber-400">{formatCurrency(totalVariableCosts)}</p>
           </div>
           <div className="glass-card p-5 border-l-2 border-l-blue-500">
-            <p className="text-xs text-[var(--text-muted)] mb-1">💰 Tổng chi phí</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1"><LineIcon name="money" size={16} className="inline-block align-[-2px] mr-1.5" />Tổng chi phí</p>
             <p className="text-xl font-bold text-blue-400">{formatCurrency(totalFixedCosts + totalVariableCosts)}</p>
           </div>
         </div>
@@ -152,7 +153,7 @@ export default function FinancePage() {
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn('flex-1 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
                 tab === t.key ? 'bg-[#C9A96E]/20 text-[#C9A96E]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]')}>
-              {t.icon} {t.label}
+              <LineIcon name={t.icon} size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />{t.label}
             </button>
           ))}
         </div>
@@ -166,7 +167,7 @@ export default function FinancePage() {
             {tab === 'salary-grades' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">💰 Bậc lương ({salaryGrades.length} bậc)</h3>
+                  <h3 className="text-sm font-bold"><LineIcon name="money" size={16} className="inline-block align-[-2px] mr-1.5" />Bậc lương ({salaryGrades.length} bậc)</h3>
                 </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">
@@ -228,7 +229,7 @@ export default function FinancePage() {
             {tab === 'fixed-costs' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">🏢 Chi phí cố định — {selectedMonth}</h3>
+                  <h3 className="text-sm font-bold"><LineIcon name="building" size={16} className="inline-block align-[-2px] mr-1.5" />Chi phí cố định — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
@@ -281,7 +282,7 @@ export default function FinancePage() {
             {tab === 'variable-costs' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">📊 Chi phí biến phí — {selectedMonth}</h3>
+                  <h3 className="text-sm font-bold"><LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Chi phí biến phí — {selectedMonth}</h3>
                   <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                     className="px-3 py-1.5 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
                 </div>
@@ -296,8 +297,8 @@ export default function FinancePage() {
                         <span className="text-amber-400 font-mono font-bold text-sm">{formatCurrency(c.amount)}</span>
                       </div>
                       <div className="flex gap-3 text-xs text-[var(--text-muted)]">
-                        <span>📁 {c.project_id ? (projectMap[c.project_id] || 'Dự án chung') : 'Chung'}</span>
-                        {c.notes && <span>📝 {c.notes}</span>}
+                        <span><LineIcon name="layers" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />{c.project_id ? (projectMap[c.project_id] || 'Dự án chung') : 'Chung'}</span>
+                        {c.notes && <span><LineIcon name="edit" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />{c.notes}</span>}
                       </div>
                     </div>
                   ))}
@@ -344,7 +345,7 @@ export default function FinancePage() {
             {tab === 'commissions' && (
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="text-sm font-bold">🎁 Cơ cấu hoa hồng theo phòng ban</h3>
+                  <h3 className="text-sm font-bold"><LineIcon name="gift" size={16} className="inline-block align-[-2px] mr-1.5" />Cơ cấu hoa hồng theo phòng ban</h3>
                 </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, fetchAllPages } from '@/lib/api';
+import LineIcon from '@/components/ui/LineIcon';
 
 interface SearchItem {
   id: string;
@@ -17,11 +18,11 @@ interface SearchItem {
 
 // Quick actions (static)
 const QUICK_ACTIONS: SearchItem[] = [
-  { id: 'a1', type: 'contact', title: 'Tạo Lead mới', subtitle: 'Thêm khách hàng tiềm năng mới', icon: '➕', href: '/leads' },
-  { id: 'a2', type: 'contact', title: 'Báo giá tức thì', subtitle: 'Báo giá xây mới / cải tạo', icon: '⚡', href: '/quote-tool' },
-  { id: 'a3', type: 'contact', title: 'Xem báo cáo', subtitle: 'Doanh thu, pipeline, conversion', icon: '📊', href: '/reports' },
-  { id: 'a4', type: 'contact', title: 'Kế toán', subtitle: 'Giao dịch, bảng lương, hoa hồng', icon: '💰', href: '/accounting' },
-  { id: 'a5', type: 'contact', title: 'Cài đặt', subtitle: 'Thông tin cá nhân, Telegram Bot', icon: '⚙️', href: '/settings' },
+  { id: 'a1', type: 'contact', title: 'Tạo Lead mới', subtitle: 'Thêm khách hàng tiềm năng mới', icon: 'plus', href: '/leads' },
+  { id: 'a2', type: 'contact', title: 'Báo giá tức thì', subtitle: 'Báo giá xây mới / cải tạo', icon: 'zap', href: '/quote-tool' },
+  { id: 'a3', type: 'contact', title: 'Xem báo cáo', subtitle: 'Doanh thu, pipeline, conversion', icon: 'chart', href: '/reports' },
+  { id: 'a4', type: 'contact', title: 'Kế toán', subtitle: 'Giao dịch, bảng lương, hoa hồng', icon: 'money', href: '/accounting' },
+  { id: 'a5', type: 'contact', title: 'Cài đặt', subtitle: 'Thông tin cá nhân, Telegram Bot', icon: 'settings', href: '/settings' },
 ];
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -77,13 +78,13 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
           id: String(l.id), type: 'lead' as const,
           title: String(l.name || ''),
           subtitle: `${l.phone || ''} · ${l.source || ''} · ${l.stage || ''}`,
-          icon: '👤', href: '/leads',
+          icon: 'user', href: '/leads',
         })),
         ...(projects as unknown as Array<Record<string, unknown>>).map(p => ({
           id: String(p.id), type: 'project' as const,
           title: `${p.code || ''} — ${p.name || ''}`,
           subtitle: `${p.client_name || ''} · ${p.progress ?? 0}%`,
-          icon: '🏗️', href: '/projects',
+          icon: 'crane', href: '/projects',
         })),
       ];
       setLiveItems(items);
@@ -183,7 +184,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                       background: i === selectedIdx ? 'rgba(201,169,110,0.08)' : 'transparent',
                     }}
                   >
-                    <span className="text-lg flex-shrink-0">{item.icon}</span>
+                    <LineIcon name={item.icon} size={18} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                         {highlightMatch(item.title, query)}

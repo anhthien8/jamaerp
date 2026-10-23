@@ -8,6 +8,7 @@ import { api, Contract, Project, extractItems } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import MoneyInput from '@/components/ui/MoneyInput';
+import LineIcon from '@/components/ui/LineIcon';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -42,7 +43,7 @@ function AccessDenied() {
     <Sidebar>
       <div className="p-6 flex items-center justify-center min-h-[60vh] animate-in">
         <div className="glass-card p-12 text-center max-w-md">
-          <span className="text-5xl block mb-4">🔒</span>
+          <LineIcon name="lock" size={48} className="block mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Không có quyền truy cập</h2>
           <p className="text-sm text-[var(--text-muted)] mb-6">
             Bạn không có quyền truy cập trang này.
@@ -239,14 +240,14 @@ export default function ContractsPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Tổng HĐ', value: contracts.length, icon: '📄' },
-            { label: 'Đã ký', value: contracts.filter(c => c.status === 'signed').length, icon: '✅' },
-            { label: 'Tổng giá trị', value: fmtVND(contracts.reduce((s, c) => s + (c.total_value || 0), 0)), icon: '💰' },
-            { label: 'Nháp', value: contracts.filter(c => c.status === 'draft').length, icon: '📝' },
+            { label: 'Tổng HĐ', value: contracts.length, icon: 'file' },
+            { label: 'Đã ký', value: contracts.filter(c => c.status === 'signed').length, icon: 'check' },
+            { label: 'Tổng giá trị', value: fmtVND(contracts.reduce((s, c) => s + (c.total_value || 0), 0)), icon: 'money' },
+            { label: 'Nháp', value: contracts.filter(c => c.status === 'draft').length, icon: 'edit' },
           ].map(card => (
             <div key={card.label} className="rounded-2xl p-4" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{card.icon}</span>
+                <LineIcon name={card.icon} size={18} />
                 <span className="text-xs text-[var(--text-muted)]">{card.label}</span>
               </div>
               <p className="text-xl font-bold text-[var(--text-primary)] whitespace-nowrap">{card.value}</p>
@@ -337,7 +338,7 @@ export default function ContractsPage() {
                         className="cursor-pointer transition-colors"
                         style={{ borderBottom: '1px solid var(--border-subtle)' }}
                         onClick={() => setSelected(c)}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-elevated)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <td className="px-5 py-3.5 font-mono text-xs text-[var(--gold-400)]">{c.code}</td>
@@ -395,7 +396,7 @@ export default function ContractsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center pt-[6vh] px-4" onClick={() => setSelected(null)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative w-full max-w-2xl mx-4 rounded-2xl p-4 sm:p-6 max-h-[80vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">{selected.title}</h2>
@@ -408,7 +409,7 @@ export default function ContractsPage() {
                 return (
                   <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-[var(--text-muted)]">⏱ Tiến độ thi công</span>
+                      <span className="text-xs text-[var(--text-muted)]"><LineIcon name="clock" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />Tiến độ thi công</span>
                       <span className="text-sm font-semibold" style={{
                         color: tl.daysLeft <= 7 ? '#f87171' : tl.daysLeft <= 30 ? '#fbbf24' : '#34d399',
                       }}>{tl.label}</span>
@@ -477,7 +478,7 @@ export default function ContractsPage() {
                       <div className="flex items-center gap-2">
                         {inst.status === 'paid' && inst.proof_image && (
                           <span className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
-                            📷 Có sao kê
+                            <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Có sao kê
                           </span>
                         )}
                         {inst.status === 'pending' && canConfirmTT && (
@@ -553,7 +554,7 @@ export default function ContractsPage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[8vh] px-4" onClick={() => setPaymentModal(null)}>
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
             <div className="relative w-full max-w-md mx-4 rounded-2xl p-4 sm:p-6" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setPaymentModal(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+              <button onClick={() => setPaymentModal(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Xác nhận thanh toán</h3>
@@ -607,7 +608,7 @@ export default function ContractsPage() {
                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                 style={{ background: (confirmChecked && !confirming) ? 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' : 'var(--surface-3)', color: 'white' }}
               >
-                {confirming ? 'Đang xác nhận...' : '✅ Xác nhận đã thanh toán'}
+                {confirming ? 'Đang xác nhận...' : <><LineIcon name="check" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Xác nhận đã thanh toán</>}
               </button>
             </div>
           </div>
@@ -631,7 +632,7 @@ export default function ContractsPage() {
           <div className="fixed inset-0 z-[70] flex items-center justify-center pt-[6vh] px-4" onClick={() => setFormOpen(false)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative w-full max-w-lg mx-4 rounded-2xl p-4 sm:p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setFormOpen(false)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-[rgba(255,255,255,0.05)]">
+              <button onClick={() => setFormOpen(false)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
               <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">{formEdit ? 'Sửa hợp đồng' : 'Tạo hợp đồng mới'}</h2>

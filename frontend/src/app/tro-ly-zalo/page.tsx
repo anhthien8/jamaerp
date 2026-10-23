@@ -17,6 +17,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, ZaloDigestList, ZaloOverview, ZaloSignalInfo } from '@/lib/api';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
 import { duocXemTroLyZalo } from '@/lib/roles';
+import LineIcon from '@/components/ui/LineIcon';
 
 const TEN_LOAI: Record<string, string> = {
   unanswered: 'Khách chờ',
@@ -210,7 +211,7 @@ export default function TroLyZaloPage() {
             {signals === null ? (
               <div className="skeleton h-24 rounded-xl" />
             ) : signals.length === 0 ? (
-              <p className="glass-card p-8 text-center text-sm text-[var(--text-muted)]">Không còn tín hiệu nào cần xử lý 🎉</p>
+              <p className="glass-card p-8 text-center text-sm text-[var(--text-muted)]">Không còn tín hiệu nào cần xử lý <LineIcon name="party" size={16} className="inline-block align-[-2px] ml-1" /></p>
             ) : (
               <ul className="space-y-2">
                 {signals.map(s => (
