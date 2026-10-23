@@ -1051,6 +1051,24 @@ class ApiClient {
     return Array.isArray(res) ? res : (res?.items ?? []);
   }
 
+  /** Ảnh đính kèm ghi chú lead — data-URL JPG đã nén; trả id để chèn «🖼 anh:<id>» vào ghi chú */
+  async uploadLeadImage(leadId: string, dataUrl: string) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
+    }
+    return this.request<{ id: string; width: number; height: number; size_bytes: number }>(
+      `/leads/${leadId}/attachments`, { method: 'POST', body: { data_base64: dataUrl } }
+    );
+  }
+  /** Ảnh lead nằm sau JWT → fetch kèm token rồi trả blob URL cho <img> */
+  async getLeadImageUrl(leadId: string, anhId: string): Promise<string> {
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/leads/${leadId}/attachments/${anhId}`, {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
+    return URL.createObjectURL(await res.blob());
+  }
   async createActivity(leadId: string, data: { type: string; content: string }) {
     return this.request<Activity>(`/leads/${leadId}/activities`, {
       method: 'POST',
@@ -1168,6 +1186,33 @@ class ApiClient {
 
   async retryMediaMirror() {
     return this.request<{ requeued: number }>('/media/mirror/retry', { method: 'POST', body: {} });
+  }
+
+  /** Tải file kết quả giai đoạn (PDF/DWG/SKP… ≤50MB) — bot đăng vào topic dự án, trả task đã gắn file */
+  async uploadTaskFile(taskId: string, file: File) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải file lên được — chuyển sang Chế độ Làm việc.');
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error(`File ${Math.round(file.size / 1048576)}MB vượt 50MB — nén lại hoặc dán link Drive.`);
+    }
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('task_id', taskId);
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/media/task-file`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Tải file thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/media/task-file');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<ProjectTask>;
   }
 
   async updateTaskFinalFile(taskId: string, finalFileUrl: string | null) {

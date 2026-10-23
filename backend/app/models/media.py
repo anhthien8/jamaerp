@@ -21,6 +21,37 @@ from app.database import Base
 MEDIA_KINDS = ("tien_do", "su_co", "vat_tu", "khac")
 
 
+class ProjectDocument(Base):
+    """Tài liệu dự án (PDF/DWG/SKP/Excel…) tải thẳng từ CRM (23/10/2026).
+
+    Trước đây nhân viên phải tự gửi file vào nhóm Telegram rồi dán link vào ô
+    «Lưu File» — chủ dự án thấy làm khó nhân viên. Nay CRM nhận file (≤50MB, giới
+    hạn gửi của Bot API) và bot đăng vào topic dự án trong nhóm Kho ảnh. Tải về:
+    ≤20MB backend stream lại (giới hạn getFile); lớn hơn chuyển sang link tin nhắn
+    Telegram (người trong nhóm mở được).
+    """
+
+    __tablename__ = "project_documents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("projects.id"), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    telegram_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    uploaded_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    __table_args__ = (
+        Index("ix_project_documents_project", "project_id"),
+    )
+
+
 class MediaFile(Base):
     __tablename__ = "media_files"
 

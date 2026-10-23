@@ -2,7 +2,11 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import base64
+import binascii
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 from sqlalchemy import select, func, case, or_, false as sqlalchemy_false
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,9 +21,10 @@ from app.middleware.rbac import (
 )
 from app.models.user import User, Team
 from app.models.lead import (
-    Lead, Activity, VALID_STAGE_TRANSITIONS, LEAD_STAGES, CSKH_ACTIVITY_TYPE,
+    Lead, Activity, LeadAttachment, VALID_STAGE_TRANSITIONS, LEAD_STAGES, CSKH_ACTIVITY_TYPE,
     NGAN_SACH_KHOANG,
 )
+from app.services.media_gateway import MediaError, normalize_image
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task, sinh_ma_du_an, task_department_for_stage
@@ -1013,6 +1018,73 @@ async def create_activity(
         id=activity.id, lead_id=activity.lead_id, user_id=activity.user_id,
         type=activity.type, content=activity.content, created_at=activity.created_at,
         user_name=current_user.full_name,
+    )
+
+
+# ── Ảnh đính kèm ghi chú (23/10/2026) ──
+
+ANH_LEAD_TOI_DA = 4 * 1024 * 1024  # trước khi chuẩn hoá; client đã nén còn ~300KB
+
+
+class AnhLeadBody(BaseModel):
+    data_base64: str
+
+
+async def _lead_xem_duoc(db: AsyncSession, current_user: User, lead_id: str) -> Lead:
+    _chan_neu_khong_duoc_xem_lead(current_user)
+    lead = await db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not await duoc_xem_lead_nay(db, current_user, lead):
+        raise HTTPException(status_code=403, detail="Bạn không được xem lead này")
+    return lead
+
+
+@router.post("/{lead_id}/attachments", status_code=201)
+async def upload_anh_lead(
+    lead_id: str,
+    body: AnhLeadBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tải 1 ảnh lên để gắn vào ghi chú. Trả id — FE chèn «🖼 anh:<id>» vào nội dung."""
+    await _lead_xem_duoc(db, current_user, lead_id)
+    try:
+        raw = base64.b64decode(body.data_base64.split(",")[-1], validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=422, detail="Dữ liệu ảnh không hợp lệ")
+    if not raw:
+        raise HTTPException(status_code=422, detail="Ảnh rỗng")
+    if len(raw) > ANH_LEAD_TOI_DA:
+        raise HTTPException(status_code=413, detail="Ảnh quá lớn (tối đa 4MB) — chọn lại để app tự nén")
+    try:
+        jpg, w, h = normalize_image(raw)
+    except MediaError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    anh = LeadAttachment(
+        lead_id=lead_id, mime="image/jpeg", size_bytes=len(jpg),
+        width=w, height=h, data=jpg, uploaded_by=current_user.id,
+    )
+    db.add(anh)
+    await db.flush()
+    return {"id": anh.id, "width": w, "height": h, "size_bytes": len(jpg)}
+
+
+@router.get("/{lead_id}/attachments/{anh_id}")
+async def xem_anh_lead(
+    lead_id: str,
+    anh_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Trả ảnh nhị phân — cần JWT (FE fetch rồi tạo blob URL), cùng phạm vi xem lead."""
+    await _lead_xem_duoc(db, current_user, lead_id)
+    anh = await db.get(LeadAttachment, anh_id)
+    if not anh or anh.lead_id != lead_id:
+        raise HTTPException(status_code=404, detail="Ảnh không tồn tại")
+    return Response(
+        content=anh.data, media_type=anh.mime,
+        headers={"Cache-Control": "private, max-age=86400"},
     )
 
 

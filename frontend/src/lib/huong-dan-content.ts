@@ -420,7 +420,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm vào thẻ lead, cuộn xuống «Lịch sử hoạt động».",
           "Vội thì bấm **chip 1 chạm**: «📵 Không nghe máy», «🔁 Hẹn gọi lại», «📤 Đã gửi báo giá», «📅 Hẹn khảo sát» — một cái bấm là ghi xong.",
-          "Muốn ghi kỹ hơn: gõ vào ô **«Thêm ghi chú...»** rồi bấm **«Gửi»** (hoặc phím Enter). Có file thì dán link Google Drive vào ô 📎 bên dưới.",
+          "Muốn ghi kỹ hơn: gõ vào ô **«Thêm ghi chú...»** rồi bấm **«Gửi»** (hoặc phím Enter). Có ảnh (ảnh nhà khách, ảnh chụp tin nhắn...) thì bấm **📷** cạnh ô ghi chú hoặc dán ảnh thẳng vào ô, tối đa 6 ảnh mỗi ghi chú; ảnh hiện ngay trong lịch sử, bấm để phóng to. Ảnh lead chỉ người xem được lead mới thấy.",
           "Gọi khách ngay trên bảng: bấm **biểu tượng điện thoại** trên thẻ — máy gọi thật và hệ thống tự ghi nhận cuộc gọi kèm giờ."
         ]
       },
@@ -536,7 +536,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "CRM **chỉ nhận ảnh**. Tài liệu nặng (PDF, bản vẽ DWG, file SKP...) thì gửi vào **nhóm Telegram của dự án** rồi dán link vào ô **«Lưu File»** (File kết quả giai đoạn) trong chi tiết đầu việc — hệ thống chỉ giữ đường link."
+        "text": "Tài liệu (PDF, bản vẽ DWG, file SKP, Excel...) tải thẳng lên: mở đầu việc → **«📤 Tải file lên»** trong khối **«📁 File kết quả giai đoạn»** (tối đa 50MB). File thành file kết quả của đầu việc, bot tự gửi một bản vào topic dự án ở nhóm Telegram. File lớn hơn 50MB thì dán link Drive vào ô bên dưới rồi bấm **«Lưu link»**. **Không tải hợp đồng, chứng từ tài chính** ở đây vì cả nhóm công trình xem được."
       },
       {
         "type": "p",

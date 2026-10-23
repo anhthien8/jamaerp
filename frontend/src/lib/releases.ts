@@ -16,6 +16,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Đính ảnh vào ghi chú lead + tải tài liệu dự án thẳng lên, không phải tự gửi Telegram rồi dán link',
+    tag: 'MỚI',
+    news: [
+      'Lead → «Lịch sử hoạt động»: bỏ ô dán link Google Drive. Bấm 📷 hoặc dán ảnh (Ctrl+V) thẳng vào ô ghi chú, tối đa 6 ảnh mỗi ghi chú. Ảnh hiện ngay trong lịch sử, bấm để phóng to.',
+      'Ảnh lead lưu riêng trong CRM, chỉ Kinh doanh và Ban giám đốc (những người xem được lead) mới thấy; không đi qua nhóm Telegram. Hệ thống tự xoá thông tin vị trí GPS trong ảnh.',
+      'Đầu việc dự án → «📁 File kết quả giai đoạn» có nút «📤 Tải file lên»: chọn PDF, DWG, SKP, Excel… (tối đa 50MB) là xong. File thành file kết quả của đầu việc, lịch sử phiên bản ghi đúng tên file, bot tự gửi một bản vào topic dự án ở nhóm «JAMA Công trình».',
+      'Ô chọn file trong đầu việc nhận cả ảnh lẫn tài liệu: ảnh vào ghi chú, tài liệu thành file kết quả.',
+      'File lớn hơn 50MB vẫn dán link Drive vào ô bên dưới rồi bấm «Lưu link» như cũ.',
+      'iPhone/iPad: chạm vào ô nhập liệu không còn bị phóng to trang rồi kẹt ở đó.',
+    ],
+    test: [
+      'Mở một lead → gõ ghi chú, bấm 📷 chọn 2 ảnh → «Gửi»: ghi chú hiện kèm 2 ảnh nhỏ, bấm ảnh mở lớn.',
+      'Chụp màn hình, bấm vào ô ghi chú lead rồi Ctrl+V: ảnh vào hàng chờ gửi.',
+      'Mở một đầu việc → «📤 Tải file lên» chọn 1 file PDF: «File hiện tại» hiện tên file, bấm mở được; topic dự án trong nhóm Telegram có file đó.',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Telegram bấm chọn dự án, không cần nhớ mã + Admin gán Telegram cho nhân viên bằng 1 cú bấm',
     tag: 'MỚI',
     news: [

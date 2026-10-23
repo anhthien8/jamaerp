@@ -1,7 +1,10 @@
 """Kho ảnh công trình — upload, xem, chia sẻ cho khách (Đợt 2, 23/10/2026)."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from datetime import datetime, timezone
+from urllib.parse import quote
+
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +13,8 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
 from app.middleware.rbac import la_pic_du_an
-from app.models.media import MEDIA_KINDS, MediaFile
-from app.models.project import Project
+from app.models.media import MEDIA_KINDS, MediaFile, ProjectDocument
+from app.models.project import Project, Task
 from app.models.user import User
 from app.services import drive_mirror
 from app.services.media_gateway import (
@@ -21,8 +24,13 @@ from app.services.media_gateway import (
     lay_storage_chat_id,
     luu_anh_tu_telegram,
     luu_anh_tu_web,
+    TAI_VE_QUA_BOT_TOI_DA,
+    link_tin_nhan,
+    luu_tai_lieu,
     tai_anh,
+    tai_tai_lieu,
     url_media,
+    url_tai_lieu,
 )
 
 router = APIRouter(prefix="/media", tags=["media"])
@@ -280,6 +288,74 @@ async def patch_media(
 
 
 # ── Xem ảnh (link ký, không cần đăng nhập) ─────────────────────────────────
+
+# ── Tài liệu dự án: tải thẳng từ CRM thay vì tự gửi Telegram rồi dán link (23/10) ──
+
+@router.post("/task-file", status_code=201)
+async def upload_task_file(
+    file: UploadFile = File(...),
+    task_id: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tải file kết quả giai đoạn của đầu việc. Ghi luôn vào final_file_url + lịch sử phiên bản."""
+    from app.api.projects import _kiem_quyen_sua_task
+    from app.schemas.project import TaskResponse
+
+    task = await db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Đầu việc không tồn tại")
+    await _kiem_quyen_sua_task(db, current_user, task, phan_cong=False)
+    project = await db.get(Project, task.project_id)
+    data = await file.read()
+    try:
+        doc = await luu_tai_lieu(
+            db, data=data, filename=file.filename or "tai-lieu", mime=file.content_type,
+            project=project, task_id=task.id, tieu_de=task.title,
+            user_id=current_user.id, nguoi=current_user.full_name,
+        )
+    except MediaError as exc:
+        await db.commit()  # giữ topic vừa tạo nếu có
+        raise _loi(exc)
+    url = url_tai_lieu(doc)
+    task.final_file_url = url
+    versions = list(task.final_file_versions or [])
+    versions.append({
+        "url": url, "version": len(versions) + 1, "label": doc.filename,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    })
+    task.final_file_versions = versions
+    await db.flush()
+    return TaskResponse.model_validate(task)
+
+
+@router.get("/docs/{doc_id}/{sig}/{ten}")
+async def get_task_file(doc_id: str, sig: str, ten: str, db: AsyncSession = Depends(get_db)):
+    """Link ký HMAC như ảnh (mở tab mới không gửi được JWT). >20MB → link tin nhắn Telegram."""
+    if not chu_ky_hop_le("doc:" + doc_id, sig):
+        raise HTTPException(status_code=404, detail="Không tìm thấy file")
+    doc = await db.get(ProjectDocument, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy file")
+    if doc.size_bytes > TAI_VE_QUA_BOT_TOI_DA:
+        link = link_tin_nhan(doc)
+        if not link:
+            raise HTTPException(status_code=404, detail="Không tìm thấy file")
+        return RedirectResponse(link, status_code=302)
+    try:
+        data = await tai_tai_lieu(doc)
+    except MediaError as exc:
+        raise _loi(exc)
+    la_pdf_anh = (doc.mime or "").startswith(("application/pdf", "image/"))
+    return Response(
+        content=data,
+        media_type=doc.mime or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"{'inline' if la_pdf_anh else 'attachment'}; filename*=UTF-8''{quote(doc.filename)}",
+            "Cache-Control": "private, max-age=86400",
+        },
+    )
+
 
 @router.get("/{media_id}/{sig}.jpg")
 async def get_media_file(media_id: str, sig: str, db: AsyncSession = Depends(get_db)):

@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.media import MediaFile
+from app.models.media import MediaFile, ProjectDocument
 from app.models.notification import SystemSetting
 from app.models.project import Project
 
@@ -276,6 +276,98 @@ async def luu_anh_tu_telegram(
 # ---------------------------------------------------------------------------
 # Đọc ảnh
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Tài liệu dự án (PDF/DWG/SKP…) — 23/10/2026
+# ---------------------------------------------------------------------------
+
+TAI_LIEU_TOI_DA = 50 * 1024 * 1024   # Bot API sendDocument
+TAI_VE_QUA_BOT_TOI_DA = 20 * 1024 * 1024  # Bot API getFile
+
+
+def ky_tai_lieu(doc_id: str) -> str:
+    return ky_media("doc:" + doc_id)
+
+
+def url_tai_lieu(doc: ProjectDocument) -> str:
+    """Tương đối so với `/api/v1` như ảnh; tên file ở cuối để trình duyệt lưu đúng tên."""
+    from urllib.parse import quote
+    return f"/media/docs/{doc.id}/{ky_tai_lieu(doc.id)}/{quote(doc.filename)}"
+
+
+def link_tin_nhan(doc: ProjectDocument) -> str | None:
+    """t.me/c/<id>/<msg> — chỉ thành viên nhóm mở được (nhóm riêng tư)."""
+    chat = (doc.telegram_chat_id or "").lstrip("-")
+    if not chat or not doc.telegram_message_id:
+        return None
+    if chat.startswith("100"):
+        chat = chat[3:]
+    return f"https://t.me/c/{chat}/{doc.telegram_message_id}"
+
+
+async def luu_tai_lieu(
+    db: AsyncSession, *, data: bytes, filename: str, mime: str | None,
+    project: Project, task_id: str | None, tieu_de: str | None,
+    user_id: str | None, nguoi: str | None,
+) -> ProjectDocument:
+    if not data:
+        raise MediaError("File rỗng")
+    if len(data) > TAI_LIEU_TOI_DA:
+        raise MediaError(
+            f"File {len(data) // (1024 * 1024)}MB vượt giới hạn 50MB của Telegram. "
+            "Nén lại (zip/giảm chất lượng) hoặc dán link Drive vào ô bên cạnh.", 413,
+        )
+    chat_id = await lay_storage_chat_id(db)
+    if not chat_id:
+        raise MediaError(
+            "Chưa cấu hình nhóm Kho ảnh nên chưa tải file được. Admin vào Cài đặt → "
+            "Tự động hoá → «Nhóm Telegram Kho ảnh». Tạm thời dán link vào ô bên cạnh.", 503,
+        )
+    caption = _caption(project, f"📁 {tieu_de}" if tieu_de else "📁 Tài liệu", nguoi)
+
+    async def gui(thread_id: int | None) -> dict:
+        d = {"chat_id": chat_id, "caption": caption}
+        if thread_id:
+            d["message_thread_id"] = str(thread_id)
+        return await _tg("sendDocument", d, files={
+            "document": (filename, data, mime or "application/octet-stream"),
+        })
+
+    thread_id = await _dam_bao_topic(db, project, chat_id)
+    try:
+        msg = await gui(thread_id)
+    except MediaError as exc:
+        if thread_id and "thread not found" in str(exc).lower():
+            project.telegram_topic_id = None
+            msg = await gui(await _dam_bao_topic(db, project, chat_id))
+        else:
+            raise
+    tep = msg.get("document") or {}
+    doc = ProjectDocument(
+        project_id=project.id, task_id=task_id, filename=filename[:255], mime=mime,
+        size_bytes=len(data), telegram_chat_id=chat_id,
+        telegram_message_id=msg.get("message_id"), telegram_file_id=tep.get("file_id"),
+        uploaded_by=user_id,
+    )
+    db.add(doc)
+    await db.flush()
+    return doc
+
+
+async def tai_tai_lieu(doc: ProjectDocument) -> bytes:
+    if not doc.telegram_file_id:
+        raise MediaError("File không còn trên Telegram", 404)
+    info = await _tg("getFile", {"file_id": doc.telegram_file_id})
+    url = f"https://api.telegram.org/file/bot{get_settings().TELEGRAM_BOT_TOKEN}/{info.get('file_path')}"
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.get(url)
+    except httpx.HTTPError as exc:
+        raise MediaError("Không tải được file từ Telegram", 502) from exc
+    if resp.status_code != 200:
+        raise MediaError("Không tải được file từ Telegram", 502)
+    return resp.content
+
 
 async def tai_anh(db: AsyncSession, media: MediaFile) -> bytes:
     """Bytes ảnh từ Telegram (cache `file_path` 50 phút)."""

@@ -9,6 +9,8 @@ import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS
 import { DATE_PRESETS, dayKey, formatDayKey, resolveDateRange, toDayKey } from '@/lib/date-filter';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
+import { AnhLead, DONG_ANH } from '@/components/ui/AnhGhiChuLead';
+import { blobThanhDataUrl, nenAnh } from '@/lib/anh';
 import { api, Lead, Activity, User, AISuggestion, AISuggestionHistory, fetchAllPages } from '@/lib/api';
 import { canAssignLeads, canWriteCskhNote, isSalesCoordinator, phamViDuLieu } from '@/lib/roles';
 
@@ -346,7 +348,10 @@ function LeadsContent() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [newNoteLink, setNewNoteLink] = useState('');
+  // Ảnh chờ gửi kèm ghi chú (thay ô dán link Drive, 23/10/2026) — đã nén ≤1600px
+  const [anhCho, setAnhCho] = useState<string[]>([]);
+  const [dangGuiNote, setDangGuiNote] = useState(false);
+  const chonAnhRef = useRef<HTMLInputElement>(null);
   // Lognote CSKH — chỉ Admin CSKH + admin nhập được (backend chặn 403 vai trò khác).
   const [newCskhNote, setNewCskhNote] = useState('');
   const [savingCskh, setSavingCskh] = useState(false);
@@ -456,7 +461,7 @@ function LeadsContent() {
     setSelectedLead(lead);
     // Ô ghi chú luôn sạch khi mở thẻ mới (tránh sót nội dung của lead trước).
     setNewNote('');
-    setNewNoteLink('');
+    setAnhCho([]);
     setNewCskhNote('');
     setLostPickerOpen(Boolean(options?.lostPicker));
     setAssignOpen(false);
@@ -485,7 +490,7 @@ function LeadsContent() {
   const closeLeadDetail = useCallback(() => {
     setSelectedLead(null);
     setNewNote('');
-    setNewNoteLink('');
+    setAnhCho([]);
     setNewCskhNote('');
     setAssignOpen(false);
     setLostPickerOpen(false);
@@ -536,21 +541,40 @@ function LeadsContent() {
     }
   };
 
+  const themAnhCho = async (files: Iterable<File>) => {
+    const ds = [...files].filter(f => f.type.startsWith('image/'));
+    if (!ds.length) return;
+    const conCho = 6 - anhCho.length;
+    if (conCho <= 0) { toast('Tối đa 6 ảnh mỗi ghi chú', 'error'); return; }
+    const moi: string[] = [];
+    for (const f of ds.slice(0, conCho)) {
+      const nen = await nenAnh(f);
+      if (!nen) { toast(`Không đọc được ảnh «${f.name}» — ảnh HEIC hãy đổi sang JPG`, 'error'); continue; }
+      moi.push(await blobThanhDataUrl(nen));
+    }
+    if (ds.length > conCho) toast('Tối đa 6 ảnh mỗi ghi chú', 'error');
+    setAnhCho(prev => [...prev, ...moi]);
+  };
+
   const handleAddNote = async () => {
-    if (!selectedLead || !newNote.trim()) return;
+    if (!selectedLead || dangGuiNote || (!newNote.trim() && !anhCho.length)) return;
+    setDangGuiNote(true);
     try {
-      const content = newNoteLink.trim()
-        ? `${newNote.trim()}\n📎 ${newNoteLink.trim()}`
-        : newNote.trim();
+      const ids: string[] = [];
+      for (const dataUrl of anhCho) {
+        ids.push((await api.uploadLeadImage(selectedLead.id, dataUrl)).id);
+      }
+      const content = [newNote.trim(), ...ids.map(id => `🖼 anh:${id}`)].filter(Boolean).join('\n');
       await api.createActivity(selectedLead.id, { type: 'note', content });
       const acts = await api.getActivities(selectedLead.id);
       setActivities(acts);
       setNewNote('');
-      setNewNoteLink('');
-      toast('Đã thêm ghi chú', 'success');
-    } catch {
-      toast('Lỗi khi thêm ghi chú', 'error');
+      setAnhCho([]);
+      toast(ids.length ? `Đã thêm ghi chú kèm ${ids.length} ảnh` : 'Đã thêm ghi chú', 'success');
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Lỗi khi thêm ghi chú', 'error');
     }
+    setDangGuiNote(false);
   };
 
   // Ghi một mục lognote CSKH. Backend đóng dấu ngày giờ + tên người nhập, và cố ý
@@ -1849,7 +1873,7 @@ function LeadsContent() {
                         </div>
                         <div className="flex-1 pb-3">
                           <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
-                            {(act.content || '').split('\n').map((line, li) => {
+                            {(act.content || '').split('\n').filter(l => !DONG_ANH.test(l)).map((line, li, chu) => {
                               if (line.startsWith('📎')) {
                                 const url = line.replace('📎', '').trim();
                                 return (
@@ -1860,9 +1884,17 @@ function LeadsContent() {
                                   </a>
                                 );
                               }
-                              return <span key={li}>{line}{li < (act.content || '').split('\n').length - 1 && <br />}</span>;
+                              return <span key={li}>{line}{li < chu.length - 1 && <br />}</span>;
                             })}
                           </div>
+                          {(() => {
+                            const anhIds = (act.content || '').split('\n').map(l => l.match(DONG_ANH)?.[1]).filter((x): x is string => !!x);
+                            return anhIds.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {anhIds.map(id => <AnhLead key={id} leadId={selectedLead.id} anhId={id} />)}
+                              </div>
+                            );
+                          })()}
                           <p className="text-[10px] text-[var(--text-muted)] mt-1">
                             {act.user_name || 'System'} · {new Date(act.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                           </p>
@@ -1899,27 +1931,58 @@ function LeadsContent() {
                       value={newNote}
                       onChange={e => setNewNote(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddNote()}
-                      placeholder="Thêm ghi chú..."
+                      onPaste={e => {
+                        const files = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
+                        if (files.length) { e.preventDefault(); themAnhCho(files); }
+                      }}
+                      placeholder="Thêm ghi chú (dán ảnh được)..."
                       className="flex-1 px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[#C9A96E]"
                     />
+                    <input
+                      ref={chonAnhRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={e => { if (e.target.files) themAnhCho(e.target.files); e.target.value = ''; }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => chonAnhRef.current?.click()}
+                      disabled={dangGuiNote || anhCho.length >= 6}
+                      title="Đính ảnh (tối đa 6)"
+                      aria-label="Đính ảnh"
+                      className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-30 transition-all"
+                    >
+                      📷
+                    </button>
                     <button
                       onClick={handleAddNote}
-                      disabled={!newNote.trim()}
+                      disabled={dangGuiNote || (!newNote.trim() && !anhCho.length)}
                       className="px-3 py-2 rounded-lg text-sm font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-30 transition-all"
                     >
-                      Gửi
+                      {dangGuiNote ? '...' : 'Gửi'}
                     </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-muted)] text-xs flex-shrink-0">📎</span>
-                    <input
-                      value={newNoteLink}
-                      onChange={e => setNewNoteLink(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                      placeholder="Link Google Drive (tùy chọn)..."
-                      className="flex-1 px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[#C9A96E]"
-                    />
-                  </div>
+                  {anhCho.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {anhCho.map((src, i) => (
+                        <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt={`Ảnh chờ gửi ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setAnhCho(prev => prev.filter((_, j) => j !== i))}
+                            disabled={dangGuiNote}
+                            aria-label="Bỏ ảnh này"
+                            className="absolute top-0.5 right-0.5 w-7 h-7 rounded-full bg-black/70 text-white text-base leading-none"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

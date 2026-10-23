@@ -203,6 +203,7 @@ export default function ProjectsPage() {
   const [newActivityContent, setNewActivityContent] = useState('');
   const [newActivityMedia, setNewActivityMedia] = useState<string[]>([]);
   const [taskFileUrl, setTaskFileUrl] = useState('');
+  const [dangTaiFile, setDangTaiFile] = useState(false);
 
   // Project form modal state
   const [showProjectForm, setShowProjectForm] = useState(false);
@@ -256,20 +257,33 @@ export default function ProjectsPage() {
     toast(`Đã chọn ${results.length} ảnh — bấm «Đăng cập nhật» để lưu`, 'success');
   };
 
-  // Dropzone trước 13/08/2026 chỉ setState — bytes không bao giờ rời trình duyệt
-  // nhưng UI vẫn liệt kê file như đã tải lên. Nay: ảnh đi đường media thật; tài liệu
-  // nặng (PDF/DWG/SKP) theo quyết định dự án lưu ở nhóm Telegram, dán link vào ô Lưu File.
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 23/10/2026: tài liệu (PDF/DWG/SKP…) tải thẳng từ CRM — bot đăng vào topic dự án
+  // trong nhóm Kho ảnh và gắn làm file kết quả. Trước đó nhân viên phải tự gửi
+  // Telegram rồi dán link, chủ dự án thấy làm khó nhân viên.
+  const taiFileKetQua = async (file: File) => {
+    if (!selectedTask || dangTaiFile) return;
+    setDangTaiFile(true);
+    try {
+      const updated = await api.uploadTaskFile(selectedTask.id, file);
+      setTasks(prev => prev.map(t => t.id === selectedTask.id ? updated : t));
+      setSelectedTask(updated);
+      setTaskFileUrl(updated.final_file_url || '');
+      toast(`Đã tải «${file.name}» lên làm file kết quả`, 'success');
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Tải file thất bại', 'error');
+    }
+    setDangTaiFile(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const all = Array.from(files);
+    e.target.value = '';
     const images = all.filter(f => f.type.startsWith('image/'));
     const docs = all.filter(f => !f.type.startsWith('image/'));
-    if (docs.length > 0) {
-      toast(`CRM chỉ nhận ảnh. Tài liệu (${docs.map(d => d.name).join(', ')}): gửi vào nhóm Telegram dự án rồi dán link vào ô Lưu File.`, 'error');
-    }
     if (images.length > 0) addImagesToMedia(images);
-    e.target.value = '';
+    for (const d of docs) await taiFileKetQua(d);
   };
 
   useEffect(() => {
@@ -1592,10 +1606,21 @@ export default function ProjectsPage() {
               {/* Final Result File (Upload or Paste Link) */}
               <div className="glass-card p-3.5 mb-4">
                 <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">📁 File kết quả giai đoạn (Final File)</h4>
+                <label
+                  className={`flex items-center justify-center gap-2 w-full py-2.5 mb-2 rounded-xl text-xs font-medium cursor-pointer transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] ${dangTaiFile ? 'opacity-60 pointer-events-none' : ''}`}
+                >
+                  {dangTaiFile ? 'Đang tải lên…' : '📤 Tải file lên (PDF, DWG, SKP, Excel… tối đa 50MB)'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={dangTaiFile}
+                    onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) taiFileKetQua(f); }}
+                  />
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Nhập link file chốt (ví dụ: link Drive, link PDF bản vẽ...)"
+                    placeholder="…hoặc dán link (Drive, file >50MB)"
                     value={taskFileUrl}
                     onChange={e => setTaskFileUrl(e.target.value)}
                     className="flex-1 text-xs px-3 py-2 rounded-xl text-white"
@@ -1603,39 +1628,42 @@ export default function ProjectsPage() {
                   />
                   <button
                     onClick={handleTaskFileSave}
-                    className="text-xs px-3 rounded-xl font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] transition-all"
+                    className="text-xs px-3 rounded-xl font-medium border border-[var(--gold-500)] text-[var(--gold-400)] hover:bg-[var(--gold-500)]/10 transition-all"
                   >
-                    Lưu File
+                    Lưu link
                   </button>
                 </div>
                 {selectedTask.final_file_url && (
                   <div className="mt-2 text-xs flex items-center justify-between">
                     <span className="text-[var(--text-muted)]">File hiện tại:</span>
                     <a
-                      href={selectedTask.final_file_url}
+                      href={mediaUrl(selectedTask.final_file_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[var(--gold-400)] hover:underline truncate max-w-[70%]"
                     >
-                      {selectedTask.final_file_url.startsWith('data:') ? '📎 Xem ảnh đính kèm (Base64)' : selectedTask.final_file_url}
+                      {selectedTask.final_file_url.startsWith('data:')
+                        ? '📎 Xem ảnh đính kèm (Base64)'
+                        : selectedTask.final_file_url.startsWith('/media/docs/')
+                          ? `📎 ${decodeURIComponent(selectedTask.final_file_url.split('/').pop() || 'Tài liệu')}`
+                          : selectedTask.final_file_url}
                     </a>
                   </div>
                 )}
               </div>
 
-              {/* File Upload Zone — chỉ nhận ảnh (đi đường media thật vào ghi chú).
-                  Tài liệu nặng lưu ở nhóm Telegram dự án, dán link vào ô Lưu File phía trên. */}
+              {/* File Upload Zone — ảnh vào ghi chú bên dưới, tài liệu thành file kết quả phía trên. */}
               <div className="mt-4 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
-                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Thêm ảnh vào ghi chú bên dưới</p>
+                <p className="text-xs text-[var(--text-muted)] mb-2">📎 Chọn ảnh hoặc tài liệu</p>
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
                   onChange={handleFileUpload}
+                  disabled={dangTaiFile}
                   className="w-full text-xs text-[var(--text-muted)]"
                 />
                 <p className="text-[10px] text-[var(--text-muted)] mt-2">
-                  Tài liệu PDF/DWG/SKP: gửi vào nhóm Telegram dự án rồi dán link vào ô «Lưu File» phía trên — CRM không lưu file nặng.
+                  Ảnh → vào ghi chú bên dưới. PDF/DWG/SKP/Excel → tự lưu làm file kết quả và gửi vào nhóm Telegram dự án.
                 </p>
               </div>
 

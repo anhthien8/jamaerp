@@ -21,8 +21,9 @@ from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.models.ai_memory import AiRun
 from app.models.employee_profile import EmployeeProfile, EmployeeDocument
 from app.models.handover import HandoverRecord
-from app.models.media import MediaFile
+from app.models.media import MediaFile, ProjectDocument
 from app.models.telegram_contact import TelegramContact
+from app.models.lead import LeadAttachment
 
 __all__ = [
     "User", "Team",

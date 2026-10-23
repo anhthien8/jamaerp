@@ -552,3 +552,15 @@ select optgroup {
   background-color: #171b26;
   color: #e8e8ea;
 }
+
+/* iOS Safari tự phóng to trang khi chạm vào ô nhập có chữ < 16px rồi không thu lại
+   (nguyên tắc 23/10/2026: mượt trên iPhone/iPad). Chỉ áp cho iOS — -webkit-touch-callout
+   chỉ WebKit iOS hỗ trợ — nên desktop và Android giữ cỡ chữ cũ. Ngoài @layer để thắng
+   class text-xs/text-sm của Tailwind. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

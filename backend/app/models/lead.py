@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Index, BigInteger
+from sqlalchemy import String, Text, Float, ForeignKey, DateTime, Index, BigInteger, Integer, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -137,6 +137,34 @@ VALID_STAGE_TRANSITIONS: dict[str, list[str]] = {
 # chất lượng chăm sóc của team kinh doanh. Dùng bảng activities sẵn có nên mỗi mục
 # tự có ngày giờ + tên người nhập, không cần bảng/cột mới.
 CSKH_ACTIVITY_TYPE = "cskh"
+
+
+class LeadAttachment(Base):
+    """Ảnh đính kèm ghi chú lead (23/10/2026) — thay ô dán link Google Drive.
+
+    Lưu thẳng Postgres như giấy tờ HR, KHÔNG qua Kho ảnh Telegram: lead chỉ
+    Kinh doanh + BGĐ được thấy (22/09), còn nhóm «JAMA Công trình» có cả thợ
+    hiện trường. Ảnh đã nén client (~300KB) + backend chuẩn hoá lại, bỏ EXIF.
+    Ghi chú trỏ tới ảnh bằng dòng «🖼 anh:<id>» trong Activity.content.
+    """
+
+    __tablename__ = "lead_attachments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    lead_id: Mapped[str] = mapped_column(String(36), ForeignKey("leads.id"), nullable=False)
+    mime: Mapped[str] = mapped_column(String(50), nullable=False, default="image/jpeg")
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    __table_args__ = (
+        Index("ix_lead_attachments_lead", "lead_id"),
+    )
 
 
 class Activity(Base):
