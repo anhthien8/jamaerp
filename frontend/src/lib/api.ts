@@ -1834,6 +1834,32 @@ class ApiClient {
     return this.request<{ id: string; status: string }>(`/zalo/signals/${id}/action`, { method: 'POST', body: { action } });
   }
 
+  // === Chế độ thưởng + Hũ doanh số (23/10/2026) ===
+  async cdtCauHinh(ky?: string) {
+    return this.request<CdtCauHinhResp>('/che-do-thuong', { params: ky ? { ky } : undefined });
+  }
+  async cdtLuu(cau_hinh: CdtCauHinh) {
+    return this.request<{ cau_hinh: CdtCauHinh; hieu_luc_tu: string }>('/che-do-thuong', { method: 'PUT', body: { cau_hinh } });
+  }
+  async cdtXemThu(ky: string) {
+    return this.request<CdtBang>('/che-do-thuong/xem-thu', { params: { ky } });
+  }
+  async cdtChot(ky: string) {
+    return this.request<{ luc: string; so_nguoi: number; tong: number; ky_luong: string; approval_id: string | null }>('/che-do-thuong/chot', { method: 'POST', params: { ky } });
+  }
+  async cdtLoaiTru(ky: string) {
+    return this.request<{ ky: string; user_ids: string[]; ly_do: Record<string, string> }>('/che-do-thuong/loai-tru', { params: { ky } });
+  }
+  async cdtLuuLoaiTru(ky: string, user_ids: string[], ly_do: Record<string, string> = {}) {
+    return this.request<{ ky: string; user_ids: string[] }>('/che-do-thuong/loai-tru', { method: 'PUT', params: { ky }, body: { user_ids, ly_do } });
+  }
+  async cdtHu() {
+    return this.request<CdtHu>('/che-do-thuong/hu');
+  }
+  async cdtNguoi(userId: string, ky?: string) {
+    return this.request<{ hien: false } | ({ hien: true; ky: string; quy: string } & CdtDong)>(`/che-do-thuong/nguoi/${userId}`, { params: ky ? { ky } : undefined });
+  }
+
   // === ERP: P&L (C-level only) ===
   async getPnLSummary() {
     return this.request<PnLSummary>('/pl/summary');
@@ -3168,6 +3194,51 @@ export interface FeedbackItem {
   admin_reply: string | null;
   created_at: string;
 }
+
+// === Chế độ thưởng (23/10/2026) ===
+export type CdtChuKy = 'thang' | 'quy';
+export interface CdtMoc { doanh_so: number; quy: number; nhan: string; dat?: boolean }
+export interface CdtCauHinh {
+  quy_tran_thang: number;
+  tu_dong_chot: boolean;
+  chuong_trinh: {
+    hu_doanh_so: { bat: boolean; chu_ky: CdtChuKy; moc: CdtMoc[]; cong_don: boolean; pham_vi: string; cach_chia: string; phong_nhan: string[]; bao_telegram: boolean; ai_thay_hu: string };
+    chuyen_can: { bat: boolean; chu_ky: CdtChuKy; gio_vao_ca: string; tre_phut: number; tru_tre: number; tru_quen_ra: number; tru_nghi_khong_phep: number; thuong_du_cong: number };
+    phan_hoi: { bat: boolean; chu_ky: CdtChuKy; phong: string[]; gio_goi: number; muc_tieu_goi: number; phut_zalo: number; muc_tieu_zalo: number; tru_qua_24h: number; thuong: number };
+    danh_gia: { bat: boolean; chu_ky: CdtChuKy; thoi_diem: string[]; nguong_sao: number; thuong_du_an: number; thuong_khen: number };
+    ngoi_sao: { bat: boolean; chu_ky: CdtChuKy; giai: number[] };
+  };
+  diem_jama: { trong_so: Record<string, Record<string, number>>; he_so: { tu: number; he_so: number }[] };
+  dieu_kien: { con_lam_viec: boolean; thu_viec_pct: number; ky_luat_khong_nhan: boolean; nv_xem_diem: boolean };
+}
+export interface CdtCauHinhResp {
+  ky: string; cau_hinh: CdtCauHinh; hieu_luc_tu: string | null; phien_ban: string[];
+  lich_su: { luc: string; boi: string; hieu_luc_tu: string }[]; lan_luu_sau_ap_tu: string; mac_dinh: CdtCauHinh;
+}
+export interface CdtKhoan { ma: string; nhan: string; so_tien: number; chi_ky_nay: boolean }
+export interface CdtDong {
+  user_id: string; ten: string; phong: string | null; nhom: string | null; doanh_so: number;
+  diem: number | null; he_so: number; thanh_phan: Record<string, number | null>;
+  chi_tiet: Record<string, Record<string, unknown> | null>;
+  khoan: CdtKhoan[]; tong: number; du_kien_cuoi_quy: number; ghi_chu: string[];
+}
+export interface CdtBang {
+  ky: string; quy: string; cuoi_quy: boolean; hieu_luc_tu: string | null;
+  chuong_trinh_bat: number; tong_chuong_trinh: number; tong_chi: number; quy_tran: number; vuot_tran: boolean;
+  so_nguoi: number; so_nguoi_nhan: number;
+  hu: { doanh_so: number; moc: CdtMoc[]; so_moc_dat: number; quy_mo: number; moc_tiep: CdtMoc | null; con_thieu: number } | null;
+  du_an_danh_gia: { project_id: string; code: string; name: string; sao_tb: number; so_luot: number; khieu_nai: boolean; dat: boolean }[];
+  ngoi_sao: { hang: number; user_id: string; ten: string; diem: number; giai: number }[];
+  da_chot: { luc: string; boi: string; so_nguoi: number; tong: number; ky_luong: string; approval_id: string | null } | null;
+  nguoi: CdtDong[];
+}
+export type CdtHu = { hien: false } | {
+  hien: true; ky: string; nhan_ky: string; chu_ky: CdtChuKy; cong_don: boolean; doanh_so: number;
+  moc: CdtMoc[]; so_moc_dat: number; quy_mo: number; quy_toi_da: number; moc_tiep: CdtMoc | null; con_thieu: number;
+  ngay_da_qua: number; so_ngay: number;
+  ca_nhan: { user_id: string; ten: string; doanh_so: number }[];
+  doi: { team_id: string; ten: string; doanh_so: number }[];
+};
 
 export interface PaginatedResponse<T> {
   items: T[];

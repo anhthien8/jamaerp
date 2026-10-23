@@ -1544,5 +1544,65 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "Khách ký hợp đồng rồi mà chưa thấy dự án? Kiểm tra thẻ khách đã được kéo vào đúng cột «Deal đã thắng» chưa — hệ thống chỉ tự tạo dự án ở bước đó."
       }
     ]
+  },
+  {
+    "id": "che-do-thuong",
+    "icon": "wallet",
+    "title": "Chế độ thưởng & Điểm JAMA — làm tốt thì nhận gì",
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Công ty có **5 chương trình thưởng**, Admin bật/tắt và chỉnh số ở menu **«Chế độ thưởng»** (hoặc Cài đặt → Nhân sự). Mỗi chương trình chạy theo **Tháng** hoặc **Quý**. Đổi luật thì **áp từ kỳ sau**, có lưu lịch sử."
+      },
+      {
+        "type": "table",
+        "header": [
+          "Chương trình",
+          "Cách tính (số mẫu)"
+        ],
+        "rows": [
+          [
+            "Hũ doanh số",
+            "Doanh số công ty vượt mốc 8 / 12 / 14,4 / 18 tỷ → quỹ mở 20 / 50 / 100 / 200 triệu, chia theo % doanh số mỗi người"
+          ],
+          [
+            "Chuyên cần",
+            "100 điểm: đi trễ quá 5 phút −3, quên chấm ra −2, nghỉ không phép −15. Đủ chuẩn → +500k"
+          ],
+          [
+            "Phản hồi khách",
+            "Gọi khách mới trong 2 giờ (≥ 90%), trả lời Zalo trong 15 phút (≥ 85%); mỗi lead bỏ quá 24 giờ −2. Đạt → +1 triệu"
+          ],
+          [
+            "Khách hàng đánh giá",
+            "Khách chấm sao trên trang tiến độ ở 4 mốc. Trung bình ≥ 4,5 sao → 3 triệu/dự án; mỗi lời khen đích danh +300k; ≤ 2 sao → báo Trưởng phòng và giữ thưởng dự án đó"
+          ],
+          [
+            "Ngôi sao quý",
+            "Top 3 điểm JAMA của quý: 5 / 3 / 2 triệu (mặc định tắt)"
+          ]
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Điểm JAMA và hệ số thưởng"
+      },
+      {
+        "type": "p",
+        "text": "Điểm JAMA (0–100) gộp 4 phần **Doanh số · Chuyên cần · Phản hồi · Đánh giá**, trọng số theo phòng (Kinh doanh 40/20/25/15). Điểm ≥ 90 nhân **×1,2**; 70–89 **×1,0**; 50–69 **×0,5**; dưới 50 **không có thưởng**. Thử việc nhận 50%, đang bị kỷ luật thì không nhận."
+      },
+      {
+        "type": "steps",
+        "items": [
+          "**Xem điểm của mình**: Hồ sơ nhân viên → tab **Tiền** → khối «Điểm JAMA» (hiện khi Admin bật «Nhân viên tự xem điểm»).",
+          "**Hũ trên Tổng quan**: hũ vàng đầy dần theo doanh số công ty, kèm số còn thiếu tới mốc tiếp. Bảng «Ai đang đẩy hũ» chỉ ghi doanh số, không ghi tiền thưởng từng người.",
+          "**Cuối kỳ**: Kế toán mở tab **Bảng thưởng** → kiểm tra → **«Chốt kỳ → gửi duyệt»**. Phiếu «Bảng thưởng» vào trang Phê duyệt; duyệt xong mới vào lương."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Số trong khối Điểm JAMA là **dự kiến**, cập nhật theo ngày. Số chính thức là bảng đã chốt và được duyệt."
+      }
+    ]
   }
 ];

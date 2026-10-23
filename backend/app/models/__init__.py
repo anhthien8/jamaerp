@@ -24,6 +24,7 @@ from app.models.handover import HandoverRecord
 from app.models.media import MediaFile, ProjectDocument
 from app.models.telegram_contact import TelegramContact
 from app.models.lead import LeadAttachment
+from app.models.danh_gia_khach import DanhGiaKhach
 
 __all__ = [
     "User", "Team",
@@ -46,4 +47,5 @@ __all__ = [
     "HandoverRecord",
     "MediaFile",
     "TelegramContact",
+    "DanhGiaKhach",
 ]

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import DiemJama from '@/components/hr/DiemJama';
 import LineIcon from '@/components/ui/LineIcon';
 import { useToast } from '@/components/ui/Toast';
 import { api, type EmployeeProfileData, type EmployeeDocumentMeta, type EmployeeFinanceData, type HandoverItem, type AttendanceRecord, type AttendanceSummary } from '@/lib/api';
@@ -414,6 +415,7 @@ function NhanVienContent() {
         {/* ── Tab Tiền ── */}
         {tab === 'tien' && finance && (
           <div className="space-y-4">
+            <DiemJama userId={targetId} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: 'Lương thực nhận (đã chi)', value: finance.totals.net_paid },

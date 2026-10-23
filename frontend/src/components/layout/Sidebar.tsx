@@ -71,6 +71,8 @@ const ALL_ITEMS: NavItem[] = [
   // Trước 12/08/2026 mục này KHÔNG gán quyền nào ⇒ Kế toán (canViewKPI tắt) thấy menu
   // rồi bấm vào bị trang đá về Tổng quan. Gán quyền cho menu khớp với chốt của trang.
   { href: '/kpi', label: 'KPI', icon: Icon.kpi, perm: 'canViewKPI' },
+  // Chế độ thưởng 23/10/2026 — khớp _quan_tri() backend (che_do_thuong.py): admin sửa, kế toán xem/chốt
+  { href: '/che-do-thuong', label: 'Chế độ thưởng', icon: Icon.kpi, roles: ['admin', 'accountant'] },
   // Bảng điều khiển Kinh doanh — bản thử nghiệm, chỉ admin (xem lib/features.ts)
   ...(SHOW_SALES_DASHBOARD
     ? [{ href: '/sale-dashboard', label: 'Bảng KD', icon: Icon.salesDashboard, roles: VAI_TRO_SALE_DASHBOARD }]

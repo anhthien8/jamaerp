@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, TaskSlaConfig, MediaStatus } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
@@ -1507,6 +1508,20 @@ export default function SettingsPage() {
             <MyAIKeySection />
           </div>
         </div>
+
+        {/* ── Nhân sự — Chế độ thưởng (23/10/2026), admin sửa / kế toán xem ── */}
+        {(user.role === 'admin' || user.role === 'accountant') && (
+          <div className="max-w-5xl">
+            {groupLabel('wallet', 'Nhân sự', 'chế độ thưởng, điểm JAMA')}
+            <Link href="/che-do-thuong" className="glass-card p-5 flex items-center justify-between gap-4 hover:border-[#C9A96E]/40 transition-colors">
+              <div className="min-w-0">
+                <div className="font-semibold flex items-center gap-2"><LineIcon name="wallet" />Chế độ thưởng</div>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Hũ doanh số, chuyên cần, phản hồi khách, khách đánh giá, ngôi sao quý — bật/tắt theo tháng hoặc quý.</p>
+              </div>
+              <span className="text-[var(--text-muted)] shrink-0">›</span>
+            </Link>
+          </div>
+        )}
 
         {/* ── Nhóm 2: Tích hợp — admin ── */}
         {user.role === 'admin' && (

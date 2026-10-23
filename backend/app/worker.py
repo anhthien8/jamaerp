@@ -92,6 +92,7 @@ class BackgroundWorker:
         self._last_media_mirror: float = 0.0  # sao ảnh công trình sang Drive, mỗi 5 phút
         self._last_zalo_unanswered: float = 0.0  # Trợ lý Zalo: quét khách chờ, mỗi 10 phút
         self._last_zalo_digest_date: str = ""    # "YYYY-MM-DD" (VN time) — tóm tắt cuối ngày + xóa tin thô
+        self._last_che_do_thuong: float = 0.0  # Chế độ thưởng: báo mốc hũ, chụp số Zalo, tự chốt — mỗi giờ
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -343,6 +344,16 @@ class BackgroundWorker:
                         priority=TaskPriority.NORMAL,
                     )
 
+            # Chế độ thưởng: báo mốc hũ lên nhóm, chụp số Zalo trước khi tin thô bị xóa,
+            # mùng 1 tự chốt kỳ trước (mọi bước idempotent qua system_settings)
+            if now - self._last_che_do_thuong >= 3600:
+                self._last_che_do_thuong = now
+                self.enqueue_task(
+                    "che_do_thuong",
+                    process_che_do_thuong,
+                    priority=TaskPriority.LOW,
+                )
+
     # ------------------------------------------------------------------
     # Health check loop (for Docker HEALTHCHECK / monitoring)
     # ------------------------------------------------------------------
@@ -587,6 +598,20 @@ async def process_zalo_unanswered() -> dict[str, Any]:
         return {"status": "completed", "created": len(created)}
     except Exception as exc:
         logger.exception("Zalo unanswered check failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_che_do_thuong() -> dict[str, Any]:
+    """Việc hằng giờ của Chế độ thưởng (xem che_do_thuong.viec_hang_gio)."""
+    try:
+        from app.database import async_session
+        from app.services.che_do_thuong import viec_hang_gio
+
+        async with async_session() as session:
+            kq = await viec_hang_gio(session)
+        return {"status": "completed", **kq}
+    except Exception as exc:
+        logger.exception("Chế độ thưởng job failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

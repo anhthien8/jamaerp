@@ -263,3 +263,134 @@ async def portal_media(token: str, project_id: str, db: AsyncSession = Depends(g
             "created_at": m.created_at.isoformat() if m.created_at else None,
         })
     return {"days": [{"date": d, "items": items} for d, items in ngay.items()], "total": len(rows)}
+
+
+# ── Khách đánh giá (Chế độ thưởng, 23/10/2026) ──────────────────────────────
+
+class DanhGiaIn(BaseModel):
+    moc: str
+    so_sao: int = Field(ge=1, le=5)
+    nhan_xet: str = Field(default="", max_length=1000)
+    khen_user_id: str | None = None
+
+
+THU_TU_GIAI_DOAN = ["design", "quotation", "procurement", "construction", "acceptance", "completed"]
+
+
+async def _moc_mo(db: AsyncSession, project: Project) -> dict[str, bool]:
+    """Mốc nào khách đã chấm được: phải tới lúc thật mới mở, tránh chấm trước."""
+    from app.models.contract import Contract
+    co_hd = (await db.execute(
+        select(Contract.id).where(Contract.project_id == project.id,
+                                  Contract.status.in_(("signed", "completed"))).limit(1)
+    )).scalar_one_or_none() is not None
+    nghiem_thu = project.stage_acceptances or {}
+    try:
+        buoc = THU_TU_GIAI_DOAN.index(project.stage or "design")
+    except ValueError:
+        buoc = 0
+    ban_giao = project.handover_date is not None or project.stage == "completed"
+    bay_gio = datetime.now(timezone.utc).replace(tzinfo=None)
+    return {
+        "ky_hd_tk": co_hd or buoc > 0,
+        "chot_ban_ve": "design" in nghiem_thu or buoc > 0,
+        "ban_giao": ban_giao,
+        "sau_3_thang": project.handover_date is not None and bay_gio - project.handover_date >= timedelta(days=90),
+    }
+
+
+async def _doi_ngu(db: AsyncSession, project: Project) -> list[dict]:
+    from app.services.che_do_thuong import doi_du_an
+    ids = doi_du_an(project)
+    if not ids:
+        return []
+    vai = {project.sales_id: "Tư vấn", project.designer_id: "Thiết kế",
+           project.pm_id: "Quản lý dự án", project.purchasing_id: "Thu mua"}
+    ten = dict((await db.execute(select(User.id, User.full_name).where(User.id.in_(ids)))).all())
+    return [{"id": i, "ten": ten.get(i, "Nhân viên JAMA"), "vai": vai.get(i, "")} for i in ids if i in ten]
+
+
+@router.get("/{token}/projects/{project_id}/danh-gia")
+async def portal_xem_danh_gia(token: str, project_id: str, db: AsyncSession = Depends(get_db)):
+    from app.models.danh_gia_khach import MOC_DANH_GIA, DanhGiaKhach
+    from app.services.che_do_thuong import doc_cau_hinh
+    customer = await _get_customer_by_token(token, db)
+    project = await db.get(Project, project_id)
+    if not project or not _customer_owns_project(project, customer):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    cfg, _ = await doc_cau_hinh(db)
+    dg = cfg["chuong_trinh"]["danh_gia"]
+    if not dg["bat"]:
+        return {"bat": False, "moc": [], "doi_ngu": []}
+    da = {r.moc: r for r in (await db.execute(
+        select(DanhGiaKhach).where(DanhGiaKhach.project_id == project.id)
+    )).scalars().all()}
+    mo = await _moc_mo(db, project)
+    return {
+        "bat": True,
+        "moc": [
+            {
+                "ma": m, "ten": MOC_DANH_GIA[m], "mo": mo.get(m, False),
+                "da_cham": ({"so_sao": da[m].so_sao, "nhan_xet": da[m].nhan_xet,
+                             "luc": da[m].created_at.isoformat() if da[m].created_at else None}
+                            if m in da else None),
+            }
+            for m in dg["thoi_diem"] if m in MOC_DANH_GIA
+        ],
+        "doi_ngu": await _doi_ngu(db, project),
+    }
+
+
+@router.post("/{token}/projects/{project_id}/danh-gia")
+async def portal_gui_danh_gia(token: str, project_id: str, data: DanhGiaIn, db: AsyncSession = Depends(get_db)):
+    """Khách chấm sao 1 mốc. Mỗi mốc chấm 1 lần (không sửa — giữ số thật cho thưởng)."""
+    from app.models.danh_gia_khach import MOC_DANH_GIA, DanhGiaKhach
+    from app.services.che_do_thuong import doc_cau_hinh, doi_du_an
+    customer = await _get_customer_by_token(token, db)
+    project = await db.get(Project, project_id)
+    if not project or not _customer_owns_project(project, customer):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    cfg, _ = await doc_cau_hinh(db)
+    dg = cfg["chuong_trinh"]["danh_gia"]
+    if not dg["bat"] or data.moc not in dg["thoi_diem"] or data.moc not in MOC_DANH_GIA:
+        raise HTTPException(status_code=400, detail="Mốc đánh giá không hợp lệ")
+    if not (await _moc_mo(db, project)).get(data.moc):
+        raise HTTPException(status_code=400, detail="Mốc này chưa tới — anh/chị chấm sau nhé")
+    cu = (await db.execute(
+        select(DanhGiaKhach).where(DanhGiaKhach.project_id == project.id, DanhGiaKhach.moc == data.moc)
+    )).scalar_one_or_none()
+    if cu:
+        raise HTTPException(status_code=409, detail="Mốc này anh/chị đã đánh giá rồi — cảm ơn anh/chị!")
+    khen = data.khen_user_id if data.khen_user_id in doi_du_an(project) else None
+    r = DanhGiaKhach(project_id=project.id, customer_id=customer.id, moc=data.moc,
+                     so_sao=data.so_sao, nhan_xet=data.nhan_xet.strip() or None, khen_user_id=khen)
+    db.add(r)
+    await db.flush()
+
+    if data.so_sao <= 2:
+        # Khiếu nại: báo riêng quản lý (không đăng nhóm) để gọi lại khách trong ngày
+        try:
+            from app.models.user import Team
+            from app.services.automation import _notify
+            nhan = set((await db.execute(
+                select(User.id).where(User.is_active == True, User.role.in_(("admin", "executive")))  # noqa: E712
+            )).scalars().all())
+            for uid in doi_du_an(project):
+                u = await db.get(User, uid)
+                if u and u.team_id:
+                    t = await db.get(Team, u.team_id)
+                    if t and t.leader_id:
+                        nhan.add(t.leader_id)
+            tieu_de = f"⚠️ Khách chấm {data.so_sao}★ — {project.code}"
+            noi_dung = (f"Khách {customer.name} chấm {data.so_sao} sao mốc «{MOC_DANH_GIA[data.moc]}» dự án "
+                        f"{project.code} {project.name}." + (f" Nhận xét: {data.nhan_xet.strip()[:300]}" if data.nhan_xet.strip() else "")
+                        + " Thưởng đánh giá của dự án đang được giữ lại — gọi lại khách sớm.")
+            for uid in nhan:
+                await _notify(db, await db.get(User, uid), type_="danh_gia_khach", title=tieu_de,
+                              body=noi_dung, link=f"/projects?id={project.id}", ref_id=r.id)
+        except Exception:
+            pass
+
+    from app.cache import cache
+    cache.clear_prefix("cdt:")
+    return {"ok": True, "id": r.id}

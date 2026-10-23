@@ -22,6 +22,7 @@ const TYPE_ICON: Record<string, string> = {
   payroll_period: '🧾',
   expense: '🚗',
   overtime: '⏰',
+  bonus_batch: '🏆',
 };
 
 type Tab = 'pending' | 'mine' | 'handled';

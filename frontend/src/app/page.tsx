@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import HuDoanhSo from '@/components/dashboard/HuDoanhSo';
 import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
@@ -199,6 +200,9 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+
+        {/* Hũ doanh số (Chế độ thưởng 23/10/2026) — tự ẩn khi tắt hoặc không thuộc «Ai thấy hũ» */}
+        <HuDoanhSo />
 
         {/* KPI Cards — role-based */}
         {isExecRole ? (

@@ -291,3 +291,7 @@ app.include_router(sales_dashboard_router, prefix="/api/v1")
 # Kho ảnh công trình (Đợt 2, 23/10/2026).
 from app.api.media import router as media_router
 app.include_router(media_router, prefix="/api/v1")
+
+# Chế độ thưởng + Hũ doanh số (23/10/2026).
+from app.api.che_do_thuong import router as che_do_thuong_router
+app.include_router(che_do_thuong_router, prefix="/api/v1")

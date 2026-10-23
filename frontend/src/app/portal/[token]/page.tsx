@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
+import DanhGiaKhach from '@/components/portal/DanhGiaKhach';
 
 interface CustomerData {
   name: string;
@@ -271,6 +272,8 @@ export default function PortalPage() {
                     <p className="text-[11px]" style={{ color: '#10B981' }}>Giai đoạn hiện tại đã được bạn xác nhận. Cảm ơn bạn!</p>
                   )}
                 </div>
+                {/* Khách chấm sao theo mốc (Chế độ thưởng 23/10/2026) — tự ẩn khi tắt/chưa có mốc mở */}
+                {!isDemoToken && <DanhGiaKhach api={API} token={token} projectId={selectedProject.id} />}
                 {photoDays.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <h3 className="text-xs font-semibold mb-3" style={{ color: '#9BA7B4' }}>📸 Nhật ký công trình</h3>

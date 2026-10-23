@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Chế độ thưởng: hũ doanh số trên Tổng quan, Điểm JAMA cho từng người, khách chấm sao dự án',
+    tag: 'MỚI',
+    news: [
+      'Tổng quan có «Hũ thưởng»: doanh số công ty leo qua từng mốc, mỗi mốc mở thêm quỹ thưởng, kèm số còn thiếu tới mốc tiếp và bảng «Ai đang đẩy hũ» (chỉ ghi doanh số).',
+      'Menu mới «Chế độ thưởng» (Admin chỉnh, Kế toán xem và chốt): 5 chương trình Hũ doanh số, Chuyên cần, Phản hồi khách, Khách hàng đánh giá, Ngôi sao quý; mỗi cái bật/tắt riêng, chạy theo tháng hoặc quý. Đổi luật thì áp từ kỳ sau.',
+      'Điểm JAMA 0–100 gộp doanh số, chuyên cần, phản hồi khách và đánh giá của khách; điểm càng cao hệ số thưởng càng lớn. Xem ở Hồ sơ nhân viên → tab Tiền.',
+      'Trang tiến độ của khách có ô chấm sao ở 4 mốc (ký HĐ thiết kế, chốt bản vẽ, bàn giao, sau 3 tháng), khách khen được đích danh người trong đội dự án.',
+      'Cuối kỳ Kế toán bấm «Chốt kỳ → gửi duyệt»: phiếu «Bảng thưởng» vào trang Phê duyệt, duyệt xong mới vào lương.',
+    ],
+    test: [
+      'Admin: menu Chế độ thưởng → «Xem thử bảng thưởng» → thấy danh sách người và số dự kiến.',
+      'Mở Tổng quan → thấy hũ vàng và mốc tiếp theo.',
+      'Mở link tiến độ của một dự án đã ký HĐ thiết kế → thấy ô «Đánh giá của bạn».',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Điện thoại dễ dùng hơn: bấm thông báo mở đúng việc, nút cài app ngay ở trang đăng nhập',
     tag: 'SỬA',
     fixes: [
