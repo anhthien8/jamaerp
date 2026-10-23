@@ -30,8 +30,8 @@ const DUOC_XEM = ['admin'];
 
 const NHAN_KPI: Record<SalesKpiCard['ma'], string> = {
   doanh_thu: 'Doanh thu thực tế',
-  hd_thiet_ke: 'Hợp đồng thiết kế',
-  hd_thi_cong: 'Hợp đồng thi công',
+  hd_thiet_ke: 'Deal thiết kế',
+  hd_thi_cong: 'Deal thi công',
   khach_khao_sat: 'Tổng khách khảo sát',
   ty_le_lien_he: 'Tỷ lệ liên hệ thành công',
 };
@@ -184,7 +184,7 @@ export default function SaleDashboardPage() {
               value={datePreset}
               onChange={e => setDatePreset(e.target.value)}
               className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-              style={{ color: '#C9A96E', borderColor: 'rgba(201,169,110,0.5)' }}
+              style={{ color: 'var(--gold-500)', borderColor: 'rgba(201,169,110,0.5)' }}
             >
               {DATE_PRESETS.filter(p => p.value !== 'all').map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -217,7 +217,7 @@ export default function SaleDashboardPage() {
         {/* Bản thử nghiệm — nói thẳng để không ai tưởng đây là màn đã chốt */}
         <div className="px-3 py-2 rounded-xl text-xs flex flex-wrap items-center gap-2"
           style={{ background: 'rgba(201,169,110,0.07)', border: '1px solid rgba(201,169,110,0.25)', color: 'var(--text-secondary)' }}>
-          <span className="font-semibold" style={{ color: '#C9A96E' }}>BẢN THỬ NGHIỆM</span>
+          <span className="font-semibold" style={{ color: 'var(--gold-500)' }}>BẢN THỬ NGHIỆM</span>
           <span>— chỉ tài khoản quản trị xem được, chưa mở cho Ban giám đốc và phòng kinh doanh.</span>
           {data && (
             <span className="ml-auto text-[var(--text-muted)]">
@@ -266,7 +266,7 @@ export default function SaleDashboardPage() {
 
             {/* ── Chu kỳ 6 tháng + Doanh số theo tháng ──────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Khoi tieuDe="Tổng doanh thu chu kỳ (6 tháng gần nhất)" phu="Tính trên hợp đồng đã ký, không phụ thuộc bộ lọc kỳ">
+              <Khoi tieuDe="Tổng doanh thu chu kỳ (6 tháng gần nhất)" phu="Tính trên giá trị dự án thắng deal, không phụ thuộc bộ lọc kỳ">
                 <p className="text-2xl font-bold gold-gradient">{formatCurrency(data.chu_ky_6_thang.tong)}</p>
                 <div className="mt-1"><Delta pct={data.chu_ky_6_thang.delta_pct} /></div>
                 <dl className="mt-4 space-y-2 text-xs">
@@ -449,7 +449,7 @@ export default function SaleDashboardPage() {
 
             {/* ── Top nhân viên + Cần hỗ trợ ────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Khoi tieuDe="Nhân viên hiệu suất cao" phu="Xếp theo doanh số hợp đồng đã ký trong kỳ">
+              <Khoi tieuDe="Nhân viên hiệu suất cao" phu="Xếp theo giá trị dự án thắng deal trong kỳ">
                 {data.top_nhan_vien.length === 0 ? <Trong chu="Kỳ này chưa có nhân viên nào có số." /> : (
                   <ul className="space-y-3">
                     {data.top_nhan_vien.map((p, i) => (
@@ -528,7 +528,7 @@ export default function SaleDashboardPage() {
                 Không có trong dashboard mẫu. Dựng được vì dữ liệu đã nằm
                 sẵn trong CSDL mà chưa màn hình nào đọc tới. */}
             <div className="flex items-center gap-3 pt-2">
-              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#C9A96E' }}>Đề xuất thêm</span>
+              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: 'var(--gold-500)' }}>Đề xuất thêm</span>
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
             </div>
 
@@ -745,8 +745,8 @@ function ThietLapMucTieu({ banDau, nhom, xongThi }: {
         <div className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <OSo nhan="Doanh thu / tháng" giaTri={form.doanh_thu_thang} doi={v => doi('doanh_thu_thang', v)} buoc={100_000_000} hau="đ" />
-            <OSo nhan="Hợp đồng thiết kế" giaTri={form.hd_thiet_ke_thang} doi={v => doi('hd_thiet_ke_thang', v)} hau="HĐ" />
-            <OSo nhan="Hợp đồng thi công" giaTri={form.hd_thi_cong_thang} doi={v => doi('hd_thi_cong_thang', v)} hau="HĐ" />
+            <OSo nhan="Deal thiết kế" giaTri={form.hd_thiet_ke_thang} doi={v => doi('hd_thiet_ke_thang', v)} hau="deal" />
+            <OSo nhan="Deal thi công" giaTri={form.hd_thi_cong_thang} doi={v => doi('hd_thi_cong_thang', v)} hau="deal" />
             <OSo nhan="Khách khảo sát" giaTri={form.khach_khao_sat_thang} doi={v => doi('khach_khao_sat_thang', v)} hau="khách" />
             <OSo nhan="Tỷ lệ liên hệ tối thiểu" giaTri={form.ty_le_lien_he_toi_thieu} doi={v => doi('ty_le_lien_he_toi_thieu', v)} hau="%" />
           </div>
@@ -787,7 +787,7 @@ function ThietLapMucTieu({ banDau, nhom, xongThi }: {
             <button
               type="button" onClick={luu} disabled={dangLuu}
               className="text-xs font-semibold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
-              style={{ background: 'rgba(201,169,110,0.15)', border: '1px solid rgba(201,169,110,0.4)', color: '#C9A96E' }}
+              style={{ background: 'rgba(201,169,110,0.15)', border: '1px solid rgba(201,169,110,0.4)', color: 'var(--gold-500)' }}
             >
               {dangLuu ? 'Đang lưu…' : 'Lưu mục tiêu'}
             </button>

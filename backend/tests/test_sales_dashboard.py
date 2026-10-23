@@ -33,7 +33,6 @@ from app.api.sales_dashboard import (
 )
 from app.cache import cache
 from app.middleware.permissions import xoa_cache_quyen
-from app.models.contract import Contract
 from app.models.lead import Lead
 from app.models.project import Project
 from app.models.user import Team, User
@@ -120,6 +119,23 @@ async def _lead(db, *, ten, luc, nguoi=None, nhom=None, stage="new", **truong):
     return l
 
 
+async def _du_an_thang(db, *, code, gia_tri, ngay, sales_id=None, lead_id=None):
+    """Dự án sinh khi lead Thắng — nguồn doanh số của bảng (từ 23/10/2026)."""
+    tao_luc = datetime.combine(ngay, datetime.min.time(), VN).replace(hour=12)
+    if lead_id is None:
+        # Lead cùng ngày với dự án để không lọt vào đếm data của kỳ khác
+        l = await _lead(db, ten=f"Lead {code}", luc=tao_luc.astimezone(timezone.utc),
+                        stage="signed_design")
+        lead_id = l.id
+    pr = Project(id=_uid(), code=code, name=f"Dự án {code}", client_name="KH",
+                 status="active", project_type="design_build", sales_id=sales_id,
+                 total_value=gia_tri, lead_id=lead_id,
+                 created_at=tao_luc.astimezone(timezone.utc).replace(tzinfo=None))
+    db.add(pr)
+    await db.flush()
+    return pr
+
+
 @pytest_asyncio.fixture
 async def phong_kd(db_session):
     """2 nhóm KD; nhóm B cố ý KHÔNG có lead nào để canh bug «nhóm biến mất»."""
@@ -150,7 +166,7 @@ async def du_lieu(db_session, phong_kd):
                 contact_status="reachable", **chung)
     await _lead(db_session, ten="Đã khảo sát", luc=utc, stage="interested",
                 contact_status="reachable", survey_date=utc, **chung)
-    await _lead(db_session, ten="Đã thắng", luc=utc, stage="signed_design",
+    thang = await _lead(db_session, ten="Đã thắng", luc=utc, stage="signed_design",
                 contact_status="reachable", survey_date=utc,
                 design_contract_value=500_000_000, **chung)
     # 3 rổ rác, mỗi rổ 1 lead
@@ -161,14 +177,14 @@ async def du_lieu(db_session, phong_kd):
     await _lead(db_session, ten="Số sai", luc=utc, nguoi=sale.id, nhom=a.id,
                 region="TP. Hồ Chí Minh", contact_status="wrong_number")
 
-    pr = Project(id=_uid(), code="PRJ-SD1", name="Dự án demo", client_name="KH",
-                 status="active", project_type="design_build", sales_id=sale.id,
-                 total_value=800_000_000)
-    db_session.add(pr)
-    await db_session.flush()
-    db_session.add(Contract(id=_uid(), code="HD-SD1", project_id=pr.id,
-                            title="HĐ thiết kế", status="signed",
-                            total_value=800_000_000, signed_date=nay.date()))
+    await _du_an_thang(db_session, code="PRJ-SD1", gia_tri=800_000_000, ngay=nay.date(),
+                       sales_id=sale.id, lead_id=thang.id)
+    # Dự án KHÔNG sinh từ deal (nhập tay) và dự án đã hủy: không tính doanh số
+    db_session.add(Project(id=_uid(), code="PRJ-TAY", name="Nhập tay", client_name="KH",
+                           status="active", total_value=5_000_000_000))
+    huy = await _du_an_thang(db_session, code="PRJ-HUY", gia_tri=4_000_000_000, ngay=nay.date(),
+                             lead_id=thang.id)
+    huy.status = "cancelled"
     await db_session.commit()
     return {"nay": nay.date()}
 
@@ -242,7 +258,7 @@ async def test_nhom_khong_co_lead_van_hien_mot_dong(client, admin_user, du_lieu,
 
 
 @pytest.mark.asyncio
-async def test_doanh_thu_lay_tu_hop_dong_da_ky(client, admin_user, du_lieu):
+async def test_doanh_thu_lay_tu_du_an_thang_deal(client, admin_user, du_lieu):
     d = (await client.get(URL, headers=auth_header(admin_user))).json()
     dt = next(k for k in d["kpi"] if k["ma"] == "doanh_thu")
     assert dt["thuc_te"] == 800_000_000
@@ -254,18 +270,12 @@ async def test_doanh_thu_lay_tu_hop_dong_da_ky(client, admin_user, du_lieu):
 @pytest.mark.asyncio
 async def test_hop_dong_nhap_cua_ky_khac_khong_lot_vao(client, admin_user, du_lieu, db_session):
     thang_truoc = (datetime.now(VN).date().replace(day=1) - timedelta(days=5))
-    pr = Project(id=_uid(), code="PRJ-OLD", name="Dự án cũ", client_name="KH",
-                 status="active", total_value=1)
-    db_session.add(pr)
-    await db_session.flush()
-    db_session.add(Contract(id=_uid(), code="HD-OLD", project_id=pr.id, title="HĐ cũ",
-                            status="signed", total_value=9_000_000_000,
-                            signed_date=thang_truoc))
+    await _du_an_thang(db_session, code="PRJ-OLD", gia_tri=9_000_000_000, ngay=thang_truoc)
     await db_session.commit()
     cache.clear_prefix("dashboard")
     d = (await client.get(URL, headers=auth_header(admin_user))).json()
     dt = next(k for k in d["kpi"] if k["ma"] == "doanh_thu")
-    assert dt["thuc_te"] == 800_000_000, "hợp đồng tháng trước lọt vào kỳ này"
+    assert dt["thuc_te"] == 800_000_000, "dự án thắng tháng trước lọt vào kỳ này"
     # ...nhưng vẫn phải xuất hiện ở biểu đồ 6 tháng
     assert any(x["thuc_te"] == 9_000_000_000 for x in d["doanh_so_theo_thang"])
 
@@ -274,16 +284,10 @@ async def test_hop_dong_nhap_cua_ky_khac_khong_lot_vao(client, admin_user, du_li
 async def test_hop_dong_cu_van_lay_duoc_khi_chon_dung_ky_cua_no(
     client, admin_user, du_lieu, db_session
 ):
-    """Truy vấn hợp đồng có chặn dưới để khỏi kéo cả lịch sử; chặn đó không
-    được cắt mất hợp đồng khi người dùng chọn đúng kỳ xa trong quá khứ."""
+    """Truy vấn dự án thắng deal có chặn dưới để khỏi kéo cả lịch sử; chặn đó không
+    được cắt mất dự án khi người dùng chọn đúng kỳ xa trong quá khứ."""
     xua = datetime.now(VN).date().replace(day=15) - timedelta(days=700)
-    pr = Project(id=_uid(), code="PRJ-XUA", name="Dự án xưa", client_name="KH",
-                 status="active", total_value=1)
-    db_session.add(pr)
-    await db_session.flush()
-    db_session.add(Contract(id=_uid(), code="HD-XUA", project_id=pr.id, title="HĐ xưa",
-                            status="signed", total_value=7_000_000_000,
-                            signed_date=xua))
+    await _du_an_thang(db_session, code="PRJ-XUA", gia_tri=7_000_000_000, ngay=xua)
     await db_session.commit()
     cache.clear_prefix("dashboard")
 

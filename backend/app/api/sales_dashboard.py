@@ -22,7 +22,7 @@ from datetime import datetime, timezone, timedelta, date
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, exists, or_
+from sqlalchemy import select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -30,7 +30,6 @@ from app.middleware.auth import get_current_user
 from app.models.user import User, Team
 from app.models.lead import Lead, Activity
 from app.models.project import Project
-from app.models.contract import Contract
 from app.models.quotation import Quotation
 from app.models.notification import SystemSetting
 from app.api.dashboard import khoang_ngay, trong_ky
@@ -206,7 +205,6 @@ XAC_SUAT_STAGE: dict[str, float] = {
 }
 
 STAGE_DANG_MO = ["new", "interested", "survey_scheduled", "potential"]
-TRANG_THAI_HD_DA_KY = ("signed", "completed")
 
 
 def gia_tri_lead(l: dict) -> float:
@@ -349,17 +347,15 @@ async def sales_dashboard(
     leads = await tai_lead(dau, het)
     leads_truoc = await tai_lead(dau_truoc, het_truoc) if dau_truoc else []
 
-    # ── Hợp đồng: mốc tính doanh thu ─────────────────────────────────────────
-    # Ngày ghi nhận = ngày KÝ, thiếu thì lùi về ngày tạo bản ghi. Lọc kỳ trong
-    # Python vì `signed_date` là Date còn `created_at` là DateTime — so trộn
-    # hai kiểu trong SQL là nguồn lỗi âm thầm giữa SQLite (dev) và Postgres.
-    #
-    # Loại hợp đồng: ưu tiên `type` của báo giá gốc (chính xác nhất), không có
-    # báo giá thì suy từ `project_type` của dự án.
-    # Chặn dưới cho truy vấn: màn này không bao giờ cần hợp đồng cũ hơn mốc sớm
+    # ── Doanh số: giá trị dự án thắng deal (đổi 23/10/2026, giống hũ thưởng) ──
+    # Không đếm hợp đồng «đã ký» nữa vì trên prod HĐ đều nằm ở `draft` → bảng
+    # luôn 0. Mỗi lead bấm Thắng sinh một Project có `lead_id`: ngày ghi nhận =
+    # ngày tạo dự án (giờ VN), giá trị = `total_value`, thiếu thì TK + TC. Loại
+    # suy từ `project_type` (chỉ thi công → thi_cong, còn lại → thiet_ke).
+    # Chặn dưới cho truy vấn: màn này không bao giờ cần dự án cũ hơn mốc sớm
     # nhất trong hai thứ — đầu kỳ so sánh, và đầu của 6 tháng-liền-trước (tức 11
     # tháng trước tháng hiện tại) mà ô «Tổng doanh thu chu kỳ» dùng. Không chặn
-    # thì mỗi lần mở bảng là kéo về TOÀN BỘ hợp đồng từ ngày khai trương.
+    # thì mỗi lần mở bảng là kéo về TOÀN BỘ dự án từ ngày khai trương.
     moc_cu_nhat = hom_nay_vn.replace(day=1)
     for _ in range(11):
         moc_cu_nhat = (moc_cu_nhat - timedelta(days=1)).replace(day=1)
@@ -369,41 +365,28 @@ async def sales_dashboard(
 
     q_hd = (
         select(
-            Contract.id, Contract.total_value, Contract.signed_date, Contract.created_at,
-            Quotation.type.label("loai_bao_gia"), Project.project_type, Project.sales_id,
+            Project.total_value, Project.design_value, Project.construction_value,
+            Project.created_at, Project.project_type, Project.sales_id,
         )
-        .outerjoin(Quotation, Contract.quotation_id == Quotation.id)
-        .outerjoin(Project, Contract.project_id == Project.id)
-        .where(Contract.status.in_(TRANG_THAI_HD_DA_KY))
+        .where(Project.lead_id.is_not(None), Project.status != "cancelled")
     )
     if tu or den:
-        # Ngày ghi nhận = `signed_date` nếu có, không thì `created_at`; giữ bản
-        # ghi nào THỎA MỘT TRONG HAI để không cắt nhầm hợp đồng ký muộn/ghi sớm.
-        # Lọc chính xác vẫn làm ở Python ngay dưới.
-        q_hd = q_hd.where(or_(
-            Contract.signed_date >= moc_cu_nhat,
-            Contract.created_at >= khoang_ngay(moc_cu_nhat.isoformat(), None)[0],
-        ))
+        # Lọc chính xác theo ngày VN làm ở Python ngay dưới
+        q_hd = q_hd.where(Project.created_at >= khoang_ngay(moc_cu_nhat.isoformat(), None)[0])
     hd_rows = (await db.execute(q_hd)).mappings().all()
-
-    def loai_hd(r) -> str:
-        if r["loai_bao_gia"] in ("design", "construction"):
-            return "thiet_ke" if r["loai_bao_gia"] == "design" else "thi_cong"
-        if r["project_type"] == "construction_only":
-            return "thi_cong"
-        return "thiet_ke"
 
     hop_dong = []
     for r in hd_rows:
         if team_id and (r["sales_id"] not in nguoi_trong_nhom):
             continue
-        ngay = r["signed_date"] or _ngay_vn(r["created_at"])
+        ngay = _ngay_vn(r["created_at"])
         if ngay is None:
             continue
         hop_dong.append({
             "ngay": ngay,
-            "gia_tri": float(r["total_value"] or 0),
-            "loai": loai_hd(r),
+            "gia_tri": float(r["total_value"] or 0)
+            or float(r["design_value"] or 0) + float(r["construction_value"] or 0),
+            "loai": "thi_cong" if r["project_type"] == "construction_only" else "thiet_ke",
             "sales_id": r["sales_id"],
         })
 

@@ -16,6 +16,18 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Bảng điều khiển Kinh doanh tính doanh số theo dự án thắng deal',
+    tag: 'SỬA',
+    fixes: [
+      'Bảng điều khiển Kinh doanh (admin) giờ dùng cùng cách tính với Hũ thưởng: doanh thu, doanh số từng nhóm, từng nhân viên, biểu đồ theo tháng và chu kỳ 6 tháng đều lấy giá trị dự án tạo ra khi lead «Thắng», theo ngày thắng. Trước đây đếm hợp đồng đã ký nên luôn 0đ.',
+      'Hai thẻ «Hợp đồng thiết kế / thi công» đổi thành «Deal thiết kế / thi công»: đếm số dự án thắng deal theo loại dự án (chỉ thi công → thi công, còn lại → thiết kế).',
+    ],
+    test: [
+      'Mở Bảng điều khiển Kinh doanh → doanh thu tháng này khớp con số trên Hũ thưởng ở Tổng quan.',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Hũ thưởng tính doanh số theo dự án thắng deal, Phễu quy trình kiểu bảng tài chính',
     tag: 'SỬA',
     fixes: [
