@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.api_client import api
+from bot.keyboards import hien_ban_phim
 
 router = Router()
 
@@ -41,51 +42,63 @@ class CheckoutState(StatesGroup):
     waiting_location = State()
 
 
-@router.message(Command("cancel"))
-async def cmd_cancel(message: types.Message, state: FSMContext):
-    await state.clear()
-    await message.answer("Đã hủy. Gõ lệnh để bắt đầu lại.")
-
-
 # ---------------------------------------------------------------------------
 # /checkin — GPS check-in at project site
 # ---------------------------------------------------------------------------
 
 @router.message(Command("checkin"))
 async def cmd_checkin(message: types.Message, state: FSMContext):
-    """Điểm danh: không tham số = văn phòng; kèm mã dự án = công trình (GPS)."""
-    args = message.text.split(maxsplit=1)
+    """Không tham số: có dự án → bàn phím (🏢 Văn phòng + dự án), không có → vào
+    ca văn phòng luôn; kèm mã dự án = công trình (GPS)."""
+    args = (message.text or message.caption or "").split(maxsplit=1)
 
     if len(args) < 2:
-        # Chấm công văn phòng — thử trước không GPS; backend đòi thì xin vị trí
-        await api.authenticate(message.from_user.id, message.from_user.username)
-        result = await api.office_checkin(message.from_user.id)
-        if not result:
-            await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+        if not await hien_ban_phim(message, message.from_user.id, "checkin", van_phong=True):
+            await vao_ca_van_phong(message, state, message.from_user)
+        return
+    await xin_vi_tri(message, state, args[1].strip().upper())
+
+
+async def vao_ca_van_phong(message: types.Message, state: FSMContext, user: types.User):
+    """Chấm công văn phòng — thử trước không GPS; backend đòi thì xin vị trí."""
+    await api.authenticate(user.id, user.username)
+    result = await api.office_checkin(user.id)
+    if not result:
+        await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+        return
+    if result.get("error"):
+        if _can_gps(result["error"]):
+            await state.update_data(project_code="")
+            await state.set_state(CheckinState.waiting_location)
+            await message.answer(
+                "📍 <b>Vào ca văn phòng</b>\n\n"
+                "Cần vị trí GPS để xác nhận bạn đang ở văn phòng.\n"
+                "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
+                "💡 <i>Gửi /cancel để hủy</i>",
+                reply_markup=_ban_phim_vi_tri(),
+            )
             return
-        if result.get("error"):
-            if _can_gps(result["error"]):
-                await state.update_data(project_code="")
-                await state.set_state(CheckinState.waiting_location)
-                await message.answer(
-                    "📍 <b>Vào ca văn phòng</b>\n\n"
-                    "Cần vị trí GPS để xác nhận bạn đang ở văn phòng.\n"
-                    "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
-                    "💡 <i>Gửi /cancel để hủy</i>",
-                    reply_markup=_ban_phim_vi_tri(),
-                )
-                return
-            await message.answer(f"❌ {result['error']}")
-            return
-        await _bao_vao_ca_van_phong(message, result)
+        await message.answer(f"❌ {result['error']}")
+        return
+    await _bao_vao_ca_van_phong(message, result)
+
+
+async def xin_vi_tri(message: types.Message, state: FSMContext, project_code: str, ra_ca: bool = False):
+    """Điểm danh / tan ca tại công trình: xin GPS bằng nút gửi vị trí."""
+    await state.update_data(project_code=project_code)
+    keyboard = _ban_phim_vi_tri()
+    if ra_ca:
+        await state.set_state(CheckoutState.waiting_location)
+        await message.answer(
+            f"📍 <b>Tan ca — {project_code}</b>\n\n"
+            "Vui lòng chia sẻ vị trí GPS khi rời công trình.\n"
+            "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
+            "💡 <i>Gửi /cancel để hủy</i>",
+            reply_markup=keyboard,
+        )
         return
 
-    project_code = args[1].strip().upper()
-
-    await state.update_data(project_code=project_code)
     await state.set_state(CheckinState.waiting_location)
-    keyboard = _ban_phim_vi_tri()
-
     await message.answer(
         f"📍 <b>Điểm danh — {project_code}</b>\n\n"
         "Vui lòng chia sẻ vị trí GPS của bạn.\n"
@@ -167,39 +180,31 @@ async def wrong_input_checkin(message: types.Message):
 
 @router.message(Command("checkout"))
 async def cmd_checkout(message: types.Message, state: FSMContext):
-    """Tan ca: không tham số = văn phòng; kèm mã dự án = công trình."""
-    args = message.text.split(maxsplit=1)
+    """Tan ca: không tham số = bàn phím (hoặc văn phòng); kèm mã dự án = công trình."""
+    args = (message.text or message.caption or "").split(maxsplit=1)
 
     if len(args) < 2:
-        await api.authenticate(message.from_user.id, message.from_user.username)
-        result = await api.office_checkout(message.from_user.id)
-        if not result:
-            await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
-            return
-        if result.get("error"):
-            await message.answer(f"❌ {result['error']}")
-            return
-        ot_line = ""
-        if result.get("ot_hours"):
-            ot_line = f"\n⏰ OT chờ duyệt: {result['ot_hours']}h"
-        await message.answer(
-            f"✅ <b>Tan ca thành công!</b>\n\n"
-            f"👤 {result.get('user', '—')} · Giờ công hôm nay: <b>{result.get('work_hours', 0)}h</b>{ot_line}"
-        )
+        if not await hien_ban_phim(message, message.from_user.id, "checkout", van_phong=True):
+            await tan_ca_van_phong(message, message.from_user)
         return
+    await xin_vi_tri(message, state, args[1].strip().upper(), ra_ca=True)
 
-    project_code = args[1].strip().upper()
 
-    await state.update_data(project_code=project_code)
-    await state.set_state(CheckoutState.waiting_location)
-    keyboard = _ban_phim_vi_tri()
-
+async def tan_ca_van_phong(message: types.Message, user: types.User):
+    await api.authenticate(user.id, user.username)
+    result = await api.office_checkout(user.id)
+    if not result:
+        await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
+        return
+    if result.get("error"):
+        await message.answer(f"❌ {result['error']}")
+        return
+    ot_line = ""
+    if result.get("ot_hours"):
+        ot_line = f"\n⏰ OT chờ duyệt: {result['ot_hours']}h"
     await message.answer(
-        f"📍 <b>Tan ca — {project_code}</b>\n\n"
-        "Vui lòng chia sẻ vị trí GPS khi rời công trình.\n"
-        "Nhấn nút <b>\"Gửi vị trí hiện tại\"</b> bên dưới.\n\n"
-        "💡 <i>Gửi /cancel để hủy</i>",
-        reply_markup=keyboard,
+        f"✅ <b>Tan ca thành công!</b>\n\n"
+        f"👤 {result.get('user', '—')} · Giờ công hôm nay: <b>{result.get('work_hours', 0)}h</b>{ot_line}"
     )
 
 

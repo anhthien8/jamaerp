@@ -22,6 +22,7 @@ from app.models.ai_memory import AiRun
 from app.models.employee_profile import EmployeeProfile, EmployeeDocument
 from app.models.handover import HandoverRecord
 from app.models.media import MediaFile
+from app.models.telegram_contact import TelegramContact
 
 __all__ = [
     "User", "Team",
@@ -43,4 +44,5 @@ __all__ = [
     "EmployeeProfile", "EmployeeDocument",
     "HandoverRecord",
     "MediaFile",
+    "TelegramContact",
 ]

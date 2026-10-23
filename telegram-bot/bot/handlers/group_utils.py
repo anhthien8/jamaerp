@@ -1,9 +1,31 @@
-"""Group utility handlers — /id (get chat id) + welcome when added to a group."""
+"""Group utility handlers — /id, /cancel chung + welcome when added to a group."""
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 
 router = Router()
+
+
+# /cancel và nút ❌ Hủy dùng chung cho mọi luồng (trước đây 3 file tự đăng ký
+# /cancel, router đầu tiên thắng nên thông báo không nhất quán).
+@router.message(Command("cancel"))
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    if await state.get_state() is None:
+        await message.answer("Không có thao tác nào đang mở.", reply_markup=types.ReplyKeyboardRemove())
+        return
+    await state.clear()
+    await message.answer("🚫 Đã hủy. Gõ lệnh hoặc /start để bắt đầu lại.", reply_markup=types.ReplyKeyboardRemove())
+
+
+@router.callback_query(F.data == "fsm:cancel")
+async def cb_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.answer("Đã hủy")
+    try:
+        await callback.message.edit_text("🚫 Đã hủy.")
+    except Exception:
+        pass
 
 
 @router.message(Command("id"))

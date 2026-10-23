@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.api_client import api
+from bot.keyboards import hien_ban_phim, nut_gui_anh, nut_huy
 
 router = Router()
 
@@ -22,20 +23,19 @@ class SiteReportState(StatesGroup):
 
 @router.message(Command("duan"))
 async def cmd_duan(message: types.Message):
-    """Look up project by code — show info + task progress."""
+    """Không tham số → bàn phím chọn dự án; kèm mã → tra luôn."""
     args = (message.text or message.caption or "").split(maxsplit=1)
     if len(args) < 2:
-        await message.answer(
-            "🔍 <b>Tra cứu dự án</b>\n\n"
-            "Cách dùng: <code>/duan [Mã dự án]</code>\n"
-            "Ví dụ: <code>/duan JMH-0601</code>"
-        )
+        await hien_ban_phim(message, message.from_user.id, "duan")
         return
+    await hien_du_an(message, message.from_user.id, args[1].strip().upper())
 
-    project_code = args[1].strip().upper()
+
+async def hien_du_an(message: types.Message, tg_id: int, project_code: str):
+    """Thông tin + tiến độ dự án (dùng chung cho lệnh gõ tay và nút bấm)."""
     await message.answer("🔄 Đang tra cứu dự án...")
 
-    result = await api.get_project(message.from_user.id, project_code)
+    result = await api.get_project(tg_id, project_code)
 
     if not result:
         await message.answer(
@@ -114,41 +114,35 @@ async def cmd_duan(message: types.Message):
 
 @router.message(Command("baocao"))
 async def cmd_baocao(message: types.Message, state: FSMContext):
-    """Start a site report — parse project code and content."""
+    """Không tham số → bàn phím chọn dự án; kèm mã (+ nội dung) → vào luồng."""
     # Gửi ảnh kèm chú thích "/baocao ..." thì text rỗng, lệnh nằm ở caption
     args = (message.text or message.caption or "").split(maxsplit=2)
     if len(args) < 2:
-        await message.answer(
-            "📝 <b>Báo cáo công trình</b>\n\n"
-            "Cách dùng:\n"
-            "<code>/baocao [Mã dự án] [Nội dung]</code>\n"
-            "Ví dụ: <code>/baocao JMH-0601 Hoàn thành đổ móng block A</code>\n\n"
-            "💡 Sau khi gửi nội dung, bạn có thể đính kèm ảnh (gửi lần lượt)."
-        )
+        await hien_ban_phim(message, message.from_user.id, "baocao")
         return
+    await bat_dau_bao_cao(
+        message, state, args[1].strip().upper(), args[2].strip() if len(args) > 2 else "",
+    )
 
-    project_code = args[1].strip().upper()
-    content = args[2].strip() if len(args) > 2 else ""
 
+async def bat_dau_bao_cao(message: types.Message, state: FSMContext, project_code: str, content: str = ""):
     if not content:
-        await message.answer(
-            f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
-            "Vui lòng nhập nội dung báo cáo.\n"
-            "💡 <i>Gửi /cancel để hủy</i>"
-        )
         await state.update_data(project_code=project_code)
         await state.set_state(SiteReportState.waiting_content)
+        await message.answer(
+            f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
+            "Gõ nội dung báo cáo (hôm nay làm được gì, vướng gì).",
+            reply_markup=nut_huy(),
+        )
         return
 
-    # Has content — start collecting photos
     await state.update_data(project_code=project_code, report_content=content, photos=[], media_ids=[])
     await state.set_state(SiteReportState.collecting_photos)
     await message.answer(
         f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
         f"Nội dung: {content}\n\n"
-        "📸 Gửi ảnh hiện trường (có thể gửi nhiều ảnh).\n"
-        "Khi xong, gửi <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
+        "📸 Gửi ảnh hiện trường (gửi nhiều ảnh được), xong bấm <b>✅ Gửi</b>.",
+        reply_markup=nut_gui_anh(),
     )
 
 
@@ -157,17 +151,14 @@ async def process_report_content(message: types.Message, state: FSMContext):
     """Receive report content text."""
     text = message.text
     if text.startswith("/"):
-        if text == "/cancel":
-            await state.clear()
-            await message.answer("🚫 Đã hủy báo cáo.")
         return
 
     await state.update_data(report_content=text, photos=[], media_ids=[])
     await state.set_state(SiteReportState.collecting_photos)
     await message.answer(
-        "📸 Gửi ảnh hiện trường (có thể gửi nhiều ảnh).\n"
-        "Khi xong, gửi <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
+        "📸 Gửi ảnh hiện trường (gửi nhiều ảnh được), xong bấm <b>✅ Gửi</b>.\n"
+        "Không có ảnh thì bấm <b>✅ Gửi</b> luôn.",
+        reply_markup=nut_gui_anh(),
     )
 
 
@@ -186,20 +177,28 @@ async def collect_photo(message: types.Message, state: FSMContext):
     })
     if not res or res.get("error"):
         loi = res.get("error") if res else "Không kết nối được server"
-        await message.answer(f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh hoặc <code>/done</code> để gửi báo cáo không ảnh.")
+        await message.answer(
+            f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh, hoặc bấm ✅ Gửi để gửi báo cáo không ảnh.",
+            reply_markup=nut_gui_anh(),
+        )
         return
     if res["id"] not in media_ids:
         media_ids.append(res["id"])
     await state.update_data(media_ids=media_ids)
     await message.answer(
-        f"✅ Đã lưu ảnh ({len(media_ids)} ảnh).\n"
-        "Gửi thêm ảnh hoặc gửi <code>/done</code> để hoàn tất."
+        f"✅ Đã lưu ảnh ({len(media_ids)} ảnh). Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
+        reply_markup=nut_gui_anh(),
     )
 
 
 @router.message(SiteReportState.collecting_photos, Command("done"))
 async def finish_site_report(message: types.Message, state: FSMContext):
-    """Submit the site report with collected photos."""
+    """/done — vẫn nhận cho người quen gõ lệnh."""
+    await gui_bao_cao(message, state, message.from_user.id)
+
+
+async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
+    """Gửi báo cáo kèm ảnh đã gom (nút ✅ Gửi hoặc /done)."""
     data = await state.get_data()
     project_code = data.get("project_code", "")
     content = data.get("report_content", "")
@@ -216,10 +215,10 @@ async def finish_site_report(message: types.Message, state: FSMContext):
         "project_code": project_code,
         "content": content,
         "media_ids": photos,
-        "reporter_tg_id": message.from_user.id,
+        "reporter_tg_id": tg_id,
     }
 
-    result = await api.create_site_report(message.from_user.id, report_data)
+    result = await api.create_site_report(tg_id, report_data)
 
     if result and not result.get("error"):
         photo_info = f"\n📸 Ảnh đính kèm: {len(photos)} ảnh" if photos else ""
@@ -242,19 +241,9 @@ async def finish_site_report(message: types.Message, state: FSMContext):
 async def wrong_input_photos(message: types.Message):
     """Handle wrong input during photo collection."""
     await message.answer(
-        "⚠️ Vui lòng gửi ảnh hoặc gõ <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
+        "⚠️ Gửi ảnh, hoặc bấm <b>✅ Gửi</b> để hoàn tất.",
+        reply_markup=nut_gui_anh(),
     )
-
-
-@router.message(Command("cancel"))
-async def cmd_cancel(message: types.Message, state: FSMContext):
-    """Cancel any active FSM flow."""
-    current_state = await state.get_state()
-    if current_state is None:
-        return
-    await state.clear()
-    await message.answer("🚫 Đã hủy thao tác.")
 
 
 # ---------------------------------------------------------------------------

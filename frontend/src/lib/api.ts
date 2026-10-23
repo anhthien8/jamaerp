@@ -521,6 +521,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   }
   if (path === '/users') return toPaginated(d.DEMO_USERS, params) as T;
   if (path === '/users/teams') return d.DEMO_TEAMS as T;
+  if (path === '/users/telegram-contacts') return [] as T;
   // Per-user permission overrides (demo: store in-memory)
   const _demoPermsCache: Record<string, Record<string, boolean>> = {};
   if (path.match(/^\/users\/[^/]+\/permissions$/) && method === 'GET') {
@@ -1488,6 +1489,16 @@ class ApiClient {
       `/users/teams/${id}`, { method: 'DELETE' }
     );
   }
+  /** Người Telegram bot đã gặp (nhóm/riêng) chưa gán tài khoản, kèm gợi ý nhân viên khớp tên — cần «Quản lý Users» */
+  async getTelegramContacts() {
+    return this.request<TelegramContact[]>('/users/telegram-contacts', { params: { unlinked: 'true' } });
+  }
+  /** Gán Telegram ID cho nhân viên — trùng người khác → 400 */
+  async linkTelegram(userId: string, tgUserId: number) {
+    return this.request<{ id: string; full_name: string; telegram_user_id: number }>(
+      `/users/${userId}/link-telegram`, { method: 'POST', body: { tg_user_id: tgUserId } }
+    );
+  }
   async createUser(data: Partial<User> & { password: string }) {
     return this.request<User>('/users', { method: 'POST', body: data });
   }
@@ -1979,6 +1990,19 @@ export interface User {
   /** Per-user permission overrides — null = use role defaults only */
   custom_permissions?: Record<string, boolean> | null;
   created_at: string;
+}
+
+export interface TelegramContact {
+  tg_user_id: number;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  chat_title: string | null;
+  last_seen_at: string | null;
+  linked_user_id: string | null;
+  linked_user_name: string | null;
+  suggested_user_id: string | null;
+  suggested_user_name: string | null;
 }
 
 export interface Lead {

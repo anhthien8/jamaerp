@@ -1248,6 +1248,23 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         ]
       },
       {
+        "type": "tip",
+        "text": "**Ngại dán số?** Chỉ cần nhắn `/start` cho bot hoặc nhắn một câu trong nhóm công ty có bot. Bot tự ghi nhận bạn, Admin vào **Tài khoản** → thẻ **«Telegram chưa gán»** chọn đúng tên bạn (hệ thống gợi ý sẵn theo tên) rồi bấm **Gán** là xong."
+      },
+      {
+        "type": "h3",
+        "text": "Bấm chọn dự án, không cần nhớ mã"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Gõ `/baocao`, `/suco`, `/vatlieu`, `/duan`, `/checkin` hoặc `/checkout` **không kèm gì**: bot hiện danh sách dự án bạn đang phụ trách, bấm một nút là vào việc. Chấm công có thêm nút **«🏢 Văn phòng»**.",
+          "Đang gửi ảnh báo cáo/sự cố: bấm **«✅ Gửi»** khi xong, **«❌ Hủy»** để bỏ. Gõ `/done`, `/cancel` vẫn được.",
+          "Quen gõ mã rồi thì cứ gõ như cũ, ví dụ `/baocao JMH-0601 Đã đổ bê tông sàn 2`.",
+          "Gõ `/` trong khung chat để xem danh sách lệnh kèm giải thích tiếng Việt."
+        ]
+      },
+      {
         "type": "h3",
         "text": "Các lệnh dùng hằng ngày"
       },
@@ -1276,11 +1293,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "`/duan [mã DA]`",
-            "Tra cứu nhanh một dự án, ví dụ `/duan PRJ-2026-1234`"
+            "Tra cứu nhanh một dự án. Gõ `/duan` không mã thì bấm chọn từ danh sách"
           ],
           [
             "`/baocao [mã DA] [nội dung]`",
-            "Báo cáo tiến độ công trình, gửi kèm ảnh được, gõ `/done` khi xong"
+            "Báo cáo tiến độ công trình, gửi kèm ảnh được, bấm «✅ Gửi» (hoặc gõ `/done`) khi xong"
           ],
           [
             "`/vatlieu [mã DA] [tên] - [SL] [đơn vị]`",
@@ -1316,7 +1333,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "`/cancel`",
-            "Đang nhập dở mà muốn hủy thì gõ lệnh này"
+            "Đang nhập dở mà muốn hủy thì gõ lệnh này (hoặc bấm nút «❌ Hủy»)"
           ]
         ]
       },

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { api, SalaryGrade, Team, User } from '@/lib/api';
+import { api, SalaryGrade, Team, TelegramContact, User } from '@/lib/api';
 import { getPermissions, getEffectivePermissions, getRoleLabel, ALL_PERMISSION_KEYS, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
@@ -46,9 +46,21 @@ interface FormData {
   salary_grade_id: string;
   dependents_count: string;
   team_id: string;
+  /** Telegram ID dạng chuỗi số — "" = chưa liên kết */
+  telegram_user_id: string;
 }
 
-const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES', salary_grade_id: '', dependents_count: '0', team_id: '' };
+const EMPTY_FORM: FormData = { full_name: '', email: '', password: '', phone: '', role: 'data_entry', department: 'SALES', salary_grade_id: '', dependents_count: '0', team_id: '', telegram_user_id: '' };
+
+/** «3 phút trước» / «2 giờ trước» / «5 ngày trước» — mốc backend là UTC naive */
+function truocDay(iso: string | null): string {
+  if (!iso) return '';
+  const t = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z').getTime();
+  const phut = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (phut < 60) return `${phut} phút trước`;
+  if (phut < 60 * 24) return `${Math.round(phut / 60)} giờ trước`;
+  return `${Math.round(phut / 1440)} ngày trước`;
+}
 
 export default function UsersPage() {
   const router = useRouter();
@@ -93,6 +105,12 @@ export default function UsersPage() {
   const [teamEditId, setTeamEditId] = useState('');
   const [teamSaving, setTeamSaving] = useState(false);
   const [teamError, setTeamError] = useState('');
+
+  // Telegram chưa gán (Đợt 3, 23/10): bot ghi nhận người nhắn trong nhóm/riêng,
+  // admin chọn nhân viên (sẵn gợi ý theo tên) rồi bấm Gán — khỏi bắt NV tự dán /id.
+  const [tgContacts, setTgContacts] = useState<TelegramContact[]>([]);
+  const [tgChon, setTgChon] = useState<Record<number, string>>({});
+  const [tgDangGan, setTgDangGan] = useState<number | null>(null);
   const pageSize = 20;
 
   const isAdmin = user?.role === 'admin';
@@ -162,9 +180,32 @@ export default function UsersPage() {
   }, [canManageTeams, toast]);
   useEffect(() => { if (user && permsReady) loadTeamsData(); }, [user, permsReady, loadTeamsData]);
 
+  const loadTgContacts = useCallback(() => {
+    if (!canManageTeams) return;
+    api.getTelegramContacts().then(ds => {
+      setTgContacts(ds || []);
+      setTgChon(Object.fromEntries((ds || []).map(c => [c.tg_user_id, c.suggested_user_id || ''])));
+    }).catch(() => setTgContacts([]));
+  }, [canManageTeams]);
+  useEffect(() => { if (user && permsReady) loadTgContacts(); }, [user, permsReady, loadTgContacts]);
+
+  const ganTelegram = async (c: TelegramContact) => {
+    const uid = tgChon[c.tg_user_id];
+    if (!uid) { toast('Chọn nhân viên trước khi gán', 'error'); return; }
+    setTgDangGan(c.tg_user_id);
+    try {
+      const r = await api.linkTelegram(uid, c.tg_user_id);
+      toast(`Đã gán Telegram cho ${r.full_name}`, 'success');
+      setTgContacts(prev => prev.filter(x => x.tg_user_id !== c.tg_user_id));
+      loadUsers();
+      loadTeamsData(); // allUsers đổi telegram_user_id → dropdown gán bớt người đã có
+    } catch (e: unknown) { toast((e as Error).message || 'Không gán được', 'error'); }
+    setTgDangGan(null);
+  };
+
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); setError(''); setCustomPerms({}); setCustomPermsLoaded(false); };
   const openEdit = (u: User) => {
-    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0), team_id: u.team_id || '' });
+    setForm({ full_name: u.full_name, email: u.email, password: '', phone: u.phone || '', role: u.role, department: u.department, salary_grade_id: u.salary_grade_id || '', dependents_count: String(u.dependents_count ?? 0), team_id: u.team_id || '', telegram_user_id: u.telegram_user_id ? String(u.telegram_user_id) : '' });
     setEditId(u.id); setModal('edit'); setError('');
     // Load salary grades and custom permissions
     api.getSalaryGrades().then(setGrades).catch(() => setGrades([]));
@@ -188,7 +229,7 @@ export default function UsersPage() {
     try {
       // Tách 2 trường lương (string trong form) — gán bậc lương làm ở bước Sửa sau khi tạo.
       // team_id cũng bỏ: xếp đội làm ở khối «Đội nhóm» hoặc bước Sửa (tránh gửi chuỗi rỗng).
-      const { salary_grade_id: _sg, dependents_count: _dc, team_id: _t, ...createPayload } = form;
+      const { salary_grade_id: _sg, dependents_count: _dc, team_id: _t, telegram_user_id: _tg, ...createPayload } = form;
       await api.createUser({ ...createPayload, is_active: true });
       setModal(null);
       loadUsers();
@@ -199,6 +240,8 @@ export default function UsersPage() {
 
   const handleEdit = async () => {
     if (!form.full_name) { setError('Tên không được để trống'); return; }
+    const tgId = form.telegram_user_id.trim();
+    if (tgId && !/^\d{5,15}$/.test(tgId)) { setError('Telegram ID là dãy số (bot trả về khi gõ /id)'); return; }
     setSaving(true);
     try {
       await api.updateUser(editId, {
@@ -206,7 +249,8 @@ export default function UsersPage() {
         salary_grade_id: form.salary_grade_id || null,
         dependents_count: Number(form.dependents_count) || 0,
         team_id: form.team_id || null,
-      });
+        telegram_user_id: tgId ? Number(tgId) : null,
+      } as Parameters<typeof api.updateUser>[1]);
       // Save custom permissions if any changes were made
       if (customPermsLoaded && isAdmin) {
         await api.setUserPermissions(editId, customPerms);
@@ -404,6 +448,50 @@ export default function UsersPage() {
             {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
           </select>
         </div>
+
+        {canManageTeams && tgContacts.length > 0 && (
+          <div className="mb-4 rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">Telegram chưa gán ({tgContacts.length})</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5 mb-3">Người đã nhắn trong nhóm hoặc bấm /start với bot — gán đúng nhân viên để họ dùng được lệnh trên Telegram</p>
+            <div className="space-y-2">
+              {tgContacts.map(c => {
+                const ten = [c.first_name, c.last_name].filter(Boolean).join(' ') || `ID ${c.tg_user_id}`;
+                return (
+                  <div key={c.tg_user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl p-2.5 bg-[var(--surface-2)]">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                        {ten}{c.username && <span className="text-[var(--text-muted)] font-normal"> · @{c.username}</span>}
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">
+                        {truocDay(c.last_seen_at)}{c.chat_title ? ` · nhóm ${c.chat_title}` : ' · nhắn riêng'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={tgChon[c.tg_user_id] || ''}
+                        onChange={e => setTgChon(prev => ({ ...prev, [c.tg_user_id]: e.target.value }))}
+                        className="flex-1 sm:w-56 px-2 py-1.5 rounded-lg text-sm bg-[var(--surface-1)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+                      >
+                        <option value="">— Chọn nhân viên —</option>
+                        {allUsers.filter(u => u.is_active && (!u.telegram_user_id || u.id === tgChon[c.tg_user_id])).map(u => (
+                          <option key={u.id} value={u.id}>{u.full_name}{u.id === c.suggested_user_id ? ' (gợi ý)' : ''}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => ganTelegram(c)}
+                        disabled={tgDangGan === c.tg_user_id || !tgChon[c.tg_user_id]}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}
+                      >
+                        {tgDangGan === c.tg_user_id ? '...' : 'Gán'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Đội nhóm — trưởng nhóm chỉ thấy & được giao data trong đội mình (luồng chia data 14/08) */}
         {canManageTeams && (
@@ -658,6 +746,13 @@ export default function UsersPage() {
                     <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Người phụ thuộc (giảm trừ thuế)</label>
                     <input type="number" min={0} max={20} value={form.dependents_count} onChange={e => setForm({ ...form, dependents_count: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
                   </div>
+                </div>
+              )}
+              {modal === 'edit' && (
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Telegram ID</label>
+                  <input value={form.telegram_user_id} onChange={e => setForm({ ...form, telegram_user_id: e.target.value.replace(/\D/g, '') })} inputMode="numeric" placeholder="Để trống = chưa liên kết" className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)]" />
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">Nhân viên gõ /id với bot để xem số này — hoặc gán nhanh ở thẻ «Telegram chưa gán»</p>
                 </div>
               )}
               {modal === 'edit' && (() => {

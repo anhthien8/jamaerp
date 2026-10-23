@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -732,6 +733,129 @@ async def set_role_permissions(
     )
 
     return {"role": role, "permissions": perms or None, "message": "Đã cập nhật phân quyền vai trò"}
+
+
+# ── Telegram chưa gán (Đợt 3, 23/10/2026) ────────────────────────────────
+# Bot ghi lại người nó gặp (bảng telegram_contacts); admin gán vào nhân viên
+# bằng 1 cú bấm thay cho việc nhân viên tự gõ /id rồi dán vào Cài đặt.
+# Khai báo TRƯỚC «/{user_id}» để không bị nuốt làm user_id.
+
+def bo_dau(s: str | None) -> str:
+    """«Nguyễn Văn Ánh» → «nguyen van anh» (so tên không phân biệt dấu/hoa)."""
+    import unicodedata
+    s = (s or "").replace("đ", "d").replace("Đ", "D")
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return " ".join(s.lower().split())
+
+
+def _chi_chu_so(s: str | None) -> str:
+    return "".join(ch for ch in bo_dau(s) if ch.isalnum())
+
+
+def _diem_khop(contact, user: User) -> int:
+    """Điểm khớp người Telegram ↔ nhân viên; ≥60 mới gợi ý."""
+    ten_tg = bo_dau(f"{contact.first_name or ''} {contact.last_name or ''}")
+    ten_nv = bo_dau(user.full_name)
+    diem = 0
+    if ten_tg and ten_tg == ten_nv:
+        diem = 100
+    elif ten_tg and set(ten_tg.split()) == set(ten_nv.split()):
+        diem = 90  # đảo thứ tự họ/tên («Anh Nguyen Van»)
+    elif ten_tg and len(ten_tg.split()) >= 2 and set(ten_tg.split()) <= set(ten_nv.split()):
+        diem = 70  # «Van Anh» ⊂ «Nguyen Van Anh»
+    un = _chi_chu_so(contact.username)
+    local = _chi_chu_so((user.email or "").split("@")[0])
+    if un and local and un == local:
+        diem = max(diem, 95)
+    return diem
+
+
+@router.get("/telegram-contacts")
+async def list_telegram_contacts(
+    unlinked: bool = Query(True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Người Telegram bot đã gặp, kèm gợi ý nhân viên khớp tên."""
+    from app.models.telegram_contact import TelegramContact
+
+    if not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+
+    users = (await db.execute(select(User))).scalars().all()
+    da_gan = {u.telegram_user_id: u for u in users if u.telegram_user_id}
+    ung_vien = [u for u in users if u.is_active and not u.telegram_user_id]
+
+    contacts = (await db.execute(
+        select(TelegramContact).order_by(TelegramContact.last_seen_at.desc()).limit(200)
+    )).scalars().all()
+    out = []
+    for c in contacts:
+        nv = da_gan.get(c.tg_user_id)
+        if unlinked and nv:
+            continue
+        goi_y = None
+        if not nv:
+            diem, best = max(((_diem_khop(c, u), u) for u in ung_vien), key=lambda x: x[0], default=(0, None))
+            if best is not None and diem >= 60:
+                goi_y = best
+        out.append({
+            "tg_user_id": c.tg_user_id,
+            "username": c.username,
+            "first_name": c.first_name,
+            "last_name": c.last_name,
+            "chat_title": c.chat_title,
+            "last_seen_at": c.last_seen_at.isoformat() if c.last_seen_at else None,
+            "linked_user_id": nv.id if nv else None,
+            "linked_user_name": nv.full_name if nv else None,
+            "suggested_user_id": goi_y.id if goi_y else None,
+            "suggested_user_name": goi_y.full_name if goi_y else None,
+        })
+    return out
+
+
+class LinkTelegramBody(BaseModel):
+    tg_user_id: int
+
+
+@router.post("/{user_id}/link-telegram")
+async def link_telegram(
+    user_id: str,
+    body: LinkTelegramBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin gán 1 người Telegram (từ danh sách bot đã gặp) vào nhân viên."""
+    from app.models.telegram_contact import TelegramContact
+
+    if not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+    dup = (await db.execute(
+        select(User).where(User.telegram_user_id == body.tg_user_id, User.id != user.id)
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Telegram này đã gán cho {dup.full_name} — gỡ ở tài khoản đó trước nếu cần chuyển",
+        )
+    truoc = user.telegram_user_id
+    user.telegram_user_id = body.tg_user_id
+    contact = await db.get(TelegramContact, body.tg_user_id)
+    if contact:
+        contact.linked_user_id = user.id
+        if contact.username:
+            user.telegram_username = contact.username
+    user.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    await log_action(
+        db, actor=current_user, action="user.link_telegram", entity_type="user", entity_id=user.id,
+        before={"telegram_user_id": truoc}, after={"telegram_user_id": body.tg_user_id},
+    )
+    return {"id": user.id, "full_name": user.full_name, "telegram_user_id": user.telegram_user_id}
 
 
 @router.get("/{user_id}")

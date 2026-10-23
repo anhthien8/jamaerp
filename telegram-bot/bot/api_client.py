@@ -504,6 +504,25 @@ class APIClient:
         except Exception:
             return None
 
+    # ── Đợt 3: bấm chọn dự án + ghi nhận người Telegram ──────────────────
+
+    async def my_projects(self, tg_user_id: int) -> list | dict | None:
+        """≤12 dự án đang chạy trong phạm vi người này (cho bàn phím chọn)."""
+        return await self._get(tg_user_id, "/telegram/my-projects")
+
+    async def contact_seen(self, info: dict) -> None:
+        """Báo backend «đã gặp người này» để admin gán vào tài khoản.
+        Bắn-và-quên: lỗi mạng không ảnh hưởng tin nhắn đang xử lý."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.post(
+                    f"{self._base_url}/telegram/contacts/seen",
+                    json=info,
+                    headers={"X-Telegram-Bot-Secret": TELEGRAM_AUTH_SECRET},
+                )
+        except Exception:
+            pass
+
 
 # Singleton
 api = APIClient()

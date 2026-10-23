@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.api_client import api
+from bot.keyboards import hien_ban_phim, nut_gui_anh, nut_huy
 
 router = Router()
 
@@ -16,61 +17,44 @@ class IncidentState(StatesGroup):
     collecting_photos = State()
 
 
-@router.message(Command("cancel"))
-async def cmd_cancel(message: types.Message, state: FSMContext):
-    await state.clear()
-    await message.answer("Đã hủy. Gõ lệnh để bắt đầu lại.")
-
-
 # ---------------------------------------------------------------------------
 # /suco — Report incident
 # ---------------------------------------------------------------------------
 
 @router.message(Command("suco"))
 async def cmd_suco(message: types.Message, state: FSMContext):
-    """Report a construction incident — parse project code + description."""
-    # Expected: /suco [Mã_dự_án] [Mô_tả]
+    """Không tham số → bàn phím chọn dự án; kèm mã (+ mô tả) → vào luồng."""
     args = (message.text or message.caption or "").split(maxsplit=2)
-
     if len(args) < 2:
-        await message.answer(
-            "🚨 <b>Báo cáo sự cố</b>\n\n"
-            "Cách dùng:\n"
-            "<code>/suco [Mã dự án] [Mô tả sự cố]</code>\n\n"
-            "Ví dụ:\n"
-            "<code>/suco JMH-0601 Trần nhà bị nứt ở block A tầng 2</code>\n\n"
-            "Mức độ mặc định: <b>Cao</b>\n"
-            "💡 Sau khi gửi mô tả, bạn có thể đính kèm ảnh bằng chứng."
-        )
+        await hien_ban_phim(message, message.from_user.id, "suco")
         return
+    await bat_dau_su_co(
+        message, state, args[1].strip().upper(), args[2].strip() if len(args) > 2 else "",
+    )
 
-    project_code = args[1].strip().upper()
-    description = args[2].strip() if len(args) > 2 else ""
 
+async def bat_dau_su_co(message: types.Message, state: FSMContext, project_code: str, description: str = ""):
     if not description:
         await state.update_data(project_code=project_code)
         await state.set_state(IncidentState.waiting_description)
         await message.answer(
             f"🚨 <b>Báo cáo sự cố — {project_code}</b>\n\n"
-            "Vui lòng mô tả sự cố:\n"
-            "💡 <i>Gửi /cancel để hủy</i>"
+            "Gõ mô tả sự cố (ở đâu, hư hỏng gì).",
+            reply_markup=nut_huy(),
         )
         return
+    await _xin_anh(message, state, project_code, description)
 
-    # Has description — start collecting photos
-    await state.update_data(
-        project_code=project_code,
-        incident_description=description,
-        photos=[],
-    )
+
+async def _xin_anh(message: types.Message, state: FSMContext, project_code: str, description: str):
+    await state.update_data(project_code=project_code, incident_description=description, photos=[])
     await state.set_state(IncidentState.collecting_photos)
     await message.answer(
         f"🚨 <b>Báo cáo sự cố — {project_code}</b>\n\n"
         f"Mô tả: {description}\n"
         f"Mức độ: <b>Cao</b> (mặc định)\n\n"
-        "📸 Gửi ảnh bằng chứng (có thể gửi nhiều ảnh).\n"
-        "Khi xong, gửi <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
+        "📸 Gửi ảnh bằng chứng (gửi nhiều ảnh được), xong bấm <b>✅ Gửi</b>.",
+        reply_markup=nut_gui_anh(),
     )
 
 
@@ -79,24 +63,9 @@ async def process_incident_description(message: types.Message, state: FSMContext
     """Receive incident description text."""
     text = message.text
     if text.startswith("/"):
-        if text == "/cancel":
-            await state.clear()
-            await message.answer("🚫 Đã hủy báo cáo sự cố.")
         return
-
     data = await state.get_data()
-    project_code = data.get("project_code", "")
-
-    await state.update_data(incident_description=text, photos=[])
-    await state.set_state(IncidentState.collecting_photos)
-    await message.answer(
-        f"🚨 <b>Báo cáo sự cố — {project_code}</b>\n\n"
-        f"Mô tả: {text}\n"
-        f"Mức độ: <b>Cao</b> (mặc định)\n\n"
-        "📸 Gửi ảnh bằng chứng (có thể gửi nhiều ảnh).\n"
-        "Khi xong, gửi <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
-    )
+    await _xin_anh(message, state, data.get("project_code", ""), text)
 
 
 @router.message(IncidentState.collecting_photos, F.photo)
@@ -114,21 +83,29 @@ async def collect_incident_photo(message: types.Message, state: FSMContext):
     })
     if not res or res.get("error"):
         loi = res.get("error") if res else "Không kết nối được server"
-        await message.answer(f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh hoặc <code>/done</code> để gửi báo cáo không ảnh.")
+        await message.answer(
+            f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh, hoặc bấm ✅ Gửi để báo không ảnh.",
+            reply_markup=nut_gui_anh(),
+        )
         return
     if res["id"] not in photos:
         photos.append(res["id"])
 
     await state.update_data(photos=photos)
     await message.answer(
-        f"✅ Đã nhận ảnh bằng chứng ({len(photos)} ảnh).\n"
-        "Gửi thêm ảnh hoặc gửi <code>/done</code> để hoàn tất."
+        f"✅ Đã nhận ảnh bằng chứng ({len(photos)} ảnh). Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
+        reply_markup=nut_gui_anh(),
     )
 
 
 @router.message(IncidentState.collecting_photos, Command("done"))
 async def finish_incident_report(message: types.Message, state: FSMContext):
-    """Submit the incident report to the backend."""
+    """/done — vẫn nhận cho người quen gõ lệnh."""
+    await gui_su_co(message, state, message.from_user.id)
+
+
+async def gui_su_co(message: types.Message, state: FSMContext, tg_id: int):
+    """Gửi báo cáo sự cố (nút ✅ Gửi hoặc /done)."""
     data = await state.get_data()
     project_code = data.get("project_code", "")
     description = data.get("incident_description", "")
@@ -145,11 +122,11 @@ async def finish_incident_report(message: types.Message, state: FSMContext):
         "project_code": project_code,
         "description": description,
         "severity": "high",
-        "reporter_tg_id": message.from_user.id,
+        "reporter_tg_id": tg_id,
         "media_ids": photos,
     }
 
-    result = await api.report_incident(message.from_user.id, incident_data)
+    result = await api.report_incident(tg_id, incident_data)
 
     if not result:
         await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")
@@ -199,6 +176,6 @@ async def finish_incident_report(message: types.Message, state: FSMContext):
 async def wrong_input_incident(message: types.Message):
     """Handle wrong input during photo collection."""
     await message.answer(
-        "⚠️ Vui lòng gửi ảnh bằng chứng hoặc gõ <code>/done</code> để hoàn tất.\n"
-        "💡 <i>Gửi /cancel để hủy</i>"
+        "⚠️ Gửi ảnh bằng chứng, hoặc bấm <b>✅ Gửi</b> để hoàn tất.",
+        reply_markup=nut_gui_anh(),
     )

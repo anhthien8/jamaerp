@@ -9,11 +9,17 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from bot.api_client import api
+from bot.keyboards import hien_ban_phim, nut_huy
 
 
 class RejectState(StatesGroup):
     """FSM state for collecting reject reason."""
     waiting_reason = State()
+
+
+class VatTuState(StatesGroup):
+    """Đã bấm chọn dự án, chờ gõ «Tên vật tư - SL đơn vị»."""
+    waiting_item = State()
 
 router = Router()
 
@@ -26,20 +32,44 @@ router = Router()
 async def cmd_vatlieu(message: types.Message):
     """Submit a material request — parse from text arguments."""
     # Expected format: /vatlieu [Mã_dự_án] [Tên_vật_tư] - [Số_lượng] [Đơn_vị]
-    text = message.text.replace("/vatlieu", "").strip()
+    parts = (message.text or message.caption or "").split(maxsplit=1)
+    text = parts[1].strip() if len(parts) > 1 else ""
 
     if not text:
+        await hien_ban_phim(message, message.from_user.id, "vatlieu")
+        return
+    await gui_vat_tu(message, message.from_user.id, text)
+
+
+async def hoi_vat_tu(message: types.Message, state: FSMContext, project_code: str):
+    """Sau khi bấm chọn dự án: hỏi tên vật tư + số lượng."""
+    await state.update_data(project_code=project_code)
+    await state.set_state(VatTuState.waiting_item)
+    await message.answer(
+        f"📦 <b>Yêu cầu vật tư — {project_code}</b>\n\n"
+        "Gõ theo mẫu <code>Tên vật tư - Số lượng Đơn vị</code>\n"
+        "Ví dụ: <code>Xi măng Portland - 50 bao</code>",
+        reply_markup=nut_huy(),
+    )
+
+
+@router.message(VatTuState.waiting_item, F.text & ~F.text.startswith("/"))
+async def nhan_vat_tu(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    text = f"{data.get('project_code', '')} {message.text.strip()}"
+    if not _parse_material_args(text):
         await message.answer(
-            "🧱 <b>Yêu cầu vật tư</b>\n\n"
-            "Cách dùng:\n"
-            "<code>/vatlieu [Mã DA] [Tên vật tư] - [Số lượng] [Đơn vị]</code>\n\n"
-            "Ví dụ:\n"
-            "<code>/vatlieu JMH-0601 Xi mang Portland - 50 bao</code>\n"
-            "<code>/vatlieu JMH-0601 Sat thep phi 12 - 200kg</code>\n\n"
-            "💡 Sau khi gửi, yêu cầu sẽ được chuyển đến Thu mua/Kế toán duyệt."
+            "⚠️ Chưa đúng mẫu. Gõ lại: <code>Tên vật tư - Số lượng Đơn vị</code>\n"
+            "Ví dụ: <code>Sắt phi 12 - 200 kg</code>",
+            reply_markup=nut_huy(),
         )
         return
+    await state.clear()
+    await gui_vat_tu(message, message.from_user.id, text)
 
+
+async def gui_vat_tu(message: types.Message, tg_id: int, text: str):
+    """Gửi yêu cầu vật tư từ chuỗi «MÃ Tên - SL đơn vị»."""
     parsed = _parse_material_args(text)
 
     if not parsed:
@@ -70,10 +100,10 @@ async def cmd_vatlieu(message: types.Message):
         "material_name": material_name,
         "quantity": quantity,
         "unit": unit,
-        "requester_tg_id": message.from_user.id,
+        "requester_tg_id": tg_id,
     }
 
-    result = await api.create_material_request(message.from_user.id, request_data)
+    result = await api.create_material_request(tg_id, request_data)
 
     if not result:
         await message.answer("❌ Không kết nối được server. Vui lòng thử lại.")

@@ -1,7 +1,7 @@
 """Lead intake handler — parse Zalo messages + confirm + save."""
 
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -150,12 +150,12 @@ async def edit_lead(callback: types.CallbackQuery, state: FSMContext):
 
 # Also catch forwarded/pasted messages (non-command) as lead intake
 # CHỈ trong chat riêng — tránh parse nhầm tin nhắn trò chuyện trong nhóm công ty
-@router.message(F.chat.type == "private", F.text & ~F.text.startswith("/"))
+# StateFilter(None): đang trong luồng khác (gõ nội dung /baocao, mô tả /suco,
+# vật tư...) thì để tin rơi xuống handler của luồng đó — trước đây handler này
+# khớp trước rồi return, nuốt mất tin của các luồng đăng ký sau nó.
+@router.message(StateFilter(None), F.chat.type == "private", F.text & ~F.text.startswith("/"))
 async def auto_parse_message(message: types.Message, state: FSMContext):
     """Auto-detect lead info from any non-command text message."""
-    current_state = await state.get_state()
-    if current_state is not None:
-        return  # Already in a flow
 
     # Check if message looks like a lead (has phone or name patterns)
     text = message.text

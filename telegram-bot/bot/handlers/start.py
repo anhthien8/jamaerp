@@ -52,7 +52,9 @@ async def cmd_start(message: types.Message):
             "❌ <b>Chưa liên kết tài khoản CRM</b>\n\n"
             "Telegram ID của bạn chưa được đăng ký trong hệ thống.\n"
             f"Telegram ID: <code>{tg_user.id}</code>\n\n"
-            "Vui lòng liên hệ Admin để được liên kết."
+            "Bot đã ghi nhận bạn — Admin vào CRM → Tài khoản → mục "
+            "<b>Telegram chưa gán</b> để gán cho bạn bằng 1 cú bấm.\n"
+            "Cần gấp thì nhắn Admin kèm ID ở trên."
         )
 
 
@@ -95,64 +97,8 @@ async def cb_briefing(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(lambda c: c.data == "cmd_duan")
-async def cb_duan(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "🏗️ <b>Tra cứu dự án</b>\n\n"
-        "Nhập lệnh: <code>/duan [Mã dự án]</code>\n"
-        "Ví dụ: <code>/duan JMH-2026-001</code>"
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == "cmd_baocao")
-async def cb_baocao(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "📝 <b>Báo cáo công trình</b>\n\n"
-        "Nhập lệnh: <code>/baocao [Mã DA] [Nội dung]</code>\n"
-        "Ví dụ: <code>/baocao JMH-2026-001 Hoàn thành phần thô tầng 1</code>"
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == "cmd_vatlieu")
-async def cb_vatlieu(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "📦 <b>Yêu cầu vật tư</b>\n\n"
-        "Nhập lệnh: <code>/vatlieu [Mã DA] [Tên vật tư] - [SL] [Đơn vị]</code>\n"
-        "Ví dụ: <code>/vatlieu JMH-2026-001 Da op lat - 10 m2</code>"
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == "cmd_suco")
-async def cb_suco(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "🚨 <b>Báo cáo sự cố</b>\n\n"
-        "Nhập lệnh: <code>/suco [Mã DA] [Mô tả]</code>\n"
-        "Ví dụ: <code>/suco JMH-2026-001 Ro nuoc tu bep</code>"
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == "cmd_checkin")
-async def cb_checkin(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "⏰ <b>Điểm danh GPS</b>\n\n"
-        "Nhập lệnh: <code>/checkin [Mã DA]</code>\n"
-        "Bot sẽ tự động ghi nhận vị trí GPS của bạn"
-    )
-    await callback.answer()
-
-
-@router.callback_query(lambda c: c.data == "cmd_checkout")
-async def cb_checkout(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "🕐 <b>Tan ca GPS</b>\n\n"
-        "Nhập lệnh: <code>/checkout [Mã DA]</code>\n"
-        "Bot sẽ ghi nhận thời gian kết thúc ca làm"
-    )
-    await callback.answer()
+# cmd_duan / cmd_baocao / cmd_vatlieu / cmd_suco / cmd_checkin / cmd_checkout:
+# xử lý ở handlers/chon_du_an.py (hiện bàn phím chọn dự án).
 
 
 @router.callback_query(lambda c: c.data == "cmd_feedback")

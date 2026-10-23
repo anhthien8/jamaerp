@@ -10,7 +10,7 @@ All endpoints are called by the Telegram Bot webhook handler.
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -790,3 +790,77 @@ async def my_attendance_via_telegram(
     user = await _resolve_user_by_tg(user_tg_id, db)
     summary = await month_summary(db, user.id, period_of(vn_today()))
     return {"user": user.full_name, **summary}
+
+
+# ── Đợt 3 (23/10/2026): bấm chọn dự án + ghi nhận người Telegram ───────────
+
+@router.get("/my-projects")
+async def my_projects_for_bot(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """≤12 dự án đang chạy người này được thấy — bot dựng nút bấm chọn dự án
+    thay cho việc gõ mã. Cùng phạm vi với danh sách/Kanban trên web."""
+    from app.api.projects import (
+        _RUNNING_STATUSES, _priority_order, _priority_thresholds, dieu_kien_pham_vi_du_an,
+    )
+
+    urgent, warning = await _priority_thresholds(db)
+    q = (
+        select(Project.id, Project.code, Project.name)
+        .where(Project.status.in_(_RUNNING_STATUSES))
+        .order_by(*_priority_order(urgent, warning))
+        .limit(12)
+    )
+    dieu_kien = dieu_kien_pham_vi_du_an(current_user)
+    if dieu_kien is not None:
+        q = q.where(dieu_kien)
+    rows = (await db.execute(q)).all()
+    return [{"id": r.id, "code": r.code, "name": r.name} for r in rows]
+
+
+class ContactSeen(BaseModel):
+    tg_user_id: int
+    username: str | None = Field(default=None, max_length=100)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    chat_id: int | None = None
+    chat_title: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/contacts/seen")
+async def contact_seen(
+    data: ContactSeen,
+    db: AsyncSession = Depends(get_db),
+    x_telegram_bot_secret: str = Header(default=""),
+):
+    """Bot báo «vừa gặp người này» (nhắn trong nhóm, vào nhóm, /start riêng).
+
+    Người gửi có thể CHƯA có tài khoản CRM nên không dùng JWT; xác thực bằng
+    bí mật chung với bot như /auth/telegram. Upsert theo tg_user_id."""
+    import hmac
+
+    from app.api.auth import _check_rate_limit
+    from app.config import get_settings
+    from app.models.telegram_contact import TelegramContact, _bay_gio
+
+    expected = get_settings().TELEGRAM_AUTH_SECRET
+    if expected:
+        if not hmac.compare_digest(x_telegram_bot_secret, expected):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        _check_rate_limit(f"tgseen:{data.tg_user_id}", max_attempts=30)
+
+    c = await db.get(TelegramContact, data.tg_user_id)
+    if c is None:
+        c = TelegramContact(tg_user_id=data.tg_user_id)
+        db.add(c)
+    for k in ("username", "first_name", "last_name", "chat_title"):
+        v = getattr(data, k)
+        if v:
+            setattr(c, k, v)
+    if data.chat_id is not None:
+        c.chat_id = str(data.chat_id)
+    c.last_seen_at = _bay_gio()
+    await db.flush()
+    return {"ok": True}

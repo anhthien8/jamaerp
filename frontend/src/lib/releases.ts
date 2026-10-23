@@ -16,6 +16,25 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Telegram bấm chọn dự án, không cần nhớ mã + Admin gán Telegram cho nhân viên bằng 1 cú bấm',
+    tag: 'MỚI',
+    news: [
+      'Gõ /baocao, /suco, /vatlieu, /duan, /checkin, /checkout không kèm gì: bot hiện danh sách dự án bạn đang phụ trách, bấm một nút là vào việc. Chấm công có thêm nút «🏢 Văn phòng». Gõ kèm mã như cũ vẫn chạy.',
+      'Khi gửi ảnh báo cáo hoặc sự cố có sẵn nút «📷 Thêm ảnh», «✅ Gửi», «❌ Hủy», không phải nhớ /done, /cancel.',
+      'Gõ «/» trong Telegram để xem danh sách lệnh kèm giải thích tiếng Việt.',
+      'Bot khởi động lại không còn bắt mọi người «/start lại»: bot tự nhận ra bạn ngay ở tin nhắn tiếp theo.',
+      'Sửa lỗi: trong chat riêng với bot, nội dung gõ cho /baocao, /suco đôi khi bị bot hiểu nhầm thành thông tin khách hàng mới.',
+      'Admin: trang Tài khoản có thẻ mới «Telegram chưa gán». Ai đã nhắn /start với bot hoặc nhắn trong nhóm công ty đều hiện ở đây, kèm gợi ý nhân viên trùng tên. Chọn đúng người rồi bấm «Gán» là xong, không phải chờ nhân viên tự dán /id.',
+      'Admin: form sửa tài khoản có ô «Telegram ID» để sửa hoặc gỡ liên kết.',
+    ],
+    test: [
+      'Nhắn /baocao (không kèm gì) cho bot → bấm một dự án → gõ nội dung → gửi 1 ảnh → bấm «✅ Gửi»: báo cáo hiện trên web.',
+      'Nhắn /checkin (không kèm gì) → bấm «🏢 Văn phòng» → gửi vị trí: vào ca thành công.',
+      'Một người chưa liên kết nhắn /start với bot → Admin mở Tài khoản: thấy người đó trong «Telegram chưa gán», chọn tên → «Gán». Người đó nhắn /start lại: bot chào đúng tên.',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Kho ảnh công trình: gửi ảnh từ web và Telegram không còn lỗi, khách xem ảnh tiến độ qua link',
     tag: 'MỚI',
     news: [
