@@ -80,23 +80,29 @@
   --info: #60A5FA;
   --info-bg: rgba(96, 165, 250, 0.1);
 
-  /* Surfaces */
-  --surface-0: #060D1B;
-  --surface-1: #0D1526;
-  --surface-2: #131C30;
-  --surface-3: #1A2540;
-  --surface-4: #223050;
+  /* Surfaces — 23/10/2026 học BloFin: nền GẦN ĐEN trung tính thay navy,
+     các lớp nổi chỉ sáng hơn chút một, không ánh xanh. */
+  --surface-0: #0B0D11;
+  --surface-1: #111318;
+  --surface-2: #16191F;
+  --surface-3: #1C2028;
+  --surface-4: #252A33;
   --surface-elevated: rgba(255, 255, 255, 0.03);
 
-  /* Text */
-  --text-primary: #F0F4F8;
-  --text-secondary: #9FB3C8;
-  --text-tertiary: #627D98;
-  /* Nâng tương phản trên nền tối (--surface-0 #060D1B): #486581 cũ chỉ ~2.9:1.
-     muted #8B9BAD ≈ 6.8:1, disabled #6E7E8F ≈ 4.7:1 — đều đạt WCAG AA (≥4.5:1),
-     vẫn giữ thứ bậc disabled < muted < secondary < primary. */
-  --text-disabled: #6E7E8F;
-  --text-muted: #8B9BAD;
+  /* Text — xám trung tính (BloFin) thay xám xanh.
+     Tương phản trên #0B0D11: secondary ≈ 8.5:1, muted ≈ 6.4:1, disabled ≈ 4.6:1
+     — đều đạt WCAG AA, giữ thứ bậc disabled < muted < secondary < primary. */
+  --text-primary: #F2F3F5;
+  --text-secondary: #A9ADB6;
+  --text-tertiary: #6F7480;
+  --text-disabled: #787C86;
+  --text-muted: #8F939C;
+
+  /* Thẻ phẳng kiểu BloFin: nền đặc + vệt sáng mảnh mép trên, không blur */
+  --card-bg: #111318;
+  --card-bg-hover: #15181E;
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --radius-card: 22px;
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
@@ -150,6 +156,9 @@
   --surface-3: #E9E2D3;
   --surface-4: #DDD4C1;
   --surface-elevated: rgba(35, 33, 28, 0.04);
+  --card-bg: #FFFFFF;
+  --card-bg-hover: #FFFFFF;
+  --card-edge: 0 1px 2px rgba(58, 46, 28, 0.05);
 
   --text-primary: #1C1A15;
   --text-secondary: #403C34;
@@ -270,8 +279,8 @@
 /* === Component Layer === */
 @layer components {
   /* Typography */
-  .text-display { font-size: 2.5rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
-  .text-h1 { font-size: 1.875rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+  .text-display { font-size: 2.75rem; font-weight: 600; line-height: 1.05; letter-spacing: -0.035em; }
+  .text-h1 { font-size: 2rem; font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; }
   .text-h2 { font-size: 1.25rem; font-weight: 600; line-height: 1.3; letter-spacing: -0.01em; }
   .text-h3 { font-size: 1rem; font-weight: 600; line-height: 1.4; }
   .text-body { font-size: 0.875rem; font-weight: 400; line-height: 1.5; }
@@ -289,28 +298,34 @@
 
   /* Glass morphism cards */
   .card {
-    background: var(--surface-2);
+    background: var(--card-bg);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    transition: all 0.3s var(--ease-out-expo);
+    border-radius: var(--radius-card);
+    box-shadow: var(--card-edge);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
   .card:hover {
     border-color: var(--border-default);
-    box-shadow: var(--shadow-md);
   }
 
+  /* Tên giữ «glass» cho khỏi sửa 135 chỗ, nhưng từ 23/10/2026 là thẻ PHẲNG kiểu BloFin:
+     bỏ backdrop-filter blur (nặng nhất khi cuộn trên iPhone/tablet Samsung đời cũ),
+     nền đặc nên dùng làm modal vẫn che được nội dung phía sau. */
   .card-glass,
   .glass-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-    backdrop-filter: blur(24px) saturate(1.2);
+    background: var(--card-bg);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    transition: all 0.3s var(--ease-out-expo);
+    border-radius: var(--radius-card);
+    box-shadow: var(--card-edge);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
   .card-glass:hover,
   .glass-card:hover {
-    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    background: var(--card-bg-hover);
     border-color: var(--border-default);
+  }
+  @media (max-width: 640px) {
+    .card, .card-glass, .glass-card { border-radius: 18px; }
   }
 
   /* Stat card with glow on hover */
@@ -343,24 +358,19 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
+    padding: 0.625rem 1.375rem;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: 9999px;
     font-family: var(--font-inter, 'Inter'), sans-serif;
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
-    background: linear-gradient(135deg, var(--gold-500), var(--gold-600));
-    color: white;
-    box-shadow: 0 2px 8px rgba(201, 169, 110, 0.25);
-    transition: all 0.2s ease;
+    background: #C9A96E;
+    color: #0B0D11;
+    transition: filter 0.15s ease, transform 0.15s ease;
   }
-  .btn-primary:hover {
-    background: linear-gradient(135deg, var(--gold-400), var(--gold-500));
-    box-shadow: 0 4px 16px rgba(201, 169, 110, 0.35);
-    transform: translateY(-1px);
-  }
-  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary:active { transform: scale(0.98); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .btn-ghost {
@@ -369,7 +379,7 @@
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm);
+    border-radius: 9999px;
     background: transparent;
     color: var(--text-secondary);
     font-size: 0.8125rem;
@@ -552,6 +562,43 @@ select optgroup {
   background-color: #171b26;
   color: #e8e8ea;
 }
+
+/* === Phong cách BloFin (23/10/2026) — áp cho class Tailwind viết thẳng trong trang ===
+   Nút vàng đặc ở các trang không dùng .btn-primary mà viết bg-[#C9A96E] hoặc gradient
+   from-[#C9A96E]. [class~=…] chỉ khớp ĐÚNG token đó (không dính biến thể /15, /20 nền mờ).
+   Ngoài @layer để thắng rounded-xl/text-white của Tailwind. */
+button[class~="bg-[#C9A96E]"],
+a[class~="bg-[#C9A96E]"],
+button[class~="bg-gold-500"],
+a[class~="bg-gold-500"],
+button[class~="from-[#C9A96E]"],
+a[class~="from-[#C9A96E]"] {
+  border-radius: 9999px;
+  background: #C9A96E;
+  color: #0B0D11;
+  box-shadow: none;
+}
+button[class~="bg-[#C9A96E]"]:hover:not(:disabled),
+a[class~="bg-[#C9A96E]"]:hover,
+button[class~="bg-gold-500"]:hover:not(:disabled),
+a[class~="bg-gold-500"]:hover,
+button[class~="from-[#C9A96E]"]:hover:not(:disabled),
+a[class~="from-[#C9A96E]"]:hover {
+  filter: brightness(1.08);
+}
+
+/* Tiêu đề trang: to hơn, chữ khít (BloFin dùng -1.4px ở 72px ≈ -0.02em → -0.03em cho chữ Việt
+   có dấu vẫn thoáng). Chỉ đổi cỡ các h1 dùng text-2xl — mẫu tiêu đề trang chung. */
+h1 {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+h1[class~="text-2xl"] { font-size: 1.75rem; }
+@media (min-width: 768px) {
+  h1[class~="text-2xl"] { font-size: 2rem; }
+}
+h2 { letter-spacing: -0.015em; }
 
 /* iOS Safari tự phóng to trang khi chạm vào ô nhập có chữ < 16px rồi không thu lại
    (nguyên tắc 23/10/2026: mượt trên iPhone/iPad). Chỉ áp cho iOS — -webkit-touch-callout

@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Giao diện mới: nền đen, thẻ phẳng, nút bo tròn — cuộn mượt hơn trên điện thoại',
+    tag: 'MỚI',
+    news: [
+      'Nền đổi từ xanh navy sang đen trung tính, chữ phụ xám trung tính dễ đọc hơn; vàng JAMA vẫn là màu nhấn duy nhất.',
+      'Các thẻ thông tin thành thẻ phẳng, góc bo lớn, có vệt sáng mảnh ở mép trên; bỏ hiệu ứng kính mờ nên cuộn trang mượt hơn trên iPhone và tablet Samsung.',
+      'Nút chính (Tạo, Lưu, Gửi…) thành nút vàng bo tròn hẳn, chữ đen rõ hơn.',
+      'Tiêu đề trang to hơn, chữ gọn hơn.',
+      'Chế độ Ngoài trời (nền sáng) giữ nguyên, chỉ góc thẻ bo lớn hơn.',
+    ],
+    test: [
+      'Mở Tổng quan, Quy trình, Dự án trên điện thoại: cuộn lên xuống thấy mượt, chữ đọc rõ.',
+      'Bấm nút vàng «Tạo lead» / «Lưu»: nút bo tròn, chữ đen.',
+      'Bấm nút «🌙 TRONG NHÀ» ở cột menu trái để chuyển sang Ngoài trời: nền sáng vẫn như cũ, thẻ trắng rõ ràng.',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Đính ảnh vào ghi chú lead + tải tài liệu dự án thẳng lên, không phải tự gửi Telegram rồi dán link',
     tag: 'MỚI',
     news: [

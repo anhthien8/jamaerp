@@ -83,6 +83,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "Trên **điện thoại**: menu đầy đủ mở bằng nút **☰** góc trên trái. Ngoài ra có **thanh nút dưới đáy màn hình** (tối đa 5 nút: Tổng quan, Quy trình, Dự án, Chấm công, Phê duyệt — tùy quyền của bạn) để bấm nhanh bằng ngón cái."
       },
       {
+        "type": "p",
+        "text": "Từ 23/10/2026 giao diện dùng **nền đen, thẻ phẳng, nút vàng bo tròn**: nút vàng đặc luôn là việc chính của màn hình (Tạo, Lưu, Gửi), nút viền mảnh là việc phụ. Đứng ngoài nắng khó nhìn thì bấm nút **🌙 TRONG NHÀ** ở cột menu để chuyển sang **Ngoài trời** (nền sáng)."
+      },
+      {
         "type": "h3",
         "text": "Chuông thông báo 🔔"
       },
