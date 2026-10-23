@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Điện thoại dễ dùng hơn: bấm thông báo mở đúng việc, nút cài app ngay ở trang đăng nhập',
+    tag: 'SỬA',
+    fixes: [
+      'Bấm một thông báo trên điện thoại giờ mở thẳng đúng lead hoặc dự án. Trước đây bấm vào không có phản hồi gì.',
+      'Trang Tổng quan trên điện thoại: thẻ số liệu không còn bị dồn vào giữa, biểu tượng không đè chữ; có thanh tiêu đề cố định nên nút menu không đè lên dòng «Xin chào».',
+      'Chấm công: hai nút Vào ca và Tan ca cùng cỡ, đứng cạnh nhau; nút cần bấm tiếp theo tô vàng.',
+      'Telegram: gõ /duan, /baocao… trong nhóm mà tài khoản Telegram chưa gán CRM thì bot hướng dẫn cách gán, không còn báo nhầm «Không kết nối được server».',
+    ],
+    news: [
+      'Mở web trên điện thoại ở trang đăng nhập: thanh dưới «Cài JAMA HOME lên điện thoại» hiện ngay. Android bấm là cài; iPhone/iPad bấm sẽ hiện 3 bước có hình nút Chia sẻ.',
+      'Trong app, bấm ✕ trên thanh cài đặt thì 7 ngày sau mới nhắc lại (trước đây ẩn vĩnh viễn).',
+    ],
+    test: [
+      'Điện thoại: bấm chuông → bấm một dòng «Lead mới» → thẻ lead mở ra.',
+      'Mở trang đăng nhập bằng Safari iPhone → thấy thanh cài app ở đáy → bấm «Thêm» → hiện hướng dẫn 3 bước.',
+      'Nhóm Telegram: gõ /duan → hiện danh sách dự án để bấm chọn (hoặc hướng dẫn gán nếu chưa gán).',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Trợ lý Zalo: Ban giám đốc và Trưởng phòng nắm việc trong các nhóm Zalo, không phải đọc hết',
     tag: 'MỚI',
     news: [

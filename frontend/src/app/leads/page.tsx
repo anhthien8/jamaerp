@@ -498,6 +498,25 @@ function LeadsContent() {
     setLichSuGoiY([]);
   }, []);
 
+  // Mở thẳng thẻ lead từ link thông báo (/leads?id=…). Đọc xong thì gỡ `id`
+  // khỏi URL để bấm lại cùng thông báo vẫn mở được, và đóng thẻ không bật lại.
+  const urlLeadId = searchParams.get('id');
+  useEffect(() => {
+    if (!urlLeadId || loadingLeads) return;
+    const conLai = new URLSearchParams(searchParams.toString());
+    conLai.delete('id');
+    router.replace(conLai.toString() ? `/leads?${conLai}` : '/leads', { scroll: false });
+    const coSan = leads.find(l => l.id === urlLeadId);
+    if (coSan) { void Promise.resolve().then(() => openLeadDetail(coSan)); return; }
+    api.getLead(urlLeadId)
+      .then(l => openLeadDetail({
+        ...l,
+        tags: typeof l.tags === 'string' ? (() => { try { return JSON.parse(l.tags as unknown as string); } catch { return []; } })() : l.tags || [],
+      }))
+      .catch(() => toast('Không mở được lead này (đã xoá hoặc ngoài phạm vi của bạn)', 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLeadId, loadingLeads]);
+
   // Ô chọn lý do nằm cuối thẻ chi tiết (thẻ có thể cuộn) — bật sẵn mà không cuộn tới
   // thì user bấm "Mất" xong tưởng không có gì xảy ra.
   useEffect(() => {
@@ -1256,7 +1275,7 @@ function LeadsContent() {
             <div
               ref={topScrollRef}
               onScroll={onTopScroll}
-              className="top-scrollbar sticky top-0 z-20 overflow-x-auto overflow-y-hidden mb-2 rounded"
+              className="top-scrollbar sticky top-14 lg:top-0 z-20 overflow-x-auto overflow-y-hidden mb-2 rounded"
               style={{ height: 16, background: 'var(--surface-2)' }}
               aria-hidden="true"
             >

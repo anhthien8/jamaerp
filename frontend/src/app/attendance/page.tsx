@@ -408,18 +408,21 @@ export default function AttendancePage() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                {/* Hai nút cùng cỡ, cùng dáng viên thuốc; nút của BƯỚC KẾ TIẾP mới tô vàng
+                    (chưa vào ca → Vào ca, đã vào → Tan ca). Bản cũ: Vào ca vàng chữ trắng,
+                    Tan ca viền gần như vô hình → lệch nhau trên điện thoại (23/10/2026). */}
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[260px]">
                   <button
                     onClick={doCheckin}
                     disabled={busy || checkedIn}
-                    className="px-4 py-2 rounded-xl font-semibold text-white disabled:opacity-40"
-                    style={{ background: 'var(--gold-500)' }}
+                    className={`${!checkedIn ? 'btn-primary' : 'btn-ghost'} w-full justify-center disabled:opacity-40`}
+                    style={{ minHeight: 44 }}
                   >✅ Vào ca</button>
                   <button
                     onClick={doCheckout}
                     disabled={busy || !checkedIn || checkedOut}
-                    className="px-4 py-2 rounded-xl font-semibold disabled:opacity-40 border"
-                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+                    className={`${checkedIn && !checkedOut ? 'btn-primary' : 'btn-ghost'} w-full justify-center disabled:opacity-40`}
+                    style={{ minHeight: 44 }}
                   >🏁 Tan ca</button>
                 </div>
               </div>

@@ -379,10 +379,19 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      {/* Thanh trên mobile: nền đặc phía sau nút menu + chuông. Thiếu nó thì hai nút
+          `fixed` đè lên tiêu đề trang khi cuộn («Xin chào» bị nút menu che, 23/10/2026). */}
+      <div
+        className="fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-center lg:hidden"
+        style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        <span className="text-sm font-semibold tracking-wide" style={{ color: 'var(--gold-400)' }}>JAMA HOME</span>
+      </div>
+
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-xl lg:hidden"
+        className="fixed top-[9px] left-4 z-50 p-2 rounded-xl lg:hidden"
         style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
         aria-label="Mở menu"
       >

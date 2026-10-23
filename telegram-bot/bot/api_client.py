@@ -15,6 +15,9 @@ class APIClient:
     def __init__(self):
         self._base_url = f"{API_BASE}/api/v1"
         self._tokens: dict[int, str] = {}  # telegram_user_id → JWT
+        # TG ID backend trả 404 (chưa gán vào tài khoản CRM nào) — để bot nói
+        # đúng «chưa liên kết» thay vì «không kết nối được server».
+        self._chua_gan: set[int] = set()
 
     async def authenticate(self, telegram_user_id: int, username: str | None = None) -> dict | None:
         """Authenticate TG user → JWT."""
@@ -31,14 +34,23 @@ class APIClient:
                 if resp.status_code == 200:
                     data = resp.json()
                     self._tokens[telegram_user_id] = data["access_token"]
+                    self._chua_gan.discard(telegram_user_id)
                     return data
+                if resp.status_code in (403, 404):  # chưa gán / tài khoản bị khóa
+                    self._chua_gan.add(telegram_user_id)
+                    self._tokens.pop(telegram_user_id, None)
                 return None
         except Exception:
             return None
 
     def _headers(self, telegram_user_id: int) -> dict:
-        token = self._tokens.get(telegram_user_id, "")
-        return {"Authorization": f"Bearer {token}"}
+        token = self._tokens.get(telegram_user_id)
+        # Không token thì KHÔNG gửi «Bearer » rỗng: httpx từ chối header có
+        # khoảng trắng cuối → request không đi, bot báo nhầm lỗi mạng.
+        return {"Authorization": f"Bearer {token}"} if token else {}
+
+    def chua_lien_ket(self, telegram_user_id: int) -> bool:
+        return telegram_user_id in self._chua_gan
 
     async def _post_media(self, tg_user_id: int, path: str, data: dict) -> dict | None:
         """POST tới /media/*. Bot vừa khởi động lại thì cache JWT rỗng → tự
@@ -333,14 +345,20 @@ class APIClient:
     # ── HR Phase 1: chấm công / nghỉ phép / lương / phê duyệt ─────────────
 
     async def _post(self, tg_user_id: int, path: str, payload: dict | None = None, error_default: str = "Loi he thong") -> dict | None:
+        if tg_user_id not in self._tokens:
+            await self.authenticate(tg_user_id)
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{self._base_url}{path}",
-                    json=payload or {},
-                    headers=self._headers(tg_user_id),
-                    timeout=15.0,
-                )
+                for lan in range(2):
+                    resp = await client.post(
+                        f"{self._base_url}{path}",
+                        json=payload or {},
+                        headers=self._headers(tg_user_id),
+                        timeout=15.0,
+                    )
+                    if resp.status_code == 401 and lan == 0 and await self.authenticate(tg_user_id):
+                        continue
+                    break
                 if resp.status_code in (200, 201):
                     return resp.json()
                 try:
@@ -351,14 +369,20 @@ class APIClient:
             return None
 
     async def _get(self, tg_user_id: int, path: str, params: dict | None = None) -> dict | None:
+        if tg_user_id not in self._tokens:
+            await self.authenticate(tg_user_id)
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"{self._base_url}{path}",
-                    params=params,
-                    headers=self._headers(tg_user_id),
-                    timeout=15.0,
-                )
+                for lan in range(2):
+                    resp = await client.get(
+                        f"{self._base_url}{path}",
+                        params=params,
+                        headers=self._headers(tg_user_id),
+                        timeout=15.0,
+                    )
+                    if resp.status_code == 401 and lan == 0 and await self.authenticate(tg_user_id):
+                        continue
+                    break
                 if resp.status_code == 200:
                     return resp.json()
                 try:

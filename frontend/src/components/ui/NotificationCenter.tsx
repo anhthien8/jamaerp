@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Lead, Project } from '@/lib/api';
 
@@ -68,7 +68,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         title: `Lead quá hạn: ${lead.name}`,
         description: `Chưa liên hệ ${days} ngày — ${lead.phone}${lead.address ? ' · ' + lead.address : ''}`,
         icon: '⚠️',
-        href: '/leads',
+        href: `/leads?id=${lead.id}`,
         timestamp: lead.last_contacted_at || lead.updated_at,
         read: readIds.has(id),
         type: 'overdue_lead',
@@ -86,7 +86,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         title: `Tiến độ thấp: ${proj.code}`,
         description: `${proj.name} — ${proj.progress}% hoàn thành`,
         icon: '🚧',
-        href: '/projects',
+        href: `/projects?id=${proj.id}`,
         timestamp: proj.updated_at,
         read: readIds.has(id),
         type: 'low_progress',
@@ -104,7 +104,7 @@ export function generateNotifications(leads: Lead[], projects: Project[], readId
         title: `Cập nhật: ${lead.name}`,
         description: `Quy trình ${lead.stage.replace(/_/g, ' ')} — ${lead.assigned_user_name || 'Chưa giao'}`,
         icon: '🔵',
-        href: '/leads',
+        href: `/leads?id=${lead.id}`,
         timestamp: lead.updated_at,
         read: readIds.has(id),
         type: 'new_assignment',
@@ -166,7 +166,6 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [readIds, setReadIdsState] = useState<Set<string>>(new Set());
-  const panelRef = useRef<HTMLDivElement>(null);
   const [internalLeads, setInternalLeads] = useState<Lead[]>([]);
   const [internalProjects, setInternalProjects] = useState<Project[]>([]);
   const [serverNotifs, setServerNotifs] = useState<Notification[]>([]);
@@ -269,6 +268,15 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
 
   const handleNavigate = useCallback((href: string, notifId?: string) => {
     setOpen(false);
+    // Thông báo tự sinh (lead quá hạn, tiến độ thấp…): nhớ đã đọc trên máy này
+    if (notifId && !notifId.startsWith('srv-')) {
+      setReadIdsState(prev => {
+        const next = new Set(prev);
+        next.add(notifId);
+        setReadIds(next);
+        return next;
+      });
+    }
     // Server notification: mark read on backend
     if (notifId?.startsWith('srv-') && !isDemoMode()) {
       const serverId = notifId.slice(4);
@@ -288,15 +296,10 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
-  // Close on click outside
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  // KHÔNG bắt «bấm ra ngoài» bằng mousedown: panel mobile và desktop từng dùng
+  // chung panelRef (ref trỏ panel desktop đang ẩn) nên chạm vào thông báo trên
+  // điện thoại bị coi là bấm ra ngoài → sheet đóng trước khi kịp mở trang.
+  // Lớp nền mờ đã tự đóng khi bấm ra ngoài.
 
   const actionNotifs = notifications.filter(n => n.group === 'action_required');
   const recentNotifs = notifications.filter(n => n.group === 'recent');
@@ -317,7 +320,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const bellButton = (
     <button
       onClick={() => setOpen(true)}
-      className="fixed top-4 right-4 z-40 lg:top-16 lg:bottom-auto lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
+      className="fixed top-[9px] right-4 z-40 lg:top-16 lg:bottom-auto lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
       style={{ color: 'var(--text-tertiary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
       aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}
     >
@@ -373,7 +376,6 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
         <div className="fixed inset-0 z-[100] lg:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            ref={panelRef}
             className="absolute bottom-0 left-0 right-0 max-h-[85vh] rounded-t-2xl overflow-hidden animate-slideUp"
             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
             onClick={e => e.stopPropagation()}
@@ -388,7 +390,6 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
         <div className="fixed inset-0 z-[100] hidden lg:block" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div
-            ref={panelRef}
             className="absolute top-0 right-0 bottom-0 w-[400px] flex flex-col animate-slideRight"
             style={{ background: 'var(--surface-1)', borderLeft: '1px solid var(--border-default)', boxShadow: '-8px 0 32px rgba(0,0,0,0.3)' }}
             onClick={e => e.stopPropagation()}

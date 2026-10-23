@@ -76,9 +76,48 @@ def _bao_da_gap(user: types.User, chat: types.Chat | None) -> None:
     asyncio.create_task(api.contact_seen(info))
 
 
+# Lệnh dùng được khi Telegram chưa gán tài khoản CRM.
+_LENH_TU_DO = {"start", "id", "cancel", "help"}
+
+
+def _la_lenh_can_dang_nhap(event) -> bool:
+    if isinstance(event, types.CallbackQuery):
+        return True
+    if isinstance(event, types.Message):
+        text = (event.text or event.caption or "").strip()
+        if text.startswith("/"):
+            lenh = text[1:].split(maxsplit=1)[0].split("@")[0].lower() if len(text) > 1 else ""
+            return lenh not in _LENH_TU_DO
+    return False
+
+
+def _huong_dan_lien_ket(user: types.User) -> str:
+    ten = " ".join(x for x in (user.first_name, user.last_name) if x) or "bạn"
+    return (
+        f"🔗 <b>Telegram của {ten} chưa liên kết tài khoản CRM</b>\n\n"
+        "Bot đã ghi nhận bạn. Nhờ Admin vào <b>CRM → Tài khoản → «Telegram chưa gán»</b>, "
+        "chọn tên bạn rồi bấm <b>Gán</b>. Xong là dùng được ngay, không cần /start lại.\n"
+        f"Telegram ID của bạn: <code>{user.id}</code>"
+    )
+
+
 async def nguoi_dung_middleware(handler, event, data):
     user: types.User | None = data.get("event_from_user")
     chat: types.Chat | None = data.get("event_chat")
+    if user is not None and not user.is_bot and _la_lenh_can_dang_nhap(event) and user.id not in api._tokens:
+        # Gõ lệnh/bấm nút: thử đăng nhập NGAY (không chờ 10 phút) để người vừa
+        # được admin gán dùng được luôn; vẫn chưa gán thì hướng dẫn rõ ràng.
+        _lan_dang_nhap[user.id] = time.monotonic()
+        await api.authenticate(user.id, user.username)
+        if api.chua_lien_ket(user.id):
+            _bao_da_gap(user, chat)
+            if isinstance(event, types.CallbackQuery):
+                await event.answer("Telegram của bạn chưa liên kết tài khoản CRM", show_alert=True)
+                if event.message:
+                    await event.message.answer(_huong_dan_lien_ket(user))
+            else:
+                await event.answer(_huong_dan_lien_ket(user))
+            return None
     if user is not None and not user.is_bot:
         # Bot khởi động lại thì cache JWT rỗng → tự đăng nhập bằng TG ID thay
         # vì bắt nhân viên /start lại. Người chưa gán: thử lại sau 10 phút.

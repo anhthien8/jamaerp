@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { laTruongPhong } from '@/lib/roles';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages, mediaUrl } from '@/lib/api';
 import { nenAnh, blobThanhDataUrl } from '@/lib/anh';
@@ -177,7 +177,7 @@ const taskStatusConfig: Record<string, { label: string; color: string; icon: str
   completed: { label: 'Hoàn thành', color: '#3B82F6', icon: '✅' },
 };
 
-export default function ProjectsPage() {
+function ProjectsPageInner() {
   const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -371,6 +371,21 @@ export default function ProjectsPage() {
       setLoadingTasks(false);
     }
   };
+
+  // Mở thẳng chi tiết dự án từ link thông báo (/projects?id=…), rồi gỡ `id`
+  // khỏi URL để bấm lại cùng thông báo vẫn mở được.
+  const searchParams = useSearchParams();
+  const urlProjectId = searchParams.get('id');
+  useEffect(() => {
+    if (!urlProjectId || loadingProjects) return;
+    router.replace('/projects', { scroll: false });
+    const coSan = projects.find(p => p.id === urlProjectId);
+    if (coSan) { void Promise.resolve().then(() => openProjectDetail(coSan)); return; }
+    api.getProject(urlProjectId)
+      .then(p => openProjectDetail(p))
+      .catch(() => toast('Không mở được dự án này (đã xoá hoặc ngoài phạm vi của bạn)', 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlProjectId, loadingProjects]);
 
   const openTaskDetail = async (task: ProjectTask) => {
     setSelectedTask(task);
@@ -2116,5 +2131,13 @@ export default function ProjectsPage() {
         </div>
       )}
     </Sidebar>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">⏳</div>}>
+      <ProjectsPageInner />
+    </Suspense>
   );
 }

@@ -92,7 +92,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Nút chuông ở **góc trên phải**. Có việc mới thì hiện chấm đỏ kèm con số. Bấm vào sẽ mở bảng thông báo chia 2 nhóm: **Cần xử lý** (việc đang chờ bạn) và **Gần đây** (tin tức chung). Bấm 1 dòng để nhảy thẳng tới việc đó; bấm **Đánh dấu đã đọc** để xóa chấm đỏ."
+        "text": "Nút chuông ở **góc trên phải**. Có việc mới thì hiện chấm đỏ kèm con số. Bấm vào sẽ mở bảng thông báo chia 2 nhóm: **Cần xử lý** (việc đang chờ bạn) và **Gần đây** (tin tức chung). Bấm 1 dòng để nhảy thẳng tới việc đó (lead hoặc dự án tự mở ra, cả trên điện thoại); bấm **Đánh dấu đã đọc** để xóa chấm đỏ."
       },
       {
         "type": "h3",
@@ -112,7 +112,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Cài app ra màn hình chính:** dùng điện thoại vài giây sẽ thấy tấm nhắc «📲 Lưu JAMA HOME ra màn hình chính». Android: bấm nút **Cài đặt** là xong (hoặc menu ⋮ góc phải Chrome → Thêm vào Màn hình chính). iPhone: bấm nút **Chia sẻ ⬆️** trong Safari → **Thêm vào MH chính**. Sau đó mở app 1 chạm như Zalo, khỏi gõ địa chỉ."
+        "text": "**Cài app ra màn hình chính:** mở web bằng điện thoại, ngay trang đăng nhập sẽ có thanh dưới «Cài JAMA HOME lên điện thoại». Android/Samsung: bấm **Cài đặt** là xong. iPhone/iPad: bấm **Thêm** để xem 3 bước — nút **Chia sẻ ⬆️** của Safari → **Thêm vào MH chính** → **Thêm**. Lỡ bấm ✕ thì 7 ngày sau thanh nhắc lại, hoặc đăng xuất ra trang đăng nhập là thấy. Sau đó mở app 1 chạm như Zalo, khỏi gõ địa chỉ."
       }
     ]
   },

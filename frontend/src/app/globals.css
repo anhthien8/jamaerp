@@ -263,12 +263,20 @@
 
 /* Tối ưu diện tích chạm (Touch target min 36px) trên Mobile cho tất cả button & clickable items */
 @media (max-width: 640px) {
-  button, 
+  button,
   [role="button"],
   .btn-primary,
   .btn-ghost {
     min-height: 36px;
     min-width: 36px;
+  }
+  /* Chỉ căn giữa nút KHÔNG tự khai bố cục. Bản cũ ép inline-flex + justify-center
+     cho cả [role="button"] → thẻ số liệu Tổng quan (div role=button) bị dồn thành
+     một hàng giữa thẻ, chữ «Xem chi tiết» trôi sang phải (lỗi 23/10/2026); nút
+     `flex` liệt kê (thông báo, menu) cũng bị kéo nội dung vào giữa. */
+  button:not([class~="flex"]):not([class~="block"]):not([class~="grid"]):not([class~="hidden"]):not([class~="inline-flex"]),
+  .btn-primary,
+  .btn-ghost {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -373,17 +381,20 @@
   .btn-primary:active { transform: scale(0.98); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+  /* Nút phụ: viền rõ (border-strong) + cùng cỡ chữ/độ đậm với .btn-primary để đứng cạnh
+     nhau không lệch (23/10/2026 — viền 0.1 cũ gần như vô hình trên nền đen). */
   .btn-ghost {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border-default);
+    padding: 0.5625rem 1rem;
+    border: 1px solid var(--border-strong);
     border-radius: 9999px;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
-    font-weight: 500;
+    background: rgba(255,255,255,0.03);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
   }
