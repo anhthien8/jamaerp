@@ -113,7 +113,8 @@ async def _llm_enrich(text: str) -> list[dict]:
         return []
 
 
-async def analyze_and_store(db: AsyncSession, message: ZaloMessage, group: ZaloGroup, use_llm: bool = False) -> list[ZaloSignal]:
+async def analyze_and_store(db: AsyncSession, message: ZaloMessage, group: ZaloGroup, use_llm: bool = False,
+                          tu_nhan_vien: bool = False) -> list[ZaloSignal]:
     """Phân tích 1 tin → tạo ZaloSignal (chống trùng lead). Trả list signal đã tạo."""
     text = (message.text or "").strip()
     if not text:
@@ -124,6 +125,10 @@ async def analyze_and_store(db: AsyncSession, message: ZaloMessage, group: ZaloG
         # Chỉ gọi LLM khi rule-based không bắt được gì (tiết kiệm quota)
         if not raw_signals:
             raw_signals = await _llm_enrich(text)
+
+    if tu_nhan_vien:
+        # Nhân viên nhắn trong nhóm khách (gửi SĐT, báo giá) không phải lead/hỏi giá
+        raw_signals = [s for s in raw_signals if s["type"] not in ("lead_candidate", "quote_request")]
 
     created: list[ZaloSignal] = []
     for sig in raw_signals:

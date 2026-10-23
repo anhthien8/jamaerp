@@ -84,3 +84,27 @@ export async function pushMessage(msg) {
 export async function pollPendingLogin() {
   return await apiGet("/zalo/ingest/pending-login");
 }
+
+/** Phien Zalo da luu (backend giai ma) hoac null. */
+export async function getSavedCredentials() {
+  const res = await apiGet("/zalo/ingest/credentials");
+  return res?.credentials || null;
+}
+
+/** Luu phien sau khi quet QR: { cookie, imei, user_agent }. */
+export async function saveCredentials(creds) {
+  return await apiPost("/zalo/ingest/credentials", creds);
+}
+
+export async function clearCredentials() {
+  try {
+    await request(`${BASE}/zalo/ingest/credentials`, { method: "DELETE", headers: HEADERS, bodyTimeout: 10_000 });
+  } catch (err) {
+    logger.warn("clearCredentials failed", { error: err.message });
+  }
+}
+
+/** Dong bo danh sach nhom: [{ zalo_group_id, name, member_count }]. */
+export async function syncGroups(groups) {
+  return await apiPost("/zalo/ingest/groups", { groups });
+}

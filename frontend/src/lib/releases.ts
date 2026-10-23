@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Trợ lý Zalo: Ban giám đốc và Trưởng phòng nắm việc trong các nhóm Zalo, không phải đọc hết',
+    tag: 'MỚI',
+    news: [
+      'Menu mới «Trợ lý Zalo» (Ban giám đốc, Kế toán, Trưởng phòng): khách chờ trả lời, khách có nguy cơ mất, khách hỏi giá, khách mới tiềm năng. Trưởng phòng chỉ thấy nhóm của phòng mình.',
+      'Khách nhắn trong nhóm quá 2 giờ chưa ai trả lời: bot Telegram báo riêng Trưởng phòng phụ trách nhóm và Ban giám đốc.',
+      'Khoảng 17h mỗi ngày: bot gửi tóm tắt các nhóm Zalo. Trưởng phòng nhận phần phòng mình, Ban giám đốc nhận cả công ty.',
+      'Trợ lý chỉ đọc, không gửi gì vào Zalo. Tin nhắn gốc tự xoá sau 7 ngày. Không dùng để chấm điểm nhân viên.',
+      'Admin: Cài đặt → Zalo có thêm ô chọn phòng cho từng nhóm; nhóm mới vào luôn ở trạng thái tắt. Cài đặt → Tự động hóa chỉnh được giờ gửi tóm tắt và số giờ coi là khách chờ.',
+    ],
+    test: [
+      'Admin: Cài đặt → Zalo, quét QR bằng Zalo riêng của công ty → danh sách nhóm hiện ra, bật 1 nhóm và chọn phòng.',
+      'Trưởng phòng: menu «Trợ lý Zalo» hiện; nhân viên thường không thấy menu này.',
+      'Admin: trang Trợ lý Zalo → tab «Tóm tắt cuối ngày» → «Làm tóm tắt hôm nay».',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Giao diện mới: nền đen, thẻ phẳng, nút bo tròn — cuộn mượt hơn trên điện thoại',
     tag: 'MỚI',
     news: [

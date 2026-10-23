@@ -30,27 +30,19 @@ Biến môi trường:
 
 ## Luồng đăng nhập QR (qua web admin)
 
-1. Admin vào **Cài đặt → 💬 Zalo → "Đăng nhập Zalo (QR)"** trên web JAMA.
-2. Service này (đang chạy) poll thấy yêu cầu → gọi `loginQR` → nhận QR → đẩy ảnh QR về backend.
-3. Web admin hiển thị QR → mở **Zalo trên điện thoại → Cá nhân → Quét mã QR**.
-4. Đăng nhập xong → service bắt đầu lắng nghe nhóm → mỗi tin đẩy `POST /zalo/ingest/message`.
+1. Admin vào **Cài đặt → Zalo — Trợ lý lắng nghe → «Đăng nhập Zalo (QR)»**.
+2. Service poll thấy yêu cầu → `loginQR` → đẩy ảnh QR về web (QR hết hạn tự làm mới 3 lần).
+3. Mở **Zalo trên điện thoại của tài khoản chuyên dụng → Quét mã QR**.
+4. Đăng nhập xong: phiên (cookie + imei) gửi về backend, **mã hóa** lưu DB → Railway khởi động lại
+   tự đăng nhập, khỏi quét QR. Service đồng bộ danh sách nhóm (tên, số thành viên) mỗi 6 giờ.
+5. Nhóm mới vào ở trạng thái **TẮT theo dõi**: admin bật từng nhóm, chọn loại (nội bộ/khách) và
+   phòng ban. Tin chỉ được lưu từ nhóm đang bật.
 
 ## Vận hành
 
-- Chạy 24/7 trên **VPS Việt Nam** (IP VN, tránh cờ đăng nhập lạ). Dùng `pm2` hoặc systemd để tự khởi động lại.
-- Phiên Zalo có thể rớt → service báo `error` về web, admin đăng nhập lại (quét QR mới).
-- Có account **#2 dự phòng** khi account chính bị khóa (đặc biệt trước khi mở P2 nhóm khách).
-
-## ⚠️ Ghi chú `[ADAPT]` trong code
-
-`zca-js` thay đổi interface giữa các phiên bản. Các chỗ đánh dấu `[ADAPT]` trong `src/index.js`
-(khởi tạo `Zalo`, `loginQR`, cấu trúc object message) cần đối chiếu với README của phiên bản
-`zca-js` thực tế khi `npm install`. Đây là **scaffold khung** — logic backend + web đã hoàn chỉnh,
-phần này là lớp keo nối tới thư viện Zalo.
-
-## Bảo mật & riêng tư (Nghị định 13/2023)
-
-- Chỉ xử lý tin **nhóm** (bỏ chat 1-1).
-- Chỉ gửi **text + metadata** về backend; KHÔNG tải/lưu ảnh thô (chỉ link).
-- Backend lưu **tín hiệu**, xóa tin thô sau 7 ngày.
-- Dữ liệu chỉ dùng nâng hiệu suất/CSKH, KHÔNG dùng kỷ luật nhân viên.
+- Chạy trên **Railway** (service riêng, region Singapore): `railway up --service jama-zalo-listener`.
+  Env: `ZALO_INGEST_SECRET` (trùng backend), `BACKEND_URL`.
+- **Đừng mở Zalo Web/PC bằng tài khoản chuyên dụng** — Zalo đẩy phiên nghe ra (mã 3000/3003),
+  service xóa phiên và báo lỗi về web, admin phải quét QR lại.
+- Admin bấm «Đăng xuất» trên web → service ngắt nghe trong ≤10 giây và bỏ phiên đã lưu.
+- Có account **#2 dự phòng** khi account chính bị khóa (đặc biệt trước khi mở nhóm khách).

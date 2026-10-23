@@ -90,6 +90,8 @@ class BackgroundWorker:
         self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_contract_notify_date: str = ""  # "YYYY-MM-DD" (VN time) — nhắc hạn HĐLĐ
         self._last_media_mirror: float = 0.0  # sao ảnh công trình sang Drive, mỗi 5 phút
+        self._last_zalo_unanswered: float = 0.0  # Trợ lý Zalo: quét khách chờ, mỗi 10 phút
+        self._last_zalo_digest_date: str = ""    # "YYYY-MM-DD" (VN time) — tóm tắt cuối ngày + xóa tin thô
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -320,6 +322,27 @@ class BackgroundWorker:
                     priority=TaskPriority.LOW,
                 )
 
+            # Trợ lý Zalo: nhóm khách chờ quá N giờ chưa ai trả lời → báo gấp
+            if now - self._last_zalo_unanswered >= 600:
+                self._last_zalo_unanswered = now
+                self.enqueue_task(
+                    "zalo_unanswered",
+                    process_zalo_unanswered,
+                    priority=TaskPriority.NORMAL,
+                )
+
+            # Trợ lý Zalo: tóm tắt cuối ngày (mặc định 17:00 VN) + xóa tin thô >7 ngày
+            if self._last_zalo_digest_date != today_str:
+                zalo_hour = await _get_zalo_digest_hour()
+                if zalo_hour is not None and vn_now.hour >= zalo_hour:
+                    self._last_zalo_digest_date = today_str
+                    self.enqueue_task(
+                        "zalo_digest",
+                        process_zalo_digest,
+                        today_str,
+                        priority=TaskPriority.NORMAL,
+                    )
+
     # ------------------------------------------------------------------
     # Health check loop (for Docker HEALTHCHECK / monitoring)
     # ------------------------------------------------------------------
@@ -530,6 +553,69 @@ async def process_media_mirror() -> dict[str, Any]:
             return await sao_anh_cho(session)
     except Exception as exc:
         logger.exception("Media mirror failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def _get_zalo_digest_hour() -> Optional[int]:
+    """Giờ gửi tóm tắt Zalo, None khi tắt."""
+    try:
+        from app.database import async_session
+        from app.services.automation import get_automation_settings
+
+        async with async_session() as session:
+            settings = await get_automation_settings(session)
+        if settings.get("zalo_digest_enabled", "true") != "true":
+            return None
+        return max(0, min(23, int(settings.get("zalo_digest_hour", "17"))))
+    except Exception as exc:
+        logger.warning("Could not load Zalo digest settings: %s", exc)
+        return None
+
+
+async def process_zalo_unanswered() -> dict[str, Any]:
+    """Nhóm khách Zalo có khách chờ quá N giờ → tín hiệu + Telegram."""
+    try:
+        from app.database import async_session
+        from app.services.automation import get_automation_settings
+        from app.services.zalo_assistant import kiem_tra_khach_cho
+
+        async with async_session() as session:
+            settings = await get_automation_settings(session)
+            gio = max(1, int(settings.get("zalo_unanswered_hours", "2") or 2))
+            created = await kiem_tra_khach_cho(session, gio)
+            await session.commit()
+        return {"status": "completed", "created": len(created)}
+    except Exception as exc:
+        logger.exception("Zalo unanswered check failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_zalo_digest(day_str: str) -> dict[str, Any]:
+    """Tóm tắt Zalo cuối ngày + xóa tin thô quá 7 ngày (giữ tín hiệu).
+
+    Cờ `zalo_digest_sent_day` trong system_settings chặn gửi trùng khi
+    redeploy sau giờ hẹn (cờ RAM của worker mất khi khởi động lại).
+    """
+    try:
+        from datetime import date as date_type
+
+        from app.database import async_session
+        from app.services.automation import get_automation_settings, set_automation_setting
+        from app.services.zalo_analysis import purge_old_messages
+        from app.services.zalo_assistant import gui_tom_tat_ngay
+
+        async with async_session() as session:
+            settings = await get_automation_settings(session)
+            result: dict[str, Any] = {}
+            if settings.get("zalo_digest_sent_day") != day_str:
+                await set_automation_setting(session, "zalo_digest_sent_day", day_str)
+                await session.commit()
+                result = await gui_tom_tat_ngay(session, date_type.fromisoformat(day_str))
+            result["purged"] = await purge_old_messages(session, days=7)
+            await session.commit()
+        return {"status": "completed", **result}
+    except Exception as exc:
+        logger.exception("Zalo digest failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

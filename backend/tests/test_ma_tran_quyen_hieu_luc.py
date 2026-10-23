@@ -166,6 +166,8 @@ ROUTE_CONG_KHAI = {
     "/api/v1/zalo/ingest/pending-login",
     "/api/v1/zalo/ingest/session",
     "/api/v1/zalo/ingest/message",
+    "/api/v1/zalo/ingest/credentials",
+    "/api/v1/zalo/ingest/groups",
     "/api/v1/portal/{token}",
     "/api/v1/portal/{token}/projects/{project_id}",
     "/api/v1/portal/{token}/projects/{project_id}/accept-stage",

@@ -790,6 +790,10 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   // ── Zalo Listener (demo) ──
   if (path === '/zalo/session') return { status: 'logged_out', qr_image: null, account_name: null, error_msg: null, ingest_online: false, last_seen: null } as T;
   if (path === '/zalo/groups') return { items: [] } as T;
+  if (path === '/zalo/overview') return { scope: 'tat_ca', department: null, new_by_type: { lead_candidate: 1, quote_request: 1 }, groups_monitored: 2, listener_status: 'logged_out' } as T;
+  if (path === '/zalo/digests') return { day: '2026-07-16', days: ['2026-07-16'], items: [
+    { group_id: 'demo-g1', group_name: 'Nhóm KH Anh Minh', kind: 'customer', department: 'SALES', msg_count: 24, summary: '• Khách chốt màu tủ bếp, chờ báo giá phụ kiện\n• Hẹn đo lại phòng ngủ thứ Bảy', by_llm: true },
+  ] } as T;
   if (path === '/zalo/signals') return { items: [
     { id: 'demo-zsig-1', type: 'lead_candidate', summary: 'Phát hiện SĐT 0912345678 trong hội thoại', status: 'new', group_name: 'Nhóm KH Anh Minh', assigned_user_id: null, payload: { phone: '0912345678' }, created_at: '2026-07-16 09:12' },
     { id: 'demo-zsig-2', type: 'quote_request', summary: 'Khách hỏi giá/báo giá — gợi ý dùng /quote-tool', status: 'new', group_name: 'Nhóm KH Chị Lan', assigned_user_id: null, payload: {}, created_at: '2026-07-16 08:40' },
@@ -1808,11 +1812,23 @@ class ApiClient {
   async zaloGroups() {
     return this.request<{ items: ZaloGroupInfo[] }>('/zalo/groups');
   }
-  async zaloUpdateGroup(id: string, patch: { kind?: string; assigned_user_id?: string | null; monitoring?: boolean; consent_ref?: string }) {
-    return this.request<{ id: string; monitoring: boolean; kind: string }>(`/zalo/groups/${id}`, { method: 'PATCH', body: patch });
+  async zaloUpdateGroup(id: string, patch: { kind?: string; assigned_user_id?: string | null; monitoring?: boolean; consent_ref?: string; department?: string }) {
+    return this.request<{ id: string; monitoring: boolean; kind: string; department: string | null }>(`/zalo/groups/${id}`, { method: 'PATCH', body: patch });
   }
-  async zaloSignals(status = 'new') {
-    return this.request<{ items: ZaloSignalInfo[] }>('/zalo/signals', { params: { status } });
+  async zaloSignals(status = 'new', filters: { type?: string; department?: string } = {}) {
+    const params: Record<string, string> = { status };
+    if (filters.type) params.type = filters.type;
+    if (filters.department) params.department = filters.department;
+    return this.request<{ items: ZaloSignalInfo[] }>('/zalo/signals', { params });
+  }
+  async zaloOverview() {
+    return this.request<ZaloOverview>('/zalo/overview');
+  }
+  async zaloDigests(day?: string) {
+    return this.request<ZaloDigestList>('/zalo/digests', { params: day ? { day } : undefined });
+  }
+  async zaloRunDigest(send = false) {
+    return this.request<{ day: string; groups: number; sent: number }>('/zalo/digests/run', { method: 'POST', params: { send: String(send) } });
   }
   async zaloActSignal(id: string, action: 'actioned' | 'dismissed') {
     return this.request<{ id: string; status: string }>(`/zalo/signals/${id}/action`, { method: 'POST', body: { action } });
@@ -1877,6 +1893,9 @@ class ApiClient {
     followup_reminder_days: number;
     lead_recall_days: number;
     lead_recall_enabled: boolean;
+    zalo_digest_enabled: boolean;
+    zalo_digest_hour: number;
+    zalo_unanswered_hours: number;
     payment_reminder_days: number;
     bod_report_enabled: boolean;
     bod_report_hour: number;
@@ -2756,6 +2775,9 @@ export interface AutomationSettings {
   telegram_group_chat_id: string;
   storage_telegram_chat_id?: string;
   group_briefing_enabled: string;
+  zalo_digest_enabled?: string;
+  zalo_digest_hour?: string;
+  zalo_unanswered_hours?: string;
 }
 
 /** Cấu hình SLA đầu việc — `dau_viec`/`phong_ban` là bản HIỆU LỰC (mặc định đã
@@ -3022,6 +3044,33 @@ export interface ZaloGroupInfo {
   monitoring: boolean;
   consent_ref: string | null;
   new_signals: number;
+  department: string | null;
+  member_count: number | null;
+  last_message_at: string | null;
+}
+
+export interface ZaloOverview {
+  scope: 'tat_ca' | 'phong';
+  department: string | null;
+  new_by_type: Record<string, number>;
+  groups_monitored: number;
+  listener_status: string;
+}
+
+export interface ZaloDigestItem {
+  group_id: string;
+  group_name: string;
+  kind: 'internal' | 'customer';
+  department: string | null;
+  msg_count: number;
+  summary: string;
+  by_llm: boolean;
+}
+
+export interface ZaloDigestList {
+  day: string | null;
+  days: string[];
+  items: ZaloDigestItem[];
 }
 
 export interface ZaloSignalInfo {
@@ -3030,6 +3079,8 @@ export interface ZaloSignalInfo {
   summary: string;
   status: 'new' | 'actioned' | 'dismissed';
   group_name: string;
+  group_department?: string | null;
+  group_kind?: 'internal' | 'customer';
   assigned_user_id: string | null;
   payload: Record<string, unknown>;
   created_at: string;

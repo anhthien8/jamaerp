@@ -47,6 +47,9 @@ class SettingsUpdate(BaseModel):
     telegram_group_chat_id: str | None = None
     storage_telegram_chat_id: str | None = None
     group_briefing_enabled: bool | None = None
+    zalo_digest_enabled: bool | None = None
+    zalo_digest_hour: int | None = None
+    zalo_unanswered_hours: int | None = None
 
 
 @router.get("/settings")
@@ -82,8 +85,10 @@ async def update_settings(
         else:
             if key.endswith("_days") and not (1 <= int(value) <= 90):
                 raise HTTPException(status_code=400, detail=f"{key} must be 1-90")
-            if key == "bod_report_hour" and not (0 <= int(value) <= 23):
-                raise HTTPException(status_code=400, detail="bod_report_hour must be 0-23")
+            if key in ("bod_report_hour", "zalo_digest_hour") and not (0 <= int(value) <= 23):
+                raise HTTPException(status_code=400, detail=f"{key} must be 0-23")
+            if key == "zalo_unanswered_hours" and not (1 <= int(value) <= 48):
+                raise HTTPException(status_code=400, detail="zalo_unanswered_hours must be 1-48")
             str_value = str(value)
         await set_automation_setting(db, key, str_value)
 

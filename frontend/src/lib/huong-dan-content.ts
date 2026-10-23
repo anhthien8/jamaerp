@@ -638,6 +638,49 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ]
   },
   {
+    "id": "tro-ly-zalo",
+    "icon": "message",
+    "title": "«Trợ lý Zalo» — nắm việc trong các nhóm Zalo mà không phải đọc hết",
+    "roles": [
+      "Ban giám đốc",
+      "Trưởng phòng"
+    ],
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Một tài khoản Zalo riêng của công ty được thêm vào các nhóm Zalo. Trợ lý **chỉ đọc, không bao giờ gửi tin vào Zalo**. Nó lọc ra việc cần xử lý và báo cho đúng người. Menu **«Trợ lý Zalo»** chỉ hiện với **Ban giám đốc, Kế toán và Trưởng phòng**."
+      },
+      {
+        "type": "table",
+        "header": ["Ai", "Thấy gì"],
+        "rows": [
+          ["Ban giám đốc / Admin", "Toàn bộ nhóm đang nghe, lọc được theo phòng"],
+          ["Trưởng phòng", "Chỉ các nhóm đã gán cho phòng mình"]
+        ]
+      },
+      {
+        "type": "list",
+        "items": [
+          "**Báo gấp qua Telegram:** khách nhắn trong nhóm mà quá **2 giờ** (đổi được ở Cài đặt) chưa ai trong công ty trả lời → bot nhắn riêng Trưởng phòng của nhóm đó và Ban giám đốc. Mỗi lần khách chờ chỉ báo một lần.",
+          "**Tóm tắt cuối ngày (~17h):** mỗi nhóm có tin trong ngày được tóm tắt vài dòng. Trưởng phòng nhận phần của phòng mình, Ban giám đốc nhận cả công ty, qua Telegram chat riêng.",
+          "**Trang «Trợ lý Zalo»:** 4 ô đếm (Khách chờ trả lời, Có nguy cơ mất khách, Khách hỏi giá, Khách mới tiềm năng), bấm ô để lọc. Xử lý xong bấm **«✓ Đã xử lý»**, không cần thì **«Bỏ qua»**. Tab **«Tóm tắt cuối ngày»** xem lại tóm tắt các ngày trước."
+        ]
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Admin vào **Cài đặt → Zalo — Trợ lý lắng nghe**, bấm đăng nhập rồi quét mã QR bằng **tài khoản Zalo riêng của công ty** (không dùng Zalo cá nhân).",
+          "Danh sách nhóm hiện ra, nhóm mới luôn ở trạng thái **TẮT**. Bật những nhóm muốn nghe, chọn loại nhóm (nội bộ / khách) và **chọn phòng** cho từng nhóm để báo đúng Trưởng phòng.",
+          "Chỉnh giờ gửi tóm tắt và số giờ coi là «khách chờ» ở **Cài đặt → Tự động hóa**."
+        ]
+      },
+      {
+        "type": "warn",
+        "text": "Sau khi quét QR, **đừng mở Zalo Web/Zalo PC bằng tài khoản trợ lý**: Zalo chỉ cho một phiên web, mở chỗ khác là trợ lý bị đăng xuất. Tin nhắn gốc tự xoá sau **7 ngày**, chỉ giữ tín hiệu và tóm tắt. Trợ lý dùng để chăm khách tốt hơn, **không dùng để chấm điểm hay kỷ luật nhân viên**."
+      }
+    ]
+  },
+  {
     "id": "hop-dong",
     "icon": "wallet",
     "title": "Hợp đồng «Hợp đồng»",

@@ -16,7 +16,7 @@ from app.models.audit import AuditLog
 from app.models.attendance import AttendanceRecord
 from app.models.approval import ApprovalRequest
 from app.models.leave import LeaveBalance, LeaveRequest
-from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal
+from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal, ZaloStaff, ZaloDigest
 from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle
 from app.models.ai_memory import AiRun
 from app.models.employee_profile import EmployeeProfile, EmployeeDocument

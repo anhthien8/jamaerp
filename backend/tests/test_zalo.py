@@ -24,6 +24,15 @@ def _set_zalo_secret(monkeypatch):
 ZH = {"X-Zalo-Secret": ZALO_SECRET}
 
 
+async def _nhom(db: AsyncSession, zid: str, kind: str = "internal", **kw) -> ZaloGroup:
+    """Nhóm đã được admin bật nghe (nhóm mới mặc định TẮT từ 23/10/2026)."""
+    g = ZaloGroup(id=str(uuid.uuid4()), zalo_group_id=zid, name=kw.pop("name", f"Nhóm {zid}"),
+                  kind=kind, monitoring=True, **kw)
+    db.add(g)
+    await db.commit()
+    return g
+
+
 class TestZaloAdminConfig:
     @pytest.mark.asyncio
     async def test_login_flow_sets_awaiting(self, client, admin_user):
@@ -77,6 +86,7 @@ class TestZaloIngestSecret:
 class TestZaloSignalAnalysis:
     @pytest.mark.asyncio
     async def test_ingest_phone_creates_lead_candidate(self, client, db_session: AsyncSession):
+        await _nhom(db_session, "g-lead")
         r = await client.post("/api/v1/zalo/ingest/message", headers=ZH, json={
             "zalo_group_id": "g-lead", "group_name": "Nhóm KH A", "sender_name": "NV",
             "text": "Khách anh Minh 0912345678 muốn thiết kế nhà phố",
@@ -91,6 +101,7 @@ class TestZaloSignalAnalysis:
 
     @pytest.mark.asyncio
     async def test_quote_request_detected(self, client, db_session: AsyncSession):
+        await _nhom(db_session, "g-quote")
         await client.post("/api/v1/zalo/ingest/message", headers=ZH, json={
             "zalo_group_id": "g-quote", "group_name": "Nhóm KH B", "sender_name": "KH",
             "text": "Cho em hỏi báo giá bao nhiêu vậy shop?",
@@ -106,6 +117,7 @@ class TestZaloSignalAnalysis:
             id=str(uuid.uuid4()), name="Đã có", phone="0912345678", stage="new", source="zalo",
         ))
         await db_session.commit()
+        await _nhom(db_session, "g-dup")
 
         r = await client.post("/api/v1/zalo/ingest/message", headers=ZH, json={
             "zalo_group_id": "g-dup", "group_name": "Nhóm C", "sender_name": "NV",
@@ -125,7 +137,16 @@ class TestZaloSignalAnalysis:
         group = (await db_session.execute(
             select(ZaloGroup).where(ZaloGroup.zalo_group_id == "g-auto")
         )).scalar_one()
-        assert group.monitoring is True
+        # Nhóm lạ tự tạo ở trạng thái TẮT — admin chủ động bật mới nghe
+        assert group.monitoring is False
+
+        r = await client.patch(f"/api/v1/zalo/groups/{group.id}", headers=auth_header(admin_user),
+                               json={"monitoring": True})
+        assert r.status_code == 200
+        r1 = await client.post("/api/v1/zalo/ingest/message", headers=ZH, json={
+            "zalo_group_id": "g-auto", "group_name": "Nhóm Tự Tạo", "sender_name": "X", "text": "chào",
+        })
+        assert r1.json()["stored"] is True
 
         # admin tắt theo dõi
         r = await client.patch(f"/api/v1/zalo/groups/{group.id}", headers=auth_header(admin_user),

@@ -10,7 +10,7 @@ import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
-import { getRoleLabel, loadCustomRoles, UserRole } from '@/lib/roles';
+import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 
@@ -36,6 +36,7 @@ const Icon = {
   attendance: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
   approvals: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
   kpi: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /><line x1="4" y1="20" x2="20" y2="20" /></svg>,
+  zalo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>,
   salesDashboard: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 12l4-4" /><path d="M12 2v2" /><path d="M22 12h-2" /><path d="M4 12H2" /></svg>,
 };
 
@@ -46,7 +47,11 @@ const VAI_TRO_SALE_DASHBOARD = ['admin'];
 // ── All nav items (flat list) ────────────────────────────────────────
 // `perm` = gác theo ô ma trận phân quyền; `roles` = gác theo vai trò (dùng cho
 // màn đang thử nghiệm, chưa có ô ma trận riêng). Thiếu cả hai ⇒ ai cũng thấy.
-type NavItem = { href: string; label: string; icon: ReactNode; perm?: string; roles?: string[] };
+type NavItem = {
+  href: string; label: string; icon: ReactNode; perm?: string; roles?: string[];
+  /** Gác theo hàm (vd. trưởng phòng = vai + phòng ban) khi `roles` không đủ diễn tả. */
+  check?: (user: { role?: string | null; department?: string | null } | null) => boolean;
+};
 
 const ALL_ITEMS: NavItem[] = [
   { href: '/', label: 'Tổng quan', icon: Icon.dashboard },
@@ -70,6 +75,8 @@ const ALL_ITEMS: NavItem[] = [
   ...(SHOW_SALES_DASHBOARD
     ? [{ href: '/sale-dashboard', label: 'Bảng KD', icon: Icon.salesDashboard, roles: VAI_TRO_SALE_DASHBOARD }]
     : []),
+  // Trợ lý Zalo — BGĐ + trưởng phòng; khớp pham_vi_zalo() backend (zalo_assistant.py)
+  { href: '/tro-ly-zalo', label: 'Trợ lý Zalo', icon: Icon.zalo, check: duocXemTroLyZalo },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   // Trước 13/08/2026 mục này gán 'canViewAccounting' ⇒ trưởng phòng/sale thấy menu
   // nhưng 4 API trang gọi đều gác canViewPnL → toàn 403. Menu phải khớp cổng backend.
@@ -174,6 +181,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     if (!perms) return { essentialItems: [], extraItems: [] };
     const allowed = ALL_ITEMS.filter(item => {
       if (item.roles && !item.roles.includes(user?.role || '')) return false;
+      if (item.check && !item.check(user)) return false;
       if (!item.perm) return true;
       return (perms as unknown as Record<string, unknown>)[item.perm] === true;
     });

@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
         from app.models.approval import ApprovalRequest  # noqa
         from app.models.leave import LeaveBalance, LeaveRequest  # noqa
         from app.models.performance import KpiSnapshot, CoachingNote, ReviewCycle  # noqa
-        from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal  # noqa
+        from app.models.zalo import ZaloSession, ZaloGroup, ZaloMessage, ZaloSignal, ZaloStaff, ZaloDigest  # noqa
         from app.models.supplier import Supplier, SupplierQuote, PriceComparison  # noqa
         from app.models.estimation import Estimation, EstimationItem  # noqa
         from app.models.employee_profile import EmployeeProfile, EmployeeDocument  # noqa

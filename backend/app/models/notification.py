@@ -83,4 +83,7 @@ DEFAULT_AUTOMATION_SETTINGS: dict[str, str] = {
     "telegram_group_chat_id": "",      # chat_id nhóm Telegram công ty (vd -100123456789)
     "storage_telegram_chat_id": "",    # nhóm Kho ảnh «JAMA Công trình» (bật Topics) — Đợt 2
     "group_briefing_enabled": "true",  # gửi briefing nhóm hàng ngày (không kèm tài chính)
+    "zalo_digest_enabled": "true",     # Trợ lý Zalo: tóm tắt cuối ngày cho trưởng phòng + BGĐ
+    "zalo_digest_hour": "17",          # giờ gửi tóm tắt Zalo (giờ VN)
+    "zalo_unanswered_hours": "2",      # nhóm khách chờ quá N giờ chưa ai trả lời thì báo
 }

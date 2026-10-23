@@ -271,6 +271,10 @@ function ZaloSection() {
     try { await api.zaloUpdateGroup(g.id, { kind }); await load(); }
     catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
   };
+  const setDept = async (g: import('@/lib/api').ZaloGroupInfo, department: string) => {
+    try { await api.zaloUpdateGroup(g.id, { department }); await load(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Lỗi', 'error'); }
+  };
 
   const STATUS_LABEL: Record<string, { text: string; color: string }> = {
     logged_out: { text: 'Chưa đăng nhập', color: 'var(--text-muted)' },
@@ -285,7 +289,7 @@ function ZaloSection() {
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="message" />Zalo — Trợ lý lắng nghe</h2>
       <p className="text-xs text-[var(--text-muted)] mb-4">
-        Tài khoản Zalo chuyên dụng nghe nhóm nội bộ/khách → phân tích AI → đẩy tín hiệu về Telegram.
+        Tài khoản Zalo chuyên dụng nghe nhóm nội bộ/khách → phân tích AI → báo gấp Telegram + tóm tắt cuối ngày (xem trang <a href="/tro-ly-zalo" className="underline">Trợ lý Zalo</a>). Không mở Zalo Web/PC bằng tài khoản này kẻo phiên nghe bị ngắt.
         <b className="text-[var(--text-secondary)]"> Chỉ nghe, không gửi tin.</b>
       </p>
 
@@ -336,15 +340,27 @@ function ZaloSection() {
       {/* Nhóm theo dõi */}
       {groups.length > 0 && (
         <div className="mb-4">
-          <div className="text-sm font-semibold mb-2">Nhóm theo dõi ({groups.length})</div>
-          <div className="space-y-2 max-h-56 overflow-y-auto">
+          <div className="text-sm font-semibold mb-1">Nhóm Zalo ({groups.filter(g => g.monitoring).length}/{groups.length} đang nghe)</div>
+          <p className="text-[11px] text-[var(--text-muted)] mb-2">
+            Nhóm mới về ở trạng thái <b>Tắt</b>. Bật nhóm cần nghe và gắn phòng — trưởng phòng chỉ thấy nhóm của phòng mình.
+          </p>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
             {groups.map(g => (
               <div key={g.id} className="flex items-center justify-between gap-2 p-2 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                 <div className="min-w-0">
                   <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{g.name}</div>
-                  <div className="text-[10px] text-[var(--text-muted)]">{g.new_signals} tín hiệu mới</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">
+                    {g.member_count != null ? `${g.member_count} người · ` : ''}{g.new_signals} tín hiệu mới
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                  <select value={g.department || ''} onChange={e => setDept(g, e.target.value)}
+                    className="text-[10px] px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                    <option value="">Chưa gắn phòng</option>
+                    {['EXEC', 'SALES', 'DESIGN', 'ACCT', 'OPS', 'PURCHASING', 'HR', 'PM'].map(d => (
+                      <option key={d} value={d}>{DEPARTMENT_LABELS[d] || d}</option>
+                    ))}
+                  </select>
                   <select value={g.kind} onChange={e => setKind(g, e.target.value)}
                     className="text-[10px] px-1.5 py-1 rounded bg-white/5 border border-white/10">
                     <option value="internal">Nội bộ</option>
@@ -1034,6 +1050,9 @@ function AutomationSection() {
     telegram_group_chat_id: '',
     storage_telegram_chat_id: '',
     group_briefing_enabled: true,
+    zalo_digest_enabled: true,
+    zalo_digest_hour: 17,
+    zalo_unanswered_hours: 2,
   });
 
   useEffect(() => {
@@ -1049,6 +1068,9 @@ function AutomationSection() {
         telegram_group_chat_id: s.telegram_group_chat_id || '',
         storage_telegram_chat_id: s.storage_telegram_chat_id || '',
         group_briefing_enabled: s.group_briefing_enabled !== 'false',
+        zalo_digest_enabled: s.zalo_digest_enabled !== 'false',
+        zalo_digest_hour: parseInt(s.zalo_digest_hour || '', 10) || 17,
+        zalo_unanswered_hours: parseInt(s.zalo_unanswered_hours || '', 10) || 2,
       });
     }).catch(() => {});
   }, []);
@@ -1182,6 +1204,31 @@ function AutomationSection() {
               <span className="text-sm text-[var(--text-secondary)]">giờ</span>
               {toggle(form.bod_report_enabled, v => setForm(f => ({ ...f, bod_report_enabled: v })))}
             </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Trợ lý Zalo — tóm tắt cuối ngày</p>
+            <p className="text-xs text-[var(--text-muted)]">Gửi Telegram: BGĐ nhận mọi nhóm, trưởng phòng nhận nhóm phòng mình</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {numInput(form.zalo_digest_hour, v => setForm(f => ({ ...f, zalo_digest_hour: v })), 0, 23)}
+            <div className="w-32 flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">giờ</span>
+              {toggle(form.zalo_digest_enabled, v => setForm(f => ({ ...f, zalo_digest_enabled: v })))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm">Trợ lý Zalo — báo «khách chờ»</p>
+            <p className="text-xs text-[var(--text-muted)]">Nhóm khách: tin cuối là của khách mà chưa ai trả lời sau số giờ này → báo gấp</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {numInput(form.zalo_unanswered_hours, v => setForm(f => ({ ...f, zalo_unanswered_hours: v })), 1, 48)}
+            <span className="w-32 text-sm text-[var(--text-secondary)]">giờ</span>
           </div>
         </div>
 

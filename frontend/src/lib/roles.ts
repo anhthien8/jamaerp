@@ -387,6 +387,14 @@ export function laTruongPhong(user?: { role?: string | null; department?: string
   return !!user?.role && (VAI_TRO_TRUONG_PHONG[dept] || []).includes(user.role);
 }
 
+/** Ai mở được trang Trợ lý Zalo — khớp pham_vi_zalo() backend:
+ *  BGĐ (admin/executive) xem tất cả; trưởng phòng + kế toán xem phòng mình. */
+export function duocXemTroLyZalo(user?: { role?: string | null; department?: string | null } | null): boolean {
+  if (!user?.role) return false;
+  if (['admin', 'executive', 'accountant'].includes(user.role)) return true;
+  return laTruongPhong(user);
+}
+
 export function laTruongNhom(user?: { role?: string | null; department?: string | null } | null): boolean {
   const dept = (user?.department || '').toUpperCase();
   return !!user?.role && (VAI_TRO_TRUONG_NHOM[dept] || []).includes(user.role);

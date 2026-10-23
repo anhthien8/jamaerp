@@ -1,27 +1,20 @@
 /**
- * JAMA HOME -- Zalo Listener Ingest Service (spec 09)
- * ====================================================
- * LISTEN-ONLY.  Runs TACH khoi backend ERP (lib Zalo hay vo -> khong keo sap he thong).
+ * JAMA HOME -- Zalo Listener Ingest Service (spec 09, hoan thien 23/10/2026)
+ * =========================================================================
+ * LISTEN-ONLY. Chay TACH khoi backend ERP (lib Zalo hay vo -> khong keo sap he thong).
  *
- * Lifecycle:
- *  1. Poll backend GET /zalo/ingest/pending-login -- admin co bam "Dang nhap" khong?
- *  2. Neu co -> login Zalo qua QR (zca-js). Nhan QR -> day ve backend de admin quet tren web.
- *  3. Dang nhap xong -> lang nghe tin nhom -> POST /zalo/ingest/message (chi metadata + text).
- *  4. Heartbeat dinh ky de web biet service con song.
+ * Vong doi:
+ *  1. Khoi dong: hoi backend phien da luu (ma hoa) -> zalo.login(creds), khoi quet QR.
+ *  2. Khong co phien / phien het han: cho admin bam "Dang nhap" tren web
+ *     (poll GET /zalo/ingest/pending-login, kiem luon heartbeat) -> loginQR,
+ *     day QR ve web; quet xong -> luu phien ve backend.
+ *  3. Dang nhap xong: dong bo danh sach nhom (ten + so thanh vien) -> backend;
+ *     lang nghe tin nhom -> POST /zalo/ingest/message (chi text + metadata).
+ *  4. Admin bam "Dang xuat" tren web -> backend status logged_out -> ngat listener.
+ *  5. Bi Zalo day ra (dang nhap noi khac, 3000/3003) -> bao loi + xoa phien.
  *
- * CAUTION: Dung tai khoan Zalo ca nhan qua thu vien khong chinh thuc = vi pham ToS Zalo.
- *    Tai khoan SE co nguy bi khoa. Dung account phu chuyen dung. Khong gui tin (giam rui ro).
- *
- * Cai dat: npm install (can Node 20+). Chay: ZALO_INGEST_SECRET=... BACKEND_URL=... npm start
- *
- * zca-js v2.1.2 API (confirmed from source):
- *   - new Zalo({ selfListen: false })
- *   - zalo.loginQR(options, callback)  -- callback receives LoginQRCallbackEvent
- *   - callback event types: QRCodeGenerated, QRCodeExpired, QRCodeScanned, QRCodeDeclined, GotLoginInfo
- *   - api.listener.on("message", cb)  -- cb receives GroupMessage | UserMessage
- *   - GroupMessage: { type: ThreadType.Group, threadId: string, isSelf: boolean, data: TGroupMessage }
- *   - TGroupMessage.content: string (for text), .uidFrom: sender ID, .dName: sender display name
- *   - QR image from callback: raw base64 (no data URI prefix)
+ * KHONG BAO GIO gui tin vao Zalo. Dung tai khoan Zalo phu chuyen dung
+ * (thu vien khong chinh thuc -> tai khoan co nguy co bi khoa).
  */
 
 import { Zalo, ThreadType, LoginQRCallbackEventType } from "zca-js";
@@ -31,233 +24,292 @@ import {
   reportSession,
   pushMessage,
   pollPendingLogin,
+  getSavedCredentials,
+  saveCredentials,
+  clearCredentials,
+  syncGroups,
 } from "./backend-client.js";
 
 // -------------------------------------------------------------------
 // State
 // -------------------------------------------------------------------
 
-let zaloApi = null;     // Logged-in API instance (null until login succeeds)
-let loggedIn = false;    // True between login success and session loss
-let loginInProgress = false; // Guard against concurrent login attempts
+let zaloApi = null;          // API instance sau khi dang nhap
+let loggedIn = false;
+let loginInProgress = false;
 
-/** Cache: zalo_group_id -> group_name to avoid repeated lookups. */
+/** zalo_group_id -> ten nhom */
 const groupNameCache = new Map();
+
+const QR_MAX_RETRY = 3;      // QR het han tu lam moi toi da 3 lan (~3 phut)
+const GROUP_SYNC_MS = 6 * 60 * 60 * 1000; // dong bo lai ten nhom moi 6 gio
 
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
 
-/**
- * Convert raw base64 (from zca-js QRCodeGenerated event) into a data URI
- * that the backend / frontend can render as an <img> src.
- */
 function toDataUri(base64) {
   if (!base64) return null;
   if (base64.startsWith("data:")) return base64;
   return `data:image/png;base64,${base64}`;
 }
 
-/**
- * Extract text content from a zca-js message data object.
- * content can be a plain string, an attachment object, or an unknown shape.
- */
+/** content co the la chuoi (tin chu) hoac object dinh kem {title, href, ...}. */
 function extractText(content) {
   if (typeof content === "string") return content;
-  if (content && typeof content === "object" && typeof content.title === "string") {
-    // Attachment-type content -- return title/description as text reference.
-    return content.title;
+  if (content && typeof content === "object") {
+    const parts = [content.title, content.description].filter((x) => typeof x === "string" && x);
+    return parts.join(" — ");
   }
   return "";
 }
 
-/**
- * Extract a link reference for media messages (images, files).
- * zca-js attachment objects have an `href` field.
- */
 function extractMediaRef(content) {
   if (content && typeof content === "object" && typeof content.href === "string") {
-    return content.href;
+    return content.href.slice(0, 500);
   }
   return null;
 }
 
-/**
- * Look up or return a cached group name.  zca-js GroupMessage does NOT carry
- * groupName, so we either use the cache or build a placeholder.
- */
 function resolveGroupName(zaloGroupId) {
   return groupNameCache.get(zaloGroupId) || `Nhom ${zaloGroupId.slice(0, 8)}`;
 }
 
 // -------------------------------------------------------------------
-// QR Login Flow
+// Sau dang nhap: ten tai khoan + dong bo nhom
 // -------------------------------------------------------------------
 
-async function loginWithQR() {
-  if (loginInProgress) {
-    logger.info("Login already in progress, skipping.");
-    return;
+async function accountName(api) {
+  try {
+    const info = await api.fetchAccountInfo();
+    const p = info?.profile || {};
+    return p.displayName || p.zaloName || p.username || "Tài khoản Zalo";
+  } catch (err) {
+    logger.warn("fetchAccountInfo failed", { error: err.message });
+    return "Tài khoản Zalo";
   }
-  loginInProgress = true;
+}
 
+async function syncAllGroups() {
+  if (!zaloApi) return;
+  try {
+    const all = await zaloApi.getAllGroups();
+    const ids = Object.keys(all?.gridVerMap || {});
+    const groups = [];
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      try {
+        const info = await zaloApi.getGroupInfo(batch);
+        for (const [id, g] of Object.entries(info?.gridInfoMap || {})) {
+          const name = String(g?.name || "").slice(0, 200) || `Nhom ${id.slice(0, 8)}`;
+          groupNameCache.set(id, name);
+          groups.push({
+            zalo_group_id: id,
+            name,
+            member_count: Number.isFinite(g?.totalMember) ? g.totalMember : null,
+          });
+        }
+      } catch (err) {
+        logger.warn("getGroupInfo batch failed", { error: err.message });
+      }
+    }
+    if (groups.length) {
+      const res = await syncGroups(groups);
+      logger.info("Groups synced", { total: groups.length, created: res?.created ?? "?" });
+    }
+  } catch (err) {
+    logger.warn("syncAllGroups failed", { error: err.message });
+  }
+}
+
+async function afterLogin(api) {
+  zaloApi = api;
+  loggedIn = true;
+  const name = await accountName(api);
+  await reportSession({ status: "logged_in", account_name: name });
+  logger.info("Logged in as %s. Syncing groups + starting listener...", name);
+  startListening();
+  syncAllGroups(); // khong chan listener
+}
+
+function dropSession() {
+  try {
+    zaloApi?.listener?.stop();
+  } catch {
+    /* ignore */
+  }
+  zaloApi = null;
+  loggedIn = false;
+}
+
+// -------------------------------------------------------------------
+// Dang nhap
+// -------------------------------------------------------------------
+
+/** Dung phien da luu (cookie + imei) -> khong can quet QR sau moi lan Railway restart. */
+async function loginWithSaved() {
+  const creds = await getSavedCredentials();
+  if (!creds) return false;
+  loginInProgress = true;
+  try {
+    const zalo = new Zalo({ selfListen: false });
+    const api = await zalo.login(creds);
+    await afterLogin(api);
+    return true;
+  } catch (err) {
+    logger.warn("Saved session rejected -- need new QR", { error: err.message });
+    await clearCredentials();
+    await reportSession({
+      status: "error",
+      error_msg: "Phiên Zalo đã hết hạn — bấm «Đăng nhập Zalo» để quét QR lại",
+    });
+    return false;
+  } finally {
+    loginInProgress = false;
+  }
+}
+
+async function loginWithQR() {
+  if (loginInProgress) return;
+  loginInProgress = true;
   logger.info("Starting Zalo QR login flow...");
   await reportSession({ status: "awaiting_qr" });
 
+  let retries = 0;
   try {
     const zalo = new Zalo({ selfListen: false });
-
-    const api = await zalo.loginQR(
-      { userAgent: "" },
-      async (event) => {
-        try {
-          switch (event.type) {
-            case LoginQRCallbackEventType.QRCodeGenerated: {
-              // event.data: { code, image, options, token }
-              // image is raw base64 PNG (no data URI prefix)
-              const dataUri = toDataUri(event.data?.image);
-              await reportSession({ status: "qr_ready", qr_image: dataUri });
-              logger.info("QR code generated and pushed to backend.");
-              break;
+    const api = await zalo.loginQR({ userAgent: "" }, async (event) => {
+      try {
+        switch (event.type) {
+          case LoginQRCallbackEventType.QRCodeGenerated:
+            await reportSession({ status: "qr_ready", qr_image: toDataUri(event.data?.image) });
+            logger.info("QR code pushed to backend.");
+            break;
+          case LoginQRCallbackEventType.QRCodeExpired:
+            if (retries < QR_MAX_RETRY) {
+              retries += 1;
+              logger.info("QR expired, refreshing (%d/%d)", retries, QR_MAX_RETRY);
+              event.actions?.retry?.();
+            } else {
+              await reportSession({
+                status: "error",
+                error_msg: "Mã QR hết hạn — bấm «Đăng nhập Zalo» để lấy mã mới",
+              });
+              event.actions?.abort?.();
             }
-            case LoginQRCallbackEventType.QRCodeExpired: {
-              logger.warn("QR code expired. Waiting for backend to request a new login.");
-              await reportSession({ status: "awaiting_qr" });
-              break;
-            }
-            case LoginQRCallbackEventType.QRCodeScanned: {
-              // event.data: { avatar, display_name }
-              logger.info("QR code scanned by user: %s", event.data?.display_name || "unknown");
-              await reportSession({ status: "qr_ready", qr_image: null });
-              break;
-            }
-            case LoginQRCallbackEventType.QRCodeDeclined: {
-              logger.warn("QR code login declined by user.");
-              await reportSession({ status: "error", error_msg: "QR login declined by user" });
-              break;
-            }
-            case LoginQRCallbackEventType.GotLoginInfo: {
-              logger.info("Login session obtained.");
-              break;
-            }
-            default:
-              logger.debug("Unhandled loginQR event type: %d", event.type);
-          }
-        } catch (e) {
-          logger.warn("Error in loginQR callback", { error: e.message });
+            break;
+          case LoginQRCallbackEventType.QRCodeScanned:
+            logger.info("QR scanned by %s", event.data?.display_name || "unknown");
+            await reportSession({ status: "qr_ready", qr_image: null });
+            break;
+          case LoginQRCallbackEventType.QRCodeDeclined:
+            await reportSession({ status: "error", error_msg: "Đã từ chối đăng nhập trên điện thoại" });
+            break;
+          case LoginQRCallbackEventType.GotLoginInfo:
+            // Luu phien (backend ma hoa) de lan sau khoi quet QR
+            await saveCredentials({
+              cookie: event.data?.cookie,
+              imei: event.data?.imei,
+              user_agent: event.data?.userAgent,
+            });
+            logger.info("Login session saved to backend.");
+            break;
+          default:
+            break;
         }
-      },
-    );
+      } catch (e) {
+        logger.warn("Error in loginQR callback", { error: e.message });
+      }
+    });
 
-    if (!api) {
-      throw new Error("loginQR returned null -- login may have been aborted or timed out");
-    }
-
-    // Login succeeded
-    zaloApi = api;
-    loggedIn = true;
-
-    // Fetch own ID for logging (best-effort; zca-js v2 may not expose getOwnId directly)
-    const accountName = "Zalo Listener";
-    await reportSession({ status: "logged_in", account_name: accountName });
-    logger.info("Login successful. Starting message listener...");
-
-    startListening();
+    if (!api) throw new Error("loginQR returned null (aborted or timed out)");
+    await afterLogin(api);
   } catch (err) {
-    logger.error("Login failed", { error: err.message, stack: err.stack });
-    await reportSession({ status: "error", error_msg: err.message.slice(0, 500) });
-    loggedIn = false;
-    zaloApi = null;
+    logger.error("QR login failed", { error: err.message });
+    await reportSession({ status: "error", error_msg: String(err.message).slice(0, 500) });
+    dropSession();
   } finally {
     loginInProgress = false;
   }
 }
 
 // -------------------------------------------------------------------
-// Message Listener (READ-ONLY)
+// Lang nghe tin nhom (READ-ONLY)
 // -------------------------------------------------------------------
 
 function startListening() {
-  if (!zaloApi) {
-    logger.warn("startListening called but zaloApi is null.");
-    return;
-  }
-
+  if (!zaloApi) return;
   const { listener } = zaloApi;
 
   listener.on("message", async (msg) => {
     try {
-      // --- Filter: only group messages, ignore self ---
-      if (msg.type !== ThreadType.Group) return;
-      if (msg.isSelf) return;
-
+      if (msg.type !== ThreadType.Group || msg.isSelf) return;
       const zaloGroupId = msg.threadId;
       if (!zaloGroupId) return;
 
       const content = msg.data?.content;
       const text = extractText(content);
       const mediaRef = extractMediaRef(content);
-
-      // Skip messages that have neither text nor media reference.
       if (!text && !mediaRef) return;
 
-      const payload = {
+      const ts = Number(msg.data?.ts);
+      const result = await pushMessage({
         zalo_group_id: zaloGroupId,
         group_name: resolveGroupName(zaloGroupId),
         sender_zalo_id: String(msg.data?.uidFrom || ""),
-        sender_name: String(msg.data?.dName || ""),
+        sender_name: String(msg.data?.dName || "").slice(0, 150),
         text: text.slice(0, 4000),
         media_ref: mediaRef,
-      };
-
-      const result = await pushMessage(payload);
-
-      // If backend reports a new group was created, we may want to update cache.
-      // The backend auto-creates ZaloGroup entries; no name update needed from here.
+        ts: Number.isFinite(ts) ? ts : null,
+      });
       if (result?.stored) {
         logger.debug("Message ingested", { group: zaloGroupId, signals: result.signals_created || 0 });
-      } else if (result?.stored === false) {
-        logger.debug("Message skipped (monitoring off)", { group: zaloGroupId, reason: result.reason });
       }
     } catch (err) {
       logger.warn("Error processing message", { error: err.message });
     }
   });
 
-  listener.start();
+  listener.on("connected", () => logger.info("Zalo websocket connected."));
+  listener.on("disconnected", (code, reason) => logger.warn("Zalo websocket disconnected", { code, reason }));
+  listener.on("error", (err) => logger.warn("Zalo listener error", { error: String(err?.message || err) }));
+  listener.on("closed", async (code, reason) => {
+    logger.warn("Zalo listener closed", { code, reason });
+    if (code === 3000 || code === 3003) {
+      // Tai khoan vua dang nhap Zalo Web/PC o noi khac -> phien nay bi day ra
+      dropSession();
+      await clearCredentials();
+      await reportSession({
+        status: "error",
+        error_msg: "Zalo bị đăng nhập ở nơi khác (Zalo Web/PC) nên phiên nghe đã ngắt — quét QR lại",
+      });
+    } else if (code !== 1000 && loggedIn) {
+      // Mat ket noi bat thuong ma khong tu noi lai -> thu dang nhap lai bang phien da luu
+      dropSession();
+      await loginWithSaved();
+    }
+  });
+
+  listener.start({ retryOnClose: true });
   logger.info("Message listener started.");
 }
 
 // -------------------------------------------------------------------
-// Main Loop: poll for login requests + heartbeat
+// Vong poll: heartbeat + yeu cau dang nhap/dang xuat tu web
 // -------------------------------------------------------------------
 
 async function pollLoop() {
-  try {
-    const result = await pollPendingLogin();
+  const result = await pollPendingLogin();
+  if (!result) return; // backend khong toi duoc -- da log
 
-    if (!result) {
-      // Backend unreachable -- logged inside pollPendingLogin already.
-      return;
-    }
-
-    // If backend signals a login is requested and we are not logged in, start QR flow.
-    if (result.login_requested && !loggedIn && !loginInProgress) {
-      logger.info("Backend requested login. Initiating QR flow...");
-      await loginWithQR();
-    }
-  } catch (err) {
-    // pollPendingLogin already catches internally, but just in case:
-    logger.warn("pollLoop unexpected error", { error: err.message });
+  if (loggedIn && result.current_status === "logged_out") {
+    logger.info("Admin logged out from web -- stopping listener.");
+    dropSession();
+    return;
   }
-}
-
-async function heartbeatLoop() {
-  if (!loggedIn) return;
-  try {
-    await reportSession({ status: "logged_in" });
-  } catch (err) {
-    logger.warn("heartbeat failed", { error: err.message });
+  if (result.login_requested && !loggedIn && !loginInProgress) {
+    logger.info("Backend requested login. Initiating QR flow...");
+    await loginWithQR();
   }
 }
 
@@ -265,22 +317,18 @@ async function heartbeatLoop() {
 // Startup
 // -------------------------------------------------------------------
 
-logger.info("Starting JAMA Zalo Listener ingest service", {
-  backend: config.backendUrl,
-  pollMs: config.pollMs,
-  heartbeatMs: config.heartbeatMs,
-});
+logger.info("Starting JAMA Zalo Listener", { backend: config.backendUrl, pollMs: config.pollMs });
 
-// First poll immediately, then on interval.
-pollLoop();
-setInterval(pollLoop, config.pollMs);
-setInterval(heartbeatLoop, config.heartbeatMs);
+(async () => {
+  await loginWithSaved();
+  await pollLoop();
+  setInterval(() => pollLoop().catch((e) => logger.warn("pollLoop error", { error: e.message })), config.pollMs);
+  setInterval(() => loggedIn && syncAllGroups(), GROUP_SYNC_MS);
+})();
 
-// Graceful shutdown
 function shutdown(signal) {
-  logger.info("Received %s -- shutting down gracefully.", signal);
-  loggedIn = false;
-  zaloApi = null;
+  logger.info("Received %s -- shutting down.", signal);
+  dropSession();
   process.exit(0);
 }
 
@@ -288,7 +336,6 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("uncaughtException", (err) => {
   logger.error("Uncaught exception", { error: err.message, stack: err.stack });
-  // Do NOT exit -- keep the process alive so the poll loop can recover.
 });
 process.on("unhandledRejection", (reason) => {
   logger.error("Unhandled rejection", { reason: String(reason) });
