@@ -3,7 +3,7 @@
 Một trang Cài đặt › Nhân sự › Chế độ thưởng gom 5 chương trình, mỗi cái bật/tắt
 và chọn chu kỳ Tháng/Quý:
 
-  1. Hũ doanh số — doanh số ký HĐ cả công ty chạm mốc thì mở quỹ, chia cho
+  1. Hũ doanh số — giá trị dự án thắng deal cả công ty chạm mốc thì mở quỹ, chia cho
      người nhận theo phạm vi (công ty / phòng / nhóm) và cách chia.
   2. Chuyên cần — 100 điểm, trừ đi trễ / quên tan ca / nghỉ không phép; đủ
      công không trễ thì thưởng.
@@ -33,7 +33,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord
-from app.models.contract import Contract
 from app.models.danh_gia_khach import DanhGiaKhach
 from app.models.employee_profile import EmployeeProfile
 from app.models.lead import Activity, Lead
@@ -60,7 +59,6 @@ KEY_DA_CHOT = "che_do_thuong_da_chot:{ky}"        # {"luc", "approval_id", "tong
 KEY_MOC_DA_BAO = "che_do_thuong_moc_da_bao:{ky}"  # {"so_moc": n}
 KEY_ZALO = "che_do_thuong_zalo:{ky}"              # {"ngay": [...], "nguoi": {uid: [tong, dat]}}
 
-TRANG_THAI_HD_DA_KY = ("signed", "completed")
 # Hoạt động do hệ thống ghi — không phải lần liên hệ khách thật
 LOAI_HD_HE_THONG = {"assignment", "lead_assigned", "stage_change", "contract_signed", "system", "ai"}
 LOAI_HD_GIAO = {"assignment", "lead_assigned"}
@@ -366,25 +364,30 @@ async def luu_cau_hinh(db: AsyncSession, cfg: dict, actor: User) -> tuple[dict, 
 # ── Nguồn số liệu ───────────────────────────────────────────────────────────
 
 async def doanh_so_theo_nguoi(db: AsyncSession, tu: date, den: date) -> tuple[float, dict[str | None, float]]:
-    """Doanh số HĐ đã ký trong [tu, den) — ngày = signed_date, thiếu thì ngày tạo (giờ VN).
+    """Doanh số = giá trị dự án sinh ra khi THẮNG deal (lead → dự án) trong [tu, den).
 
-    Trả (tổng công ty, {sales_id: doanh số}). HĐ không gắn sale vẫn vào tổng hũ.
+    Chốt 23/10/2026: HĐ trên prod đều còn «nháp» nên không lấy HĐ đã ký. Ngày thắng =
+    ngày tạo dự án (giờ VN) vì lead không lưu mốc thắng riêng. Bỏ dự án đã hủy và dự án
+    tạo tay (không gắn lead). Giá trị = total_value, thiếu thì thiết kế + thi công.
+    Trả (tổng công ty, {sales_id: doanh số}). Dự án không gắn sale vẫn vào tổng hũ.
     """
+    tu_utc = datetime.combine(tu - timedelta(days=1), datetime.min.time())
     rows = (await db.execute(
-        select(Contract.total_value, Contract.signed_date, Contract.created_at, Project.sales_id)
-        .join(Project, Project.id == Contract.project_id)
+        select(Project.total_value, Project.design_value, Project.construction_value,
+               Project.created_at, Project.sales_id)
         .where(
-            Contract.status.in_(TRANG_THAI_HD_DA_KY),
-            or_(Contract.signed_date >= tu, Contract.signed_date.is_(None)),
+            Project.lead_id.is_not(None),
+            Project.status != "cancelled",
+            Project.created_at >= tu_utc,
         )
     )).all()
     tong = 0.0
     theo: dict[str | None, float] = defaultdict(float)
-    for gia_tri, ngay_ky, tao_luc, sales_id in rows:
-        ngay = ngay_ky or _ngay_vn(tao_luc)
+    for tong_gt, tk, tc, tao_luc, sales_id in rows:
+        ngay = _ngay_vn(tao_luc)
         if ngay is None or not (tu <= ngay < den):
             continue
-        v = float(gia_tri or 0)
+        v = float(tong_gt or 0) or float(tk or 0) + float(tc or 0)
         tong += v
         theo[sales_id] += v
     return tong, dict(theo)

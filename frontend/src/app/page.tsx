@@ -5,8 +5,9 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import HuDoanhSo from '@/components/dashboard/HuDoanhSo';
+import PheuQuyTrinh from '@/components/dashboard/PheuQuyTrinh';
 import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
-import { formatCurrency, STAGE_CONFIG } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
 import {  } from '@/lib/roles';
 
@@ -367,30 +368,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pipeline Funnel */}
             {data?.stage_funnel && (
-            <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">📊 Phễu quy trình</h2>
-              <div className="space-y-3">
-                {['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'].map((stage) => {
-                  const config = STAGE_CONFIG[stage];
-                  const count = data?.stage_funnel?.[stage] ?? 0;
-                  const maxCount = 20;
-                  const pct = Math.min((count / maxCount) * 100, 100);
-                  return (
-                    <div key={stage} className="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg px-1 py-0.5 transition-colors" onClick={() => router.push(`/leads?stage=${stage}`)}>
-                      <span className="text-lg w-6">{config.emoji}</span>
-                      <span className="text-sm w-32 text-[var(--text-secondary)]">{config.label}</span>
-                      <div className="flex-1 h-6 rounded-full bg-white/5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%`, backgroundColor: config.color }}
-                        />
-                      </div>
-                      <span className="text-sm font-semibold w-8 text-right">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PheuQuyTrinh funnel={data.stage_funnel} onChon={(stage) => router.push(`/leads?stage=${stage}`)} />
             )}
 
             {/* Team Performance */}

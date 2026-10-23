@@ -1,7 +1,7 @@
 """Chế độ thưởng (23/10/2026): hũ doanh số, chuyên cần, Điểm JAMA, chốt kỳ, khách đánh giá."""
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -11,6 +11,8 @@ from app.models.approval import ApprovalRequest
 from app.models.attendance import AttendanceRecord
 from app.models.contract import Contract
 from app.models.customer import Customer
+from app.models.lead import Lead
+from app.models.project import Project
 from app.models.danh_gia_khach import DanhGiaKhach
 from app.models.payroll import Bonus
 from app.models.user import User
@@ -126,8 +128,24 @@ async def test_luu_lan_dau_ap_ngay_lan_sau_ap_ky_sau(client: AsyncClient, admin_
 # ── Bảng thưởng + chốt kỳ ───────────────────────────────────────────────────
 
 async def _hd(db, project, gia_tri, ngay):
+    """HĐ đã ký — chỉ để mở mốc «ký HĐ thiết kế» trên portal, KHÔNG tính doanh số."""
     db.add(Contract(id=_uid(), code=f"HD-{uuid.uuid4().hex[:8]}", project_id=project.id, title="HĐ",
                     status="signed", total_value=gia_tri, signed_date=ngay))
+
+
+async def _deal_thang(db, gia_tri, ngay, sales_id=None, status="active", co_lead=True, **gia):
+    """Dự án sinh ra khi thắng deal: tạo lúc 12h trưa giờ VN ngày `ngay` (lưu UTC naive)."""
+    lead_id = None
+    if co_lead:
+        lead = Lead(id=_uid(), name="Khách", phone=f"09{uuid.uuid4().int % 10**8:08d}")
+        db.add(lead)
+        await db.flush()
+        lead_id = lead.id
+    tao = datetime.combine(ngay, time(12), VN_TZ).astimezone(timezone.utc).replace(tzinfo=None)
+    p = Project(id=_uid(), code=f"PRJ-{uuid.uuid4().hex[:6]}", name="DA", client_name="Khách", status=status, stage="design",
+                total_value=gia_tri, lead_id=lead_id, sales_id=sales_id, created_at=tao, **gia)
+    db.add(p)
+    return p
 
 
 @pytest.mark.asyncio
@@ -137,7 +155,7 @@ async def test_xem_thu_va_chot_ky_sinh_bonus_cho_duyet(
     ky = cdt.ky_truoc(cdt.ky_hien_tai())
     tu, _ = period_bounds(ky)
     project.sales_id = sales_user.id
-    await _hd(db_session, project, 9e9, tu + timedelta(days=3))
+    await _deal_thang(db_session, 9e9, tu + timedelta(days=3), sales_user.id)
     await db_session.commit()
 
     r = await client.get(f"/api/v1/che-do-thuong/xem-thu?ky={ky}", headers=auth_header(admin_user))
@@ -179,7 +197,7 @@ async def test_ky_luat_va_thu_viec(client: AsyncClient, db_session, admin_user, 
     ky = cdt.ky_truoc(cdt.ky_hien_tai())
     tu, _ = period_bounds(ky)
     project.sales_id = sales_user.id
-    await _hd(db_session, project, 15e9, tu + timedelta(days=1))
+    await _deal_thang(db_session, 15e9, tu + timedelta(days=1), sales_user.id)
     await db_session.commit()
     r = await client.put(f"/api/v1/che-do-thuong/loai-tru?ky={ky}", json={"user_ids": [sales_user.id, "khong-ton-tai"]},
                          headers=auth_header(admin_user))
@@ -244,14 +262,35 @@ async def test_bao_moc_lan_dau_im_lang(db_session, admin_user, project, monkeypa
     monkeypatch.setattr(tn, "send_telegram", fake_send)
     from app.services.automation import set_automation_setting
     await set_automation_setting(db_session, "telegram_group_chat_id", "-100123")
-    await _hd(db_session, project, 9e9, datetime.now(VN_TZ).date())
+    await _deal_thang(db_session, 9e9, datetime.now(VN_TZ).date())
     await db_session.commit()
     assert (await cdt.bao_moc_moi(db_session))["bo_qua"] == "ghi_nhan_lan_dau"
     assert gui == []
-    await _hd(db_session, project, 4e9, datetime.now(VN_TZ).date())
+    await _deal_thang(db_session, 4e9, datetime.now(VN_TZ).date())
     await db_session.commit()
     assert (await cdt.bao_moc_moi(db_session)) == {"da_bao": 2}
     assert len(gui) == 1 and "MỐC 2" in gui[0] and "đ" not in gui[0].split("Quỹ")[0][-5:]
+
+
+@pytest.mark.asyncio
+async def test_doanh_so_la_gia_tri_du_an_thang_deal(db_session, sales_user, project):
+    ky = cdt.ky_truoc(cdt.ky_hien_tai())
+    tu, den = period_bounds(ky)
+    await _deal_thang(db_session, 2e9, tu, sales_user.id)                        # ngày đầu kỳ → tính
+    await _deal_thang(db_session, 0, tu + timedelta(days=2), sales_user.id,
+                      design_value=3e8, construction_value=7e8)                  # thiếu tổng → TK + TC
+    await _deal_thang(db_session, 5e9, tu + timedelta(days=4), sales_user.id, status="cancelled")  # hủy → bỏ
+    await _deal_thang(db_session, 4e9, tu + timedelta(days=5), sales_user.id, co_lead=False)       # tạo tay → bỏ
+    await _deal_thang(db_session, 6e9, den, sales_user.id)                       # sang kỳ sau → bỏ
+    await _deal_thang(db_session, 8e9, tu - timedelta(days=1), None)             # kỳ trước → bỏ
+    # HĐ nháp hay đã ký đều không cộng thêm — chỉ đếm giá trị dự án
+    db_session.add(Contract(id=_uid(), code="HD-NHAP", project_id=project.id, title="HĐ",
+                            status="draft", total_value=9e9))
+    await _hd(db_session, project, 9e9, tu + timedelta(days=1))
+    await db_session.commit()
+    tong, theo = await cdt.doanh_so_theo_nguoi(db_session, tu, den)
+    assert tong == pytest.approx(3e9)
+    assert theo == {sales_user.id: pytest.approx(3e9)}
 
 
 # ── Khách đánh giá trên portal ──────────────────────────────────────────────

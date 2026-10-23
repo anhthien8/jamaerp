@@ -16,6 +16,19 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '23/10/2026',
+    title: 'Hũ thưởng tính doanh số theo dự án thắng deal, Phễu quy trình kiểu bảng tài chính',
+    tag: 'SỬA',
+    fixes: [
+      'Hũ thưởng và Điểm JAMA giờ tính doanh số = giá trị dự án tạo ra khi lead chuyển «Thắng», theo ngày thắng. Trước đây chỉ đếm hợp đồng đã ký, mà hợp đồng trong app đều còn nháp nên hũ báo 0đ.',
+      'Dự án đã hủy hoặc tạo tay (không từ lead) không tính. Dự án chưa nhập giá trị thì chưa cộng — nhớ điền giá trị khi thắng deal.',
+      'Khối «Phễu quy trình» trên Tổng quan làm lại theo kiểu bảng tài chính: thanh mảnh tông vàng, số canh thẳng cột, thêm % tỷ trọng từng giai đoạn. Độ dài thanh giờ so với giai đoạn đông nhất — trước đây thanh nào cũng đầy kín nên không so được. Trên điện thoại mỗi dòng đủ lớn để bấm, tên giai đoạn không bị cắt.',
+    ],
+    test: [
+      'Mở Tổng quan → hũ tháng này hiện doanh số khác 0 nếu đã có lead thắng trong tháng.',
+    ],
+  },
+  {
+    date: '23/10/2026',
     title: 'Chế độ thưởng: hũ doanh số trên Tổng quan, Điểm JAMA cho từng người, khách chấm sao dự án',
     tag: 'MỚI',
     news: [

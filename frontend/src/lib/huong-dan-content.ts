@@ -1563,7 +1563,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "rows": [
           [
             "Hũ doanh số",
-            "Doanh số công ty vượt mốc 8 / 12 / 14,4 / 18 tỷ → quỹ mở 20 / 50 / 100 / 200 triệu, chia theo % doanh số mỗi người"
+            "Doanh số công ty (= giá trị dự án khi thắng deal, tính theo ngày thắng) vượt mốc 8 / 12 / 14,4 / 18 tỷ → quỹ mở 20 / 50 / 100 / 200 triệu, chia theo % doanh số mỗi người"
           ],
           [
             "Chuyên cần",
@@ -1595,7 +1595,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "**Xem điểm của mình**: Hồ sơ nhân viên → tab **Tiền** → khối «Điểm JAMA» (hiện khi Admin bật «Nhân viên tự xem điểm»).",
-          "**Hũ trên Tổng quan**: hũ vàng đầy dần theo doanh số công ty, kèm số còn thiếu tới mốc tiếp. Bảng «Ai đang đẩy hũ» chỉ ghi doanh số, không ghi tiền thưởng từng người.",
+          "**Hũ trên Tổng quan**: hũ vàng đầy dần theo doanh số công ty — mỗi lead chuyển «Thắng» thì giá trị dự án vừa tạo cộng ngay vào hũ (dự án hủy hoặc tạo tay không tính; dự án chưa nhập giá trị thì chưa cộng), kèm số còn thiếu tới mốc tiếp. Bảng «Ai đang đẩy hũ» chỉ ghi doanh số, không ghi tiền thưởng từng người.",
           "**Cuối kỳ**: Kế toán mở tab **Bảng thưởng** → kiểm tra → **«Chốt kỳ → gửi duyệt»**. Phiếu «Bảng thưởng» vào trang Phê duyệt; duyệt xong mới vào lương."
         ]
       },
