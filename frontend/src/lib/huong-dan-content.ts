@@ -1139,7 +1139,15 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Trang **Nhân sự** có 3 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**."
+        "text": "Trang **Nhân sự** có 4 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Sơ đồ** (cây mạng lưới công ty), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**. Ở mọi cách xem, **bấm vào thẻ một người là mở Hồ sơ 360°** của người đó để xem/sửa."
+      },
+      {
+        "type": "h3",
+        "text": "Chế độ xem «Sơ đồ» — mạng lưới công ty"
+      },
+      {
+        "type": "p",
+        "text": "Cây đi từ trên xuống: **JAMA HOME → Ban Giám đốc → từng phòng ban → Trưởng phòng → nhóm/Trưởng nhóm → Nhân viên**, đường nối mảnh bên trái cho biết ai dưới ai. Phòng Kinh doanh chia theo từng đội. Bấm tên phòng để thu gọn/mở; gõ tên hoặc vai trò vào ô tìm để lọc nhanh. Chỉ hiện người đang làm."
       },
       {
         "type": "h3",
@@ -1164,7 +1172,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "warn",
-        "text": "TẠO tài khoản đăng nhập mới là việc của Admin: dùng nút **+ Thêm nhân viên** ở trang Nhân sự (chỉ Giám đốc thấy nút này) hoặc trang **Tài khoản**. Nhân viên thường không tự tạo tài khoản."
+        "text": "TẠO tài khoản đăng nhập mới là việc của Admin: dùng nút **+ Thêm nhân viên** ở trang Nhân sự (chỉ Giám đốc thấy nút này) hoặc trang **Tài khoản**. Nhân viên thường không tự tạo tài khoản. Form Thêm nhân viên ở trang Nhân sự cho nhập luôn **ảnh đại diện, số CCCD + ảnh 2 mặt, loại/ngày hợp đồng lao động + ảnh scan HĐLĐ** — đều không bắt buộc, thiếu thì bổ sung sau ở Hồ sơ 360°. Vai trò phòng ban (VD: Giám sát thi công) chọn được ngay trong ô Vai trò."
       },
       {
         "type": "h3",

@@ -10,7 +10,8 @@ import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
-import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
+import { DEPARTMENT_LABELS } from '@/lib/labels';
+import { useRoleLabels, deptLabel } from '@/lib/nhan-su';
 import { RELEASES } from '@/lib/releases';
 
 const AUTOMATION_ROLES = ['admin', 'executive'];
@@ -1458,6 +1459,7 @@ function TaskSlaSection() {
 
 export default function SettingsPage() {
   const { user, loading, isDemo, capNhatUser } = useAuth();
+  const roleOf = useRoleLabels();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -1512,7 +1514,7 @@ export default function SettingsPage() {
                     <p className="font-semibold text-lg">{user.full_name}</p>
                     <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                      {labelOf(ROLE_LABELS, user.role)} · {labelOf(DEPARTMENT_LABELS, user.department)}
+                      {roleOf(user.role).label} · {deptLabel(user.department)}
                     </p>
                   </div>
                 </div>

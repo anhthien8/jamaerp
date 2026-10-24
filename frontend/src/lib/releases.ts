@@ -16,6 +16,25 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Nhân sự: Sơ đồ mạng lưới công ty, bấm thẻ mở hồ sơ, thêm nhân viên kèm CCCD + HĐLĐ',
+    tag: 'MỚI',
+    news: [
+      'Trang Nhân sự có thêm cách xem «Sơ đồ»: cây mạng lưới JAMA HOME → Ban Giám đốc → từng phòng → Trưởng phòng → nhóm → nhân viên, kiểu thẻ phẳng. Có ô tìm theo tên/vai trò, bấm tên phòng để thu gọn.',
+      'Bấm vào thẻ một người ở Sơ đồ, Phòng ban hay Đội nhóm là mở Hồ sơ 360° của người đó để xem/sửa.',
+      'Form «Thêm nhân viên» nhập được luôn ảnh đại diện, số CCCD + ảnh 2 mặt, loại/ngày hợp đồng lao động + ảnh scan HĐLĐ (đều không bắt buộc). Chọn được cả vai trò phòng ban như Giám sát thi công. Trên điện thoại form mở dạng trượt từ dưới lên.',
+    ],
+    fixes: [
+      'Tên vai trò/phòng ban ở Cài đặt giờ khớp với trang Nhân sự (VD: «Giám đốc · Ban Giám đốc» thay vì «Quản trị»). Vai trò phòng ban hiện tên tiếng Việt thay vì mã.',
+      'Form Thêm nhân viên không còn bị trình duyệt tự điền email/mật khẩu của người đang đăng nhập vào ô SĐT/mật khẩu.',
+      'Tạo nhân viên xong, hồ sơ/ảnh/giấy tờ lưu ngay được (trước đây có lúc báo «Nhân viên không tồn tại»).',
+    ],
+    test: [
+      'Nhân sự → bấm «Sơ đồ» → thấy cây công ty; bấm một người → mở Hồ sơ 360°.',
+      'Admin: Nhân sự → «+ Thêm nhân viên» → điền tên, email, mật khẩu, số CCCD, chọn ảnh mặt trước → Thêm → mở Hồ sơ 360° của người mới thấy CCCD và ảnh.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Ảnh đại diện nhân viên — tự đổi ở Cài đặt, hiện khắp app',
     tag: 'MỚI',
     news: [

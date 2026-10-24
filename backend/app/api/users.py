@@ -941,6 +941,9 @@ async def create_user(
         db, actor=current_user, action="user.create", entity_type="user", entity_id=user.id,
         after={"email": user.email, "role": user.role, "department": user.department},
     )
+    # Commit trước khi trả: form Thêm nhân viên gọi ngay PUT hồ sơ/ảnh/giấy tờ —
+    # để get_db commit sau thì request kế tiếp có thể chưa thấy user → 404 (24/10)
+    await db.commit()
     return {
         "id": user.id, "full_name": user.full_name, "email": user.email,
         "role": user.role, "department": user.department,

@@ -1,36 +1,55 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, User, Team, extractItems } from '@/lib/api';
+import { api, User, Team, extractItems, type EmployeeProfileData } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
-import Avatar from '@/components/ui/Avatar';
+import Avatar, { nenAnhDaiDien } from '@/components/ui/Avatar';
+import SoDoCongTy from '@/components/hr/SoDoCongTy';
+import { useRoleLabels, useCustomRoles, deptLabel, compressImage } from '@/lib/nhan-su';
 
-const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  admin: { label: 'Giám đốc', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
-  leader: { label: 'Trưởng phòng', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
-  executive: { label: 'Ban Quản Trị', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
-  data_entry: { label: 'Nhân viên Sale', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  supervisor: { label: 'Giám sát', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
-  accountant: { label: 'Kế toán / Nhân sự', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  // Vai trò tùy chỉnh seed sẵn cho luồng chia data theo nhóm KD (14/08)
-  sale_leader: { label: 'Trưởng nhóm KD', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+const DOC_TAO: Record<string, string> = {
+  cccd_front: 'CCCD mặt trước', cccd_back: 'CCCD mặt sau', contract: 'HĐLĐ (scan)',
 };
 
-const DEPT_LABELS: Record<string, string> = {
-  SALES: 'Kinh doanh',
-  OPS: 'Giám sát / Vận hành',
-  ACCT: 'Kế toán',
-  EXEC: 'Ban Giám đốc',
-  // giữ chữ thường phòng khi dữ liệu cũ còn lưu lowercase
-  sales: 'Kinh doanh', design: 'Thiết kế', construction: 'Thi công',
-  accounting: 'Kế toán', management: 'Ban lãnh đạo',
-};
+const PHONG_BAN_TAO: [string, string][] = [
+  ['SALES', 'Kinh doanh'], ['DESIGN', 'Thiết kế'], ['OPS', 'Giám sát / Vận hành'], ['PURCHASING', 'Thu mua'],
+  ['ACCT', 'Kế toán'], ['HR', 'Nhân sự'], ['EXEC', 'Ban Giám đốc'],
+];
+
+const INPUT_CLS = 'w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none';
+
+/** Ô chọn ảnh giấy tờ — hiện ảnh xem trước, bấm lại để đổi, có nút gỡ. */
+function ChonGiayTo({ label, file, onChon }: { label: string; file?: File; onChon: (f?: File) => void }) {
+  const xem = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (xem) URL.revokeObjectURL(xem); }, [xem]);
+  return (
+    <div className="relative">
+      <label className="flex flex-col items-center justify-center gap-1 h-24 rounded-xl cursor-pointer overflow-hidden text-xs text-[var(--text-muted)]" style={{ background: 'var(--surface-2)', border: '1px dashed var(--border-subtle)' }}>
+        {file && xem ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={xem} alt={label} className="w-full h-full object-cover" />
+        ) : (
+          <>
+            <LineIcon name="camera" size={18} color="var(--text-muted)" />
+            <span>{label}</span>
+          </>
+        )}
+        <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onChon(f); }} />
+      </label>
+      {file && (
+        <button type="button" onClick={() => onChon(undefined)} aria-label={`Gỡ ${label}`} className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <LineIcon name="x" size={12} color="#fff" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface ResignPreviewData {
   user_name: string;
@@ -44,15 +63,22 @@ export default function HRPage() {
   const { user, loading, effectivePermissions, permsReady, permsError } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const roleOf = useRoleLabels();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'org' | 'teams'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'tree' | 'org' | 'teams'>('list');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
   });
   const [savingUser, setSavingUser] = useState(false);
+  // Hồ sơ kèm theo lúc tạo (24/10): ảnh đại diện + CCCD + HĐLĐ + ảnh giấy tờ — lưu
+  // qua các API Hồ sơ 360° sẵn có SAU KHI tạo tài khoản (cần id nhân viên).
+  const [anhMoi, setAnhMoi] = useState<string | null>(null);
+  const [hoSoMoi, setHoSoMoi] = useState<EmployeeProfileData>({});
+  const [giayToMoi, setGiayToMoi] = useState<Record<string, File | undefined>>({});
+  const customRoles = useCustomRoles();
   const [userErrors, setUserErrors] = useState<{ full_name?: string; email?: string; password?: string }>({});
 
   // Resignation flow state
@@ -153,31 +179,61 @@ export default function HRPage() {
     }
   };
 
+  const moFormTao = () => {
+    setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' });
+    setAnhMoi(null); setHoSoMoi({}); setGiayToMoi({});
+    setUserErrors({});
+    setShowCreateForm(true);
+  };
+
   const handleCreateUser = async () => {
     const errs: { full_name?: string; email?: string; password?: string } = {};
     if (!newUser.full_name.trim()) errs.full_name = 'Vui lòng nhập họ tên';
     if (!newUser.email.trim()) errs.email = 'Vui lòng nhập email';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email.trim())) errs.email = 'Email không hợp lệ';
     if (!newUser.password) errs.password = 'Vui lòng nhập mật khẩu';
+    else if (newUser.password.length < 6) errs.password = 'Tối thiểu 6 ký tự';
     if (Object.keys(errs).length > 0) {
       setUserErrors(errs);
-      toast('Vui lòng điền đủ trường bắt buộc: Tên và Email', 'error');
+      toast('Vui lòng điền đủ trường bắt buộc: Họ tên, Email, Mật khẩu', 'error');
       return;
     }
     setUserErrors({});
     setSavingUser(true);
+    let created: User;
     try {
-      await api.createUser({ ...newUser });
-      toast('Đã thêm nhân viên mới', 'success');
-      setShowCreateForm(false);
-      setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' });
-      load();
+      created = await api.createUser({ ...newUser, email: newUser.email.trim(), full_name: newUser.full_name.trim() });
     } catch (e) {
       toast('Lỗi: ' + (e instanceof Error ? e.message : 'Unknown'), 'error');
-    } finally {
       setSavingUser(false);
+      return;
     }
+    // Tài khoản đã có — phần hồ sơ lỗi thì báo rõ phần nào, không chặn (sửa tiếp ở Hồ sơ 360°)
+    const loi: string[] = [];
+    if (anhMoi) {
+      await api.uploadAvatar(created.id, anhMoi).catch(() => loi.push('ảnh đại diện'));
+    }
+    const coHoSo = Object.values(hoSoMoi).some(v => v);
+    if (coHoSo) {
+      await api.updateEmployeeProfile(created.id, hoSoMoi).catch(() => loi.push('CCCD/HĐLĐ'));
+    }
+    for (const [docType, file] of Object.entries(giayToMoi)) {
+      if (!file) continue;
+      const nen = await compressImage(file);
+      if (!nen) { loi.push(DOC_TAO[docType] || docType); continue; }
+      await api.uploadEmployeeDocument(created.id, {
+        doc_type: docType, filename: file.name.replace(/\.[^.]+$/, '') + '.jpg',
+        mime: nen.mime, data_base64: nen.base64,
+      }).catch(() => loi.push(DOC_TAO[docType] || docType));
+    }
+    setSavingUser(false);
+    setShowCreateForm(false);
+    if (loi.length) toast(`Đã tạo tài khoản, nhưng chưa lưu được: ${loi.join(', ')} — bổ sung trong Hồ sơ 360°`, 'error');
+    else toast('Đã thêm nhân viên mới', 'success');
+    void load();
   };
+
+  const moHoSo = (id: string) => router.push(`/hr/nhan-vien?id=${id}`);
 
   const isRecentlyResigned = (u: User): boolean => {
     if (!u.resign_date) return false;
@@ -208,46 +264,32 @@ export default function HRPage() {
     <Sidebar>
     <div className="p-6 space-y-6 animate-in">
       <PermsErrorBanner />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Nhân sự</h1>
           <p className="text-sm text-[var(--text-tertiary)] mt-1">{users.length} nhân viên • {teams.length} đội nhóm</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('list')}
-            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
-            style={{
-              background: viewMode === 'list' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
-              color: viewMode === 'list' ? 'var(--gold-400)' : 'var(--text-tertiary)',
-            }}
-          >
-            Danh sách
-          </button>
-          <button
-            onClick={() => setViewMode('org')}
-            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
-            style={{
-              background: viewMode === 'org' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
-              color: viewMode === 'org' ? 'var(--gold-400)' : 'var(--text-tertiary)',
-            }}
-          >
-            Phòng ban
-          </button>
-          <button
-            onClick={() => setViewMode('teams')}
-            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
-            style={{
-              background: viewMode === 'teams' ? 'rgba(201,169,110,0.15)' : 'var(--surface-2)',
-              color: viewMode === 'teams' ? 'var(--gold-400)' : 'var(--text-tertiary)',
-            }}
-          >
-            Đội nhóm
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nút viên thuốc kiểu BloFin — «Sơ đồ» là cây mạng lưới công ty */}
+          <div className="flex p-1 rounded-full overflow-x-auto" style={{ background: 'var(--surface-2)' }}>
+            {([['list', 'Danh sách'], ['tree', 'Sơ đồ'], ['org', 'Phòng ban'], ['teams', 'Đội nhóm']] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setViewMode(k)}
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
+                style={{
+                  background: viewMode === k ? 'rgba(201,169,110,0.18)' : 'transparent',
+                  color: viewMode === k ? 'var(--gold-400)' : 'var(--text-tertiary)',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {user?.role === 'admin' && (
             <button
-              onClick={() => { setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES' }); setUserErrors({}); setShowCreateForm(true); }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
+              onClick={() => { moFormTao(); }}
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
             >
               + Thêm nhân viên
             </button>
@@ -281,7 +323,7 @@ export default function HRPage() {
           {/* Mobile card view */}
           <div className="md:hidden p-3 space-y-3">
             {users.map(u => {
-              const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+              const role = roleOf(u.role);
               return (
                 <div
                   key={u.id}
@@ -295,7 +337,7 @@ export default function HRPage() {
                       <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                       <div>
                         <p className="text-sm font-medium text-[var(--text-primary)]">{u.full_name}</p>
-                        <p className="text-[10px] text-[var(--text-muted)]">{DEPT_LABELS[u.department] || u.department}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{deptLabel(u.department)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -355,7 +397,7 @@ export default function HRPage() {
             </thead>
             <tbody>
               {users.map(u => {
-                const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                const role = roleOf(u.role);
                 return (
                   <tr
                     key={u.id}
@@ -375,7 +417,7 @@ export default function HRPage() {
                     <td className="px-5 py-3.5">
                       <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: role.bg, color: role.color }}>{role.label}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">{DEPT_LABELS[u.department] || u.department}</td>
+                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">{deptLabel(u.department)}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.email}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.phone || '—'}</td>
                     <td className="px-5 py-3.5 text-center" onClick={e => e.stopPropagation()}>
@@ -418,6 +460,8 @@ export default function HRPage() {
           </table>
           </div>
         </div>
+      ) : viewMode === 'tree' ? (
+        <SoDoCongTy users={users} teams={teams} roleOf={roleOf} />
       ) : viewMode === 'teams' ? (
         /* Sơ đồ đội — trưởng nhóm đứng đầu, thành viên xếp dưới (luồng chia data theo nhóm KD) */
         <div className="space-y-6">
@@ -439,7 +483,7 @@ export default function HRPage() {
                   </span>
                 </div>
                 {leader ? (
-                  <div className="rounded-xl p-4 flex items-center gap-3 mb-3" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.35)' }}>
+                  <div onClick={() => moHoSo(leader.id)} title="Bấm để mở hồ sơ" className="rounded-xl p-4 flex items-center gap-3 mb-3 cursor-pointer transition-all hover:scale-[1.01]" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.35)' }}>
                     <Avatar name={leader.full_name} url={leader.avatar_url} className="w-11 h-11 rounded-xl text-sm" style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{leader.full_name}</p>
@@ -452,9 +496,9 @@ export default function HRPage() {
                 {rest.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:ml-6">
                     {rest.map(u => {
-                      const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                      const role = roleOf(u.role);
                       return (
-                        <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div key={u.id} onClick={() => moHoSo(u.id)} title="Bấm để mở hồ sơ" className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                           <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
@@ -484,13 +528,13 @@ export default function HRPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {unassigned.map(u => {
-                    const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                    const role = roleOf(u.role);
                     return (
-                      <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div key={u.id} onClick={() => moHoSo(u.id)} title="Bấm để mở hồ sơ" className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                         <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
-                          <p className="text-xs text-[var(--text-muted)]">{role.label} • {DEPT_LABELS[u.department] || u.department}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{role.label} • {deptLabel(u.department)}</p>
                         </div>
                       </div>
                     );
@@ -506,17 +550,17 @@ export default function HRPage() {
           {Object.entries(byDept).map(([dept, members]) => (
             <div key={dept} className="rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-3 mb-4">
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">{DEPT_LABELS[dept] || dept}</h3>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">{deptLabel(dept)}</h3>
                 <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: 'var(--surface-3)', color: 'var(--text-muted)' }}>
                   {members.length} người
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {members.map(u => {
-                  const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                  const role = roleOf(u.role);
                   const team = teams.find(t => t.id === u.team_id);
                   return (
-                    <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                    <div key={u.id} onClick={() => moHoSo(u.id)} title="Bấm để mở hồ sơ" className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                       <Avatar name={u.full_name} url={u.avatar_url} className="w-11 h-11 rounded-xl text-sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{u.full_name}</p>
@@ -532,56 +576,164 @@ export default function HRPage() {
       )}
     </div>
 
-    {/* Create User Modal */}
+    {/* Create User Modal — tài khoản + ảnh đại diện + CCCD + HĐLĐ (24/10) */}
     {showCreateForm && permissions?.canManageUsers && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateForm(false)}>
-        <div className="glass-card p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Thêm nhân viên mới</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Họ tên <span className="text-red-400">*</span></label>
-              <input placeholder="VD: Nguyễn Văn A" value={newUser.full_name} onChange={e => { setNewUser({...newUser, full_name: e.target.value}); setUserErrors(p => ({ ...p, full_name: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-              {userErrors.full_name && <p className="text-[10px] text-red-400 mt-1">{userErrors.full_name}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Email <span className="text-red-400">*</span></label>
-              <input placeholder="email@jamahome.vn" value={newUser.email} onChange={e => { setNewUser({...newUser, email: e.target.value}); setUserErrors(p => ({ ...p, email: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-              {userErrors.email && <p className="text-[10px] text-red-400 mt-1">{userErrors.email}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Số điện thoại</label>
-              <input placeholder="VD: 0901234567" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Mật khẩu <span className="text-red-400">*</span></label>
-              <input type="password" placeholder="Tối thiểu 6 ký tự" value={newUser.password} onChange={e => { setNewUser({...newUser, password: e.target.value}); setUserErrors(p => ({ ...p, password: undefined })); }} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none" />
-              {userErrors.password && <p className="text-[10px] text-red-400 mt-1">{userErrors.password}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
-              <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
-                <option value="data_entry">Nhân viên Sale</option>
-                <option value="leader">Trưởng phòng</option>
-                <option value="accountant">Kế toán / Nhân sự</option>
-                <option value="admin">Giám đốc</option>
-                <option value="executive">Ban Quản Trị</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Phòng ban</label>
-              <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none">
-                <option value="SALES">Kinh doanh</option>
-                <option value="OPS">Giám sát / Vận hành</option>
-                <option value="ACCT">Kế toán</option>
-                <option value="EXEC">Ban Giám đốc</option>
-              </select>
-            </div>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !savingUser && setShowCreateForm(false)}>
+        <form
+          autoComplete="off"
+          onSubmit={e => { e.preventDefault(); void handleCreateUser(); }}
+          className="glass-card w-full sm:max-w-lg sm:mx-4 max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Thêm nhân viên mới</h3>
+            <button type="button" onClick={() => setShowCreateForm(false)} className="p-1.5 rounded-full" style={{ background: 'var(--surface-2)' }} aria-label="Đóng">
+              <LineIcon name="x" size={16} color="var(--text-muted)" />
+            </button>
           </div>
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => setShowCreateForm(false)} className="flex-1 py-2 rounded-xl text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)]">Hủy</button>
-            <button onClick={handleCreateUser} disabled={savingUser} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium disabled:opacity-50">{savingUser ? 'Đang lưu...' : 'Thêm'}</button>
+          <div className="px-5 py-4 space-y-5 overflow-y-auto">
+            {/* Ảnh đại diện */}
+            <div className="flex items-center gap-4">
+              <label className="relative cursor-pointer shrink-0" title="Chọn ảnh đại diện">
+                <Avatar name={newUser.full_name || '?'} url={anhMoi} className="w-16 h-16 rounded-full text-xl" />
+                <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: '#C9A96E', border: '2px solid var(--surface-1)' }}>
+                  <LineIcon name="camera" size={14} color="#fff" />
+                </span>
+                <input
+                  type="file" accept="image/*" className="hidden"
+                  onChange={async e => {
+                    const f = e.target.files?.[0]; e.target.value = '';
+                    if (!f) return;
+                    const d = await nenAnhDaiDien(f);
+                    if (d) setAnhMoi(d); else toast('Không đọc được ảnh — chọn JPG/PNG', 'error');
+                  }}
+                />
+              </label>
+              <div className="text-xs text-[var(--text-muted)]">
+                <p className="font-medium text-[var(--text-secondary)]">Ảnh đại diện</p>
+                <p>Không bắt buộc — nhân viên tự đổi được ở Cài đặt.</p>
+                {anhMoi && <button type="button" onClick={() => setAnhMoi(null)} className="text-red-400 mt-1">Gỡ ảnh</button>}
+              </div>
+            </div>
+
+            {/* Tài khoản */}
+            <fieldset className="space-y-3">
+              <legend className="text-[11px] uppercase tracking-wide text-[var(--text-muted)] mb-2">Tài khoản</legend>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Họ tên <span className="text-red-400">*</span></label>
+                <input name="nv-ho-ten" autoComplete="off" placeholder="VD: Nguyễn Văn A" value={newUser.full_name} onChange={e => { setNewUser({...newUser, full_name: e.target.value}); setUserErrors(p => ({ ...p, full_name: undefined })); }} className={INPUT_CLS} />
+                {userErrors.full_name && <p className="text-[10px] text-red-400 mt-1">{userErrors.full_name}</p>}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Email đăng nhập <span className="text-red-400">*</span></label>
+                  <input name="nv-email-moi" type="email" inputMode="email" autoComplete="off" placeholder="email@jamahome.vn" value={newUser.email} onChange={e => { setNewUser({...newUser, email: e.target.value}); setUserErrors(p => ({ ...p, email: undefined })); }} className={INPUT_CLS} />
+                  {userErrors.email && <p className="text-[10px] text-red-400 mt-1">{userErrors.email}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Số điện thoại</label>
+                  <input name="nv-sdt" type="tel" inputMode="tel" autoComplete="off" placeholder="VD: 0901234567" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} className={INPUT_CLS} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Mật khẩu ban đầu <span className="text-red-400">*</span></label>
+                <input name="nv-mat-khau-moi" type="password" autoComplete="new-password" placeholder="Tối thiểu 6 ký tự" value={newUser.password} onChange={e => { setNewUser({...newUser, password: e.target.value}); setUserErrors(p => ({ ...p, password: undefined })); }} className={INPUT_CLS} />
+                {userErrors.password && <p className="text-[10px] text-red-400 mt-1">{userErrors.password}</p>}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
+                  <select
+                    value={newUser.role}
+                    onChange={e => {
+                      const role = e.target.value;
+                      const c = customRoles.find(r => r.role_key === role);
+                      setNewUser({ ...newUser, role, department: c?.department || newUser.department });
+                    }}
+                    className={INPUT_CLS}
+                  >
+                    <option value="data_entry">Nhân viên Sale</option>
+                    <option value="leader">Trưởng phòng</option>
+                    <option value="accountant">Kế toán / Nhân sự</option>
+                    <option value="admin">Giám đốc</option>
+                    <option value="executive">Ban Quản Trị</option>
+                    {customRoles.length > 0 && <option disabled>── Vai trò phòng ban ──</option>}
+                    {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Phòng ban</label>
+                  <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} className={INPUT_CLS}>
+                    {PHONG_BAN_TAO.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    {!PHONG_BAN_TAO.some(([k]) => k === newUser.department) && <option value={newUser.department}>{deptLabel(newUser.department)}</option>}
+                  </select>
+                </div>
+              </div>
+            </fieldset>
+
+            {/* CCCD */}
+            <fieldset className="space-y-3">
+              <legend className="text-[11px] uppercase tracking-wide text-[var(--text-muted)] mb-2">CCCD <span className="normal-case">(không bắt buộc)</span></legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Số CCCD</label>
+                  <input name="nv-cccd" inputMode="numeric" autoComplete="off" maxLength={12} placeholder="12 số" value={hoSoMoi.national_id || ''} onChange={e => setHoSoMoi(h => ({ ...h, national_id: e.target.value.replace(/\D/g, '') }))} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày sinh</label>
+                  <input type="date" autoComplete="off" value={hoSoMoi.date_of_birth || ''} onChange={e => setHoSoMoi(h => ({ ...h, date_of_birth: e.target.value }))} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày cấp</label>
+                  <input type="date" autoComplete="off" value={hoSoMoi.national_id_issued_date || ''} onChange={e => setHoSoMoi(h => ({ ...h, national_id_issued_date: e.target.value }))} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nơi cấp</label>
+                  <input name="nv-noi-cap" autoComplete="off" placeholder="VD: Cục CS QLHC về TTXH" value={hoSoMoi.national_id_issued_place || ''} onChange={e => setHoSoMoi(h => ({ ...h, national_id_issued_place: e.target.value }))} className={INPUT_CLS} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ChonGiayTo label="Mặt trước" file={giayToMoi.cccd_front} onChon={f => setGiayToMoi(g => ({ ...g, cccd_front: f }))} />
+                <ChonGiayTo label="Mặt sau" file={giayToMoi.cccd_back} onChon={f => setGiayToMoi(g => ({ ...g, cccd_back: f }))} />
+              </div>
+            </fieldset>
+
+            {/* HĐLĐ */}
+            <fieldset className="space-y-3">
+              <legend className="text-[11px] uppercase tracking-wide text-[var(--text-muted)] mb-2">Hợp đồng lao động <span className="normal-case">(không bắt buộc)</span></legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Loại hợp đồng</label>
+                  <select value={hoSoMoi.contract_type || ''} onChange={e => setHoSoMoi(h => ({ ...h, contract_type: e.target.value || null }))} className={INPUT_CLS}>
+                    <option value="">— Chưa chọn —</option>
+                    <option value="probation">Thử việc</option>
+                    <option value="fixed_1y">Xác định 1 năm</option>
+                    <option value="fixed_2y">Xác định 2 năm</option>
+                    <option value="indefinite">Không thời hạn</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày vào làm</label>
+                  <input type="date" autoComplete="off" value={hoSoMoi.hire_date || ''} onChange={e => setHoSoMoi(h => ({ ...h, hire_date: e.target.value }))} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày ký</label>
+                  <input type="date" autoComplete="off" value={hoSoMoi.contract_signed_date || ''} onChange={e => setHoSoMoi(h => ({ ...h, contract_signed_date: e.target.value }))} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ngày hết hạn</label>
+                  <input type="date" autoComplete="off" value={hoSoMoi.contract_end_date || ''} onChange={e => setHoSoMoi(h => ({ ...h, contract_end_date: e.target.value }))} className={INPUT_CLS} />
+                </div>
+              </div>
+              <ChonGiayTo label="Ảnh/scan HĐLĐ" file={giayToMoi.contract} onChon={f => setGiayToMoi(g => ({ ...g, contract: f }))} />
+            </fieldset>
+            <p className="text-[11px] text-[var(--text-muted)]">Giấy tờ lưu trong hệ thống, chỉ Giám đốc và Kế toán/Nhân sự xem được. Bổ sung sau ở Hồ sơ 360° cũng được.</p>
           </div>
-        </div>
+          <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <button type="button" onClick={() => setShowCreateForm(false)} disabled={savingUser} className="flex-1 py-2.5 rounded-full text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)]">Hủy</button>
+            <button type="submit" disabled={savingUser} className="flex-1 py-2.5 rounded-full text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium disabled:opacity-50">{savingUser ? 'Đang lưu...' : 'Thêm nhân viên'}</button>
+          </div>
+        </form>
       </div>
     )}
 

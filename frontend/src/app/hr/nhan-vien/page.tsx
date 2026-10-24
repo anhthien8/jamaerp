@@ -9,7 +9,8 @@ import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api, type EmployeeProfileData, type EmployeeDocumentMeta, type EmployeeFinanceData, type HandoverItem, type AttendanceRecord, type AttendanceSummary } from '@/lib/api';
-import { ROLE_LABELS, labelOf } from '@/lib/labels';
+import { labelOf } from '@/lib/labels';
+import { useRoleLabels, deptLabel, compressImage } from '@/lib/nhan-su';
 import { formatCurrency } from '@/lib/utils';
 
 /**
@@ -17,11 +18,6 @@ import { formatCurrency } from '@/lib/utils';
  * Tab: Hồ sơ+HĐLĐ · Tiền (chỉ Admin/Kế toán/chính chủ) · Chấm công · Nghỉ phép
  * · Bàn giao (Admin/Kế toán) · Nhật ký (Admin). Mỗi tab tự tải khi mở (lazy).
  */
-
-const DEPT_LABELS: Record<string, string> = {
-  SALES: 'Kinh doanh', DESIGN: 'Thiết kế', CONSTRUCTION: 'Thi công',
-  PROCUREMENT: 'Thu mua', ACCOUNTING: 'Kế toán', BOD: 'Ban giám đốc', OTHER: 'Khác',
-};
 
 const CONTRACT_LABELS: Record<string, string> = {
   probation: 'Thử việc', fixed_1y: 'Xác định 1 năm', fixed_2y: 'Xác định 2 năm', indefinite: 'Không thời hạn',
@@ -52,29 +48,6 @@ function vnTime(s?: string | null): string {
   return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 }
 
-/** Nén ảnh phía client: cạnh dài ≤1600px, JPG — thử giảm chất lượng tới khi ≤500KB. */
-async function compressImage(file: File): Promise<{ base64: string; mime: string } | null> {
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return null;
-  const maxDim = 1600;
-  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  // PNG trong suốt ép sang JPG sẽ ra nền ĐEN nếu không tô trắng trước
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  for (const quality of [0.82, 0.65, 0.5, 0.35]) {
-    const dataUrl = canvas.toDataURL('image/jpeg', quality);
-    const base64 = dataUrl.split(',')[1];
-    if (base64.length * 0.75 <= 500_000) return { base64, mime: 'image/jpeg' };
-  }
-  return null;
-}
-
 const TABS = [
   { key: 'ho-so', label: 'Hồ sơ & HĐLĐ', icon: 'user' },
   { key: 'tien', label: 'Tiền', icon: 'wallet' },
@@ -86,6 +59,7 @@ const TABS = [
 
 function NhanVienContent() {
   const { user, loading: authLoading, capNhatUser } = useAuth();
+  const roleOf = useRoleLabels();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -313,7 +287,7 @@ function NhanVienContent() {
                   )}
                 </h1>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {labelOf(ROLE_LABELS, header.role)} · {labelOf(DEPT_LABELS, header.department)} · {header.email}{header.phone ? ` · ${header.phone}` : ''}
+                  {roleOf(header.role).label} · {deptLabel(header.department)} · {header.email}{header.phone ? ` · ${header.phone}` : ''}
                 </p>
               </div>
             </>
