@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON, UniqueConstraint, select,
+    Boolean, String, Text, Float, ForeignKey, DateTime, Integer, Index, JSON, UniqueConstraint, false, select,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,6 +62,9 @@ class Project(Base):
     # từ đầu nhưng thiếu hẳn bộ phận này, nên dự toán/thu mua không ai gắn được vào
     # dự án và cũng không lọc được dự án của mình.
     purchasing_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    # Khách riêng của sale (24/10/2026, JD NVKD): hoa hồng sale 2% thay 1%.
+    # Chỉ Trưởng phòng KD + BGĐ được đánh dấu.
+    khach_rieng: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
     # Kho ảnh (Đợt 2, 23/10/2026): topic của dự án trong nhóm Telegram «JAMA
     # Công trình» (bot tự tạo lần đầu có ảnh) + thư mục con trên Drive công ty.

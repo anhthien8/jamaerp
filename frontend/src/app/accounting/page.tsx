@@ -171,7 +171,10 @@ export default function AccountingPage() {
       ? { cls: 'bg-emerald-500/15 text-emerald-400', label: 'Đã trả' }
       : status === 'approved'
         ? { cls: 'bg-sky-500/15 text-sky-400', label: 'Đã duyệt' }
-        : { cls: 'bg-amber-500/15 text-amber-400', label: 'Chờ duyệt' };
+        : status === 'cho_moc'
+          // Theo JD: đã tính nhưng chưa tới mốc chi (VD thiết kế chờ thu đợt 2)
+          ? { cls: 'bg-white/5 text-[var(--text-muted)]', label: 'Chờ mốc' }
+          : { cls: 'bg-amber-500/15 text-amber-400', label: 'Chờ duyệt' };
 
   /** Lấy câu báo lỗi của máy chủ nếu có (VD "Không có quyền..."), không thì dùng câu mặc định. */
   const loiThaoTac = (e: unknown, macDinh: string) =>
@@ -716,9 +719,11 @@ export default function AccountingPage() {
                         <span className="text-[10px] text-[var(--text-muted)]">{labelOf(COMMISSION_TYPE_LABELS, c.type)}</span>
                         <span className="text-[10px] text-[var(--text-muted)]">·</span>
                         <span className="text-[10px] text-[var(--text-muted)]">{labelOf(MILESTONE_LABELS, c.milestone)}</span>
+                        {c.period && <span className="text-[10px] text-[var(--text-muted)]">· Kỳ {c.period}</span>}
                       </div>
+                      {c.note && <p className="text-[10px] text-[var(--text-muted)] mb-1">{c.note}</p>}
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {(c.rate * 100).toFixed(1)}%</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {+(c.rate * 100).toFixed(2)}%</span>
                         <span className="text-sm font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</span>
                       </div>
                       {canActCommission && c.status !== 'paid' && (
@@ -761,10 +766,16 @@ export default function AccountingPage() {
                       ) : visibleCommissions.map(c => (
                         <tr key={c.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{c.user_name || '—'}</td>
-                          <td className="p-3 text-xs">{labelOf(COMMISSION_TYPE_LABELS, c.type)}</td>
-                          <td className="p-3 text-xs">{labelOf(MILESTONE_LABELS, c.milestone)}</td>
+                          <td className="p-3 text-xs">
+                            {labelOf(COMMISSION_TYPE_LABELS, c.type)}
+                            {c.note && <div className="text-[10px] text-[var(--text-muted)] max-w-[260px]">{c.note}</div>}
+                          </td>
+                          <td className="p-3 text-xs">
+                            {labelOf(MILESTONE_LABELS, c.milestone)}
+                            {c.period && <div className="text-[10px] text-[var(--text-muted)]">Kỳ {c.period}</div>}
+                          </td>
                           <td className="p-3 text-right text-xs">{formatCurrency(c.base_amount)}</td>
-                          <td className="p-3 text-right text-xs">{(c.rate * 100).toFixed(1)}%</td>
+                          <td className="p-3 text-right text-xs">{+(c.rate * 100).toFixed(2)}%</td>
                           <td className="p-3 text-right font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</td>
                           <td className="p-3">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap', commissionChip(c.status).cls)}>

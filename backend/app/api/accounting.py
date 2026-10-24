@@ -160,7 +160,8 @@ async def list_commissions(
                 "rate": c.rate, "base_amount": c.base_amount,
                 "commission_amount": c.commission_amount,
                 "milestone": c.milestone, "status": c.status,
-                "period": c.period,
+                "period": c.period, "contract_id": c.contract_id,
+                "installment_idx": c.installment_idx, "note": c.note,
             }
             for c, name in result.all()
         ],
@@ -374,6 +375,15 @@ async def update_commission_status(
         if await is_period_locked(db, comm.period):
             raise HTTPException(status_code=409, detail=f"Kỳ lương {comm.period} đã khóa — không thể sửa hoa hồng")
     if data.status is not None:
+        if data.status not in ("cho_moc", "pending", "approved", "paid"):
+            raise HTTPException(status_code=422, detail="Trạng thái hoa hồng không hợp lệ")
+        # Dòng «chờ mốc» chưa có kỳ lương — duyệt lúc này thì không bảng lương nào
+        # cộng vào (payroll lọc theo kỳ). Phải đợi mốc đợt 2 / nghiệm thu tự mở.
+        if comm.status == "cho_moc" and data.status != "cho_moc":
+            raise HTTPException(
+                status_code=409,
+                detail="Hoa hồng này đang chờ mốc (khách trả đợt 2 hoặc nghiệm thu) — chưa duyệt được.",
+            )
         comm.status = data.status
     await db.flush()
     return {"id": comm.id, "status": comm.status}

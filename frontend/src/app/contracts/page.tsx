@@ -88,6 +88,7 @@ export default function ContractsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
     title: '',
+    contract_kind: '' as '' | 'thiet_ke' | 'thi_cong',
     project_id: '',
     total_value: '',
     working_days: '',
@@ -164,7 +165,7 @@ export default function ContractsPage() {
   const openCreateForm = () => {
     setFormEdit(null);
     setFormError('');
-    setForm({ title: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: '', notes: '' });
+    setForm({ title: '', contract_kind: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: '', notes: '' });
     setFormOpen(true);
   };
 
@@ -174,6 +175,7 @@ export default function ContractsPage() {
     setFormError('');
     setForm({
       title: contract.title,
+      contract_kind: contract.contract_kind || '',
       project_id: contract.project_id || '',
       total_value: contract.total_value ? String(contract.total_value) : '',
       working_days: contract.working_days ? String(contract.working_days) : '',
@@ -195,6 +197,7 @@ export default function ContractsPage() {
     try {
       const payload: Partial<Contract> = {
         title: form.title.trim(),
+        contract_kind: form.contract_kind || undefined,
         project_id: form.project_id || undefined,
         total_value: form.total_value ? Number(form.total_value) : undefined,
         working_days: form.working_days ? Number(form.working_days) : undefined,
@@ -650,6 +653,24 @@ export default function ContractsPage() {
                     style={{ background: 'var(--surface-2)', border: formError ? '1px solid #f87171' : '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   />
                   {formError && <p className="text-xs text-red-400 mt-1 font-medium">{formError}</p>}
+                </div>
+
+                {/* Loại HĐ — quyết định ai hưởng hoa hồng (thiết kế chỉ ăn trên HĐ thi công) */}
+                <div>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Loại hợp đồng</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([['thiet_ke', 'Thiết kế'], ['thi_cong', 'Thi công']] as const).map(([k, nhan]) => (
+                      <button key={k} type="button"
+                        onClick={() => setForm(p => ({ ...p, contract_kind: p.contract_kind === k ? '' : k }))}
+                        className="py-2 rounded-full text-sm font-medium min-h-[40px]"
+                        style={form.contract_kind === k
+                          ? { background: 'var(--gold-500)', color: '#000' }
+                          : { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                        {nhan}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">Bỏ trống thì hệ thống đoán theo tiêu đề. Hoa hồng thiết kế chỉ tính trên HĐ thi công.</p>
                 </div>
 
                 {/* Project */}

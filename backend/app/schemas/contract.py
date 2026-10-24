@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel
 from datetime import datetime, date
+from typing import Literal
 
 
 class ContractCreate(BaseModel):
@@ -13,6 +14,7 @@ class ContractCreate(BaseModel):
     working_days: int | None = None
     start_date: date | None = None
     notes: str | None = None
+    contract_kind: Literal["thiet_ke", "thi_cong"] | None = None
 
 
 class ContractUpdate(BaseModel):
@@ -26,6 +28,7 @@ class ContractUpdate(BaseModel):
     working_days: int | None = None
     start_date: date | None = None
     notes: str | None = None
+    contract_kind: Literal["thiet_ke", "thi_cong"] | None = None
 
     # Field lạ → 422 thay vì bị nuốt im lặng (cùng chốt chặn như LeadUpdate).
     model_config = {"extra": "forbid"}
@@ -44,6 +47,7 @@ class ContractResponse(BaseModel):
     working_days: int | None = None
     start_date: date | None = None
     notes: str | None = None
+    contract_kind: str | None = None
     created_at: datetime
     updated_at: datetime
 

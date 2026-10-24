@@ -598,7 +598,19 @@ async def update_project(
 
     await _kiem_quyen_phan_cong_pic(db, current_user, project, data.model_dump(exclude_unset=True))
 
+    # «Khách riêng của sale» đổi hoa hồng sale 1% → 2% nên chỉ TP KD + BGĐ được tích.
+    # Form gửi lại cả ô này mỗi lần lưu → chỉ chặn khi giá trị ĐỔI THẬT.
+    if data.khach_rieng is not None and bool(data.khach_rieng) != bool(project.khach_rieng):
+        tp_kd = la_truong_phong(current_user) and (current_user.department or "").upper() == "SALES"
+        if not (current_user.role in ("admin", "executive") or tp_kd):
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ Trưởng phòng Kinh doanh hoặc Ban Giám đốc được đánh dấu «Khách riêng của sale».",
+            )
+
     for k, v in data.model_dump(exclude_unset=True).items():
+        if k == "khach_rieng" and v is None:
+            continue
         setattr(project, k, v)
     project.updated_at = datetime.now(timezone.utc)
     await db.flush()

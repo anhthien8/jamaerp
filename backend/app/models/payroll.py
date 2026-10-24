@@ -63,6 +63,11 @@ class Commission(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     # Statuses: pending, approved, paid
     period: Mapped[str | None] = mapped_column(String(10), nullable=True)  # e.g., "2026-06"
+    # Hoa hồng theo JD (24/10/2026): gắn HĐ + đợt thu để tạo idempotent và gỡ khi
+    # kế toán bỏ tích «đã thu». status thêm «cho_moc» = chờ mốc nghiệm thu/đợt 2.
+    contract_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    installment_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )

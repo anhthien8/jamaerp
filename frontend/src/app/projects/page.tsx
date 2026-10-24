@@ -183,6 +183,20 @@ function ProjectsPageInner() {
   const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  // Chỉ TP Kinh doanh + Ban Giám đốc đánh dấu «Khách riêng của sale» (backend gác lại)
+  const doiKhachRieng = !!user && (user.role === 'admin' || user.role === 'executive'
+    || (user.department === 'SALES' && laTruongPhong(user)));
+  const handleKhachRieng = async (giaTri: boolean) => {
+    if (!selectedProject) return;
+    try {
+      const updated = await api.updateProject(selectedProject.id, { khach_rieng: giaTri });
+      setSelectedProject(updated);
+      setProjects(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+      toast(giaTri ? 'Đã đánh dấu khách riêng — sale hưởng 2%' : 'Đã bỏ đánh dấu khách riêng', 'success');
+    } catch (e) {
+      toast((e as Error).message || 'Không đổi được', 'error');
+    }
+  };
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [kanbanData, setKanbanData] = useState<ProjectKanban[]>([]);
@@ -1201,6 +1215,18 @@ function ProjectsPageInner() {
                     );
                   })}
                 </div>
+                {(doiKhachRieng || selectedProject.khach_rieng) && (
+                  <label className={cn('mt-3 flex items-start gap-2.5 p-2.5 rounded-lg min-h-[44px]', doiKhachRieng && 'cursor-pointer')}
+                    style={{ background: 'var(--surface-2)' }}>
+                    <input type="checkbox" className="mt-0.5 w-4 h-4 accent-[var(--gold-500)]"
+                      checked={!!selectedProject.khach_rieng} disabled={!doiKhachRieng}
+                      onChange={e => handleKhachRieng(e.target.checked)} />
+                    <span className="text-xs">
+                      <span className="font-semibold text-[var(--text-primary)]">Khách riêng của sale</span>
+                      <span className="block text-[var(--text-muted)]">Sale tự mang khách về → hoa hồng sale 2% thay vì 1% mỗi đợt thu tiền.{!doiKhachRieng && ' Chỉ TP Kinh doanh / Ban Giám đốc đổi được.'}</span>
+                    </span>
+                  </label>
+                )}
               </div>
 
               {/* Client Info */}

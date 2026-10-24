@@ -14,7 +14,7 @@ import binascii
 import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,6 +89,12 @@ class ProfileBody(BaseModel):
     bank_account: str | None = Field(default=None, max_length=30)
     bank_name: str | None = Field(default=None, max_length=100)
     social_insurance_no: str | None = Field(default=None, max_length=20)
+    insurance_start_date: str | None = None
+    tax_code: str | None = Field(default=None, max_length=20)
+    # Lương từng người (24/10/2026) — bảng lương lấy các số này thay bậc lương
+    contract_salary: float | None = Field(default=None, ge=0, le=1_000_000_000)
+    insurance_salary: float | None = Field(default=None, ge=0, le=1_000_000_000)
+    allowance_monthly: float | None = Field(default=None, ge=0, le=1_000_000_000)
     hire_date: str | None = None
     contract_type: str | None = None
     contract_signed_date: str | None = None
@@ -97,7 +103,7 @@ class ProfileBody(BaseModel):
 
 
 _DATE_FIELDS = {
-    "national_id_issued_date", "date_of_birth", "hire_date",
+    "national_id_issued_date", "date_of_birth", "hire_date", "insurance_start_date",
     "contract_signed_date", "contract_end_date",
 }
 
@@ -126,6 +132,11 @@ def _profile_dict(p: EmployeeProfile | None) -> dict:
         "bank_account": p.bank_account,
         "bank_name": p.bank_name,
         "social_insurance_no": p.social_insurance_no,
+        "insurance_start_date": str(p.insurance_start_date) if p.insurance_start_date else None,
+        "tax_code": p.tax_code,
+        "contract_salary": p.contract_salary,
+        "insurance_salary": p.insurance_salary,
+        "allowance_monthly": p.allowance_monthly,
         "hire_date": str(p.hire_date) if p.hire_date else None,
         "contract_type": p.contract_type,
         "contract_signed_date": str(p.contract_signed_date) if p.contract_signed_date else None,
@@ -214,7 +225,9 @@ async def update_employee_profile(
         db.add(profile)
 
     before = _profile_dict(profile)
-    data = body.model_dump()
+    # Chỉ ghi ô CÓ GỬI: form/bản app cũ không biết ô lương mới — dump đủ sẽ xóa
+    # trắng lương HĐ/BHXH mỗi lần sửa CCCD hay địa chỉ.
+    data = body.model_dump(exclude_unset=True)
     for field, value in data.items():
         if field in _DATE_FIELDS:
             setattr(profile, field, _parse_date(value, field))
@@ -227,6 +240,41 @@ async def update_employee_profile(
         entity_id=target.id, before=before, after=_profile_dict(profile),
     )
     return {"profile": _profile_dict(profile)}
+
+
+# ---------------------------------------------------------------------------
+# Nhập danh sách nhân sự từ Excel (24/10/2026) — xem trước rồi mới ghi
+# ---------------------------------------------------------------------------
+
+MAX_EXCEL_BYTES = 5_000_000
+
+
+@router.post("/import-excel")
+async def import_employees_excel(
+    file: UploadFile = File(...),
+    apply: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """apply=false: chỉ xem trước (ai khớp, ô nào đổi). apply=true: ghi hồ sơ."""
+    from app.services.nhap_nhan_su import LoiNhap, nhap
+
+    _require_hr(current_user)
+    noi_dung = await file.read(MAX_EXCEL_BYTES + 1)
+    if len(noi_dung) > MAX_EXCEL_BYTES:
+        raise HTTPException(status_code=413, detail="File quá 5MB")
+    try:
+        ket_qua = await nhap(db, noi_dung, ap_dung=apply)
+    except LoiNhap as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if apply:
+        # Nhật ký chỉ ghi số lượng — không ghi lương/CCCD vào audit
+        await log_action(
+            db, actor=current_user, action="employee_profile.import_excel", entity_type="user",
+            entity_id=current_user.id,
+            after={"cap_nhat": ket_qua["se_cap_nhat"], "khong_khop": len(ket_qua["khong_khop"])},
+        )
+    return ket_qua
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,14 @@ export const COMMISSION_TYPE_LABELS: Record<string, string> = {
   leader_override: 'HH trưởng nhóm',
   design_fee: 'Phí thiết kế',
   project_value: 'Theo giá trị dự án',
+  hh_sale: 'HH sale',
+  hh_tp_kd: 'HH TP Kinh doanh',
+  hh_thiet_ke: 'HH thiết kế',
+  hh_tp_thiet_ke: 'HH TP Thiết kế',
+  hh_thu_mua: 'HH thu mua',
+  hh_tp_bao_gia: 'HH TP Báo giá',
+  hh_giam_sat: 'HH giám sát',
+  hh_tp_giam_sat: 'HH TP Giám sát',
 };
 
 export const MILESTONE_LABELS: Record<string, string> = {
@@ -45,6 +53,7 @@ export const MILESTONE_LABELS: Record<string, string> = {
   rough_complete: 'Nghiệm thu thô',
   interior_complete: 'Hoàn thiện nội thất',
   handover: 'Bàn giao',
+  payment: 'Thu tiền đợt',
 };
 
 export const DEPARTMENT_LABELS: Record<string, string> = {

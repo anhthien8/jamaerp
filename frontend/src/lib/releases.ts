@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Lương từng người + hoa hồng tự tính theo JD + nhập Excel nhân sự',
+    tag: 'MỚI',
+    news: [
+      'Hồ sơ 360° có thẻ «Lương & BHXH»: lương ký HĐLĐ, mức lương đóng BHXH, phụ cấp hàng tháng, ngày bắt đầu đóng BHXH, mã số thuế. Bảng lương tháng tính theo đúng số này (không còn lấy theo bậc chung).',
+      'Nhân sự → «Nhập Excel»: chọn file danh sách nhân sự của HCNS → xem trước ai khớp, ô nào sẽ đổi, ai chưa có tài khoản → bấm Áp dụng. Ô trống trong file giữ nguyên dữ liệu cũ.',
+      'Hoa hồng tự sinh theo JD mỗi khi kế toán xác nhận thu tiền một đợt: Sale 1% (khách riêng của sale 2%), TP Kinh doanh 0,2%; Thiết kế 0,5% (chủ trì) / 0,3%, TP Thiết kế 0,2% — chỉ trên HĐ thi công; Thu mua 0,1%, TP Báo giá 0,2% (nửa khi ký, nửa khi nghiệm thu); Giám sát 0,5%, TP Giám sát 0,2% khi nghiệm thu.',
+      'Dự án có ô «Khách riêng của sale» (chỉ TP Kinh doanh và Ban Giám đốc tích được).',
+      'Hợp đồng có chọn loại «Thiết kế / Thi công»; bỏ trống thì hệ thống đoán theo tiêu đề.',
+    ],
+    fixes: [
+      'Tài chính → Hoa hồng: dòng «Chờ mốc» là hoa hồng thiết kế đang chờ khách trả đợt 2 hoặc chờ nghiệm thu — chưa duyệt được. Mỗi dòng ghi rõ kỳ lương sẽ trả.',
+      'Bỏ hoa hồng cũ 3%/2% tính ngay lúc ký hợp đồng.',
+    ],
+    test: [
+      'Nhân sự → Nhập Excel → chọn file danh sách nhân sự → Xem trước → Áp dụng → mở Hồ sơ 360° một người thấy thẻ Lương & BHXH.',
+      'Hợp đồng → xác nhận thu tiền một đợt → Tài chính → Hoa hồng thấy dòng HH sale + HH TP KD.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Báo cáo Telegram: gửi được bản vẽ/tệp nặng, bot báo đã lưu + link xem trong CRM',
     tag: 'SỬA LỖI',
     news: [

@@ -12,8 +12,6 @@ from app.middleware.rbac import can_confirm_payment
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.contract import Contract
-from app.models.project import Project
-from app.models.payroll import Commission
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -94,6 +92,7 @@ async def create_contract(
         working_days=data.working_days,
         start_date=data.start_date,
         notes=data.notes,
+        contract_kind=data.contract_kind,
         status="draft",
         payment_terms={
             "installments": [
@@ -128,69 +127,16 @@ async def update_contract(
         setattr(contract, k, v)
     contract.updated_at = datetime.now(timezone.utc)
 
-    # --- Feature: auto-create commission records when contract is signed ---
+    # Hoa hồng theo JD (24/10/2026) — thay bản cũ cộng cứng 3% thiết kế / 2% thi
+    # công cho sale ngay lúc ký. Nay sale ăn theo TỪNG ĐỢT khách trả (update_payment);
+    # lúc ký chỉ tính phần thu mua/báo giá, lúc nghiệm thu tính giám sát + phần còn lại.
     new_status = contract.status
-    if new_status == "signed" and old_status != "signed":
-        result_project = await db.execute(
-            select(Project).where(Project.id == contract.project_id)
-        )
-        project = result_project.scalar_one_or_none()
-
-        if project and project.sales_id:
-            commissions_created = []
-
-            # Design commission: 3% of design_value
-            if project.design_value and project.design_value > 0:
-                rate = 0.03
-                commission = Commission(
-                    user_id=project.sales_id,
-                    project_id=project.id,
-                    type="design_commission",
-                    rate=rate,
-                    base_amount=project.design_value,
-                    commission_amount=round(project.design_value * rate, 2),
-                    milestone="signing",
-                    milestone_pct=0.5,
-                    status="pending",
-                )
-                db.add(commission)
-                commissions_created.append("design")
-
-            # Construction commission: 2% of construction_value
-            if project.construction_value and project.construction_value > 0:
-                rate = 0.02
-                commission = Commission(
-                    user_id=project.sales_id,
-                    project_id=project.id,
-                    type="construction_commission",
-                    rate=rate,
-                    base_amount=project.construction_value,
-                    commission_amount=round(project.construction_value * rate, 2),
-                    milestone="signing",
-                    milestone_pct=0.5,
-                    status="pending",
-                )
-                db.add(commission)
-                commissions_created.append("construction")
-
-            # Notify the sales user
-            if commissions_created:
-                from app.services.automation import _notify
-                sales_user_result = await db.execute(
-                    select(User).where(User.id == project.sales_id)
-                )
-                sales_user = sales_user_result.scalar_one_or_none()
-                if sales_user:
-                    await _notify(
-                        db,
-                        sales_user,
-                        "commission_created",
-                        f"Hoa hồng đã được tạo từ hợp đồng {contract.code}",
-                        f"Các loại hoa hồng đã tạo: {', '.join(commissions_created)}. "
-                        f"Vui lòng theo dõi trên trang lương & hoa hồng.",
-                        link="/hr/commissions",
-                        ref_id=contract.id,
-                    )
+    if new_status != old_status:
+        from app.services import hoa_hong
+        if new_status == "signed":
+            await hoa_hong.khi_ky_hop_dong(db, contract)
+        elif new_status == "completed":
+            await hoa_hong.khi_nghiem_thu(db, contract)
 
     await db.flush()
     return ContractResponse.model_validate(contract)
@@ -219,6 +165,7 @@ async def update_payment(
     if installment_idx < 0 or installment_idx >= len(installments):
         raise HTTPException(status_code=400, detail="Đợt thanh toán không hợp lệ")
 
+    da_thu_truoc = installments[installment_idx].get("status") == "paid"
     installments[installment_idx]["status"] = data.status
     if data.paid_date:
         installments[installment_idx]["paid_date"] = str(data.paid_date)
@@ -236,6 +183,14 @@ async def update_payment(
     # Mark as modified for SQLAlchemy to detect
     from sqlalchemy.orm.attributes import flag_modified
     flag_modified(contract, "payment_terms")
+    await db.flush()
+
+    # Hoa hồng theo đợt khách trả (services/hoa_hong.py)
+    from app.services import hoa_hong
+    if data.status == "paid":
+        await hoa_hong.khi_thu_tien(db, contract, installment_idx)
+    elif da_thu_truoc:
+        await hoa_hong.khi_bo_thu_tien(db, contract, installment_idx)
 
     await db.flush()
     return ContractResponse.model_validate(contract)

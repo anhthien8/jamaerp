@@ -7,7 +7,7 @@ Tách khỏi bảng users: dữ liệu nhạy cảm (CCCD, ngân hàng) chỉ ad
 import uuid
 from datetime import datetime, date, timezone
 
-from sqlalchemy import String, Integer, Date, DateTime, ForeignKey, Index, LargeBinary
+from sqlalchemy import String, Integer, Float, Date, DateTime, ForeignKey, Index, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,6 +32,13 @@ class EmployeeProfile(Base):
     bank_account: Mapped[str | None] = mapped_column(String(30), nullable=True)
     bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     social_insurance_no: Mapped[str | None] = mapped_column(String(20), nullable=True)  # số sổ BHXH
+    # Lương từng người (24/10/2026, từ danh sách nhân sự công ty): bảng lương lấy
+    # lương HĐ thay bậc lương; BHXH đóng trên mức tham gia (thường thấp hơn lương HĐ).
+    contract_salary: Mapped[float | None] = mapped_column(Float, nullable=True)
+    insurance_salary: Mapped[float | None] = mapped_column(Float, nullable=True)
+    allowance_monthly: Mapped[float | None] = mapped_column(Float, nullable=True)  # xăng xe, điện thoại…
+    tax_code: Mapped[str | None] = mapped_column(String(20), nullable=True)  # MST cá nhân
+    insurance_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # ngày bắt đầu đóng BHXH
 
     # Hợp đồng lao động — worker nhắc trước 30 ngày khi sắp hết hạn
     hire_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # ngày vào làm

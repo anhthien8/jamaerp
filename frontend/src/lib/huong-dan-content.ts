@@ -901,6 +901,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "**Về hoa hồng:** nếu bạn là Sale hoặc Trưởng phòng, tab Hoa hồng chỉ hiện hoa hồng **của chính bạn** — chỉ Giám đốc và Kế toán xem được hoa hồng của người khác. Mỗi khoản có 3 trạng thái: **Chờ duyệt** (vàng) → **Đã duyệt** (xanh dương) → **Đã trả** (xanh lá)."
       },
       {
+        "type": "p",
+        "text": "**Hoa hồng tự tính theo JD (mới 24/10):** mỗi lần kế toán xác nhận khách trả một đợt, hệ thống tự sinh hoa hồng: Sale 1% số tiền đợt đó (dự án tích «Khách riêng của sale» thì 2%), TP Kinh doanh 0,2%; Thiết kế 0,5% nếu chủ trì / 0,3% nếu hỗ trợ, TP Thiết kế 0,2% — chỉ tính trên HĐ **thi công**. Thu mua 0,1% và TP Báo giá 0,2% giá trị HĐ, chia nửa lúc ký, nửa lúc nghiệm thu. Giám sát 0,5% và TP Giám sát 0,2% khi nghiệm thu. Dòng **Chờ mốc** (xám) là hoa hồng thiết kế chờ khách trả đợt 2 (hoặc chờ nghiệm thu với các đợt sau) — chưa duyệt được. Mỗi dòng ghi **Kỳ** = tháng lương sẽ trả."
+      },
+      {
         "type": "steps",
         "items": [
           "**Duyệt hoa hồng** (chỉ Giám đốc, Kế toán): ở dòng đang «Chờ duyệt», bấm nút **✓ Duyệt** bên phải.",
@@ -1185,6 +1189,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "Bấm vào **một nhân viên bất kỳ** trong danh sách để mở trang hồ sơ chi tiết: thông tin cá nhân + hợp đồng lao động, chấm công, nghỉ phép — và với Admin/Kế toán có thêm tab **Tiền** (lương, thưởng, hoa hồng, tạm ứng) + tab **Bàn giao** (ai nghỉ việc, khách/việc đã sang tay ai)."
+      },
+      {
+        "type": "p",
+        "text": "**Lương & BHXH từng người (mới 24/10):** trong Hồ sơ 360° có thẻ «Lương & BHXH» — lương ký HĐLĐ, mức lương đóng BHXH, phụ cấp hàng tháng, ngày bắt đầu đóng BHXH. Chỉ Giám đốc và Kế toán sửa được. Muốn điền hàng loạt: ở trang Nhân sự bấm **Nhập Excel** → chọn file danh sách nhân sự của HCNS (có cột «HỌ VÀ TÊN») → **Xem trước** để thấy ai khớp, ô nào sẽ đổi, ai chưa có tài khoản → bấm **Áp dụng**. Ô trống trong file không xóa dữ liệu cũ; người chưa khớp tên thì sửa họ tên tài khoản cho giống file rồi nhập lại."
       }
     ]
   },
@@ -1289,7 +1297,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Bước «Sinh bảng lương» mà báo có nhân viên chưa gán bậc lương (lương 0đ) thì vào trang **Tài khoản** gán bậc trước, rồi sinh lại."
+        "text": "Bảng lương lấy **lương ký HĐLĐ** trong Hồ sơ 360° của từng người (trừ BHXH theo mức lương đóng BHXH, cộng phụ cấp). Ai chưa điền lương HĐ thì mới lấy theo bậc lương. Báo có nhân viên lương 0đ thì điền lương ở Hồ sơ 360° (hoặc gán bậc ở trang **Tài khoản**), rồi sinh lại."
       }
     ]
   },

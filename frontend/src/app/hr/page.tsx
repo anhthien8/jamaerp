@@ -11,6 +11,7 @@ import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { nenAnhDaiDien } from '@/components/ui/Avatar';
 import SoDoCongTy from '@/components/hr/SoDoCongTy';
+import NhapExcelNhanSu from '@/components/hr/NhapExcelNhanSu';
 import { useRoleLabels, useCustomRoles, deptLabel, compressImage } from '@/lib/nhan-su';
 
 const DOC_TAO: Record<string, string> = {
@@ -69,6 +70,7 @@ export default function HRPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'tree' | 'org' | 'teams'>('list');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [moNhapExcel, setMoNhapExcel] = useState(false);
   const [newUser, setNewUser] = useState({
     full_name: '', email: '', phone: '', password: '', role: 'data_entry', department: 'SALES'
   });
@@ -286,6 +288,15 @@ export default function HRPage() {
               </button>
             ))}
           </div>
+          {(user?.role === 'admin' || user?.role === 'accountant') && (
+            <button
+              onClick={() => setMoNhapExcel(true)}
+              className="px-4 py-2 rounded-full text-sm font-medium min-h-[40px]"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+            >
+              <LineIcon name="upload" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Nhập Excel
+            </button>
+          )}
           {user?.role === 'admin' && (
             <button
               onClick={() => { moFormTao(); }}
@@ -577,6 +588,7 @@ export default function HRPage() {
     </div>
 
     {/* Create User Modal — tài khoản + ảnh đại diện + CCCD + HĐLĐ (24/10) */}
+    {moNhapExcel && <NhapExcelNhanSu onClose={() => setMoNhapExcel(false)} onDone={() => void load()} />}
     {showCreateForm && permissions?.canManageUsers && (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !savingUser && setShowCreateForm(false)}>
         <form

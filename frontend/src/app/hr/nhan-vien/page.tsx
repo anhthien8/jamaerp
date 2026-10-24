@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import DiemJama from '@/components/hr/DiemJama';
 import LineIcon from '@/components/ui/LineIcon';
+import MoneyInput from '@/components/ui/MoneyInput';
 import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api, type EmployeeProfileData, type EmployeeDocumentMeta, type EmployeeFinanceData, type HandoverItem, type AttendanceRecord, type AttendanceSummary } from '@/lib/api';
@@ -257,6 +258,24 @@ function NhanVienContent() {
     </div>
   );
 
+  type KhoaTien = 'contract_salary' | 'insurance_salary' | 'allowance_monthly';
+  const fieldTien = (label: string, key: KhoaTien) => (
+    <div>
+      <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
+      {editing ? (
+        <MoneyInput
+          valueDong={form[key] != null ? String(form[key]) : ''}
+          onChangeDong={v => setForm(f => ({ ...f, [key]: v === '' ? null : Number(v) }))}
+          className={inputCls} style={inputStyle}
+        />
+      ) : (
+        <p className="text-sm min-h-[20px]" style={{ color: 'var(--text-primary)' }}>
+          {profile[key] ? formatCurrency(profile[key] as number) : '—'}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <Sidebar>
       <div className="p-4 md:p-6 animate-in max-w-4xl space-y-4">
@@ -398,6 +417,18 @@ function NhanVienContent() {
                 {field('Số TK ngân hàng', 'bank_account')}
                 {field('Ngân hàng', 'bank_name')}
                 {field('Số sổ BHXH', 'social_insurance_no')}
+                {field('Mã số thuế cá nhân', 'tax_code')}
+              </div>
+            </div>
+
+            <div className="glass-card rounded-xl p-4 md:p-5">
+              <h2 className="text-sm font-bold mb-1">Lương &amp; BHXH</h2>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Bảng lương lấy lương HĐ ở đây (trống thì theo bậc lương). BHXH tính trên mức tham gia BHXH. Nhập theo nghìn đồng.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {fieldTien('Lương ký HĐLĐ', 'contract_salary')}
+                {fieldTien('Mức lương tham gia BHXH', 'insurance_salary')}
+                {fieldTien('Phụ cấp hàng tháng', 'allowance_monthly')}
+                {field('Ngày bắt đầu đóng BHXH', 'insurance_start_date', 'date')}
               </div>
             </div>
 

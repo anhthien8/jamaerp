@@ -50,6 +50,8 @@ class ProjectUpdate(BaseModel):
     budget_total: float | None = None
     handover_date: datetime | None = None
     warranty_months: int | None = None
+    # Khách riêng của sale → hoa hồng 2% (chỉ TP KD + BGĐ đổi được, kiểm ở API)
+    khach_rieng: bool | None = None
 
     # Field lạ → 422 thay vì bị nuốt im lặng (cùng chốt chặn như LeadUpdate).
     model_config = {"extra": "forbid"}
@@ -75,6 +77,7 @@ class ProjectResponse(BaseModel):
     designer_id: str | None = None
     sales_id: str | None = None
     purchasing_id: str | None = None
+    khach_rieng: bool = False
     start_date: datetime | None = None
     target_end_date: datetime | None = None
     budget_total: float | None = None

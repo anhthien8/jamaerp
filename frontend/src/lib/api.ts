@@ -1170,6 +1170,30 @@ class ApiClient {
     return res.json() as Promise<MediaFile & { deduped: boolean }>;
   }
 
+  /** Nhập danh sách nhân sự (Excel HCNS) → Hồ sơ 360°. apply=false chỉ xem trước. */
+  async importEmployeesExcel(file: File, apply: boolean) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không nhập file được — chuyển sang Chế độ Làm việc.');
+    }
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('apply', apply ? 'true' : 'false');
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/hr/employees/import-excel`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Nhập file thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/hr/employees/import-excel');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<KetQuaNhapNhanSu>;
+  }
+
   async listMedia(projectId: string, page = 1) {
     return this.request<{ items: MediaFile[]; total: number; page: number }>('/media', {
       params: { project_id: projectId, page: String(page) },
@@ -2186,6 +2210,8 @@ export interface Project {
   sales_id?: string;
   /** PIC Báo giá – Thu mua (phòng PURCHASING), thêm 05/09/2026 */
   purchasing_id?: string;
+  /** Khách riêng của sale → hoa hồng sale 2% thay 1% (JD, 24/10/2026) */
+  khach_rieng?: boolean;
   start_date?: string;
   target_end_date?: string;
   budget_total?: number | null;
@@ -2314,7 +2340,10 @@ export interface Commission {
   commission_amount: number;
   milestone: string;
   status: string;
-  period?: string;
+  period?: string | null;
+  contract_id?: string | null;
+  installment_idx?: number | null;
+  note?: string | null;
 }
 
 export interface PayrollEntry {
@@ -2607,6 +2636,8 @@ export interface Contract {
   project_id: string;
   quotation_id?: string;
   title: string;
+  /** thiet_ke | thi_cong — quyết định hoa hồng thiết kế (JD). Trống = đoán theo tiêu đề */
+  contract_kind?: 'thiet_ke' | 'thi_cong' | null;
   status: string; // draft | approved | sent | signed | completed | cancelled
   total_value?: number;
   payment_terms?: {
@@ -2939,6 +2970,21 @@ export interface EmployeeProfileData {
   contract_signed_date?: string | null;
   contract_end_date?: string | null;
   note?: string | null;
+  // Lương & BHXH từng người (24/10/2026) — bảng lương ưu tiên các ô này hơn bậc lương
+  tax_code?: string | null;
+  insurance_start_date?: string | null;
+  contract_salary?: number | null;
+  insurance_salary?: number | null;
+  allowance_monthly?: number | null;
+}
+
+export interface KetQuaNhapNhanSu {
+  tong_dong: number;
+  khop: Array<{ user_id: string; ten: string; phong_ban: string | null; o_thay_doi: string[]; co_luong: boolean }>;
+  khong_khop: Array<{ ten: string; phong_ban: string | null }>;
+  trung_ten: Array<{ ten: string; so_tai_khoan: number }>;
+  se_cap_nhat: number;
+  da_ap_dung: boolean;
 }
 
 export interface EmployeeDocumentMeta {

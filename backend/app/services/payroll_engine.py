@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord  # noqa: F401 — dùng qua attendance_service
+from app.models.employee_profile import EmployeeProfile
 from app.models.payroll import Bonus, Commission, Payroll, SalaryAdvance
 from app.models.salary_grade import SalaryGrade
 from app.models.user import User
@@ -144,7 +145,17 @@ async def build_payroll_row(
 ) -> Payroll:
     """Tính 1 dòng lương draft cho user (chưa add vào session)."""
     grade = await db.get(SalaryGrade, user.salary_grade_id) if user.salary_grade_id else None
-    base_salary = grade.base_salary if grade else 0.0
+    # Lương từng người (24/10/2026): lương HĐ trên hồ sơ thắng bậc lương; BHXH đóng
+    # trên «mức lương tham gia BHXH» (thường thấp hơn lương HĐ); phụ cấp cố định/tháng.
+    profile = (await db.execute(
+        select(EmployeeProfile).where(EmployeeProfile.user_id == user.id)
+    )).scalar_one_or_none()
+    if profile and profile.contract_salary:
+        base_salary = float(profile.contract_salary)
+    else:
+        base_salary = grade.base_salary if grade else 0.0
+    insurance_base = float(profile.insurance_salary) if profile and profile.insurance_salary else base_salary
+    allowance = round(float(profile.allowance_monthly)) if profile and profile.allowance_monthly else 0
     standard_days = settings["payroll_standard_days"]
     cap = settings["bhxh_salary_cap"]
 
@@ -160,10 +171,10 @@ async def build_payroll_row(
     bonus_total, approved_bonuses = await _approved_bonuses(db, user.id, period)
 
     salary_for_days = round(base_salary * min(work_days / standard_days, 1.0)) if base_salary else 0.0
-    gross = salary_for_days + ot_pay + commission + bonus_total  # allowance kế toán bổ sung tay sau
+    gross = salary_for_days + ot_pay + commission + bonus_total + allowance
 
-    insurance = compute_insurance_employee(base_salary, grade, cap)
-    insurance_company = compute_insurance_company(base_salary, grade, cap)
+    insurance = compute_insurance_employee(insurance_base, grade, cap)
+    insurance_company = compute_insurance_company(insurance_base, grade, cap)
 
     taxable = max(
         0.0,
@@ -175,8 +186,8 @@ async def build_payroll_row(
     net = gross - insurance - pit - advance_total
 
     notes = None
-    if not grade:
-        notes = "⚠️ Chưa gán bậc lương — lương cơ bản = 0, cần kế toán cập nhật"
+    if not base_salary:
+        notes = "⚠️ Chưa có lương HĐ (Hồ sơ 360°) hay bậc lương — lương cơ bản = 0, cần kế toán cập nhật"
 
     # Gán tạm ứng vào kỳ này (idempotent khi generate lại)
     for advance in advances:
@@ -192,7 +203,7 @@ async def build_payroll_row(
         ot_pay=ot_pay,
         commission_total=commission,
         bonus=bonus_total,
-        allowance=0,
+        allowance=allowance,
         gross_salary=round(gross),
         bhxh_employee=insurance,
         bhxh_company=insurance_company,
@@ -240,7 +251,7 @@ async def generate_period(db: AsyncSession, period: str) -> dict:
         db.add(row)
         created += 1
         total_net += row.net_salary
-        if not row.salary_grade_id:
+        if not row.base_salary:
             missing_grade += 1
     await db.flush()
 

@@ -46,6 +46,9 @@ class Contract(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # thiet_ke | thi_cong (24/10/2026) — hoa hồng thiết kế/thu mua/giám sát chỉ tính
+    # trên HĐ thi công. NULL = đoán theo tiêu đề (services/hoa_hong.loai_hop_dong).
+    contract_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
     erp_contract_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
