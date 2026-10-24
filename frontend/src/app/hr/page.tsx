@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/Toast';
 import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
+import Avatar from '@/components/ui/Avatar';
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Giám đốc', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
@@ -291,9 +292,7 @@ export default function HRPage() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
-                        {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                      </div>
+                      <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                       <div>
                         <p className="text-sm font-medium text-[var(--text-primary)]">{u.full_name}</p>
                         <p className="text-[10px] text-[var(--text-muted)]">{DEPT_LABELS[u.department] || u.department}</p>
@@ -369,9 +368,7 @@ export default function HRPage() {
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
-                          {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                        </div>
+                        <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                         <span className="font-medium text-[var(--text-primary)]">{u.full_name}</span>
                       </div>
                     </td>
@@ -443,9 +440,7 @@ export default function HRPage() {
                 </div>
                 {leader ? (
                   <div className="rounded-xl p-4 flex items-center gap-3 mb-3" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.35)' }}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }}>
-                      {leader.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                    </div>
+                    <Avatar name={leader.full_name} url={leader.avatar_url} className="w-11 h-11 rounded-xl text-sm" style={{ background: 'linear-gradient(135deg, #C9A96E, #B8935A)', color: 'white' }} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{leader.full_name}</p>
                       <p className="text-xs text-[var(--gold-400)]">Trưởng nhóm{leader.is_active ? '' : ' (đã nghỉ)'}</p>
@@ -460,9 +455,7 @@ export default function HRPage() {
                       const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
                       return (
                         <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
-                            {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                          </div>
+                          <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
                             <p className="text-xs text-[var(--text-muted)]">{role.label}</p>
@@ -494,9 +487,7 @@ export default function HRPage() {
                     const role = ROLE_LABELS[u.role] || { label: u.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
                     return (
                       <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
-                          {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                        </div>
+                        <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
                           <p className="text-xs text-[var(--text-muted)]">{role.label} • {DEPT_LABELS[u.department] || u.department}</p>
@@ -526,9 +517,7 @@ export default function HRPage() {
                   const team = teams.find(t => t.id === u.team_id);
                   return (
                     <div key={u.id} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))', color: 'white' }}>
-                        {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                      </div>
+                      <Avatar name={u.full_name} url={u.avatar_url} className="w-11 h-11 rounded-xl text-sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{u.full_name}</p>
                         <p className="text-xs text-[var(--text-muted)]">{role.label}{team ? ` • ${team.name}` : ''}</p>

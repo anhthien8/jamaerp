@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import DiemJama from '@/components/hr/DiemJama';
 import LineIcon from '@/components/ui/LineIcon';
+import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api, type EmployeeProfileData, type EmployeeDocumentMeta, type EmployeeFinanceData, type HandoverItem, type AttendanceRecord, type AttendanceSummary } from '@/lib/api';
 import { ROLE_LABELS, labelOf } from '@/lib/labels';
@@ -84,7 +85,7 @@ const TABS = [
 ] as const;
 
 function NhanVienContent() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, capNhatUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -94,7 +95,7 @@ function NhanVienContent() {
   const isSelf = user?.id === targetId;
 
   const [tab, setTab] = useState<string>('ho-so');
-  const [header, setHeader] = useState<{ full_name: string; email: string; phone: string | null; role: string; department: string | null; is_active: boolean; resign_date: string | null } | null>(null);
+  const [header, setHeader] = useState<{ full_name: string; email: string; phone: string | null; role: string; department: string | null; is_active: boolean; resign_date: string | null; avatar_url?: string | null } | null>(null);
   const [profile, setProfile] = useState<EmployeeProfileData>({});
   const [docs, setDocs] = useState<EmployeeDocumentMeta[]>([]);
   const [canEdit, setCanEdit] = useState(false);
@@ -120,8 +121,8 @@ function NhanVienContent() {
   const [limited, setLimited] = useState(false);
 
   useEffect(() => {
-    if (user === null) router.push('/login');
-  }, [user, router]);
+    if (!authLoading && !user) router.push('/login');
+  }, [authLoading, user, router]);
 
   const loadProfile = useCallback(async () => {
     if (!targetId) return;
@@ -286,9 +287,22 @@ function NhanVienContent() {
           <button onClick={() => router.push('/hr')} className="text-sm px-2.5 py-1.5 rounded-lg min-h-[36px]" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>← Nhân sự</button>
           {header && (
             <>
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}>
-                {header.full_name.charAt(0)}
-              </div>
+              {isHR || isSelf ? (
+                <DoiAnhDaiDien
+                  userId={targetId}
+                  name={header.full_name}
+                  url={header.avatar_url}
+                  className="w-14 h-14 rounded-full text-xl"
+                  style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}
+                  onDoi={(url) => {
+                    setHeader((h) => (h ? { ...h, avatar_url: url } : h));
+                    if (isSelf) capNhatUser({ avatar_url: url });
+                    toast(url ? 'Đã cập nhật ảnh đại diện' : 'Đã gỡ ảnh đại diện', 'success');
+                  }}
+                />
+              ) : (
+                <Avatar name={header.full_name} url={header.avatar_url} className="w-14 h-14 rounded-full text-xl" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }} />
+              )}
               <div>
                 <h1 className="text-xl font-bold flex items-center gap-2">
                   {header.full_name}

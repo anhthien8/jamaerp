@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import Avatar from '@/components/ui/Avatar';
 import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
@@ -348,14 +349,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       {/* User */}
       <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))' }}
-          >
-            <span className="text-xs font-semibold text-white">
-              {user.full_name?.split(' ').pop()?.charAt(0) || 'U'}
-            </span>
-          </div>
+          <Avatar name={user.full_name} url={user.avatar_url} className="w-9 h-9 rounded-xl text-xs" fallback="U" />
           <div className="flex-1 min-w-0">
             <p className="text-[0.8125rem] font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
             <p className="text-[0.6875rem] text-[var(--text-disabled)]">{getRoleLabel(user.role as UserRole)}</p>

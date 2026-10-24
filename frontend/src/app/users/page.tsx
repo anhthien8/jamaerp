@@ -9,6 +9,7 @@ import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import Sidebar from '@/components/layout/Sidebar';
+import Avatar from '@/components/ui/Avatar';
 
 interface CustomRole {
   role_key: string;
@@ -550,9 +551,7 @@ export default function UsersPage() {
                   <tr key={u.id} className="border-b last:border-0 hover:bg-[var(--surface-2)] transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))' }}>
-                          {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                        </div>
+                        <Avatar name={u.full_name} url={u.avatar_url} className="w-8 h-8 rounded-lg text-xs" />
                         <span className="font-medium text-[var(--text-primary)]">{u.full_name}</span>
                       </div>
                     </td>
@@ -597,9 +596,7 @@ export default function UsersPage() {
               <div key={u.id} className="p-4 border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--navy-600), var(--navy-700))' }}>
-                      {u.full_name?.split(' ').pop()?.charAt(0) || '?'}
-                    </div>
+                    <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-lg text-xs" />
                     <div className="min-w-0">
                       <p className="font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
                       <p className="text-xs text-[var(--text-muted)] truncate">{u.email}</p>

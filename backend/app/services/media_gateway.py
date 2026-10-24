@@ -107,6 +107,32 @@ def url_media(media: MediaFile | str) -> str:
     return f"/media/{media_id}/{ky_media(media_id)}.jpg"
 
 
+def url_avatar(user) -> str | None:
+    """URL ảnh đại diện (tương đối /api/v1) hoặc None nếu chưa có ảnh."""
+    ver = getattr(user, "avatar_ver", None)
+    if not ver:
+        return None
+    return f"/media/avatar/{user.id}/{ky_media('avatar:' + user.id)}.jpg?v={ver}"
+
+
+def lam_avatar(data: bytes, canh: int = 320) -> bytes:
+    """Ảnh bất kỳ → JPG vuông `canh`px (cắt giữa), xoay đúng chiều, bỏ EXIF."""
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise MediaError("Không đọc được ảnh. Chỉ nhận JPG/PNG/WebP.") from exc
+    img = ImageOps.exif_transpose(img)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    img = ImageOps.fit(img, (canh, canh), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=85, optimize=True)
+    return out.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Telegram Bot API
 # ---------------------------------------------------------------------------

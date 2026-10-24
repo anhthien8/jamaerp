@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, BigInteger, Integer, Text, ForeignKey, DateTime, Index
+from sqlalchemy import String, Boolean, BigInteger, Integer, Text, ForeignKey, DateTime, Index, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -76,6 +76,10 @@ class User(Base):
     # Không đưa vào UserResponse; API chỉ trả dạng che (gsk_****xxxx).
     llm_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Ảnh đại diện: bytes nằm ở bảng user_avatars (không kéo theo mỗi lần đọc
+    # users); cột này là "phiên bản" (epoch giây) để URL ?v= đổi khi thay ảnh.
+    avatar_ver: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
@@ -94,3 +98,19 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User {self.full_name} ({self.role})>"
+
+
+class UserAvatar(Base):
+    """Ảnh đại diện nhân viên — JPG vuông 320px lưu thẳng Postgres.
+
+    Không đi qua Kho ảnh Telegram: ảnh nhân sự thuộc nhóm hồ sơ HR, không đăng
+    lên nhóm Telegram (quyết định chốt). Xem qua URL ký HMAC /media/avatar/...
+    """
+    __tablename__ = "user_avatars"
+
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )

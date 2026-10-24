@@ -80,6 +80,8 @@ interface AuthContextType {
   permsError: boolean;
   /** Nút «Thử lại» trên banner — nạp lại quyền backend (kèm vai trò tùy chỉnh). */
   retryPerms: () => void;
+  /** Gộp thay đổi vào người dùng đang đăng nhập (vd ảnh đại diện mới) + lưu localStorage. */
+  capNhatUser: (patch: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -94,6 +96,7 @@ const AuthContext = createContext<AuthContextType>({
   permsReady: false,
   permsError: false,
   retryPerms: () => {},
+  capNhatUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -197,6 +200,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const restored = JSON.parse(stored) as User;
           setUser(restored);
+          // Làm mới ảnh đại diện nền — bản localStorage có thể cũ (đổi ảnh ở máy khác)
+          if (localStorage.getItem('jama_demo') !== 'true') {
+            void api.me().then((me) => {
+              if (!me || (me.avatar_url ?? null) === (restored.avatar_url ?? null)) return;
+              setUser((u) => {
+                if (!u) return u;
+                const moi = { ...u, avatar_url: me.avatar_url ?? null };
+                localStorage.setItem('jama_user', JSON.stringify(moi));
+                return moi;
+              });
+            }).catch(() => {});
+          }
           // Tải quyền backend nền — không chặn màn hình (menu tạm vẽ theo bản cục bộ)
           dangTaiQuyen = true;
           napQuyenBackend(restored.role);
@@ -293,8 +308,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const capNhatUser = useCallback((patch: Partial<User>) => {
+    setUser((u) => {
+      if (!u) return u;
+      const moi = { ...u, ...patch };
+      localStorage.setItem('jama_user', JSON.stringify(moi));
+      return moi;
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions, permsReady, permsError, retryPerms }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isDemo, mode, setMode, effectivePermissions, permsReady, permsError, retryPerms, capNhatUser }}>
       {children}
     </AuthContext.Provider>
   );

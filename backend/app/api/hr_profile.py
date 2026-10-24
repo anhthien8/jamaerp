@@ -11,6 +11,8 @@ Phân quyền (chốt 09/09/2026):
 
 import base64
 import binascii
+import time
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -25,7 +27,8 @@ from app.models.employee_profile import EmployeeDocument, EmployeeProfile
 from app.models.handover import HandoverRecord
 from app.models.leave import LeaveBalance, LeaveRequest
 from app.models.payroll import Commission, Payroll, SalaryAdvance, Transaction
-from app.models.user import User
+from app.models.user import User, UserAvatar
+from app.services.media_gateway import MediaError, lam_avatar, url_avatar
 from app.services.attendance_service import month_records, month_summary, period_of, vn_today
 from app.services.audit import log_action, query_logs
 
@@ -153,6 +156,7 @@ async def get_employee_profile(
                 "id": target.id, "full_name": target.full_name, "email": target.email,
                 "phone": target.phone, "role": target.role, "department": target.department,
                 "team_id": target.team_id, "is_active": target.is_active,
+                "avatar_url": url_avatar(target),
                 "resign_date": str(target.resign_date) if target.resign_date else None,
             },
             "profile": {},
@@ -176,6 +180,7 @@ async def get_employee_profile(
             "department": target.department,
             "team_id": target.team_id,
             "is_active": target.is_active,
+            "avatar_url": url_avatar(target),
             "resign_date": str(target.resign_date) if target.resign_date else None,
         },
         "profile": _profile_dict(profile),
@@ -311,6 +316,79 @@ async def delete_document(
         entity_id=target.id, after={"doc_type": doc.doc_type, "filename": doc.filename},
     )
     return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Ảnh đại diện — chính chủ tự đổi, admin/kế toán đổi cho mọi người
+# ---------------------------------------------------------------------------
+
+MAX_AVATAR_BYTES = 6 * 1024 * 1024
+
+
+class AvatarBody(BaseModel):
+    data_base64: str = Field(..., min_length=8)
+
+
+def _require_avatar_scope(current: User, target: User) -> None:
+    if not (_is_hr(current) or current.id == target.id):
+        raise HTTPException(status_code=403, detail="Chỉ chính chủ hoặc admin/kế toán mới đổi được ảnh đại diện")
+
+
+@router.put("/{user_id}/avatar")
+async def upload_avatar(
+    user_id: str,
+    body: AvatarBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    target = await _get_target(db, user_id)
+    _require_avatar_scope(current_user, target)
+    try:
+        raw = base64.b64decode(body.data_base64.split(",")[-1], validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=422, detail="Ảnh gửi lên không hợp lệ")
+    if len(raw) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Ảnh quá lớn (tối đa 6MB)")
+    try:
+        jpg = lam_avatar(raw)
+    except MediaError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    av = await db.get(UserAvatar, user_id)
+    if av is None:
+        av = UserAvatar(user_id=user_id, data=jpg, size_bytes=len(jpg))
+        db.add(av)
+    else:
+        av.data = jpg
+        av.size_bytes = len(jpg)
+    av.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Phiên bản tăng dần — đổi URL để trình duyệt bỏ cache ảnh cũ
+    target.avatar_ver = max(int(time.time()), (target.avatar_ver or 0) + 1)
+    await db.flush()
+    await log_action(
+        db, actor=current_user, action="user.avatar.update", entity_type="user",
+        entity_id=target.id, after={"size": len(jpg)},
+    )
+    return {"avatar_url": url_avatar(target)}
+
+
+@router.delete("/{user_id}/avatar")
+async def delete_avatar(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    target = await _get_target(db, user_id)
+    _require_avatar_scope(current_user, target)
+    av = await db.get(UserAvatar, user_id)
+    if av is not None:
+        await db.delete(av)
+    target.avatar_ver = None
+    await db.flush()
+    await log_action(
+        db, actor=current_user, action="user.avatar.delete", entity_type="user", entity_id=target.id,
+    )
+    return {"avatar_url": None}
 
 
 # ---------------------------------------------------------------------------

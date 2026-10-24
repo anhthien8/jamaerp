@@ -1663,7 +1663,7 @@ class ApiClient {
   // === Hồ sơ nhân viên 360° (09/09) ===
   async getEmployeeProfile(userId: string) {
     return this.request<{
-      user: { id: string; full_name: string; email: string; phone: string | null; role: string; department: string | null; team_id: string | null; is_active: boolean; resign_date: string | null };
+      user: { id: string; full_name: string; email: string; phone: string | null; role: string; department: string | null; team_id: string | null; is_active: boolean; resign_date: string | null; avatar_url?: string | null };
       profile: EmployeeProfileData;
       documents: EmployeeDocumentMeta[];
       can_edit: boolean;
@@ -1677,6 +1677,15 @@ class ApiClient {
   }
   async getEmployeeDocument(userId: string, docId: string) {
     return this.request<{ id: string; mime: string; filename: string; data_base64: string }>(`/hr/employees/${userId}/documents/${docId}`);
+  }
+  /** Ảnh đại diện: chính chủ hoặc admin/kế toán. Server tự cắt vuông 320px. */
+  async uploadAvatar(userId: string, dataBase64: string) {
+    return this.request<{ avatar_url: string | null }>(`/hr/employees/${userId}/avatar`, {
+      method: 'PUT', body: { data_base64: dataBase64 },
+    });
+  }
+  async deleteAvatar(userId: string) {
+    return this.request<{ avatar_url: string | null }>(`/hr/employees/${userId}/avatar`, { method: 'DELETE' });
   }
   async deleteEmployeeDocument(userId: string, docId: string) {
     return this.request<{ deleted: boolean }>(`/hr/employees/${userId}/documents/${docId}`, { method: 'DELETE' });
@@ -2065,6 +2074,8 @@ class ApiClient {
 export interface User {
   id: string;
   full_name: string;
+  /** Ảnh đại diện — đường dẫn ký HMAC tương đối (/media/avatar/...); dùng qua mediaUrl() */
+  avatar_url?: string | null;
   email: string;
   phone?: string;
   role: string;

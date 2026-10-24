@@ -15,7 +15,7 @@ from app.middleware.permissions import quyen_hieu_luc
 from app.middleware.rbac import la_pic_du_an
 from app.models.media import MEDIA_KINDS, MediaFile, ProjectDocument
 from app.models.project import Project, Task
-from app.models.user import User
+from app.models.user import User, UserAvatar
 from app.services import drive_mirror
 from app.services.media_gateway import (
     MediaError,
@@ -354,6 +354,22 @@ async def get_task_file(doc_id: str, sig: str, ten: str, db: AsyncSession = Depe
             "Content-Disposition": f"{'inline' if la_pdf_anh else 'attachment'}; filename*=UTF-8''{quote(doc.filename)}",
             "Cache-Control": "private, max-age=86400",
         },
+    )
+
+
+@router.get("/avatar/{user_id}/{sig}.jpg")
+async def get_avatar(user_id: str, sig: str, db: AsyncSession = Depends(get_db)):
+    """Ảnh đại diện — URL ký HMAC (thẻ <img> không gửi được JWT). URL có ?v=
+    đổi mỗi lần thay ảnh nên cho cache lâu."""
+    if not chu_ky_hop_le("avatar:" + user_id, sig):
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
+    av = await db.get(UserAvatar, user_id)
+    if av is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
+    return Response(
+        content=av.data,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=2592000"},
     )
 
 

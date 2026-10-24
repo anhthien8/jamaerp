@@ -1,7 +1,7 @@
 """Pydantic schemas for auth & users."""
 
 import json
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 from datetime import datetime
 
 
@@ -66,8 +66,15 @@ class UserResponse(BaseModel):
     # Per-user permission overrides (JSON string stored in DB, parsed to dict for API)
     custom_permissions: dict | None = None
     created_at: datetime
+    avatar_ver: int | None = Field(default=None, exclude=True)
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def avatar_url(self) -> str | None:
+        from app.services.media_gateway import url_avatar
+        return url_avatar(self)
 
     @field_validator("custom_permissions", mode="before")
     @classmethod

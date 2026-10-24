@@ -31,6 +31,8 @@ from app.schemas.user import (
 )
 from app.services.audit import log_action
 
+from app.services.media_gateway import url_avatar
+
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -124,7 +126,7 @@ async def list_users(
                 "salary_grade_id": u.salary_grade_id, "dependents_count": u.dependents_count,
                 "resign_date": str(u.resign_date) if u.resign_date else None,
                 "custom_permissions": json.loads(u.custom_permissions) if u.custom_permissions else None,
-                "created_at": str(u.created_at),
+                "created_at": str(u.created_at), "avatar_url": url_avatar(u),
             }
             for u in users
         ],
@@ -164,6 +166,7 @@ async def list_assignable_users(
         {
             "id": u.id, "full_name": u.full_name, "role": u.role,
             "department": u.department, "team_id": u.team_id, "is_active": u.is_active,
+            "avatar_url": url_avatar(u),
         }
         for u in users
     ]
@@ -195,6 +198,7 @@ async def list_task_assignable_users(
         {
             "id": u.id, "full_name": u.full_name, "role": u.role,
             "department": u.department, "is_active": u.is_active,
+            "avatar_url": url_avatar(u),
         }
         for u in users
     ]
@@ -894,7 +898,7 @@ async def get_user(
         "telegram_username": user.telegram_username,
         "salary_grade_id": user.salary_grade_id, "dependents_count": user.dependents_count,
         "custom_permissions": json.loads(user.custom_permissions) if user.custom_permissions else None,
-        "created_at": str(user.created_at),
+        "created_at": str(user.created_at), "avatar_url": url_avatar(user),
     }
 
 

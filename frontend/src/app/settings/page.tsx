@@ -9,6 +9,7 @@ import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, Ta
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
+import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import { RELEASES } from '@/lib/releases';
 
@@ -1456,7 +1457,8 @@ function TaskSlaSection() {
 }
 
 export default function SettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, isDemo, capNhatUser } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
 
   // Ai đăng nhập cũng vào được Cài đặt (liên kết Telegram, xem lại hướng dẫn, thông tin cá nhân).
@@ -1490,9 +1492,22 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="user" />Thông tin cá nhân</h2>
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C9A96E] to-[#1A535C] flex items-center justify-center">
-                    <span className="text-2xl font-bold text-white">{user.full_name?.charAt(0)}</span>
-                  </div>
+                  {isDemo ? (
+                    <Avatar name={user.full_name} url={user.avatar_url} className="w-16 h-16 rounded-2xl text-2xl" style={{ background: 'linear-gradient(135deg, #C9A96E, #1A535C)' }} />
+                  ) : (
+                    <DoiAnhDaiDien
+                      userId={user.id}
+                      name={user.full_name}
+                      url={user.avatar_url}
+                      className="w-16 h-16 rounded-2xl text-2xl"
+                      style={{ background: 'linear-gradient(135deg, #C9A96E, #1A535C)' }}
+                      choGo
+                      onDoi={(url) => {
+                        capNhatUser({ avatar_url: url });
+                        toast(url ? 'Đã cập nhật ảnh đại diện' : 'Đã gỡ ảnh đại diện', 'success');
+                      }}
+                    />
+                  )}
                   <div>
                     <p className="font-semibold text-lg">{user.full_name}</p>
                     <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>

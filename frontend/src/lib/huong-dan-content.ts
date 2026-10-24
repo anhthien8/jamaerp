@@ -177,6 +177,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "**Thông tin cá nhân** — xem tên, email, vai trò, phòng ban của bạn. Sai thì báo Nhân sự/Admin sửa.",
+          "**Ảnh đại diện** — bấm nút **máy ảnh vàng** trên vòng tròn tên → chọn ảnh (tự cắt vuông). Ảnh hiện ở thanh bên, danh sách Nhân sự và Hồ sơ 360°. Bấm **Gỡ ảnh** để quay về chữ cái đầu. Admin/Kế toán đổi hộ được ở Hồ sơ 360° của nhân viên.",
           "**Đổi mật khẩu** — gõ mật khẩu hiện tại + mật khẩu mới (ít nhất 6 ký tự) 2 lần → bấm **Đổi mật khẩu**.",
           "**Telegram Bot** — quan trọng! Liên kết xong bạn mới nhận nhắc việc qua Telegram và tự lấy lại mật khẩu khi quên.",
           "**Khóa AI cá nhân** — không bắt buộc, ai không rành cứ bỏ qua; hệ thống đã có AI chung dùng ổn."

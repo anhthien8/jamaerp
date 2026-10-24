@@ -16,6 +16,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Ảnh đại diện nhân viên — tự đổi ở Cài đặt, hiện khắp app',
+    tag: 'MỚI',
+    news: [
+      'Mỗi người tự đặt ảnh đại diện: Cài đặt → bấm nút máy ảnh vàng trên vòng tròn tên → chọn ảnh (ảnh tự cắt vuông, nén nhẹ). Có nút «Gỡ ảnh» để quay về chữ cái đầu.',
+      'Ảnh hiện ở thanh bên, danh sách Nhân sự, Hồ sơ nhân viên 360° và trang Tài khoản. Admin/Kế toán đổi ảnh hộ nhân viên ngay trên Hồ sơ 360°.',
+    ],
+    fixes: [
+      'Hồ sơ nhân viên 360°: tải lại trang (F5) không còn bị đẩy ra màn hình đăng nhập.',
+    ],
+    test: [
+      'Cài đặt → bấm nút máy ảnh → chọn 1 ảnh → ảnh hiện ngay ở thẻ Cài đặt và góc dưới thanh bên; mở Nhân sự thấy ảnh ở dòng của mình.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Giao diện Ngoài trời: icon nét thay emoji toàn app, chữ và màu rõ hơn',
     tag: 'SỬA',
     fixes: [
