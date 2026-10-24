@@ -76,7 +76,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Trên **máy tính**: menu nằm cột trái, hiện sẵn các mục bạn hay dùng nhất theo vai trò. Muốn thấy hết thì bấm **Xem thêm** ở cuối danh sách (bấm **Thu gọn** để gọn lại). Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án."
+        "text": "Trên **máy tính**: menu nằm cột trái, chia **2 tầng**: dưới **Tổng quan** là các khối **Việc hằng ngày** (Phê duyệt, Chấm công, Dự án, KPI), **Kinh doanh** (Quy trình, Khách hàng, Báo giá, Hợp đồng…), **Kho hàng**, **Tài chính**, **Nhân sự**, **Trợ giúp** (Sổ tay, Có gì mới, Góp ý, Cài đặt). Bấm tên khối để mở/đóng; con số xám cạnh khối là số mục bên trong. Khối chứa trang bạn đang xem tự mở sẵn, và app nhớ khối nào bạn đã mở/đóng. Bạn chỉ thấy mục mình có quyền dùng. Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án."
+      },
+      {
+        "type": "p",
+        "text": "**Bấm vào ảnh đại diện + tên của bạn ở góc dưới cột menu** để mở menu tài khoản: **Hồ sơ 360° của tôi** (thông tin cá nhân, giấy tờ, hợp đồng, chấm công, lương, nghỉ phép của chính bạn), **Đổi ảnh đại diện**, **Cài đặt tài khoản** (mật khẩu, Telegram, thông báo), **Sổ tay hướng dẫn** và **Đăng xuất**."
       },
       {
         "type": "p",

@@ -96,18 +96,24 @@ const ALL_ITEMS: NavItem[] = [
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
 
-// ── Role → essential items (KISS: only show what matters most) ───────
-// Spec 08 §2.7 + Telegram-first (quyết định 16/07): tối đa 5 mục chính/role
-// theo tần suất dùng THẬT — còn lại vào "Xem thêm". Khối hiện trường (sales/GS)
-// thao tác chính trên Telegram, web chỉ giữ trang xem; khối văn phòng giữ trang làm việc sâu.
-const ROLE_ESSENTIALS: Record<string, string[]> = {
-  admin:      ['/', '/approvals', '/leads', '/projects', '/permissions'],
-  executive:  ['/', '/pl', '/projects', '/reports'],
-  leader:     ['/', '/approvals', '/leads', '/kpi', '/attendance'],
-  data_entry: ['/', '/leads', '/quote-tool', '/attendance', '/kpi'],
-  supervisor: ['/', '/projects', '/quotations', '/attendance'],
-  accountant: ['/', '/accounting', '/attendance', '/approvals', '/pl'],
-};
+// ── Menu 2 tầng (24/10/2026) ──────────────────────────────────────────
+// Trước đây 26 mục xếp phẳng + «Xem thêm» theo vai trò → người dùng than «lộn xộn».
+// Nay gom theo khối công việc; mục nào bị chặn quyền thì tự ẩn, khối rỗng thì ẩn cả khối,
+// khối chỉ còn 1 mục thì hiện thẳng mục đó (khỏi bấm 2 lần).
+type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
+const NAV_GROUPS: NavGroup[] = [
+  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/approvals', '/attendance', '/projects', '/kpi'] },
+  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
+  { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/inventory', '/suppliers'] },
+  { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
+  { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
+  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/changelog', '/feedback', '/settings'] },
+];
+const NAV_OPEN_KEY = 'jama_nav_open';
+
+function laTrangDangMo(pathname: string, href: string) {
+  return pathname === href || (href !== '/' && pathname.startsWith(href));
+}
 
 // Trang chính của role — prefetch sau login để cú bấm đầu trên 4G không chờ (spec 08 §1.3)
 const ROLE_MAIN_ROUTE: Record<string, string> = {
@@ -173,42 +179,64 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     loadCustomRoles().then(has => { if (has) bumpCustomRoles(t => t + 1); });
   }, []);
 
-  // KISS: Split nav into essential items (always visible) + extra items (expandable)
   // effectivePermissions (KHÔNG phải getPermissions(role) trần): quyền riêng của
   // từng người phải hiện ra MENU, không thì admin tích thêm chức năng cho ai đó
   // mà họ vẫn không thấy mục nào — đúng lỗi user báo 22/09 «cập nhật chức năng
   // tài khoản thì không sử dụng được».
   const perms = user ? effectivePermissions : null;
-  const [showMore, setShowMore] = useState(false);
 
-  const { essentialItems, extraItems } = useMemo(() => {
-    if (!perms) return { essentialItems: [], extraItems: [] };
+  const navSections = useMemo(() => {
+    if (!perms) return [];
     const allowed = ALL_ITEMS.filter(item => {
       if (item.roles && !item.roles.includes(user?.role || '')) return false;
       if (item.check && !item.check(user)) return false;
       if (!item.perm) return true;
       return (perms as unknown as Record<string, unknown>)[item.perm] === true;
     });
-    // Sắp mục ưu tiên theo role lên đầu, phần còn lại giữ thứ tự gốc
-    const essentialHrefs = ROLE_ESSENTIALS[user?.role || 'admin'] || ROLE_ESSENTIALS.admin;
-    const ordered = [
-      ...essentialHrefs
-        .map(h => allowed.find(i => i.href === h))
-        .filter((i): i is typeof ALL_ITEMS[number] => Boolean(i)),
-      ...allowed.filter(i => !essentialHrefs.includes(i.href)),
-    ];
-    // Desktop: hiển thị tối thiểu 10 mục rồi mới "Xem thêm"; mobile: gọn hơn (theo role)
-    const maxVisible = isDesktop ? 10 : Math.max(6, essentialHrefs.length);
-    let visible = ordered.slice(0, maxVisible);
-    let extra = ordered.slice(maxVisible);
-    // Bug: trang ĐANG MỞ phải luôn hiển thị, không bị co vào "Xem thêm"
-    const activeInExtra = extra.find(i => i.href === pathname);
-    if (activeInExtra) {
-      extra = extra.filter(i => i.href !== pathname);
-      visible = [...visible, activeInExtra];
+    const sections: { group: NavGroup | null; items: NavItem[] }[] = [];
+    const home = allowed.find(i => i.href === '/');
+    if (home) sections.push({ group: null, items: [home] });
+    for (const g of NAV_GROUPS) {
+      const items = g.hrefs.map(h => allowed.find(i => i.href === h)).filter((i): i is NavItem => Boolean(i));
+      if (items.length > 0) sections.push({ group: g, items });
     }
-    return { essentialItems: visible, extraItems: extra };
-  }, [perms, user?.role, isDesktop, pathname]);
+    return sections;
+  }, [perms, user]);
+
+  // Khối nào đang mở: người dùng bấm thì nhớ vào máy; chưa bấm bao giờ thì mở khối chứa trang đang xem.
+  const [navOpen, setNavOpen] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(NAV_OPEN_KEY) || '{}'); } catch { return {}; }
+  });
+  const toggleGroup = (key: string, dangMo: boolean) => {
+    setNavOpen(prev => {
+      const next = { ...prev, [key]: !dangMo };
+      try { localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(next)); } catch { /* bộ nhớ đầy/ẩn danh */ }
+      return next;
+    });
+  };
+
+  // Menu tài khoản khi bấm vào ảnh đại diện góc dưới
+  const [accountOpen, setAccountOpen] = useState(false);
+  useEffect(() => {
+    if (!accountOpen) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      // Khung thanh bên được vẽ 2 lần (máy tính + điện thoại) nên không dùng ref: dò thuộc tính data-
+      if (!(e.target as Element | null)?.closest?.('[data-account-menu]')) setAccountOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAccountOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [accountOpen]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setAccountOpen(false));
+  }, [pathname]);
 
   if (!user) return <>{children}</>;
   const sidebarContent = (
@@ -236,68 +264,41 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
-        {/* Essential items — always visible */}
-        {essentialItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+      {/* Nav — 2 tầng: khối → mục */}
+      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto" aria-label="Menu chính">
+        {navSections.map(({ group, items }) => {
+          // Không có khối, hoặc khối chỉ còn 1 mục → hiện thẳng
+          if (!group || items.length === 1) {
+            return items.map(item => <NavLink key={item.href} item={item} active={laTrangDangMo(pathname, item.href)} />);
+          }
+          const coTrangDangMo = items.some(i => laTrangDangMo(pathname, i.href));
+          const dangMo = navOpen[group.key] ?? coTrangDangMo;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? 'page' : undefined}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 relative"
-              style={{
-                background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',
-                color: isActive ? 'var(--gold-400)' : 'var(--text-tertiary)',
-              }}
-              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
-              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)'; } }}
-            >
-              {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
-              <span className="flex-shrink-0">{item.icon}</span>
-              <span className="font-medium">{item.label}</span>
-            </Link>
+            <div key={group.key} className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.key, dangMo)}
+                aria-expanded={dangMo}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors hover:bg-[var(--surface-2)]"
+                style={{ color: coTrangDangMo ? 'var(--gold-400)' : 'var(--text-secondary)' }}
+              >
+                <LineIcon name={group.icon} size={18} color="currentColor" />
+                <span className="flex-1 text-left font-semibold">{group.label}</span>
+                {!dangMo && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>{items.length}</span>
+                )}
+                <span className="transition-transform duration-200" style={{ transform: dangMo ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <LineIcon name="chevronDown" size={14} color="currentColor" />
+                </span>
+              </button>
+              {dangMo && (
+                <div className="ml-[21px] pl-2 border-l space-y-0.5 mb-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {items.map(item => <NavLink key={item.href} item={item} active={laTrangDangMo(pathname, item.href)} sub />)}
+                </div>
+              )}
+            </div>
           );
         })}
-
-        {/* "Xem thêm" toggle — only when there are extra items */}
-        {extraItems.length > 0 && (
-          <>
-            <button
-              onClick={() => setShowMore(!showMore)}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm w-full transition-all duration-200"
-              style={{ color: 'var(--text-disabled)' }}
-            >
-              <span className="flex-shrink-0 transition-transform duration-200" style={{ transform: showMore ? 'rotate(90deg)' : 'rotate(0deg)' }}>{Icon.more}</span>
-              <span className="font-medium">{showMore ? 'Thu gọn' : 'Xem thêm'}</span>
-              {!showMore && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-disabled)' }}>{extraItems.length}</span>}
-            </button>
-
-            {/* Extra items — expandable */}
-            {showMore && extraItems.map((item) => {
-              const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 relative"
-                  style={{
-                    background: isActive ? 'rgba(201,169,110,0.1)' : 'transparent',
-                    color: isActive ? 'var(--gold-400)' : 'var(--text-disabled)',
-                  }}
-                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
-                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-disabled)'; } }}
-                >
-                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
-                  <span className="flex-shrink-0">{item.icon}</span>
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              );
-            })}
-          </>
-        )}
       </nav>
 
       {/* ☀️ Chế độ Ngoài trời — giám sát/PM đọc được dưới nắng (spec 08 §2.2) */}
@@ -346,25 +347,48 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       </div>
       )}
 
-      {/* User */}
+      {/* User — bấm vào để mở menu tài khoản (Hồ sơ 360° của tôi, Cài đặt, Đăng xuất) */}
       <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="flex items-center gap-3">
-          <Avatar name={user.full_name} url={user.avatar_url} className="w-9 h-9 rounded-xl text-xs" fallback="U" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[0.8125rem] font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
-            <p className="text-[0.6875rem] text-[var(--text-disabled)]">{getRoleLabel(user.role as UserRole)}</p>
-          </div>
+        <div data-account-menu className="relative">
+          {accountOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl p-1.5 z-10 animate-fade"
+              style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default, var(--border-subtle))', boxShadow: '0 12px 32px rgba(0,0,0,0.35)' }}
+            >
+              <AccountItem href={`/hr/nhan-vien?id=${user.id}`} icon="user" label="Hồ sơ 360° của tôi" hint="Thông tin, giấy tờ, chấm công, lương" />
+              <AccountItem href="/settings" icon="camera" label="Đổi ảnh đại diện" />
+              <AccountItem href="/settings" icon="settings" label="Cài đặt tài khoản" hint="Mật khẩu, Telegram, thông báo" />
+              <AccountItem href="/huong-dan" icon="compass" label="Sổ tay hướng dẫn" />
+              <div className="my-1 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setAccountOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors hover:bg-[rgba(248,113,113,0.1)]"
+                style={{ color: 'var(--danger)' }}
+              >
+                <LineIcon name="logout" size={16} color="currentColor" />
+                <span className="font-medium">Đăng xuất</span>
+              </button>
+            </div>
+          )}
           <button
-            onClick={logout}
-            className="p-1.5 rounded-lg transition-colors hover:bg-[rgba(248,113,113,0.1)]"
-            title="Đăng xuất"
-            aria-label="Đăng xuất"
+            type="button"
+            onClick={() => setAccountOpen(o => !o)}
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            className="w-full flex items-center gap-3 p-1.5 -m-1.5 rounded-xl text-left transition-colors hover:bg-[var(--surface-2)]"
+            title="Tài khoản của tôi"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
+            <Avatar name={user.full_name} url={user.avatar_url} className="w-9 h-9 rounded-xl text-xs" fallback="U" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[0.8125rem] font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
+              <p className="text-[0.6875rem] text-[var(--text-disabled)]">{getRoleLabel(user.role as UserRole)}</p>
+            </div>
+            <span className="transition-transform duration-200" style={{ transform: accountOpen ? 'rotate(180deg)' : 'rotate(0deg)', color: 'var(--text-muted)' }}>
+              <LineIcon name="chevronDown" size={14} color="currentColor" />
+            </span>
           </button>
         </div>
         <p className="text-center text-[9px] mt-2 leading-tight px-1" style={{ color: 'var(--text-muted)' }}>
@@ -480,5 +504,35 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       {/* Bottom nav mobile — thao tác chính trong tầm ngón cái */}
       <BottomNav perms={effectivePermissions} />
     </div>
+  );
+}
+
+function NavLink({ item, active, sub }: { item: NavItem; active: boolean; sub?: boolean }) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={`flex items-center gap-3 px-3 ${sub ? 'py-2' : 'py-2.5'} rounded-xl text-sm transition-colors duration-200 relative ${active ? '' : 'text-[var(--text-tertiary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'}`}
+      style={{
+        background: active ? 'rgba(201,169,110,0.1)' : undefined,
+        color: active ? 'var(--gold-400)' : undefined,
+      }}
+    >
+      {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ background: 'var(--gold-500)' }} />}
+      {!sub && <span className="flex-shrink-0">{item.icon}</span>}
+      <span className="font-medium">{item.label}</span>
+    </Link>
+  );
+}
+
+function AccountItem({ href, icon, label, hint }: { href: string; icon: string; label: string; hint?: string }) {
+  return (
+    <Link href={href} role="menuitem" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors hover:bg-[var(--surface-2)]" style={{ color: 'var(--text-primary)' }}>
+      <LineIcon name={icon} size={16} color="var(--gold-400)" />
+      <span className="min-w-0">
+        <span className="block font-medium">{label}</span>
+        {hint && <span className="block text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{hint}</span>}
+      </span>
+    </Link>
   );
 }

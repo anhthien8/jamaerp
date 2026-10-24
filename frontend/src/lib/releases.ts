@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Menu gọn 2 tầng + bấm ảnh đại diện mở «Hồ sơ 360° của tôi»',
+    tag: 'MỚI',
+    news: [
+      'Menu bên trái gom thành các khối: Việc hằng ngày, Kinh doanh, Kho hàng, Tài chính, Nhân sự, Trợ giúp. Bấm tên khối để mở/đóng; khối chứa trang đang xem tự mở sẵn, app nhớ khối bạn đã mở.',
+      'Bấm vào ảnh đại diện + tên của bạn ở góc dưới menu → mở menu tài khoản: Hồ sơ 360° của tôi, Đổi ảnh đại diện, Cài đặt tài khoản, Sổ tay, Đăng xuất.',
+    ],
+    fixes: [
+      'Hết cảnh tìm không thấy Hồ sơ 360°: ai cũng mở được hồ sơ của chính mình từ menu tài khoản (trước đây phải vào Nhân sự rồi bấm tên).',
+      'Bỏ nút «Xem thêm / Thu gọn» — mọi mục bạn có quyền đều nằm trong các khối, không bị giấu.',
+    ],
+    test: [
+      'Bấm ảnh đại diện góc dưới trái → «Hồ sơ 360° của tôi» → thấy hồ sơ của chính bạn.',
+      'Bấm khối «Kinh doanh» để mở/đóng, tải lại trang vẫn giữ nguyên.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Nhân sự: Sơ đồ mạng lưới công ty, bấm thẻ mở hồ sơ, thêm nhân viên kèm CCCD + HĐLĐ',
     tag: 'MỚI',
     news: [
