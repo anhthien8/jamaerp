@@ -482,7 +482,7 @@ async def employee_finance(
                 "id": p.id, "period": p.period, "status": p.status,
                 "base_salary": p.base_salary, "commission_total": p.commission_total,
                 "bonus": p.bonus, "allowance": p.allowance, "ot_pay": p.ot_pay,
-                "work_days": p.work_days, "gross": p.gross, "net": p.net,
+                "work_days": p.work_days, "gross": p.gross_salary, "net": p.net_salary,
                 "advance_deduction": p.advance_deduction,
                 "paid_at": str(p.paid_at) if p.paid_at else None,
             }
@@ -512,7 +512,7 @@ async def employee_finance(
             for t in transactions
         ],
         "totals": {
-            "net_paid": sum(p.net or 0 for p in payrolls if p.status == "paid"),
+            "net_paid": sum(p.net_salary or 0 for p in payrolls if p.status == "paid"),
             "commission_paid": sum(c.commission_amount or 0 for c in commissions if c.status == "paid"),
             "commission_pending": sum(c.commission_amount or 0 for c in commissions if c.status in ("pending", "approved")),
             "advance_open": sum(a.amount or 0 for a in advances if a.status == "approved"),

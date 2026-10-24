@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Sơ đồ mạng lưới công ty, ảnh công trình gửi thành album, chuyển trang mượt hơn',
+    tag: 'MỚI',
+    news: [
+      'Nhân sự → Sơ đồ: xem dạng «Mạng lưới» — cây tổ chức từ Ban Giám đốc xuống từng phòng, trưởng phòng, nhóm, nhân viên. Kéo để di chuyển, chụm 2 ngón để phóng to, bấm thẻ để mở Hồ sơ 360°. Có nút «Tìm tôi», «Vừa màn hình», «Mở hết», «Thu gọn». Vẫn chuyển về «Dạng thẻ» như cũ được.',
+      'Tài khoản đang đăng nhập được tô vàng kèm nhãn «Bạn» ở danh sách nhân sự và trên sơ đồ, luôn nằm đầu danh sách.',
+      'Tải nhiều ảnh công trình một lúc (ghi chú đầu việc hoặc khối Ảnh dự án): nhóm Kho ảnh Telegram nhận MỘT album thay vì mỗi ảnh một tin.',
+      'Bấm sang trang khác hiện logo JAMA trong lúc chờ (trang mở nhanh thì không hiện).',
+    ],
+    fixes: [
+      'Hồ sơ 360° → tab Tiền báo «Failed to fetch» với người đã có phiếu lương — đã sửa.',
+      'Chuyển trang không còn khựng: thanh menu bên trái giữ nguyên, không tải lại thông báo/lead/dự án mỗi lần bấm.',
+    ],
+    test: [
+      'Nhân sự → Sơ đồ → Mạng lưới → thấy thẻ của mình tô vàng ở giữa màn hình → bấm thẻ người khác mở hồ sơ.',
+      'Dự án → đầu việc → chọn 3 ảnh → Đăng cập nhật → nhóm Kho ảnh Telegram nhận 1 album 3 ảnh.',
+      'Hồ sơ 360° của người có phiếu lương → tab Tiền mở được.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Lương từng người + hoa hồng tự tính theo JD + nhập Excel nhân sự',
     tag: 'MỚI',
     news: [

@@ -15,6 +15,7 @@ import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib
 import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
+import JamaLoader from '@/components/ui/JamaLoader';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -121,7 +122,18 @@ const ROLE_MAIN_ROUTE: Record<string, string> = {
   supervisor: '/projects', accountant: '/accounting',
 };
 
+// Trang không có khung menu (khách/đăng nhập).
+const KHONG_KHUNG = ['/login', '/portal', '/bao-gia'];
+
+/** Mỗi trang vẫn bọc <Sidebar>…</Sidebar> như cũ, nhưng từ 24/10/2026 thẻ này
+ *  chỉ là vỏ rỗng: khung thật (AppShell) nằm ở app/layout.tsx nên KHÔNG bị gỡ ra
+ *  dựng lại mỗi lần chuyển trang. Trước đó mỗi cú bấm menu tải lại thông báo,
+ *  lead, dự án, vai trò tuỳ chỉnh → trang khựng. */
 export default function Sidebar({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isDemo, mode, setMode, effectivePermissions } = useAuth();
@@ -238,7 +250,31 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     void Promise.resolve().then(() => setAccountOpen(false));
   }, [pathname]);
 
-  if (!user) return <>{children}</>;
+  // Lớp phủ logo khi bấm sang trang khác — bắt ở pha capture vì <Link> của Next
+  // gọi preventDefault ở pha bubble. Tắt khi đường dẫn đổi xong (hoặc sau 10s).
+  const [dangChuyen, setDangChuyen] = useState(false);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      setDangChuyen(true);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, []);
+  useEffect(() => {
+    void Promise.resolve().then(() => setDangChuyen(false));
+  }, [pathname]);
+  useEffect(() => {
+    if (!dangChuyen) return;
+    const t = setTimeout(() => setDangChuyen(false), 10_000);
+    return () => clearTimeout(t);
+  }, [dangChuyen]);
+
+  if (!user || KHONG_KHUNG.some(p => pathname.startsWith(p))) return <>{children}</>;
   const sidebarContent = (
     <>
       {/* Brand — logo thật của công ty (public/jama-logo.png, đã cắt đệm trong suốt) */}
@@ -489,6 +525,14 @@ export default function Sidebar({ children }: { children: ReactNode }) {
           </div>
         )}
         {children}
+        {dangChuyen && (
+          <div
+            className="fixed inset-x-0 bottom-0 top-14 lg:top-0 z-30 flex items-center justify-center"
+            style={{ left: isDesktop ? 256 : 0, background: 'color-mix(in srgb, var(--surface-0) 72%, transparent)' }}
+          >
+            <JamaLoader />
+          </div>
+        )}
       </main>
 
       {/* Global Search Modal */}

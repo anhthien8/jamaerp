@@ -13,11 +13,15 @@ import type { User, Team } from '@/lib/api';
 import Avatar from '@/components/ui/Avatar';
 import LineIcon from '@/components/ui/LineIcon';
 import { capBac, deptLabel, DEPT_ORDER, type RoleStyle } from '@/lib/nhan-su';
+import { BadgeBan, NEN_CUA_TOI } from '@/components/hr/CuaToi';
+import SoDoMangLuoi from '@/components/hr/SoDoMangLuoi';
 
 interface Props {
   users: User[];
   teams: Team[];
   roleOf: (role?: string | null) => RoleStyle;
+  /** Tài khoản đang đăng nhập — tô vàng + nhãn «Bạn» */
+  meId?: string;
 }
 
 const VIEN = 'var(--border-subtle)';
@@ -35,23 +39,25 @@ function Pill({ children, accent }: { children: React.ReactNode; accent?: boolea
   );
 }
 
-function NutNguoi({ u, roleOf, noiBat }: { u: User; roleOf: Props['roleOf']; noiBat?: boolean }) {
+function NutNguoi({ u, roleOf, noiBat, laToi }: { u: User; roleOf: Props['roleOf']; noiBat?: boolean; laToi?: boolean }) {
   const router = useRouter();
   const r = roleOf(u.role);
   return (
     <button
       type="button"
       onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
-      title="Mở hồ sơ để xem/sửa"
+      title={laToi ? 'Tài khoản của bạn — mở hồ sơ' : 'Mở hồ sơ để xem/sửa'}
       className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-3 transition-colors active:scale-[0.99]"
-      style={{
-        background: noiBat ? 'rgba(201,169,110,0.08)' : 'var(--surface-2)',
-        border: `1px solid ${noiBat ? 'rgba(201,169,110,0.35)' : VIEN}`,
-      }}
+      style={laToi
+        ? { background: NEN_CUA_TOI, border: '1.5px solid var(--gold-500)' }
+        : {
+          background: noiBat ? 'rgba(201,169,110,0.08)' : 'var(--surface-2)',
+          border: `1px solid ${noiBat ? 'rgba(201,169,110,0.35)' : VIEN}`,
+        }}
     >
       <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-full text-sm shrink-0" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold truncate text-[var(--text-primary)]">{u.full_name}</span>
+        <span className="block text-sm font-semibold truncate text-[var(--text-primary)]">{u.full_name}{laToi && <BadgeBan />}</span>
         <span className="block text-[11px] truncate" style={{ color: r.color }}>{r.label}</span>
       </span>
       <LineIcon name="arrowRight" size={14} color="var(--text-muted)" />
@@ -81,8 +87,9 @@ function TieuDeTang({ text, n }: { text: string; n: number }) {
   );
 }
 
-export default function SoDoCongTy({ users, teams, roleOf }: Props) {
+export default function SoDoCongTy({ users, teams, roleOf, meId }: Props) {
   const [tim, setTim] = useState('');
+  const [kieu, setKieu] = useState<'cay' | 'the'>('cay');
   const [dong, setDong] = useState<Record<string, boolean>>({});
 
   const dangLam = useMemo(() => users.filter(u => u.is_active), [users]);
@@ -103,7 +110,7 @@ export default function SoDoCongTy({ users, teams, roleOf }: Props) {
   }, [conLai]);
 
   const veNguoi = (list: User[], noiBat?: boolean) =>
-    list.filter(khop).map(u => <NutNguoi key={u.id} u={u} roleOf={roleOf} noiBat={noiBat} />);
+    list.filter(khop).map(u => <NutNguoi key={u.id} u={u} roleOf={roleOf} noiBat={noiBat} laToi={u.id === meId} />);
 
   return (
     <div className="space-y-5">
@@ -135,7 +142,23 @@ export default function SoDoCongTy({ users, teams, roleOf }: Props) {
             className="w-full pl-9 pr-3 py-2 rounded-full text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] outline-none"
           />
         </div>
+        <div className="mt-3 inline-flex p-1 rounded-full" style={{ background: 'var(--surface-2)' }}>
+          {([['cay', 'Mạng lưới', 'network'], ['the', 'Dạng thẻ', 'list']] as const).map(([k, nhan, icon]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKieu(k)}
+              className="px-4 min-h-[36px] rounded-full text-xs font-semibold inline-flex items-center gap-1.5"
+              style={kieu === k ? { background: 'var(--gold-500)', color: '#000' } : { color: 'var(--text-secondary)' }}
+            >
+              <LineIcon name={icon} size={14} color="currentColor" /> {nhan}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {kieu === 'cay' && <SoDoMangLuoi users={users} teams={teams} roleOf={roleOf} meId={meId} tim={tim} />}
+      {kieu === 'the' && <>
 
       {/* Ban Giám đốc */}
       {bgd.filter(khop).length > 0 && (
@@ -224,6 +247,7 @@ export default function SoDoCongTy({ users, teams, roleOf }: Props) {
           );
         })}
       </div>
+      </>}
     </div>
   );
 }

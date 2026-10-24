@@ -43,14 +43,21 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
   useEffect(() => { load(1); }, [load]);
 
   const upload = async (files: File[]) => {
-    let ok = 0;
+    // Nén từng ảnh rồi gửi MỘT lượt → nhóm Kho ảnh nhận album thay vì N tin.
+    const blobs: Blob[] = [];
     for (let i = 0; i < files.length; i++) {
-      setUploading(`${i + 1}/${files.length}`);
+      setUploading(`Nén ${i + 1}/${files.length}`);
+      const blob = await nenAnh(files[i]);
+      if (blob) blobs.push(blob);
+      else toast(`${files[i].name}: không đọc được ảnh`, 'error');
+    }
+    let ok = 0;
+    for (let dau = 0; dau < blobs.length; dau += 30) {
+      const lo = blobs.slice(dau, dau + 30);
+      setUploading(`Đang gửi ${dau + lo.length}/${blobs.length}`);
       try {
-        const blob = await nenAnh(files[i]);
-        if (!blob) { toast(`${files[i].name}: không đọc được ảnh`, 'error'); continue; }
-        const m = await api.uploadMedia(blob, { projectId, kind: 'tien_do' });
-        if (!m.deduped) ok++;
+        const res = await api.uploadMediaBatch(lo, { projectId, kind: 'tien_do' });
+        ok += res.items.length - res.deduped_count;
       } catch (e) {
         toast(e instanceof Error ? e.message : 'Tải ảnh thất bại', 'error');
         break;
@@ -87,7 +94,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
           disabled={!!uploading}
           className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 disabled:opacity-50"
         >
-          {uploading ? `Đang tải ${uploading}…` : '＋ Thêm ảnh'}
+          {uploading ? `${uploading}…` : '＋ Thêm ảnh'}
         </button>
       </div>
 

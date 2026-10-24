@@ -520,18 +520,21 @@ function ProjectsPageInner() {
     const media: (string | undefined)[] = newActivityMedia.length > 0 ? newActivityMedia : [undefined];
     const created: TaskActivity[] = [];
     try {
+      // Tải TẤT CẢ ảnh trong một lượt → nhóm Kho ảnh Telegram nhận một album
+      // (trước 24/10/2026 mỗi ảnh một tin, nhóm bị spam).
+      let urls: (string | undefined)[] = media.map(() => undefined);
+      if (media[0]) {
+        if (media.length > 1) toast(`Đang tải ${media.length} ảnh…`, 'info');
+        const blobs = await Promise.all(media.map(async m => (await fetch(m!)).blob()));
+        const up = await api.uploadMediaBatch(blobs, {
+          projectId: selectedTask.project_id, kind: 'tien_do', caption: content || undefined,
+        });
+        urls = up.items.map(x => x.url);
+      }
       for (let i = 0; i < media.length; i++) {
         const caption = `📷 Ảnh ${i + 1}/${media.length}` + (content ? ' (kèm ghi chú trên)' : '');
         const body = i === 0 && content ? content : caption;
-        let url: string | undefined;
-        if (media[i]) {
-          if (media.length > 1) toast(`Đang tải ảnh ${i + 1}/${media.length}…`, 'info');
-          const blob = await (await fetch(media[i]!)).blob();
-          const up = await api.uploadMedia(blob, {
-            projectId: selectedTask.project_id, kind: 'tien_do', caption: content || undefined,
-          });
-          url = up.url;
-        }
+        const url = urls[i];
         created.push(await api.createTaskActivity(selectedTask.id, body, url, url ? 'tien_do' : undefined));
       }
       setTaskActivities(prev => [...created.slice().reverse(), ...prev]);

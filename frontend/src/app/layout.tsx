@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/ui/Toast";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import InstallBanner from "@/components/ui/InstallBanner";
+import { AppShell } from "@/components/layout/Sidebar";
 
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
@@ -43,7 +44,9 @@ export default function RootLayout({
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <ErrorBoundary>
           <AuthProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <AppShell>{children}</AppShell>
+            </ToastProvider>
             <InstallBanner />
           </AuthProvider>
         </ErrorBoundary>

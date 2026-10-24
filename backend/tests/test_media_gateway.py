@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
@@ -47,6 +47,17 @@ class FakeTelegram:
                 {"file_id": f"big-{self._msg}", "file_unique_id": f"u{self._msg}",
                  "width": 1280, "height": 427, "file_size": 5000},
             ]}
+        if method == "sendMediaGroup":
+            import json as _json
+            out = []
+            for _ in _json.loads(data["media"]):
+                self._msg += 1
+                out.append({"message_id": self._msg, "photo": [
+                    {"file_id": f"big-{self._msg}", "file_unique_id": f"u{self._msg}",
+                     "width": 1280, "height": 960},
+                ]})
+            self.files = files
+            return out
         if method == "getFile":
             return {"file_path": "photos/x.jpg"}
         raise AssertionError(method)
@@ -277,6 +288,55 @@ class TestTelegram:
 
 
 # ── Nhật ký đầu việc từ web ───────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_upload_nhieu_anh_gui_mot_album(
+    client: AsyncClient, admin_user, project, kho, tg, db_session
+):
+    """3 ảnh mới + 1 ảnh trùng trong lượt → MỘT sendMediaGroup 3 ảnh, caption ở ảnh đầu."""
+    a, b, c = (_png(400, 300, (i, 2, 3, 255)) for i in (10, 20, 30))
+    resp = await client.post(
+        "/api/v1/media/upload-batch", headers=auth_header(admin_user),
+        data={"project_id": project.id, "caption": "Ốp lát phòng khách"},
+        files=[("files", (f"{i}.png", d, "image/png")) for i, d in enumerate([a, b, c, a])],
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body["items"]) == 4
+    assert body["deduped_count"] == 1
+    assert body["items"][3]["id"] == body["items"][0]["id"]
+    assert tg.dem("sendMediaGroup") == 1
+    assert tg.dem("sendPhoto") == 0
+    import json as _json
+    gui = [d for m, d in tg.calls if m == "sendMediaGroup"][0]
+    media = _json.loads(gui["media"])
+    assert len(media) == 3 and len(tg.files) == 3
+    assert "Ốp lát phòng khách (3 ảnh)" in media[0]["caption"]
+    assert "caption" not in media[1]
+    assert gui["message_thread_id"] == "77"
+    n = (await db_session.execute(select(func.count()).select_from(MediaFile))).scalar()
+    assert n == 3
+
+    # Gửi lại cả lô → không đăng gì thêm
+    lai = await client.post(
+        "/api/v1/media/upload-batch", headers=auth_header(admin_user),
+        data={"project_id": project.id},
+        files=[("files", ("a.png", a, "image/png")), ("files", ("b.png", b, "image/png"))],
+    )
+    assert lai.json()["deduped_count"] == 2
+    assert tg.dem("sendMediaGroup") == 1
+
+
+@pytest.mark.asyncio
+async def test_upload_batch_mot_anh_dung_sendphoto(client: AsyncClient, admin_user, project, kho, tg):
+    resp = await client.post(
+        "/api/v1/media/upload-batch", headers=auth_header(admin_user),
+        data={"project_id": project.id},
+        files=[("files", ("a.png", _png(500, 500), "image/png"))],
+    )
+    assert resp.status_code == 201
+    assert tg.dem("sendPhoto") == 1 and tg.dem("sendMediaGroup") == 0
+
 
 @pytest.mark.asyncio
 async def test_activity_base64_bi_chan_422_va_kind_tu_dong(client: AsyncClient, admin_user, project, db_session):

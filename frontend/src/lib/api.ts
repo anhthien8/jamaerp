@@ -1170,6 +1170,32 @@ class ApiClient {
     return res.json() as Promise<MediaFile & { deduped: boolean }>;
   }
 
+  /** Nhiều ảnh một lượt → nhóm Kho ảnh Telegram nhận thành MỘT album thay vì N tin. */
+  async uploadMediaBatch(files: Blob[], opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
+    }
+    const fd = new FormData();
+    files.forEach((f, i) => fd.append('files', f, `anh${i}.jpg`));
+    fd.append('project_id', opts.projectId);
+    if (opts.kind) fd.append('kind', opts.kind);
+    if (opts.caption) fd.append('caption', opts.caption);
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/media/upload-batch`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Tải ảnh thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/media/upload-batch');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<{ items: (MediaFile & { deduped: boolean })[]; deduped_count: number }>;
+  }
+
   /** Nhập danh sách nhân sự (Excel HCNS) → Hồ sơ 360°. apply=false chỉ xem trước. */
   async importEmployeesExcel(file: File, apply: boolean) {
     if (isDemoMode()) {

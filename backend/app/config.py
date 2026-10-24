@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "JAMA HOME CRM"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    # In mọi câu SQL ra log — chỉ bật khi gỡ lỗi. Bật mặc định từng làm prod
+    # vượt giới hạn 500 dòng log/giây của Railway và chậm mọi request (24/10).
+    SQL_ECHO: bool = False
     LOG_LEVEL: str = "INFO"
     TIMEZONE: str = "Asia/Ho_Chi_Minh"
 

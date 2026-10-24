@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import io
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -154,7 +155,8 @@ async def _tg(method: str, data: dict, files: dict | None = None) -> dict:
         raise MediaError(f"Không kết nối được Telegram ({type(exc).__name__})", 502) from exc
     if not body.get("ok"):
         raise MediaError(f"Telegram từ chối: {body.get('description', 'không rõ lý do')}", 502)
-    return body.get("result") or {}
+    kq = body.get("result")
+    return kq if kq is not None else {}
 
 
 async def _dam_bao_topic(db: AsyncSession, project: Project | None, chat_id: str) -> int | None:
@@ -190,18 +192,34 @@ def _caption(project: Project | None, caption: str | None, nguoi: str | None) ->
     return " ".join(phan)[:1000]
 
 
-async def _dang_anh(
-    db: AsyncSession, project: Project | None, photo, caption: str,
-) -> tuple[str, dict]:
-    """`photo` là bytes JPG hoặc file_id. Trả (chat_id, message)."""
+async def _gui_vao_topic(db: AsyncSession, project: Project | None, gui) -> tuple[str, object]:
+    """Gọi `gui(chat_id, thread_id)` trong topic dự án của nhóm Kho ảnh.
+    Topic bị xoá → tạo lại một lần. Trả (chat_id, kết quả)."""
     chat_id = await lay_storage_chat_id(db)
     if not chat_id:
         raise MediaError(
             "Chưa cấu hình nhóm Kho ảnh. Admin vào Cài đặt → Tự động hoá → "
             "«Nhóm Telegram Kho ảnh» để bật lưu ảnh.", 503,
         )
+    thread_id = await _dam_bao_topic(db, project, chat_id)
+    try:
+        kq = await gui(chat_id, thread_id)
+    except MediaError as exc:
+        # Ai đó xoá topic trong nhóm → tạo lại một lần.
+        if thread_id and "thread not found" in str(exc).lower() and project is not None:
+            project.telegram_topic_id = None
+            kq = await gui(chat_id, await _dam_bao_topic(db, project, chat_id))
+        else:
+            raise
+    return chat_id, kq
 
-    async def gui(thread_id: int | None) -> dict:
+
+async def _dang_anh(
+    db: AsyncSession, project: Project | None, photo, caption: str,
+) -> tuple[str, dict]:
+    """`photo` là bytes JPG hoặc file_id. Trả (chat_id, message)."""
+
+    async def gui(chat_id: str, thread_id: int | None) -> dict:
         data = {"chat_id": chat_id, "caption": caption}
         if thread_id:
             data["message_thread_id"] = str(thread_id)
@@ -209,17 +227,28 @@ async def _dang_anh(
             return await _tg("sendPhoto", data, files={"photo": ("anh.jpg", photo, "image/jpeg")})
         return await _tg("sendPhoto", {**data, "photo": photo})
 
-    thread_id = await _dam_bao_topic(db, project, chat_id)
-    try:
-        msg = await gui(thread_id)
-    except MediaError as exc:
-        # Ai đó xoá topic trong nhóm → tạo lại một lần.
-        if thread_id and "thread not found" in str(exc).lower() and project is not None:
-            project.telegram_topic_id = None
-            msg = await gui(await _dam_bao_topic(db, project, chat_id))
-        else:
-            raise
-    return chat_id, msg
+    return await _gui_vao_topic(db, project, gui)
+
+
+async def _dang_album(
+    db: AsyncSession, project: Project | None, photos: list[bytes], caption: str,
+) -> tuple[str, list[dict]]:
+    """Gửi 2–10 ảnh thành MỘT album (sendMediaGroup) — caption nằm ở ảnh đầu
+    để Telegram hiện dưới cả album. Trả (chat_id, danh sách message theo thứ tự)."""
+
+    async def gui(chat_id: str, thread_id: int | None) -> list[dict]:
+        media = [{"type": "photo", "media": f"attach://p{i}"} for i in range(len(photos))]
+        media[0]["caption"] = caption
+        data = {"chat_id": chat_id, "media": json.dumps(media, ensure_ascii=False)}
+        if thread_id:
+            data["message_thread_id"] = str(thread_id)
+        files = {f"p{i}": (f"anh{i}.jpg", b, "image/jpeg") for i, b in enumerate(photos)}
+        kq = await _tg("sendMediaGroup", data, files=files)
+        if not isinstance(kq, list) or len(kq) != len(photos):
+            raise MediaError("Telegram trả album không đủ ảnh", 502)
+        return kq
+
+    return await _gui_vao_topic(db, project, gui)
 
 
 def _anh_lon_nhat(msg: dict) -> dict:
@@ -264,6 +293,68 @@ async def luu_anh_tu_web(
     db.add(media)
     await db.flush()
     return media, False
+
+
+ALBUM_TOI_DA = 10  # giới hạn sendMediaGroup của Telegram
+
+
+async def luu_album_tu_web(
+    db: AsyncSession, *, files: list[bytes], project: Project | None, user_id: str | None,
+    nguoi: str | None, kind: str = "tien_do", caption: str | None = None,
+) -> list[tuple[MediaFile, bool]]:
+    """Lưu nhiều ảnh một lượt: ảnh mới gom thành album (mỗi album ≤10 ảnh) để
+    nhóm Kho ảnh nhận MỘT tin thay vì N tin. Trả [(media, deduped)] đúng thứ tự gửi lên."""
+    chuan: list[tuple[bytes, int, int, str]] = []
+    for data in files:
+        jpg, w, h = normalize_image(data)
+        chuan.append((jpg, w, h, hashlib.sha256(jpg).hexdigest()))
+
+    ket_qua: list[tuple[MediaFile, bool] | None] = [None] * len(chuan)
+    moi: list[int] = []  # vị trí ảnh cần đăng
+    da_thay: dict[str, int] = {}
+    for i, (_, _, _, khoa) in enumerate(chuan):
+        cu = await _ban_cu(db, khoa)
+        if cu is not None:
+            ket_qua[i] = (cu, True)
+        elif khoa in da_thay:
+            continue  # trùng ngay trong lượt này — điền sau khi ảnh gốc lưu xong
+        else:
+            da_thay[khoa] = i
+            moi.append(i)
+
+    tong = len(moi)
+    for dau in range(0, tong, ALBUM_TOI_DA):
+        lo = moi[dau:dau + ALBUM_TOI_DA]
+        nhan = caption or ""
+        if tong > 1:
+            dem = f"{tong} ảnh" if tong <= ALBUM_TOI_DA else f"{dau + 1}–{dau + len(lo)}/{tong} ảnh"
+            nhan = f"{nhan} ({dem})" if nhan else dem
+        cap = _caption(project, nhan, nguoi)
+        anh = [chuan[i][0] for i in lo]
+        if len(lo) == 1:
+            chat_id, msg = await _dang_anh(db, project, anh[0], cap)
+            msgs = [msg]
+        else:
+            chat_id, msgs = await _dang_album(db, project, anh, cap)
+        for i, msg in zip(lo, msgs):
+            jpg, w, h, khoa = chuan[i]
+            lon = _anh_lon_nhat(msg)
+            media = MediaFile(
+                sha256=khoa, mime="image/jpeg", size_bytes=len(jpg), width=w, height=h,
+                project_id=project.id if project else None, uploaded_by=user_id,
+                caption=(caption or None) and caption[:300], kind=kind,
+                shared_with_customer=_chia_se_mac_dinh(kind),
+                telegram_chat_id=chat_id, telegram_message_id=msg.get("message_id"),
+                telegram_file_id=lon.get("file_id"),
+            )
+            db.add(media)
+            ket_qua[i] = (media, False)
+        await db.flush()
+
+    for i, (_, _, _, khoa) in enumerate(chuan):
+        if ket_qua[i] is None:
+            ket_qua[i] = (ket_qua[da_thay[khoa]][0], True)
+    return ket_qua  # type: ignore[return-value]
 
 
 async def luu_anh_tu_telegram(

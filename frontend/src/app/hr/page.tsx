@@ -11,6 +11,7 @@ import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { nenAnhDaiDien } from '@/components/ui/Avatar';
 import SoDoCongTy from '@/components/hr/SoDoCongTy';
+import { NEN_CUA_TOI, BadgeBan } from '@/components/hr/CuaToi';
 import NhapExcelNhanSu from '@/components/hr/NhapExcelNhanSu';
 import { useRoleLabels, useCustomRoles, deptLabel, compressImage } from '@/lib/nhan-su';
 
@@ -67,6 +68,11 @@ export default function HRPage() {
   const roleOf = useRoleLabels();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  // Tài khoản đang đăng nhập luôn đứng đầu danh sách (tô vàng + nhãn «Bạn»)
+  const dsHienThi = useMemo(
+    () => [...users].sort((a, b) => Number(b.id === user?.id) - Number(a.id === user?.id)),
+    [users, user?.id],
+  );
   const [loadingData, setLoadingData] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'tree' | 'org' | 'teams'>('list');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -333,21 +339,24 @@ export default function HRPage() {
         <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
           {/* Mobile card view */}
           <div className="md:hidden p-3 space-y-3">
-            {users.map(u => {
+            {dsHienThi.map(u => {
               const role = roleOf(u.role);
+              const laToi = u.id === user?.id;
               return (
                 <div
                   key={u.id}
                   onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
                   className="p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.01]"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
+                  style={laToi
+                    ? { background: NEN_CUA_TOI, border: '1.5px solid var(--gold-500)' }
+                    : { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
                   title="Bấm để mở hồ sơ nhân viên"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
                       <div>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{u.full_name}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{u.full_name}{laToi && <BadgeBan />}</p>
                         <p className="text-[10px] text-[var(--text-muted)]">{deptLabel(u.department)}</p>
                       </div>
                     </div>
@@ -407,22 +416,24 @@ export default function HRPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => {
+              {dsHienThi.map(u => {
                 const role = roleOf(u.role);
+                const laToi = u.id === user?.id;
+                const nen = laToi ? NEN_CUA_TOI : 'transparent';
                 return (
                   <tr
                     key={u.id}
                     className="transition-colors cursor-pointer"
-                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    style={{ borderBottom: '1px solid var(--border-subtle)', background: nen, boxShadow: laToi ? 'inset 3px 0 0 var(--gold-500)' : undefined }}
                     onClick={() => router.push(`/hr/nhan-vien?id=${u.id}`)}
-                    title="Bấm để mở hồ sơ nhân viên"
+                    title={laToi ? 'Tài khoản của bạn — bấm để mở hồ sơ' : 'Bấm để mở hồ sơ nhân viên'}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    onMouseLeave={e => e.currentTarget.style.background = nen}
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <Avatar name={u.full_name} url={u.avatar_url} className="w-9 h-9 rounded-xl text-sm" />
-                        <span className="font-medium text-[var(--text-primary)]">{u.full_name}</span>
+                        <span className="font-medium text-[var(--text-primary)]">{u.full_name}{laToi && <BadgeBan />}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
@@ -472,7 +483,7 @@ export default function HRPage() {
           </div>
         </div>
       ) : viewMode === 'tree' ? (
-        <SoDoCongTy users={users} teams={teams} roleOf={roleOf} />
+        <SoDoCongTy users={users} teams={teams} roleOf={roleOf} meId={user?.id} />
       ) : viewMode === 'teams' ? (
         /* Sơ đồ đội — trưởng nhóm đứng đầu, thành viên xếp dưới (luồng chia data theo nhóm KD) */
         <div className="space-y-6">

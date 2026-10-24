@@ -23,6 +23,7 @@ from app.services.media_gateway import (
     gui_anh_thu,
     lay_storage_chat_id,
     luu_anh_tu_telegram,
+    luu_album_tu_web,
     luu_anh_tu_web,
     TAI_VE_QUA_BOT_TOI_DA,
     link_tin_nhan,
@@ -36,6 +37,7 @@ from app.services.media_gateway import (
 router = APIRouter(prefix="/media", tags=["media"])
 
 TOI_DA_BYTES = 10 * 1024 * 1024
+TOI_DA_ANH_MOT_LUOT = 30
 _ADMIN = ("admin", "executive")
 
 
@@ -117,6 +119,46 @@ async def upload_media(
         raise _loi(exc)
     await db.commit()
     return {**_ra_dict(media, current_user.full_name), "deduped": deduped}
+
+
+@router.post("/upload-batch", status_code=201)
+async def upload_media_batch(
+    files: list[UploadFile] = File(...),
+    project_id: str | None = Form(default=None),
+    project_code: str | None = Form(default=None),
+    kind: str = Form(default="tien_do"),
+    caption: str | None = Form(default=None, max_length=300),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nhiều ảnh một lượt → nhóm Kho ảnh nhận thành album (1 tin / ≤10 ảnh)."""
+    _kiem_kind(kind)
+    if not files:
+        raise HTTPException(status_code=400, detail="Chưa chọn ảnh")
+    if len(files) > TOI_DA_ANH_MOT_LUOT:
+        raise HTTPException(status_code=400, detail=f"Tối đa {TOI_DA_ANH_MOT_LUOT} ảnh mỗi lượt")
+    project = await _tim_du_an(db, project_id, project_code)
+    await _kiem_xem_du_an(db, current_user, project)
+    datas: list[bytes] = []
+    for f in files:
+        data = await f.read(TOI_DA_BYTES + 1)
+        if len(data) > TOI_DA_BYTES:
+            raise HTTPException(status_code=413, detail=f"{f.filename or 'Ảnh'}: tối đa 10 MB")
+        if not data:
+            raise HTTPException(status_code=400, detail="Tệp rỗng")
+        datas.append(data)
+    try:
+        ket_qua = await luu_album_tu_web(
+            db, files=datas, project=project, user_id=current_user.id,
+            nguoi=current_user.full_name, kind=kind, caption=caption,
+        )
+    except MediaError as exc:
+        raise _loi(exc)
+    await db.commit()
+    return {
+        "items": [{**_ra_dict(m, current_user.full_name), "deduped": d} for m, d in ket_qua],
+        "deduped_count": sum(1 for _, d in ket_qua if d),
+    }
 
 
 # ── Ảnh từ bot Telegram ────────────────────────────────────────────────────

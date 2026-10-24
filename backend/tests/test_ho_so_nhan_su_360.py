@@ -202,6 +202,23 @@ class TestTabTien:
             body = resp.json()
             assert set(body.keys()) == {"payrolls", "commissions", "advances", "transactions", "totals"}
 
+    async def test_co_phieu_luong_khong_loi_500(self, client, db_session, admin_user, sales_user):
+        # Lỗi 24/10: tab Tiền đọc p.gross/p.net (không tồn tại) → 500 khi đã có phiếu lương
+        from app.models.payroll import Payroll
+        db_session.add(Payroll(
+            id=_uid(), user_id=sales_user.id, period="2026-09", base_salary=10_000_000,
+            gross_salary=12_000_000, net_salary=11_000_000, status="paid",
+        ))
+        await db_session.flush()
+        resp = await client.get(
+            f"/api/v1/hr/employees/{sales_user.id}/finance", headers=auth_header(admin_user)
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["payrolls"][0]["gross"] == 12_000_000
+        assert body["payrolls"][0]["net"] == 11_000_000
+        assert body["totals"]["net_paid"] == 11_000_000
+
     async def test_chinh_chu_xem_duoc_cua_minh(self, client, sales_user):
         resp = await client.get(
             f"/api/v1/hr/employees/{sales_user.id}/finance", headers=auth_header(sales_user)

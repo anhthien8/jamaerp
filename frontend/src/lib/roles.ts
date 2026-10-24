@@ -173,7 +173,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
 let _customRoles: Record<string, { role_name: string; permissions: Record<string, boolean | string> }> = {};
 
 /** Tải vai trò tùy chỉnh từ backend. Trả về true nếu có ít nhất 1 vai trò. */
-export async function loadCustomRoles(): Promise<boolean> {
+// Auth và khung menu cùng gọi lúc mở app → gộp thành 1 request, giữ 60 giây.
+let _customRolesReq: { at: number; p: Promise<boolean> } | null = null;
+
+export function loadCustomRoles(): Promise<boolean> {
+  if (_customRolesReq && Date.now() - _customRolesReq.at < 60_000) return _customRolesReq.p;
+  const p = _taiCustomRoles();
+  _customRolesReq = { at: Date.now(), p };
+  return p;
+}
+
+async function _taiCustomRoles(): Promise<boolean> {
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return false;
     const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;

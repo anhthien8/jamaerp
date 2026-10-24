@@ -666,3 +666,22 @@ h2 { letter-spacing: -0.015em; }
     font-size: 16px !important;
   }
 }
+
+/* === Màn chờ logo JAMA khi chuyển trang (24/10/2026) ===
+   Mờ 0 rồi hiện sau 150ms: trang mở nhanh thì không nháy logo; chậm mới thấy. */
+@keyframes jamaHien { from { opacity: 0; } to { opacity: 1; } }
+@keyframes jamaTho {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.94); opacity: 0.7; }
+}
+@keyframes jamaQuet {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+.jama-loader { opacity: 0; animation: jamaHien 0.2s ease 150ms forwards; }
+.jama-loader__logo { animation: jamaTho 1.6s ease-in-out infinite; }
+.jama-loader__vach { position: relative; overflow: hidden; height: 3px; width: 120px; border-radius: 999px; background: var(--surface-3); }
+.jama-loader__vach::after {
+  content: ''; position: absolute; inset: 0; width: 40%; border-radius: 999px;
+  background: var(--gold-400); animation: jamaQuet 1s ease-in-out infinite;
+}

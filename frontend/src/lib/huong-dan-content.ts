@@ -1147,7 +1147,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Trang **Nhân sự** có 4 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Sơ đồ** (cây mạng lưới công ty), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**. Ở mọi cách xem, **bấm vào thẻ một người là mở Hồ sơ 360°** của người đó để xem/sửa."
+        "text": "Trang **Nhân sự** có 4 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Sơ đồ** (cây mạng lưới công ty), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**. Ở mọi cách xem, **bấm vào thẻ một người là mở Hồ sơ 360°** của người đó để xem/sửa. Dòng của chính bạn luôn nằm đầu danh sách, tô vàng kèm nhãn «Bạn»."
       },
       {
         "type": "h3",
@@ -1155,7 +1155,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Cây đi từ trên xuống: **JAMA HOME → Ban Giám đốc → từng phòng ban → Trưởng phòng → nhóm/Trưởng nhóm → Nhân viên**, đường nối mảnh bên trái cho biết ai dưới ai. Phòng Kinh doanh chia theo từng đội. Bấm tên phòng để thu gọn/mở; gõ tên hoặc vai trò vào ô tìm để lọc nhanh. Chỉ hiện người đang làm."
+        "text": "Mặc định là dạng **«Mạng lưới»**: cây tổ chức vẽ từ trên xuống **JAMA HOME → Ban Giám đốc → từng phòng ban → Trưởng phòng → nhóm/Trưởng nhóm → Nhân viên**. Kéo để di chuyển, cuộn chuột hoặc chụm 2 ngón để phóng to/thu nhỏ, bấm nút tròn dưới thẻ để mở/gập nhánh, bấm thẻ người để mở Hồ sơ 360°. **Thẻ của bạn tô vàng, có nhãn «Bạn»** và được đưa vào giữa màn hình khi mở. Thanh nút: «Tìm tôi», «Vừa màn hình», «Mở hết», «Thu gọn»; gõ tên vào ô tìm thì người khớp đầu tiên được tô sáng cả đường lên gốc. Muốn xem kiểu cũ thì bấm **«Dạng thẻ»**. Chỉ hiện người đang làm."
       },
       {
         "type": "h3",
@@ -1420,6 +1420,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "list",
         "items": [
+          "Tải **nhiều ảnh một lúc** trên web (ghi chú đầu việc hoặc khối «Ảnh dự án»): nhóm Kho ảnh nhận **một album** (tối đa 10 ảnh/album) thay vì mỗi ảnh một tin — đỡ trôi tin nhóm.",
           "Ảnh gửi trong `/baocao` và `/suco` được lưu ngay vào **Kho ảnh công trình** (bot báo «✅ Đã lưu ảnh»), hiện trên web ở khối «📷 Ảnh dự án».",
           "Nhanh nhất: vào nhóm **«JAMA Công trình»**, mở **đúng topic của dự án** (mỗi dự án một topic, tên dạng «MÃ · Tên dự án») rồi **thả ảnh vào, không cần gõ lệnh**. Bot thả 👍 là đã ghi nhận. Ghi chú thì gõ luôn vào chú thích ảnh.",
           "Bot không thả 👍? Kiểm tra bạn đã liên kết Telegram với CRM (phần trên) và đang gửi đúng topic dự án, không phải mục «General»."

@@ -13,7 +13,7 @@ from app.config import get_settings
 settings = get_settings()
 
 # SQLite doesn't support pool_size/max_overflow
-engine_kwargs = {"echo": settings.DEBUG}
+engine_kwargs = {"echo": settings.SQL_ECHO}
 if settings.is_sqlite:
     engine_kwargs["connect_args"] = {"timeout": 15}
 else:
