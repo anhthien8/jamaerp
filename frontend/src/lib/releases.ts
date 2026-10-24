@@ -16,6 +16,22 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Đổi họ tên ngay trên Hồ sơ 360° + bảng Phân quyền dễ đọc hơn',
+    tag: 'MỚI',
+    news: [
+      'Ban Giám đốc và Kế toán / Nhân sự thấy nút bút chì cạnh tên ở đầu Hồ sơ 360° → bấm để sửa họ tên, bấm Lưu là tên mới hiện ngay khắp app.',
+    ],
+    fixes: [
+      'Bảng Phân quyền: cột vai trò chia 2 nhóm «Vai trò có sẵn» và «Vai trò tự tạo», bỏ nhãn «tùy chỉnh» lặp ở từng cột; nút «Reset» đổi thành biểu tượng mũi tên vòng nhỏ dưới tên vai trò.',
+      'Nhân viên thường không tự đổi họ tên của mình được nữa — nhờ Kế toán / Nhân sự sửa giúp.',
+    ],
+    test: [
+      'Kế toán mở Hồ sơ 360° một nhân viên → bấm bút chì cạnh tên → sửa → Lưu.',
+      'Mở Nhân sự → Phân quyền: thấy 2 nhóm cột, tên vai trò không bị chen nhãn.',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Menu gọn 2 tầng + bấm ảnh đại diện mở «Hồ sơ 360° của tôi»',
     tag: 'MỚI',
     news: [

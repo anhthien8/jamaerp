@@ -67,6 +67,10 @@ function NhanVienContent() {
 
   const isHR = user?.role === 'admin' || user?.role === 'accountant';
   const isSelf = user?.id === targetId;
+  // Đổi họ tên: Ban Giám đốc + Kế toán/Nhân sự (24/10/2026)
+  const coTheDoiTen = ['admin', 'executive', 'accountant'].includes(user?.role || '');
+  const [suaTen, setSuaTen] = useState<string | null>(null);
+  const [luuTen, setLuuTen] = useState(false);
 
   const [tab, setTab] = useState<string>('ho-so');
   const [header, setHeader] = useState<{ full_name: string; email: string; phone: string | null; role: string; department: string | null; is_active: boolean; resign_date: string | null; avatar_url?: string | null } | null>(null);
@@ -278,14 +282,66 @@ function NhanVienContent() {
                 <Avatar name={header.full_name} url={header.avatar_url} className="w-14 h-14 rounded-full text-xl" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }} />
               )}
               <div>
+                {suaTen !== null ? (
+                  <form
+                    className="flex items-center gap-2 flex-wrap"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const ten = suaTen.trim();
+                      if (ten.length < 2) { toast('Họ tên quá ngắn', 'error'); return; }
+                      setLuuTen(true);
+                      try {
+                        const r = await api.doiHoTen(targetId, ten);
+                        setHeader((h) => (h ? { ...h, full_name: r.full_name } : h));
+                        if (isSelf) capNhatUser({ full_name: r.full_name });
+                        setSuaTen(null);
+                        toast('Đã đổi họ tên', 'success');
+                      } catch (err) {
+                        toast(err instanceof Error ? err.message : 'Không đổi được họ tên', 'error');
+                      } finally {
+                        setLuuTen(false);
+                      }
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      value={suaTen}
+                      onChange={(e) => setSuaTen(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setSuaTen(null); }}
+                      maxLength={100}
+                      aria-label="Họ tên mới"
+                      className="px-3 py-1.5 rounded-lg text-base font-semibold min-h-[40px] w-60 max-w-full"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-default, var(--border-subtle))' }}
+                    />
+                    <button type="submit" disabled={luuTen} className="px-3 py-1.5 rounded-full text-xs font-semibold min-h-[36px]" style={{ background: 'var(--gold-500)', color: '#111' }}>
+                      {luuTen ? 'Đang lưu…' : 'Lưu'}
+                    </button>
+                    <button type="button" onClick={() => setSuaTen(null)} className="px-3 py-1.5 rounded-full text-xs min-h-[36px]" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+                      Hủy
+                    </button>
+                  </form>
+                ) : (
                 <h1 className="text-xl font-bold flex items-center gap-2">
                   {header.full_name}
+                  {coTheDoiTen && (
+                    <button
+                      type="button"
+                      onClick={() => setSuaTen(header.full_name)}
+                      title="Đổi họ tên"
+                      aria-label="Đổi họ tên"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+                    >
+                      <LineIcon name="edit" size={15} color="currentColor" />
+                    </button>
+                  )}
                   {!header.is_active && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.12)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)' }}>
                       Đã nghỉ việc{header.resign_date ? ` ${new Date(header.resign_date).toLocaleDateString('vi-VN')}` : ''}
                     </span>
                   )}
                 </h1>
+                )}
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {roleOf(header.role).label} · {deptLabel(header.department)} · {header.email}{header.phone ? ` · ${header.phone}` : ''}
                 </p>

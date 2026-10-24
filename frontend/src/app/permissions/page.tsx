@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { UserRole, getRoleLabel, getRoleOverrides, loadRolePermissions, saveRolePermissions } from '@/lib/roles';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import LineIcon from '@/components/ui/LineIcon';
 
 // 'executive' bị bỏ khỏi cột hiển thị từ 13/08/2026 — không ai mang vai trò này,
 // để cột thừa chỉ gây rối. Vẫn còn trong DEFAULTS bên dưới (tương thích dữ liệu cũ).
@@ -257,49 +258,53 @@ export default function PermissionsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  {/* Hàng nhóm: tách «có sẵn» và «tùy chỉnh» thay vì gắn nhãn từng cột (24/10/2026) */}
+                  <tr>
                     <th
-                      className="text-left px-4 py-3 font-semibold sticky left-0 z-10"
-                      style={{
-                        background: 'var(--surface-1)',
-                        color: 'var(--text-primary)',
-                        minWidth: 180,
-                      }}
+                      rowSpan={2}
+                      className="text-left px-4 py-3 font-semibold sticky left-0 z-10 align-bottom"
+                      style={{ background: 'var(--surface-1)', color: 'var(--text-primary)', minWidth: 180, borderBottom: '1px solid var(--border-subtle)' }}
                     >
                       Tính năng
                     </th>
-                    {allRoleKeys.map(role => (
-                      <th
-                        key={role}
-                        className="text-center px-3 py-3 font-semibold"
-                        style={{ color: 'var(--text-primary)', minWidth: 100 }}
-                      >
-                        <div className="flex flex-fill items-center gap-1">
-                          <span>{roleLabelOf(role)}</span>
-                          {findCustom(role) ? (
-                            <span
-                              className="text-[10px] px-2 py-0.5 rounded-lg"
-                              style={{ background: 'rgba(201,169,110,0.12)', color: 'var(--gold-500)' }}
-                              title="Vai trò tùy chỉnh — tạo ở trang Tài khoản"
-                            >
-                              tùy chỉnh
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleResetRole(role)}
-                              className="text-[10px] px-2 py-0.5 rounded-lg opacity-50 hover:opacity-100 transition-opacity"
-                              style={{
-                                background: 'var(--surface-2)',
-                                color: 'var(--text-muted)',
-                              }}
-                              title="Reset về mặc định"
-                            >
-                              Reset
-                            </button>
-                          )}
-                        </div>
+                    <th colSpan={ROLES.length} className="px-3 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-center" style={{ color: 'var(--text-muted)' }}>
+                      Vai trò có sẵn
+                    </th>
+                    {customRoles.length > 0 && (
+                      <th colSpan={customRoles.length} className="px-3 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-center" style={{ color: 'var(--gold-500)', borderLeft: '1px solid var(--border-subtle)' }}>
+                        Vai trò tự tạo <span className="normal-case font-normal" style={{ color: 'var(--text-muted)' }}>· thêm ở trang Tài khoản</span>
                       </th>
-                    ))}
+                    )}
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    {allRoleKeys.map((role, i) => {
+                      const tuyChinh = !!findCustom(role);
+                      return (
+                        <th
+                          key={role}
+                          className="text-center px-2 pb-3 pt-1 font-semibold align-top"
+                          style={{
+                            color: 'var(--text-primary)', minWidth: 96,
+                            borderLeft: i === ROLES.length ? '1px solid var(--border-subtle)' : undefined,
+                          }}
+                        >
+                          <div className="flex flex-col items-center justify-between gap-1 min-h-[60px]">
+                            <span className="text-[13px] leading-tight">{roleLabelOf(role)}</span>
+                            {!tuyChinh && (
+                              <button
+                                onClick={() => handleResetRole(role)}
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full opacity-60 hover:opacity-100 transition-opacity"
+                                style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                                title={`Khôi phục quyền mặc định cho ${roleLabelOf(role)}`}
+                                aria-label={`Khôi phục quyền mặc định cho ${roleLabelOf(role)}`}
+                              >
+                                <LineIcon name="refresh" size={12} color="currentColor" />
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -330,8 +335,8 @@ export default function PermissionsPage() {
                           )}
                         </span>
                       </td>
-                      {allRoleKeys.map(role => (
-                        <td key={role} className="text-center px-3 py-2.5">
+                      {allRoleKeys.map((role, i) => (
+                        <td key={role} className="text-center px-3 py-2.5" style={i === ROLES.length ? { borderLeft: '1px solid var(--border-subtle)' } : undefined}>
                           {feature.key === '__skip__' ? (
                             <span className="text-xs" style={{ color: 'var(--text-disabled)' }}>-</span>
                           ) : (
@@ -373,7 +378,7 @@ export default function PermissionsPage() {
             <div className="w-4 h-4 rounded border-2" style={{ borderColor: 'var(--border-subtle)' }} />
             <span>Tắt</span>
           </div>
-          <span>Nhấn vào ô để chuyển đổi. Nhấn &quot;Reset&quot; để khôi phục mặc định vai trò.</span>
+          <span>Nhấn vào ô để bật/tắt. Nút <LineIcon name="refresh" size={11} color="currentColor" className="inline-block align-[-1px]" /> dưới tên vai trò = khôi phục quyền mặc định.</span>
         </div>
       </div>
     </Sidebar>

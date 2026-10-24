@@ -950,6 +950,40 @@ async def create_user(
     }
 
 
+VAI_TRO_DOI_TEN = ("admin", "executive", "accountant")
+
+
+class DoiTenIn(BaseModel):
+    full_name: str
+
+
+@router.put("/{user_id}/full-name")
+async def doi_ho_ten(
+    user_id: str,
+    data: DoiTenIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Đổi họ tên ngay trên Hồ sơ 360° — chỉ Ban Giám đốc + Kế toán/Nhân sự (24/10/2026)."""
+    if current_user.role not in VAI_TRO_DOI_TEN:
+        raise HTTPException(status_code=403, detail="Chỉ Ban Giám đốc hoặc Kế toán/Nhân sự được đổi họ tên")
+    ten = " ".join(data.full_name.split())
+    if len(ten) < 2 or len(ten) > 100:
+        raise HTTPException(status_code=400, detail="Họ tên phải từ 2 đến 100 ký tự")
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+    cu = user.full_name
+    if ten != cu:
+        user.full_name = ten
+        await log_action(
+            db, actor=current_user, action="user.rename", entity_type="user", entity_id=user.id,
+            before={"full_name": cu}, after={"full_name": ten},
+        )
+        await db.commit()
+    return {"id": user.id, "full_name": ten}
+
+
 @router.put("/{user_id}")
 async def update_user(
     user_id: str,
@@ -999,6 +1033,13 @@ async def update_user(
                 status_code=400,
                 detail="Telegram ID này đã được liên kết với tài khoản khác — liên hệ Admin nếu cần chuyển",
             )
+
+    # Họ tên: chỉ BGĐ/Kế toán hoặc người có «Quản lý Users» (nhân viên không tự đổi tên mình)
+    if (
+        "full_name" in provided and provided["full_name"] != user.full_name
+        and current_user.role not in VAI_TRO_DOI_TEN and not perms.get("canManageUsers")
+    ):
+        raise HTTPException(status_code=403, detail="Chỉ Ban Giám đốc hoặc Kế toán/Nhân sự được đổi họ tên")
 
     # Trường lương: chỉ admin/kế toán (tự sửa hồ sơ mình cũng không được đổi bậc lương)
     if ("salary_grade_id" in provided or "dependents_count" in provided) and current_user.role not in ("admin", "accountant"):

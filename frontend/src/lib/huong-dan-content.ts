@@ -1202,6 +1202,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "Mở menu **Nhân sự** → bấm vào một nhân viên. Trang hồ sơ có các tab; nhân viên thường cũng mở được hồ sơ CỦA CHÍNH MÌNH để xem (không sửa được)."
       },
       {
+        "type": "p",
+        "text": "**Đổi họ tên:** Ban Giám đốc và Kế toán / Nhân sự thấy **nút bút chì** cạnh tên ở đầu hồ sơ → bấm, sửa tên, bấm **Lưu** (hoặc Enter; Esc để hủy). Tên mới hiện ngay ở mọi nơi. Nhân viên khác không tự đổi tên được — nhờ Kế toán / Nhân sự sửa giúp."
+      },
+      {
         "type": "table",
         "header": [
           "Tab",
@@ -1488,6 +1492,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "tip",
         "text": "Bảng trên là quyền **mặc định**. Giám đốc có thể bật/tắt từng quyền cho từng vai trò trên trang «Phân quyền», hoặc cho từng người ngay khi sửa tài khoản trong trang «Tài khoản», nên thực tế của bạn có thể khác chút — cứ lấy màn hình của mình làm chuẩn."
+      },
+      {
+        "type": "p",
+        "text": "**Đọc bảng Phân quyền:** các cột chia 2 nhóm — **Vai trò có sẵn** (Giám đốc, Trưởng phòng, Nhân viên Sale, Kế toán / Nhân sự) và **Vai trò tự tạo** (thêm ở trang Tài khoản, ví dụ Thiết kế, Thu mua). Bấm ô tròn để bật/tắt, xong bấm **Lưu tất cả thay đổi**. Nút mũi tên vòng nhỏ dưới tên vai trò có sẵn = khôi phục quyền mặc định của vai trò đó."
       }
     ]
   },

@@ -1556,6 +1556,11 @@ class ApiClient {
     return this.request<User>(`/users/${id}`, { method: 'PUT', body: data });
   }
 
+  async doiHoTen(id: string, full_name: string) {
+    // Chỉ Ban Giám đốc + Kế toán/Nhân sự — đổi ngay trên Hồ sơ 360°
+    return this.request<{ id: string; full_name: string }>(`/users/${id}/full-name`, { method: 'PUT', body: { full_name } });
+  }
+
   // === Per-user permission overrides (admin only) ===
   async getUserPermissions(userId: string) {
     return this.request<{ user_id: string; role: string; custom_permissions: Record<string, boolean> | null; combined_permissions: Record<string, boolean> }>(
