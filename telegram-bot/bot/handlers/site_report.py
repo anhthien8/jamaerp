@@ -1,5 +1,7 @@
 """/duan and /baocao handlers — project lookup + site reports with photos."""
 
+import os
+
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -9,6 +11,9 @@ from bot.api_client import api
 from bot.keyboards import hien_ban_phim, nut_gui_anh, nut_huy
 
 router = Router()
+
+# Trang web CRM (bot dựng link «Xem trong CRM»)
+WEB_URL = os.getenv("WEB_URL", "https://frontend-jet-two-86.vercel.app").rstrip("/")
 
 
 class SiteReportState(StatesGroup):
@@ -109,8 +114,73 @@ async def hien_du_an(message: types.Message, tg_id: int, project_code: str):
 
 
 # ---------------------------------------------------------------------------
-# /baocao — Site report with optional photo attachment
+# /baocao — Site report with optional photo / file attachment
 # ---------------------------------------------------------------------------
+
+# Gõ một trong các chữ này = bấm ✅ Gửi (trước đây "done" bị lấy làm nội dung)
+_TU_XONG = {"done", "xong", "/done", "gui", "gửi", "ok"}
+_LA_TEP = F.document | F.video | F.audio | F.voice | F.video_note
+
+
+def _la_tu_xong(text: str | None) -> bool:
+    return (text or "").strip().lower().split("@")[0] in _TU_XONG
+
+
+def _link_tin(message: types.Message) -> str | None:
+    """Link mở đúng tin trong nhóm (chat riêng với bot thì không có link)."""
+    chat = message.chat
+    if chat.type not in ("group", "supergroup"):
+        return None
+    if chat.username:
+        return f"https://t.me/{chat.username}/{message.message_id}"
+    cid = str(chat.id)
+    if cid.startswith("-100"):
+        return f"https://t.me/c/{cid[4:]}/{message.message_id}"
+    return None  # nhóm thường (chưa lên supergroup) không có link tin
+
+
+def _co_dung_luong(size: int | None) -> str | None:
+    if not size:
+        return None
+    if size >= 1024 * 1024:
+        return f"{size / 1024 / 1024:.1f} MB"
+    return f"{max(size // 1024, 1)} KB"
+
+
+def _tep(message: types.Message) -> dict:
+    """Tệp không phải ảnh: chỉ giữ tên + dung lượng + link tin. Bot không tải
+    được tệp > 20 MB, và bản vẽ/video vốn đã nằm sẵn trong nhóm."""
+    f = message.document or message.video or message.audio or message.voice or message.video_note
+    if message.document:
+        ten = f.file_name or "Tệp"
+    elif message.video:
+        ten = f.file_name or "Video"
+    elif message.audio:
+        ten = f.file_name or f.title or "Âm thanh"
+    else:
+        ten = "Ghi âm" if message.voice else "Video tròn"
+    return {"name": ten[:200], "size_text": _co_dung_luong(f.file_size), "link": _link_tin(message)}
+
+
+async def _luu_anh(message: types.Message, state: FSMContext) -> str | None:
+    """Ảnh → Kho ảnh (topic dự án). Trả câu lỗi nếu không lưu được."""
+    data = await state.get_data()
+    media_ids = data.get("media_ids", [])
+    photo = message.photo[-1]  # cỡ lớn nhất
+    res = await api.media_from_telegram(message.from_user.id, {
+        "file_id": photo.file_id,
+        "file_unique_id": photo.file_unique_id,
+        "project_code": data.get("project_code"),
+        "kind": "tien_do",
+        "caption": (message.caption or data.get("report_content") or "")[:300] or None,
+    })
+    if not res or res.get("error"):
+        return res.get("error") if res else "Không kết nối được server"
+    if res["id"] not in media_ids:
+        media_ids.append(res["id"])
+    await state.update_data(media_ids=media_ids)
+    return None
+
 
 @router.message(Command("baocao"))
 async def cmd_baocao(message: types.Message, state: FSMContext):
@@ -126,67 +196,97 @@ async def cmd_baocao(message: types.Message, state: FSMContext):
 
 
 async def bat_dau_bao_cao(message: types.Message, state: FSMContext, project_code: str, content: str = ""):
+    await state.update_data(project_code=project_code, media_ids=[], attachments=[])
     if not content:
-        await state.update_data(project_code=project_code)
         await state.set_state(SiteReportState.waiting_content)
         await message.answer(
             f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
-            "Gõ nội dung báo cáo (hôm nay làm được gì, vướng gì).",
+            "Gõ nội dung báo cáo (hôm nay làm được gì, vướng gì). "
+            "Có ảnh/bản vẽ thì gửi kèm luôn.",
             reply_markup=nut_huy(),
         )
         return
+    await _sang_buoc_gom(message, state, content, _link_tin(message))
 
-    await state.update_data(project_code=project_code, report_content=content, photos=[], media_ids=[])
+
+async def _sang_buoc_gom(message: types.Message, state: FSMContext, content: str, link: str | None):
+    await state.update_data(report_content=content, message_link=link)
     await state.set_state(SiteReportState.collecting_photos)
+    data = await state.get_data()
+    da_co = len(data.get("media_ids", [])) + len(data.get("attachments", []))
+    them = f"\n📎 Đã nhận {da_co} ảnh/tệp." if da_co else ""
     await message.answer(
-        f"📝 <b>Báo cáo cho dự án {project_code}</b>\n\n"
-        f"Nội dung: {content}\n\n"
-        "📸 Gửi ảnh hiện trường (gửi nhiều ảnh được), xong bấm <b>✅ Gửi</b>.",
+        f"📝 <b>Báo cáo cho dự án {data.get('project_code', '')}</b>\n"
+        f"Nội dung: {content}{them}\n\n"
+        "Gửi thêm ảnh/tệp nếu có, xong bấm <b>✅ Gửi</b> (hoặc gõ <b>xong</b>).",
         reply_markup=nut_gui_anh(),
+    )
+
+
+@router.message(SiteReportState.waiting_content, F.photo | _LA_TEP)
+async def nhan_tep_khi_cho_noi_dung(message: types.Message, state: FSMContext):
+    """Gửi ảnh/tệp trước khi gõ nội dung: vẫn nhận; có chú thích thì dùng làm nội dung."""
+    if message.photo:
+        loi = await _luu_anh(message, state)
+        if loi:
+            await message.answer(f"⚠️ Ảnh chưa lưu được: {loi}", reply_markup=nut_huy())
+            return
+        ten = "ảnh"
+    else:
+        data = await state.get_data()
+        tep = _tep(message)
+        await state.update_data(attachments=data.get("attachments", []) + [tep])
+        ten = f"tệp <b>{tep['name']}</b>" + (f" ({tep['size_text']})" if tep["size_text"] else "")
+    caption = (message.caption or "").strip()
+    if caption and not caption.startswith("/"):
+        await _sang_buoc_gom(message, state, caption, _link_tin(message))
+        return
+    await message.answer(
+        f"✅ Đã nhận {ten}.\nGõ <b>nội dung báo cáo</b> (hôm nay làm được gì, vướng gì) để gửi.",
+        reply_markup=nut_huy(),
     )
 
 
 @router.message(SiteReportState.waiting_content, F.text)
 async def process_report_content(message: types.Message, state: FSMContext):
     """Receive report content text."""
-    text = message.text
-    if text.startswith("/"):
+    text = message.text.strip()
+    if _la_tu_xong(text) or text.startswith("/"):
+        await message.answer(
+            "✍️ Chưa có nội dung báo cáo. Gõ vài dòng mô tả (hôm nay làm được gì, vướng gì) rồi gửi.",
+            reply_markup=nut_huy(),
+        )
         return
-
-    await state.update_data(report_content=text, photos=[], media_ids=[])
-    await state.set_state(SiteReportState.collecting_photos)
-    await message.answer(
-        "📸 Gửi ảnh hiện trường (gửi nhiều ảnh được), xong bấm <b>✅ Gửi</b>.\n"
-        "Không có ảnh thì bấm <b>✅ Gửi</b> luôn.",
-        reply_markup=nut_gui_anh(),
-    )
+    await _sang_buoc_gom(message, state, text, _link_tin(message))
 
 
 @router.message(SiteReportState.collecting_photos, F.photo)
 async def collect_photo(message: types.Message, state: FSMContext):
     """Nhận ảnh → lưu ngay vào Kho ảnh (topic dự án), giữ lại media_id."""
-    data = await state.get_data()
-    media_ids = data.get("media_ids", [])
-    photo = message.photo[-1]  # cỡ lớn nhất
-    res = await api.media_from_telegram(message.from_user.id, {
-        "file_id": photo.file_id,
-        "file_unique_id": photo.file_unique_id,
-        "project_code": data.get("project_code"),
-        "kind": "tien_do",
-        "caption": (message.caption or data.get("report_content") or "")[:300] or None,
-    })
-    if not res or res.get("error"):
-        loi = res.get("error") if res else "Không kết nối được server"
+    loi = await _luu_anh(message, state)
+    if loi:
         await message.answer(
             f"⚠️ Ảnh chưa lưu được: {loi}\nGửi lại ảnh, hoặc bấm ✅ Gửi để gửi báo cáo không ảnh.",
             reply_markup=nut_gui_anh(),
         )
         return
-    if res["id"] not in media_ids:
-        media_ids.append(res["id"])
-    await state.update_data(media_ids=media_ids)
+    data = await state.get_data()
     await message.answer(
-        f"✅ Đã lưu ảnh ({len(media_ids)} ảnh). Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
+        f"✅ Đã lưu ảnh ({len(data.get('media_ids', []))} ảnh). Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
+        reply_markup=nut_gui_anh(),
+    )
+
+
+@router.message(SiteReportState.collecting_photos, _LA_TEP)
+async def collect_file(message: types.Message, state: FSMContext):
+    """Bản vẽ/video/tệp nặng: ghi tên + link tin Telegram vào báo cáo."""
+    data = await state.get_data()
+    tep = _tep(message)
+    ds = data.get("attachments", []) + [tep]
+    await state.update_data(attachments=ds)
+    co = f" ({tep['size_text']})" if tep["size_text"] else ""
+    await message.answer(
+        f"✅ Đã nhận tệp <b>{tep['name']}</b>{co} — {len(ds)} tệp. Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
         reply_markup=nut_gui_anh(),
     )
 
@@ -198,11 +298,12 @@ async def finish_site_report(message: types.Message, state: FSMContext):
 
 
 async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
-    """Gửi báo cáo kèm ảnh đã gom (nút ✅ Gửi hoặc /done)."""
+    """Gửi báo cáo kèm ảnh/tệp đã gom (nút ✅ Gửi, /done hoặc gõ "xong")."""
     data = await state.get_data()
     project_code = data.get("project_code", "")
     content = data.get("report_content", "")
     photos = data.get("media_ids", [])
+    attachments = data.get("attachments", [])[:20]
 
     if not content:
         await message.answer("❌ Nội dung báo cáo trống. Hãy thử lại.")
@@ -216,19 +317,31 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
         "content": content,
         "media_ids": photos,
         "reporter_tg_id": tg_id,
+        "attachments": attachments,
+        "message_link": data.get("message_link"),
     }
 
     result = await api.create_site_report(tg_id, report_data)
 
     if result and not result.get("error"):
-        photo_info = f"\n📸 Ảnh đính kèm: {len(photos)} ảnh" if photos else ""
+        code = result.get("project_code", project_code)
+        task = result.get("task_title", "—")
+        photo_info = f"\n📸 Ảnh: {len(photos)} ảnh (đã vào Kho ảnh)" if photos else ""
+        tep_info = f"\n📎 Tệp: {len(attachments)} tệp (kèm link mở trong nhóm)" if attachments else ""
+        crm = ""
+        if result.get("crm_path"):
+            crm = (
+                f"\n\n🔎 <b>Xem trong CRM:</b> Dự án → {code} → đầu việc «{task}» → Nhật ký\n"
+                f"{WEB_URL}{result['crm_path']}"
+            )
         await message.answer(
-            f"✅ <b>Báo cáo đã được ghi nhận!</b>\n\n"
-            f"🏗 Dự án: <code>{result.get('project_code', project_code)}</code>\n"
-            f"📋 Đầu việc: {result.get('task_title', '—')}\n"
+            f"✅ <b>Báo cáo đã được lưu vào CRM!</b>\n\n"
+            f"🏗 Dự án: <code>{code}</code>\n"
+            f"📋 Đầu việc: {task}\n"
             f"👤 Người báo cáo: {result.get('reporter', '—')}\n"
             f"🕐 Thời gian: {result.get('created_at', '—')}"
-            f"{photo_info}"
+            f"{photo_info}{tep_info}{crm}",
+            disable_web_page_preview=True,
         )
     else:
         error_msg = result.get("error", "Không rõ lỗi") if result else "Không kết nối được server"
@@ -238,10 +351,13 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
 
 
 @router.message(SiteReportState.collecting_photos, F.text & ~F.command("done") & ~F.command("cancel"))
-async def wrong_input_photos(message: types.Message):
-    """Handle wrong input during photo collection."""
+async def wrong_input_photos(message: types.Message, state: FSMContext):
+    """Gõ "xong"/"done" = bấm ✅ Gửi; chữ khác thì nhắc."""
+    if _la_tu_xong(message.text):
+        await gui_bao_cao(message, state, message.from_user.id)
+        return
     await message.answer(
-        "⚠️ Gửi ảnh, hoặc bấm <b>✅ Gửi</b> để hoàn tất.",
+        "⚠️ Gửi ảnh/tệp, hoặc bấm <b>✅ Gửi</b> (gõ <b>xong</b>) để hoàn tất.",
         reply_markup=nut_gui_anh(),
     )
 

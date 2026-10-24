@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import MoneyInput from '@/components/ui/MoneyInput';
 import LineIcon from '@/components/ui/LineIcon';
+import ChuCoLink from '@/components/ui/ChuCoLink';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Đang thực hiện', color: '#10B981' },
@@ -1765,7 +1766,7 @@ function ProjectsPageInner() {
                           <span className="font-semibold text-white">{act.user_name || 'Nhân viên'}</span>
                           <span>{formatDate(act.created_at)}</span>
                         </div>
-                        <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap">{act.content}</p>
+                        <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap"><ChuCoLink text={act.content || ''} /></p>
                         {act.media_url && (
                           <div className="mt-1.5 max-w-[150px] rounded overflow-hidden border border-white/5">
                             <a href={mediaUrl(act.media_url)} target="_blank" rel="noopener noreferrer">

@@ -76,6 +76,19 @@ class SiteReportRequest(BaseModel):
     photos: list[str] = Field(default_factory=list)
     media_ids: list[str] = Field(default_factory=list, max_length=20)
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
+    # File nặng (bản vẽ .skp, .dwg, video…) bot không tải được (giới hạn 20MB của
+    # Bot API) → giữ nguyên trong nhóm, CRM lưu tên + link tin nhắn Telegram (24/10/2026)
+    attachments: list["TepDinhKem"] = Field(default_factory=list, max_length=20)
+    message_link: str | None = Field(None, max_length=300)
+
+
+class TepDinhKem(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    size_text: str | None = Field(None, max_length=20)
+    link: str | None = Field(None, max_length=300)
+
+
+SiteReportRequest.model_rebuild()
 
 
 class MaterialRequestPayload(BaseModel):
@@ -234,6 +247,11 @@ async def quick_project_lookup(
     }
 
 
+def _link_telegram(link: str | None) -> bool:
+    """Chỉ nhận link tin nhắn Telegram — không để bot (hay ai giả bot) chèn link lạ vào CRM."""
+    return bool(link) and link.startswith("https://t.me/")
+
+
 # ── 2. POST /site-report ──────────────────────────────────────────────────
 
 @router.post("/site-report", status_code=status.HTTP_201_CREATED)
@@ -273,6 +291,15 @@ async def create_site_report(
     if len(anh) > 1:
         full_content = f"{data.content}\n\n📷 {len(anh)} ảnh — xem ở mục Ảnh dự án"
 
+    if data.attachments:
+        dong = []
+        for t in data.attachments:
+            ten = t.name + (f" ({t.size_text})" if t.size_text else "")
+            dong.append(f"• {ten}" + (f" — {t.link}" if _link_telegram(t.link) else ""))
+        full_content += "\n\n📎 Tệp đính kèm (mở trong nhóm Telegram):\n" + "\n".join(dong)
+    if _link_telegram(data.message_link):
+        full_content += f"\n\n💬 Tin gốc trong Telegram: {data.message_link}"
+
     activity = TaskActivity(
         task_id=target_task.id,
         user_id=reporter.id,
@@ -290,6 +317,8 @@ async def create_site_report(
         "project_code": project.code,
         "reporter": reporter.full_name,
         "created_at": activity.created_at.isoformat(),
+        "project_id": project.id,
+        "crm_path": f"/projects?id={project.id}",
         "message": "Bao cao cong trinh da duoc ghi nhan thanh cong.",
     }
 

@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/10/2026',
+    title: 'Báo cáo Telegram: gửi được bản vẽ/tệp nặng, bot báo đã lưu + link xem trong CRM',
+    tag: 'SỬA LỖI',
+    news: [
+      'Bot trả lời «✅ Báo cáo đã được lưu vào CRM!» kèm đường dẫn mở thẳng dự án trên web và chỉ rõ chỗ xem: Dự án → đầu việc → Lịch sử cập nhật.',
+      'Báo cáo trong CRM có link «Mở trong Telegram» tới từng tệp và tin gốc trong nhóm — bấm là mở đúng tin.',
+    ],
+    fixes: [
+      'Gửi bản vẽ SKP/DWG, video, tệp nặng (kể cả trên 20 MB) trong /baocao không còn bị bot bỏ qua; chú thích của tệp được lấy làm nội dung báo cáo.',
+      'Gõ «done» / «xong» không còn bị lấy làm nội dung báo cáo — giờ là gửi báo cáo luôn.',
+    ],
+    test: [
+      'Trong nhóm dự án gõ /baocao → chọn dự án → gửi một tệp bản vẽ kèm chú thích → gõ xong → bot báo đã lưu kèm link.',
+      'Bấm link trong tin bot → mở dự án → bấm đầu việc → thấy báo cáo có nút «Mở trong Telegram».',
+    ],
+  },
+  {
+    date: '24/10/2026',
     title: 'Đổi họ tên ngay trên Hồ sơ 360° + bảng Phân quyền dễ đọc hơn',
     tag: 'MỚI',
     news: [

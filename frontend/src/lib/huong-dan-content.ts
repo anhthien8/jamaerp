@@ -1418,6 +1418,19 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         ]
       },
       {
+        "type": "h3",
+        "text": "Gửi bản vẽ, video, tệp nặng trong /baocao"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Trong `/baocao` gửi được cả **bản vẽ (SKP, DWG, PDF…), video, ghi âm** — trước hay sau khi gõ nội dung đều được. Gửi tệp kèm **chú thích** thì chú thích được lấy làm nội dung báo cáo.",
+          "Xong bấm **✅ Gửi**, hoặc gõ **xong** / **done** / `/done`. Bot trả lời **«✅ Báo cáo đã được lưu vào CRM!»** kèm đường dẫn mở thẳng dự án trên web.",
+          "Xem trên web: **Dự án → mở dự án → bấm đầu việc → Lịch sử cập nhật**. Mỗi tệp hiện tên + dung lượng + nút **«Mở trong Telegram»** để mở đúng tin gốc trong nhóm.",
+          "Tệp nặng (trên 20 MB) vẫn nằm trong nhóm Telegram, CRM chỉ giữ link — nên gửi báo cáo **trong nhóm dự án**; gửi trong chat riêng với bot thì không có link mở lại."
+        ]
+      },
+      {
         "type": "warn",
         "text": "`/phieuluong` chỉ xem được trong **chat riêng** với bot — gõ trong nhóm bot sẽ từ chối để lộ lương không ai thấy."
       },

@@ -100,6 +100,32 @@ class TestSiteReport:
         assert body["reporter"] == admin_user.full_name
         assert "activity_id" in body
 
+    async def test_site_report_file_nang_luu_link_telegram(self, client: AsyncClient, admin_user, db_session):
+        """File >20MB bot không tải được → CRM lưu tên + link tin nhắn; link lạ bị bỏ."""
+        from app.models.project import TaskActivity
+        proj = await _seed_telegram_project(db_session, admin_user)
+        resp = await client.post(
+            "/api/v1/telegram/site-report",
+            headers=auth_header(admin_user),
+            json={
+                "project_code": proj.code,
+                "content": "bản vẽ 2D tầng 1",
+                "reporter_tg_id": 900001,
+                "attachments": [
+                    {"name": "thiet-ke.skp", "size_text": "221.4 MB", "link": "https://t.me/c/123/45"},
+                    {"name": "la.dwg", "link": "https://evil.example/x"},
+                ],
+                "message_link": "https://t.me/c/123/44",
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["crm_path"] == f"/projects?id={proj.id}"
+        act = await db_session.get(TaskActivity, body["activity_id"])
+        assert "thiet-ke.skp (221.4 MB) — https://t.me/c/123/45" in act.content
+        assert "• la.dwg" in act.content and "evil.example" not in act.content
+        assert "Tin gốc trong Telegram: https://t.me/c/123/44" in act.content
+
     async def test_site_report_missing_tasks(self, client: AsyncClient, admin_user, db_session):
         """Project with no tasks should fail."""
         proj = Project(
