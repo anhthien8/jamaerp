@@ -25,6 +25,7 @@ from app.models.media import MediaFile, ProjectDocument
 from app.models.telegram_contact import TelegramContact
 from app.models.lead import LeadAttachment
 from app.models.danh_gia_khach import DanhGiaKhach
+from app.models.contract_template import ContractTemplate
 
 __all__ = [
     "User", "Team",

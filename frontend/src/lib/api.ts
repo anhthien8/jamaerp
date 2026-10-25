@@ -1196,6 +1196,56 @@ class ApiClient {
     return res.json() as Promise<{ items: (MediaFile & { deduped: boolean })[]; deduped_count: number }>;
   }
 
+  // ── Thư viện mẫu hợp đồng / biên bản (25/10/2026) ──
+  async getContractTemplates(includeHidden = false) {
+    return this.request<{ items: ContractTemplate[]; can_manage: boolean }>(
+      '/contract-templates', includeHidden ? { params: { include_hidden: '1' } } : {}
+    );
+  }
+  async uploadContractTemplates(files: File[]) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải tệp lên được — chuyển sang Chế độ Làm việc.');
+    }
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/contract-templates`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Tải mẫu lên thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/contract-templates');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<{ items: ContractTemplate[]; created: number; replaced: number }>;
+  }
+  async updateContractTemplate(id: string, data: Partial<Pick<ContractTemplate, 'name' | 'category' | 'is_active'>> & { contract_kind?: string }) {
+    return this.request<ContractTemplate>(`/contract-templates/${id}`, { method: 'PATCH', body: data });
+  }
+  /** Mẫu nằm sau JWT → fetch kèm token rồi bấm tải bằng blob URL */
+  async downloadContractTemplate(m: ContractTemplate) {
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/contract-templates/${m.id}/download`, {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!res.ok) {
+      if (res.status === 401) xuLyHetPhien('/contract-templates');
+      throw new ApiError(`HTTP ${res.status}`, res.status);
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = m.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
   /** Nhập danh sách nhân sự (Excel HCNS) → Hồ sơ 360°. apply=false chỉ xem trước. */
   async importEmployeesExcel(file: File, apply: boolean) {
     if (isDemoMode()) {
@@ -2654,6 +2704,21 @@ export interface Customer {
   updated_at: string;
   projects?: Array<{ id: string; code: string; name: string; status: string; stage: string; total_value?: number; spent?: number; progress: number; created_at: string }>;
   project_count?: number;
+}
+
+export type NhomMau = 'hop_dong' | 'bien_ban' | 'thanh_toan' | 'phu_luc' | 'khac';
+export interface ContractTemplate {
+  id: string;
+  name: string;
+  category: NhomMau;
+  contract_kind?: 'thiet_ke' | 'thi_cong' | null;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  version: number;
+  is_active: boolean;
+  updated_by_name?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Contract {

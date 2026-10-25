@@ -713,6 +713,23 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Mẫu hợp đồng, phụ lục, biên bản (tab «Mẫu & biên bản»)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Trong trang Hợp đồng bấm tab **«Mẫu & biên bản»**. Mẫu chia nhóm: **Hợp đồng**, **Phụ lục**, **Biên bản**, **Thanh toán**; nhãn **Thiết kế / Thi công** giúp chọn đúng loại.",
+          "Bấm **Tải về** để lấy bản mới nhất rồi điền thông tin khách. Luôn tải ở đây, đừng dùng bản cũ lưu trong máy hay Zalo.",
+          "**BGĐ và Kế toán**: bấm **Tải mẫu lên**, chọn nhiều tệp Word/Excel/PDF một lúc (tối đa 20 tệp, mỗi tệp 40 MB). App tự xếp nhóm theo tên tệp; sai nhóm thì bấm **Sửa tên/nhóm**.",
+          "Sửa mẫu xong, tải lên lại **đúng tên tệp cũ** → thay bản cũ và tăng số «bản». Mẫu không dùng nữa bấm **Ẩn** (bấm «Hiện mẫu đã ẩn» để xem lại)."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Mẫu chỉ người có quyền xem Hợp đồng mới thấy và tải được — không gửi ra ngoài công ty."
+      },
+      {
+        "type": "h3",
         "text": "Theo dõi đợt thanh toán và xác nhận đã thu tiền"
       },
       {

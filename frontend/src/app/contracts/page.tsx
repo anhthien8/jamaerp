@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/Toast';
 import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import MoneyInput from '@/components/ui/MoneyInput';
 import LineIcon from '@/components/ui/LineIcon';
+import ThuVienMau from '@/components/contracts/ThuVienMau';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -81,6 +82,7 @@ export default function ContractsPage() {
   const [confirming, setConfirming] = useState(false);
 
   // Contract create/edit form state
+  const [tab, setTab] = useState<'hd' | 'mau'>('hd');
   const [formOpen, setFormOpen] = useState(false);
   const [formEdit, setFormEdit] = useState<Contract | null>(null);
   const [formSaving, setFormSaving] = useState(false);
@@ -240,6 +242,21 @@ export default function ContractsPage() {
           )}
         </div>
 
+        {/* Tab: danh sách HĐ | thư viện mẫu (25/10/2026) */}
+        <div className="flex gap-1 p-1 rounded-full w-fit" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+          {([['hd', 'Danh sách hợp đồng'], ['mau', 'Mẫu & biên bản']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+              style={tab === k ? { background: 'var(--gold-500)', color: 'white' } : { color: 'var(--text-secondary)' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'mau' ? <ThuVienMau /> : (<>
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -393,6 +410,7 @@ export default function ContractsPage() {
             </>
           )}
         </div>
+        </>)}
 
         {/* Detail modal */}
         {selected && (
