@@ -32,7 +32,7 @@ const FEATURES: Feature[] = [
   // Bật quyền này là mở CẢ thẻ "Bảng xếp hạng" (top 5 hiện tên, còn lại ẩn danh
   // "Nhân viên #n") — ghi rõ để người bật biết mình đang cho thấy những gì.
   { key: 'canViewKPI', label: 'KPI (Cá nhân + Bảng xếp hạng)' },
-  { key: 'canViewLeads', label: 'CRM - Quy trình' },
+  { key: 'canViewLeads', label: 'ERP - Quy trình' },
   { key: 'canViewApprovals', label: 'Phê duyệt' },
   { key: 'canViewProjects', label: 'Dự án' },
   { key: 'canViewAttendance', label: 'Chấm công' },

@@ -16,6 +16,7 @@ from app.middleware.rbac import la_pic_du_an
 from app.models.media import MEDIA_KINDS, MediaFile, ProjectDocument
 from app.models.project import Project, Task
 from app.models.user import User, UserAvatar
+from app.models.vat_tu import AnhVatTu
 from app.services import drive_mirror
 from app.services.media_gateway import (
     MediaError,
@@ -332,7 +333,7 @@ async def patch_media(
 
 # ── Xem ảnh (link ký, không cần đăng nhập) ─────────────────────────────────
 
-# ── Tài liệu dự án: tải thẳng từ CRM thay vì tự gửi Telegram rồi dán link (23/10) ──
+# ── Tài liệu dự án: tải thẳng từ ERP thay vì tự gửi Telegram rồi dán link (23/10) ──
 
 @router.post("/task-file", status_code=201)
 async def upload_task_file(
@@ -414,6 +415,17 @@ async def get_avatar(user_id: str, sig: str, db: AsyncSession = Depends(get_db))
         media_type="image/jpeg",
         headers={"Cache-Control": "private, max-age=2592000"},
     )
+
+
+@router.get("/vat-tu/{anh_id}/{sig}.jpg")
+async def get_anh_vat_tu(anh_id: str, sig: str, db: AsyncSession = Depends(get_db)):
+    """Ảnh mẫu vật tư tải từ máy — URL ký HMAC, nội dung không đổi nên cache lâu."""
+    if not chu_ky_hop_le("vat-tu:" + anh_id, sig):
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
+    anh = await db.get(AnhVatTu, anh_id)
+    if anh is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
+    return Response(content=anh.data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=2592000"})
 
 
 @router.get("/{media_id}/{sig}.jpg")

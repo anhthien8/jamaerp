@@ -8,15 +8,15 @@ import { startGuidedTour } from '@/components/ui/GuidedTour';
 import LineIcon from '@/components/ui/LineIcon';
 
 const ROLE_PRIMARY_PAGE: Record<string, { path: string; label: string }> = {
-  data_entry: { path: '/leads', label: 'Quy trình CRM' },
+  data_entry: { path: '/leads', label: 'Quy trình ERP' },
   supervisor: { path: '/projects', label: 'Dự án' },
   accountant: { path: '/accounting', label: 'Kế toán' },
   admin: { path: '/', label: 'Tổng quan' },
-  leader: { path: '/leads', label: 'Quy trình CRM' },
+  leader: { path: '/leads', label: 'Quy trình ERP' },
   executive: { path: '/', label: 'Tổng quan' },
   // Vai trò tùy chỉnh — khớp role_key trong system_settings.custom_roles
-  sale_leader: { path: '/leads', label: 'Quy trình CRM' },
-  admin_cskh: { path: '/leads', label: 'Quy trình CRM' },
+  sale_leader: { path: '/leads', label: 'Quy trình ERP' },
+  admin_cskh: { path: '/leads', label: 'Quy trình ERP' },
   quan_ly_du_an: { path: '/projects', label: 'Dự án' },
   thiet_ke: { path: '/projects', label: 'Dự án' },
   giam_sat_thi_cong: { path: '/projects', label: 'Dự án' },
@@ -32,7 +32,7 @@ interface RoleCard {
 
 const ROLE_CARDS: Record<string, RoleCard[]> = {
   data_entry: [
-    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
+    { icon: 'refresh', title: 'Quy trình ERP', description: 'Quản lý leads và theo dõi quy trình bán hàng', href: '/leads' },
     { icon: 'clipboard', title: 'Báo cáo', description: 'Xem hiệu suất cá nhân và thống kê', href: '/reports' },
     { icon: 'handshake', title: 'Dự án', description: 'Theo dõi tiến độ dự án đã ký', href: '/projects' },
   ],
@@ -48,11 +48,11 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
   ],
   admin: [
     { icon: 'chart', title: 'Tổng quan', description: 'Tổng quan toàn hệ thống', href: '/' },
-    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý tất cả leads', href: '/leads' },
+    { icon: 'refresh', title: 'Quy trình ERP', description: 'Quản lý tất cả leads', href: '/leads' },
     { icon: 'settings', title: 'Cài đặt', description: 'Quản trị hệ thống', href: '/settings' },
   ],
   leader: [
-    { icon: 'refresh', title: 'Quy trình CRM', description: 'Quản lý leads của team', href: '/leads' },
+    { icon: 'refresh', title: 'Quy trình ERP', description: 'Quản lý leads của team', href: '/leads' },
     { icon: 'clipboard', title: 'Dự án', description: 'Theo dõi dự án team', href: '/projects' },
     { icon: 'chart', title: 'Báo cáo', description: 'Báo cáo hiệu suất team', href: '/reports' },
   ],
@@ -62,12 +62,12 @@ const ROLE_CARDS: Record<string, RoleCard[]> = {
     { icon: 'clipboard', title: 'Báo cáo', description: 'Phân tích kinh doanh', href: '/reports' },
   ],
   sale_leader: [
-    { icon: 'refresh', title: 'Quy trình CRM', description: 'Nhận data từ CSKH và chia cho sale trong nhóm', href: '/leads' },
+    { icon: 'refresh', title: 'Quy trình ERP', description: 'Nhận data từ CSKH và chia cho sale trong nhóm', href: '/leads' },
     { icon: 'users', title: 'Đội nhóm', description: 'Sơ đồ đội của bạn (Nhân sự → nút Đội nhóm)', href: '/hr' },
     { icon: 'check', title: 'Phê duyệt', description: 'Duyệt nghỉ phép, tăng ca của nhóm', href: '/approvals' },
   ],
   admin_cskh: [
-    { icon: 'download', title: 'Quy trình CRM', description: 'Nhập data marketing và giao cho các trưởng nhóm', href: '/leads' },
+    { icon: 'download', title: 'Quy trình ERP', description: 'Nhập data marketing và giao cho các trưởng nhóm', href: '/leads' },
     { icon: 'chart', title: 'Báo cáo', description: 'Theo dõi data đã giao và tỷ lệ chuyển đổi', href: '/reports' },
     { icon: 'clock', title: 'Chấm công', description: 'Vào ca, nghỉ phép, phiếu lương', href: '/attendance' },
   ],

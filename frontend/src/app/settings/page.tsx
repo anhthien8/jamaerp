@@ -150,7 +150,7 @@ function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialT
 
   const save = async () => {
     // Chế độ Tập luyện lưu vào dữ liệu mẫu → bot THẬT không biết → nhân viên tưởng
-    // liên kết xong mà Telegram vẫn báo "chưa liên kết CRM" (feedback beta 22/07)
+    // liên kết xong mà Telegram vẫn báo "chưa liên kết ERP" (feedback beta 22/07)
     if (isDemo) {
       setMessage({ text: '⚠️ Đang ở Chế độ Tập luyện — liên kết ở đây không có tác dụng thật. Bấm "Chuyển sang Làm việc" (banner đầu trang), đăng nhập tài khoản thật rồi liên kết lại nhé.', ok: false });
       return;

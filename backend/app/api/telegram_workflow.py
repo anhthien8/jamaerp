@@ -1,4 +1,4 @@
-"""Telegram Bot workflow API endpoints for JAMA HOME CRM.
+"""Telegram Bot workflow API endpoints for JAMA HOME ERP.
 
 Provides the backend for Telegram Bot commands:
   /duan, /baocao, /vatlieu, /suco, /checkin, /checkout
@@ -78,7 +78,7 @@ class SiteReportRequest(BaseModel):
     media_ids: list[str] = Field(default_factory=list, max_length=20)
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
     # File nặng (bản vẽ .skp, .dwg, video…) bot không tải được (giới hạn 20MB của
-    # Bot API) → giữ nguyên trong nhóm, CRM lưu tên + link tin nhắn Telegram (24/10/2026)
+    # Bot API) → giữ nguyên trong nhóm, ERP lưu tên + link tin nhắn Telegram (24/10/2026)
     attachments: list["TepDinhKem"] = Field(default_factory=list, max_length=20)
     message_link: str | None = Field(None, max_length=300)
 
@@ -251,7 +251,7 @@ async def quick_project_lookup(
 
 
 def _link_telegram(link: str | None) -> bool:
-    """Chỉ nhận link tin nhắn Telegram — không để bot (hay ai giả bot) chèn link lạ vào CRM."""
+    """Chỉ nhận link tin nhắn Telegram — không để bot (hay ai giả bot) chèn link lạ vào ERP."""
     return bool(link) and link.startswith("https://t.me/")
 
 
@@ -892,7 +892,7 @@ async def contact_seen(
 ):
     """Bot báo «vừa gặp người này» (nhắn trong nhóm, vào nhóm, /start riêng).
 
-    Người gửi có thể CHƯA có tài khoản CRM nên không dùng JWT; xác thực bằng
+    Người gửi có thể CHƯA có tài khoản ERP nên không dùng JWT; xác thực bằng
     bí mật chung với bot như /auth/telegram. Upsert theo tg_user_id."""
     import hmac
 

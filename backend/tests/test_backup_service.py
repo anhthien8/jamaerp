@@ -146,7 +146,7 @@ async def test_success_sends_document(db_session, tmp_path, monkeypatch):
     assert "duration_s" in result
     # Gọi Bot API đúng chat_id + caption tiếng Việt
     assert captured["data"]["chat_id"] == "-100888"
-    assert "Sao lưu JAMA CRM" in captured["data"]["caption"]
+    assert "Sao lưu JAMA ERP" in captured["data"]["caption"]
     assert "PostgreSQL" in captured["data"]["caption"]
     assert "12345:AA" in captured["url"]          # token nằm trong URL Bot API
     assert "sendDocument" in captured["url"]

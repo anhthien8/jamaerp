@@ -830,11 +830,18 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       ] },
       { "type": "h3", "text": "Thiết kế / Kinh doanh — ngồi cùng khách" },
       { "type": "steps", "items": [
-        "Mở dự án → bấm **«Phiếu vật tư của dự án»** (hoặc menu Vật tư → tab Phiếu dự án → chọn dự án).",
+        "Mở dự án → bấm **«Phiếu vật tư của dự án»** (hoặc menu Vật tư → tab Phiếu dự án → gõ mã/tên dự án vào ô tìm; dự án có hoạt động 7 ngày gần nhất nằm sẵn ở mục **Gần đây**).",
         "Bấm **«Khách chọn mẫu»**: chọn phòng (Phòng khách, Bếp, WC…), hạng mục (sàn, tường…), gõ mã hoặc hãng để chọn trong danh mục có ảnh; nhập số lượng. Mã chưa có trong danh mục thì gõ tự do.",
         "Dòng mới ở trạng thái **Khách chọn** — Thu mua tự thấy ở bảng «Cần hỏi giá», không cần nhắn.",
         "Khi khách gật đầu (ở quán, qua Zalo…), bấm **«Khách đã đồng ý»** và ghi chú khách nói gì, qua kênh nào.",
         "Nếu Thu mua báo **Hết hàng / đề xuất thay**, dòng hiện đỏ kèm mã thay thế: hỏi lại khách, bấm «Khách đã đồng ý» → mã thay thành mã chính, Thu mua hỏi giá tiếp."
+      ] },
+      { "type": "h3", "text": "Thu mua — thêm / sửa mẫu trong Danh mục" },
+      { "type": "steps", "items": [
+        "Tab **Danh mục** → **«Thêm mẫu»** (hoặc «Sửa» trên thẻ mẫu). Chọn **Nhóm** trong danh sách (kích thước 30x30, 60x60…) hoặc «+ Nhóm mới…».",
+        "**Ảnh mẫu**: dán link ảnh là thấy ngay; hoặc bấm **«Tải ảnh lên»** chụp/chọn từ máy — app nén và lưu trong ERP, không cần link ngoài.",
+        "Chưa có ảnh hay muốn xem giá thị trường: bấm **«Tìm trên Shopee»** — mở sẵn Shopee tìm theo hãng + mã. Thấy đúng sản phẩm thì chép link ảnh và dán **Link Shopee sản phẩm** vào form để lần sau so giá bằng nút «Mở Shopee». ERP không tự lấy dữ liệu từ Shopee (Shopee chặn máy đọc tự động).",
+        "Bấm **Lưu**. Giá tham khảo (vốn) và NCC quen chỉ Thu mua / Giám đốc / Trưởng phòng thấy."
       ] },
       { "type": "h3", "text": "Thu mua — bảng «Cần hỏi giá»" },
       { "type": "steps", "items": [
@@ -1100,7 +1107,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Mở app **Telegram** trên điện thoại, tìm bot của công ty (chưa biết tên bot thì hỏi Admin).",
           "Nhắn cho bot chữ `/id` — bot trả về một dãy số (đó là ID của bạn).",
-          "Quay lại CRM, vào menu **Cài đặt**, tìm mục **Telegram Bot**.",
+          "Quay lại ERP, vào menu **Cài đặt**, tìm mục **Telegram Bot**.",
           "Dán dãy số vào ô «Dán Telegram ID của bạn» rồi bấm **Lưu**.",
           "Quay lại Telegram, nhắn `/start` cho bot để kiểm tra. Xong!"
         ]
@@ -1370,8 +1377,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Mở Telegram, tìm bot của công ty (chưa biết tên bot thì hỏi Admin).",
           "Nhắn `/id` cho bot — bot trả về một dãy số, đó là **Telegram ID của bạn**.",
-          "Vào CRM trên web → menu **Cài đặt** → mục **Telegram Bot** → dán dãy số vào ô → bấm **Lưu**.",
-          "Quay lại bot, nhắn `/start`. Bot chào đúng tên bạn là xong. Nếu bot báo «Chưa liên kết tài khoản CRM» thì kiểm tra lại dãy số hoặc nhờ Admin."
+          "Vào ERP trên web → menu **Cài đặt** → mục **Telegram Bot** → dán dãy số vào ô → bấm **Lưu**.",
+          "Quay lại bot, nhắn `/start`. Bot chào đúng tên bạn là xong. Nếu bot báo «Chưa liên kết tài khoản ERP» thì kiểm tra lại dãy số hoặc nhờ Admin."
         ]
       },
       {
@@ -1424,14 +1431,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "Trong `/baocao`, gửi bản vẽ (.skp, .dwg), PDF, video như gửi tệp bình thường — nặng mấy cũng được.",
-          "Bot tự **chép tệp vào topic của dự án** trong nhóm «JAMA Công trình» và ghi vào **Tài liệu dự án** trên CRM; nhật ký cập nhật dự án có link mở đúng tệp đó.",
-          "Bấm **«✅ Gửi»** xong, người phụ trách dự án và người đảm nhận đầu việc nhận thông báo ngay (chuông trên CRM, và điện thoại/máy tính nếu đã bật).",
+          "Bot tự **chép tệp vào topic của dự án** trong nhóm «JAMA Công trình» và ghi vào **Tài liệu dự án** trên ERP; nhật ký cập nhật dự án có link mở đúng tệp đó.",
+          "Bấm **«✅ Gửi»** xong, người phụ trách dự án và người đảm nhận đầu việc nhận thông báo ngay (chuông trên ERP, và điện thoại/máy tính nếu đã bật).",
           "Bot báo «Chưa chép được vào topic dự án» thì báo cáo vẫn lưu kèm link tin gốc — báo Admin kiểm tra nhóm Kho."
         ]
       },
       {
         "type": "tip",
-        "text": "**Nhận thông báo trên điện thoại/máy tính:** vào **Cài đặt → Thông báo trên máy này → Bật**, bấm **«Gửi thử»** để kiểm. Mỗi máy bật một lần. iPhone/iPad (iOS 16.4+): mở CRM bằng Safari → nút Chia sẻ → **«Thêm vào MH chính»**, rồi mở JAMA từ màn hình chính mới bật được."
+        "text": "**Nhận thông báo trên điện thoại/máy tính:** vào **Cài đặt → Thông báo trên máy này → Bật**, bấm **«Gửi thử»** để kiểm. Mỗi máy bật một lần. iPhone/iPad (iOS 16.4+): mở ERP bằng Safari → nút Chia sẻ → **«Thêm vào MH chính»**, rồi mở JAMA từ màn hình chính mới bật được."
       },
       {
         "type": "h3",
@@ -1520,7 +1527,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Tải **nhiều ảnh một lúc** trên web (ghi chú đầu việc hoặc khối «Ảnh dự án»): nhóm Kho ảnh nhận **một album** (tối đa 10 ảnh/album) thay vì mỗi ảnh một tin — đỡ trôi tin nhóm.",
           "Ảnh gửi trong `/baocao` và `/suco` được lưu ngay vào **Kho ảnh công trình** (bot báo «✅ Đã lưu ảnh»), hiện trên web ở khối «📷 Ảnh dự án».",
           "Nhanh nhất: vào nhóm **«JAMA Công trình»**, mở **đúng topic của dự án** (mỗi dự án một topic, tên dạng «MÃ · Tên dự án») rồi **thả ảnh vào, không cần gõ lệnh**. Bot thả 👍 là đã ghi nhận. Ghi chú thì gõ luôn vào chú thích ảnh.",
-          "Bot không thả 👍? Kiểm tra bạn đã liên kết Telegram với CRM (phần trên) và đang gửi đúng topic dự án, không phải mục «General»."
+          "Bot không thả 👍? Kiểm tra bạn đã liên kết Telegram với ERP (phần trên) và đang gửi đúng topic dự án, không phải mục «General»."
         ]
       },
       {
@@ -1531,9 +1538,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "Trong `/baocao` gửi được cả **bản vẽ (SKP, DWG, PDF…), video, ghi âm** — trước hay sau khi gõ nội dung đều được. Gửi tệp kèm **chú thích** thì chú thích được lấy làm nội dung báo cáo.",
-          "Xong bấm **✅ Gửi**, hoặc gõ **xong** / **done** / `/done`. Bot trả lời **«✅ Báo cáo đã được lưu vào CRM!»** kèm đường dẫn mở thẳng dự án trên web.",
+          "Xong bấm **✅ Gửi**, hoặc gõ **xong** / **done** / `/done`. Bot trả lời **«✅ Báo cáo đã được lưu vào ERP!»** kèm đường dẫn mở thẳng dự án trên web.",
           "Xem trên web: **Dự án → mở dự án → bấm đầu việc → Lịch sử cập nhật**. Mỗi tệp hiện tên + dung lượng + nút **«Mở trong Telegram»** để mở đúng tin gốc trong nhóm.",
-          "Tệp nặng (trên 20 MB) vẫn nằm trong nhóm Telegram, CRM chỉ giữ link — nên gửi báo cáo **trong nhóm dự án**; gửi trong chat riêng với bot thì không có link mở lại."
+          "Tệp nặng (trên 20 MB) vẫn nằm trong nhóm Telegram, ERP chỉ giữ link — nên gửi báo cáo **trong nhóm dự án**; gửi trong chat riêng với bot thì không có link mở lại."
         ]
       },
       {

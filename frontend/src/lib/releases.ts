@@ -16,6 +16,26 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '25/10/2026',
+    title: 'Vật tư dễ dùng hơn: tìm dự án, ảnh mẫu hiện ngay & tải từ máy, link Shopee so giá · chữ CRM → ERP · «Gửi thử» thông báo báo kết quả thật',
+    tag: 'SỬA',
+    news: [
+      'Vật tư → Phiếu dự án: ô chọn dự án nay là ô tìm (gõ mã hoặc tên, không cần dấu); dự án có hoạt động trong 7 ngày gần nhất xếp lên đầu mục «Gần đây».',
+      'Thêm/Sửa mẫu: dán link ảnh là thấy ảnh ngay; nút «Tải ảnh lên» chụp/chọn từ máy (ảnh nén, lưu trong ERP); nút «Tìm trên Shopee» mở sẵn tìm kiếm theo hãng + mã để lấy ảnh và xem giá thị trường; ô «Link Shopee sản phẩm» lưu lại để so giá sau. ERP không tự cào Shopee (Shopee chặn bot) — dán link tay.',
+      'Ô Nhóm trong form mẫu là danh sách chọn thật (có số mẫu mỗi nhóm) + «Nhóm mới…» — hết cảnh bấm mũi tên không ra gì.',
+      'Toàn app đổi chữ «CRM» thành «ERP» (tiêu đề, sổ tay, bot Telegram, thông báo).',
+    ],
+    fixes: [
+      'Biểu tượng trong nút vàng (Thêm mẫu, Lưu, Khách chọn mẫu, Chốt giá…) trước đây vàng-trên-vàng nên mờ — nay cùng màu chữ đen.',
+      'Cài đặt → Thông báo trên máy này → «Gửi thử»: máy chủ đẩy ngay và báo thật «Đã gửi tới N/M máy» hoặc lý do không tới (máy chưa đăng ký, khoá VAPID bị từ chối, đăng ký hết hạn, lỗi mạng) kèm cách xử lý — không còn «Đã gửi» rồi im.',
+    ],
+    test: [
+      'Thu mua: Vật tư → Danh mục → Thêm mẫu → dán link ảnh → ảnh hiện; bấm Tải ảnh lên → chọn ảnh → ảnh hiện → Lưu → thẻ mẫu có ảnh.',
+      'Ai cũng: Vật tư → Phiếu dự án → gõ 2–3 chữ tên dự án → chọn → phiếu hiện; dự án vừa sửa hôm nay nằm ở «Gần đây (7 ngày)».',
+      'Cài đặt → Gửi thử → thấy dòng kết quả có số máy; nếu lỗi, làm theo hướng dẫn (Tắt rồi Bật lại) rồi thử lại.',
+    ],
+  },
+  {
+    date: '25/10/2026',
     title: 'Bot Telegram: /help hướng dẫn theo vai, Thu mua gửi tệp báo giá NCC là bot nhập vào phiếu vật tư',
     tag: 'MỚI',
     news: [
@@ -53,8 +73,8 @@ export const RELEASES: Release[] = [
     tag: 'MỚI',
     news: [
       'Gửi bản vẽ, PDF, video trong /baocao (kể cả tệp 200+ MB): bot tự chép vào topic dự án trong nhóm «JAMA Công trình», tệp vào luôn Tài liệu dự án, link Telegram ghi vào nhật ký cập nhật của dự án.',
-      'Có báo cáo công trình mới, CRM báo ngay cho người phụ trách dự án (PM, thiết kế, kinh doanh, thu mua) và người đảm nhận đầu việc.',
-      'Thông báo hiện lên điện thoại/máy tính kể cả khi không mở CRM: vào Cài đặt → «Thông báo trên máy này» → Bật (mỗi máy bật một lần). iPhone/iPad: «Thêm vào MH chính» trước rồi mở JAMA từ màn hình chính.',
+      'Có báo cáo công trình mới, ERP báo ngay cho người phụ trách dự án (PM, thiết kế, kinh doanh, thu mua) và người đảm nhận đầu việc.',
+      'Thông báo hiện lên điện thoại/máy tính kể cả khi không mở ERP: vào Cài đặt → «Thông báo trên máy này» → Bật (mỗi máy bật một lần). iPhone/iPad: «Thêm vào MH chính» trước rồi mở JAMA từ màn hình chính.',
       'Tài khoản: lọc theo Vai trò, Bộ phận, Đội (có «Chưa xếp đội») và ô tìm theo tên/email — lọc trên toàn bộ danh sách, không chỉ trang đang xem.',
     ],
     test: [
@@ -122,11 +142,11 @@ export const RELEASES: Release[] = [
   },
   {
     date: '24/10/2026',
-    title: 'Báo cáo Telegram: gửi được bản vẽ/tệp nặng, bot báo đã lưu + link xem trong CRM',
+    title: 'Báo cáo Telegram: gửi được bản vẽ/tệp nặng, bot báo đã lưu + link xem trong ERP',
     tag: 'SỬA LỖI',
     news: [
-      'Bot trả lời «✅ Báo cáo đã được lưu vào CRM!» kèm đường dẫn mở thẳng dự án trên web và chỉ rõ chỗ xem: Dự án → đầu việc → Lịch sử cập nhật.',
-      'Báo cáo trong CRM có link «Mở trong Telegram» tới từng tệp và tin gốc trong nhóm — bấm là mở đúng tin.',
+      'Bot trả lời «✅ Báo cáo đã được lưu vào ERP!» kèm đường dẫn mở thẳng dự án trên web và chỉ rõ chỗ xem: Dự án → đầu việc → Lịch sử cập nhật.',
+      'Báo cáo trong ERP có link «Mở trong Telegram» tới từng tệp và tin gốc trong nhóm — bấm là mở đúng tin.',
     ],
     fixes: [
       'Gửi bản vẽ SKP/DWG, video, tệp nặng (kể cả trên 20 MB) trong /baocao không còn bị bot bỏ qua; chú thích của tệp được lấy làm nội dung báo cáo.',
@@ -267,7 +287,7 @@ export const RELEASES: Release[] = [
       'Bấm một thông báo trên điện thoại giờ mở thẳng đúng lead hoặc dự án. Trước đây bấm vào không có phản hồi gì.',
       'Trang Tổng quan trên điện thoại: thẻ số liệu không còn bị dồn vào giữa, biểu tượng không đè chữ; có thanh tiêu đề cố định nên nút menu không đè lên dòng «Xin chào».',
       'Chấm công: hai nút Vào ca và Tan ca cùng cỡ, đứng cạnh nhau; nút cần bấm tiếp theo tô vàng.',
-      'Telegram: gõ /duan, /baocao… trong nhóm mà tài khoản Telegram chưa gán CRM thì bot hướng dẫn cách gán, không còn báo nhầm «Không kết nối được server».',
+      'Telegram: gõ /duan, /baocao… trong nhóm mà tài khoản Telegram chưa gán ERP thì bot hướng dẫn cách gán, không còn báo nhầm «Không kết nối được server».',
     ],
     news: [
       'Mở web trên điện thoại ở trang đăng nhập: thanh dưới «Cài JAMA HOME lên điện thoại» hiện ngay. Android bấm là cài; iPhone/iPad bấm sẽ hiện 3 bước có hình nút Chia sẻ.',
@@ -319,7 +339,7 @@ export const RELEASES: Release[] = [
     tag: 'MỚI',
     news: [
       'Lead → «Lịch sử hoạt động»: bỏ ô dán link Google Drive. Bấm 📷 hoặc dán ảnh (Ctrl+V) thẳng vào ô ghi chú, tối đa 6 ảnh mỗi ghi chú. Ảnh hiện ngay trong lịch sử, bấm để phóng to.',
-      'Ảnh lead lưu riêng trong CRM, chỉ Kinh doanh và Ban giám đốc (những người xem được lead) mới thấy; không đi qua nhóm Telegram. Hệ thống tự xoá thông tin vị trí GPS trong ảnh.',
+      'Ảnh lead lưu riêng trong ERP, chỉ Kinh doanh và Ban giám đốc (những người xem được lead) mới thấy; không đi qua nhóm Telegram. Hệ thống tự xoá thông tin vị trí GPS trong ảnh.',
       'Đầu việc dự án → «📁 File kết quả giai đoạn» có nút «📤 Tải file lên»: chọn PDF, DWG, SKP, Excel… (tối đa 50MB) là xong. File thành file kết quả của đầu việc, lịch sử phiên bản ghi đúng tên file, bot tự gửi một bản vào topic dự án ở nhóm «JAMA Công trình».',
       'Ô chọn file trong đầu việc nhận cả ảnh lẫn tài liệu: ảnh vào ghi chú, tài liệu thành file kết quả.',
       'File lớn hơn 50MB vẫn dán link Drive vào ô bên dưới rồi bấm «Lưu link» như cũ.',
@@ -932,10 +952,10 @@ export const RELEASES: Release[] = [
   },
   {
     date: '13/08/2026',
-    title: 'Dọn sạch dữ liệu mẫu — CRM từ nay 100% là số thật',
+    title: 'Dọn sạch dữ liệu mẫu — ERP từ nay 100% là số thật',
     tag: 'RELEASE',
     news: [
-      'Đã xóa toàn bộ dữ liệu MẪU dùng để dựng hệ thống (các dự án "Chị Mai", "Anh Tuấn"…, khách hàng, báo giá, hợp đồng, sổ giao dịch TX-001→012, kho vật tư VT-001→010 và 4 chi phí cố định tháng 6). Từ giờ mọi con số trong CRM đều là dữ liệu thật của công ty — thấy gì tin nấy.',
+      'Đã xóa toàn bộ dữ liệu MẪU dùng để dựng hệ thống (các dự án "Chị Mai", "Anh Tuấn"…, khách hàng, báo giá, hợp đồng, sổ giao dịch TX-001→012, kho vật tư VT-001→010 và 4 chi phí cố định tháng 6). Từ giờ mọi con số trong ERP đều là dữ liệu thật của công ty — thấy gì tin nấy.',
       'Ghi chú công việc trong Dự án nay đính kèm được NHIỀU ảnh một lúc: chọn bao nhiêu ảnh thì lưu đủ bấy nhiêu (trước đây chọn 3 ảnh chỉ lưu được 1 mà không báo gì).',
       'Hai thẻ cảnh báo "Lead quá hạn liên hệ" và "Việc quá hạn" ở Tổng quan nay đếm số THẬT từ máy chủ theo đúng phạm vi của bạn — trước đây một thẻ hiện số 4 cố định, một thẻ luôn hiện 0.',
     ],
@@ -1047,7 +1067,7 @@ export const RELEASES: Release[] = [
   },
   {
     date: '12/08/2026',
-    title: 'Soát toàn bộ CRM trước khi mở rộng — danh sách hiện đủ, báo lỗi nói thật',
+    title: 'Soát toàn bộ ERP trước khi mở rộng — danh sách hiện đủ, báo lỗi nói thật',
     tag: 'RELEASE',
     news: [
       'Danh sách Lead, Dự án, Khách hàng giờ nạp ĐỦ mọi bản ghi. Trước đây hệ thống chỉ lấy 50 dòng đầu rồi mới lọc/sắp xếp, nên khi công ty vượt 50 lead thì phần dư biến mất không một lời báo — bộ lọc và con số thống kê đều tính thiếu mà nhìn vẫn bình thường.',
@@ -1106,8 +1126,8 @@ export const RELEASES: Release[] = [
     title: 'Sao lưu dữ liệu tự động hằng ngày + nhắc việc tự động chính thức hoạt động',
     tag: 'RELEASE',
     news: [
-      'CRM có địa chỉ chính thức: https://crm.jamahome.vn — dễ nhớ, vào thẳng từ mọi thiết bị (địa chỉ cũ vẫn dùng được). Anh em lưu PWA ra màn hình chính nên cài lại từ địa chỉ mới.',
-      'Toàn bộ dữ liệu CRM được sao lưu tự động 5h sáng mỗi ngày, file sao lưu gửi về nhóm Telegram riêng của ban quản trị — an tâm không mất dữ liệu.',
+      'ERP có địa chỉ chính thức: https://crm.jamahome.vn — dễ nhớ, vào thẳng từ mọi thiết bị (địa chỉ cũ vẫn dùng được). Anh em lưu PWA ra màn hình chính nên cài lại từ địa chỉ mới.',
+      'Toàn bộ dữ liệu ERP được sao lưu tự động 5h sáng mỗi ngày, file sao lưu gửi về nhóm Telegram riêng của ban quản trị — an tâm không mất dữ liệu.',
       'Bộ nhắc việc tự động chính thức chạy trên hệ thống thật: nhắc thanh toán hợp đồng, báo cáo BOD buổi sáng, tự chốt chấm công cuối ngày, chăm sóc khách hàng định kỳ.',
       'Cài đặt (admin) có mục Sao lưu mới: đặt giờ sao lưu, xem lần sao lưu gần nhất thành công hay lỗi, nút "Sao lưu ngay".',
       'Chế độ Tập luyện tạm ẩn khỏi trang đăng nhập — toàn công ty vào thẳng dữ liệu thật; sẽ mở lại khi tổ chức đào tạo nhân sự mới.',

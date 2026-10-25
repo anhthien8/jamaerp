@@ -82,9 +82,16 @@ def _gui_mot(sub: dict, payload: str) -> int:
             ttl=86400,
             timeout=10,
         )
-        return getattr(resp, "status_code", 201)
+        ma = getattr(resp, "status_code", 201)
+        if not 200 <= ma < 300:
+            logger.warning("web push %s: %s", ma, (getattr(resp, "text", "") or "")[:200])
+        return ma
     except WebPushException as exc:
-        return getattr(exc.response, "status_code", 0) or 0
+        ma = getattr(exc.response, "status_code", 0) or 0
+        than = (getattr(exc.response, "text", "") or str(exc))[:200]
+        # 404/410 = máy đã gỡ đăng ký (bình thường); còn lại là lỗi cấu hình/VAPID cần thấy trong log
+        (logger.info if ma in (404, 410) else logger.warning)("web push lỗi %s: %s", ma, than)
+        return ma
     except Exception as exc:  # mạng chập chờn — không làm hỏng việc khác
         logger.warning("web push lỗi: %s", type(exc).__name__)
         return 0
@@ -92,35 +99,47 @@ def _gui_mot(sub: dict, payload: str) -> int:
 
 async def day_nhieu(hang: list[dict], session_factory=None) -> int:
     """Đẩy danh sách thông báo; xoá đăng ký chết (404/410). Trả số lượt gửi được."""
+    ma = await day_nhieu_chi_tiet(hang, session_factory)
+    return sum(1 for m in ma if 200 <= m < 300)
+
+
+async def day_nhieu_chi_tiet(hang: list[dict], session_factory=None, db=None) -> list[int]:
+    """Như `day_nhieu` nhưng trả mã HTTP từng lượt gửi (để «Gửi thử» báo lỗi thật).
+    `db`: dùng lại session của request (endpoint /push/test); không có thì tự mở."""
     if not hang or not bat():
-        return 0
+        return []
+    if db is not None:
+        return await _day_voi_session(hang, db)
     if session_factory is None:
         from app.database import async_session as session_factory
-
-    user_ids = {h["user_id"] for h in hang}
     async with session_factory() as db:
-        subs = (await db.execute(
-            select(PushSubscription).where(PushSubscription.user_id.in_(user_ids))
-        )).scalars().all()
-        theo_nguoi: dict[str, list[dict]] = {}
-        for s in subs:
-            theo_nguoi.setdefault(s.user_id, []).append(
-                {"id": s.id, "endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}
-            )
+        return await _day_voi_session(hang, db)
 
-        viec = []
-        for h in hang:
-            payload = json.dumps(
-                {"title": h["title"], "body": h["body"], "url": h["url"], "tag": h["tag"]},
-                ensure_ascii=False,
-            )
-            for sub in theo_nguoi.get(h["user_id"], []):
-                viec.append((sub["id"], asyncio.to_thread(_gui_mot, sub, payload)))
-        if not viec:
-            return 0
-        ma = await asyncio.gather(*(v for _, v in viec))
-        chet = {sid for (sid, _), m in zip(viec, ma) if m in (404, 410)}
-        if chet:
-            await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(chet)))
-            await db.commit()
-        return sum(1 for m in ma if 200 <= m < 300)
+
+async def _day_voi_session(hang: list[dict], db) -> list[int]:
+    user_ids = {h["user_id"] for h in hang}
+    subs = (await db.execute(
+        select(PushSubscription).where(PushSubscription.user_id.in_(user_ids))
+    )).scalars().all()
+    theo_nguoi: dict[str, list[dict]] = {}
+    for s in subs:
+        theo_nguoi.setdefault(s.user_id, []).append(
+            {"id": s.id, "endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}
+        )
+
+    viec = []
+    for h in hang:
+        payload = json.dumps(
+            {"title": h["title"], "body": h["body"], "url": h["url"], "tag": h["tag"]},
+            ensure_ascii=False,
+        )
+        for sub in theo_nguoi.get(h["user_id"], []):
+            viec.append((sub["id"], asyncio.to_thread(_gui_mot, sub, payload)))
+    if not viec:
+        return []
+    ma = list(await asyncio.gather(*(v for _, v in viec)))
+    chet = {sid for (sid, _), m in zip(viec, ma) if m in (404, 410)}
+    if chet:
+        await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(chet)))
+        await db.commit()
+    return ma

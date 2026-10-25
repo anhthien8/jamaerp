@@ -60,12 +60,12 @@ async def hien_ban_phim(message: types.Message, tg_id: int, cmd: str, van_phong:
             return False  # lỗi tra dự án không được chặn việc vào ca văn phòng
         if api.chua_lien_ket(tg_id):
             await message.answer(
-                "🔗 Telegram của bạn chưa liên kết tài khoản CRM.\n"
-                "Nhờ Admin vào <b>CRM → Tài khoản → «Telegram chưa gán»</b> bấm <b>Gán</b>.\n"
+                "🔗 Telegram của bạn chưa liên kết tài khoản ERP.\n"
+                "Nhờ Admin vào <b>ERP → Tài khoản → «Telegram chưa gán»</b> bấm <b>Gán</b>.\n"
                 f"Telegram ID: <code>{tg_id}</code>"
             )
             return True
-        loi = ds.get("error") if isinstance(ds, dict) else "Máy chủ CRM đang bận, thử lại sau ít phút"
+        loi = ds.get("error") if isinstance(ds, dict) else "Máy chủ ERP đang bận, thử lại sau ít phút"
         await message.answer(f"❌ {loi}")
         return True
     if not ds and not van_phong:

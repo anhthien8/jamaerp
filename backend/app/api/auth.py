@@ -210,7 +210,7 @@ async def telegram_auth(
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="Telegram chưa được liên kết với tài khoản CRM. Liên hệ Admin.",
+            detail="Telegram chưa được liên kết với tài khoản ERP. Liên hệ Admin.",
         )
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Tài khoản đã bị vô hiệu hóa")

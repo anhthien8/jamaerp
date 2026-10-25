@@ -7,11 +7,15 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { api, type DongVatTu, type MauVatTu, type PhieuVatTu, type Project, type VatTuTongQuan } from '@/lib/api';
+import { api, mediaUrl, type DongVatTu, type MauVatTu, type PhieuVatTu, type Project, type VatTuTongQuan } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { tien } from '@/lib/tien-gon';
+import { compressImage } from '@/lib/nhan-su';
+
+// Bỏ dấu + thường hoá để tìm dự án không cần gõ dấu
+const boDau = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
 type Tab = 'danh-muc' | 'can-hoi-gia' | 'du-an' | 'cai-gia';
 
@@ -38,11 +42,55 @@ function NhanTrangThai({ d }: { d: DongVatTu }) {
 }
 
 function AnhMau({ url, size = 40 }: { url?: string | null; size?: number }) {
-  if (!url || !/^https?:/.test(url)) {
+  const src = url ? mediaUrl(url) : '';
+  if (!src || !/^https?:/.test(src)) {
     return <div className="rounded-lg bg-[var(--surface-3)] flex items-center justify-center shrink-0" style={{ width: size, height: size }}><LineIcon name="package" size={16} /></div>;
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="" className="rounded-lg object-cover shrink-0" style={{ width: size, height: size }} loading="lazy" />;
+  return <img src={src} alt="" className="rounded-lg object-cover shrink-0" style={{ width: size, height: size }} loading="lazy" />;
+}
+
+// Ô chọn dự án có tìm (mã/tên, không dấu); dự án có hoạt động 7 ngày gần nhất xếp lên đầu.
+function ChonDuAn({ duAns, value, onChange }: { duAns: Project[]; value: string; onChange: (id: string) => void }) {
+  const [q, setQ] = useState('');
+  const [mo, setMo] = useState(false);
+  const chon = duAns.find(p => p.id === value);
+  const moc = Date.now() - 7 * 86400_000;
+  const { ganDay, conLai } = useMemo(() => {
+    const k = boDau(q.trim());
+    const loc = duAns.filter(p => !k || boDau(`${p.code} ${p.name}`).includes(k));
+    const thoi = (p: Project) => new Date(p.updated_at || p.created_at || 0).getTime();
+    const ganDay = loc.filter(p => thoi(p) >= moc).sort((a, b) => thoi(b) - thoi(a));
+    const conLai = loc.filter(p => thoi(p) < moc).sort((a, b) => a.code.localeCompare(b.code));
+    return { ganDay, conLai };
+  }, [duAns, q, moc]);
+  const Dong = ({ p }: { p: Project }) => (
+    <button type="button" className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--surface-3)] ${p.id === value ? 'bg-[var(--surface-3)]' : ''}`}
+      onClick={() => { onChange(p.id); setQ(''); setMo(false); }}>
+      <span className="text-xs font-mono text-[var(--gold-400)] shrink-0">{p.code}</span>
+      <span className="text-sm text-[var(--text-primary)] truncate">{p.name}</span>
+    </button>
+  );
+  return (
+    <div className="relative flex-1 min-w-[220px]">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"><LineIcon name="search" size={16} /></span>
+      <input className={`${inp} pl-9 pr-8`} placeholder={chon ? `${chon.code} · ${chon.name}` : 'Tìm dự án theo mã hoặc tên…'}
+        value={q} onFocus={() => setMo(true)} onBlur={() => setTimeout(() => setMo(false), 150)}
+        onChange={e => { setQ(e.target.value); setMo(true); }} />
+      {value && !q && (
+        <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" title="Bỏ chọn" onClick={() => { onChange(''); setMo(false); }}><LineIcon name="x" size={14} /></button>
+      )}
+      {mo && (
+        <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] shadow-xl">
+          {ganDay.length > 0 && <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Gần đây (7 ngày)</div>}
+          {ganDay.map(p => <Dong key={p.id} p={p} />)}
+          {conLai.length > 0 && <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{ganDay.length ? 'Dự án khác' : 'Tất cả dự án'}</div>}
+          {conLai.map(p => <Dong key={p.id} p={p} />)}
+          {ganDay.length + conLai.length === 0 && <div className="px-3 py-3 text-sm text-[var(--text-muted)]">Không có dự án khớp «{q}»</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function VatTuPage() {
@@ -122,6 +170,22 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
   const [ghiDe, setGhiDe] = useState(false);
   const [dangImport, setDangImport] = useState(false);
   const [sua, setSua] = useState<Partial<MauVatTu> | null>(null);
+  const [nhomMoi, setNhomMoi] = useState(false);
+  const [dangTaiAnh, setDangTaiAnh] = useState(false);
+
+  const taiAnh = async (f: File | undefined) => {
+    if (!f || !sua) return;
+    setDangTaiAnh(true);
+    try {
+      const nen = await compressImage(f);
+      if (!nen) throw new Error('Không đọc được ảnh — chọn JPG/PNG/WebP');
+      const r = await api.vatTuTaiAnh(nen.base64);
+      setSua(s => ({ ...s, anh_url: r.anh_url }));
+      bao('ok', 'Đã tải ảnh');
+    } catch (e) { bao('loi', loi(e, 'Không tải được ảnh')); }
+    finally { setDangTaiAnh(false); }
+  };
+  const linkShopeeTim = (s: Partial<MauVatTu>) => `https://shopee.vn/search?keyword=${encodeURIComponent([s.hang, s.ma].filter(Boolean).join(' ') || 'gạch')}`;
 
   const tai = useCallback(async () => {
     setLoading(true);
@@ -168,7 +232,7 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
         {laThuMua && (
           <>
             <button className={btnGhost} onClick={() => setMoImport(v => !v)}><LineIcon name="list" size={14} /> Nhập Google Sheet</button>
-            <button className={btnGold} onClick={() => setSua({ ma: '', nhom: nhom || 'Khác', don_vi: 'm2', is_active: true })}><LineIcon name="plus" size={14} /> Thêm mẫu</button>
+            <button className={btnGold} onClick={() => { setNhomMoi(false); setSua({ ma: '', nhom: nhom || nhoms[0]?.nhom || 'Khác', don_vi: 'm2', is_active: true }); }}><LineIcon name="plus" size={14} color="currentColor" /> Thêm mẫu</button>
           </>
         )}
       </div>
@@ -186,17 +250,43 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
         <div className="glass-card p-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input className={inp} placeholder="Mã *" value={sua.ma || ''} onChange={e => setSua({ ...sua, ma: e.target.value })} />
           <input className={inp} placeholder="Hãng" value={sua.hang || ''} onChange={e => setSua({ ...sua, hang: e.target.value })} />
-          <input className={inp} placeholder="Nhóm (30x30, 60x60…)" value={sua.nhom || ''} onChange={e => setSua({ ...sua, nhom: e.target.value })} list="ds-nhom" />
-          <datalist id="ds-nhom">{nhoms.map(n => <option key={n.nhom} value={n.nhom} />)}</datalist>
+          {nhomMoi || (sua.nhom && !nhoms.some(n => n.nhom === sua.nhom) && sua.nhom !== 'Khác') ? (
+            <div className="flex gap-1">
+              <input className={inp} placeholder="Tên nhóm mới (30x30, 60x60…)" value={sua.nhom || ''} autoFocus onChange={e => setSua({ ...sua, nhom: e.target.value })} />
+              <button type="button" className={btnGhost} title="Chọn nhóm có sẵn" onClick={() => { setNhomMoi(false); setSua({ ...sua, nhom: nhoms[0]?.nhom || 'Khác' }); }}><LineIcon name="list" size={14} /></button>
+            </div>
+          ) : (
+            <select className={inp} value={sua.nhom || 'Khác'} onChange={e => { if (e.target.value === '__moi') { setNhomMoi(true); setSua({ ...sua, nhom: '' }); } else setSua({ ...sua, nhom: e.target.value }); }}>
+              {!nhoms.some(n => n.nhom === 'Khác') && <option value="Khác">Khác</option>}
+              {nhoms.map(n => <option key={n.nhom} value={n.nhom}>{n.nhom} ({n.so_mau})</option>)}
+              <option value="__moi">+ Nhóm mới…</option>
+            </select>
+          )}
           <input className={inp} placeholder="Bề mặt / tính chất" value={sua.be_mat || ''} onChange={e => setSua({ ...sua, be_mat: e.target.value })} />
           <input className={inp} placeholder="Đơn vị" value={sua.don_vi || ''} onChange={e => setSua({ ...sua, don_vi: e.target.value })} />
-          <input className={inp} placeholder="Link ảnh" value={sua.anh_url || ''} onChange={e => setSua({ ...sua, anh_url: e.target.value })} />
+          <div className="sm:col-span-3 flex flex-wrap gap-3 items-start">
+            <AnhMau url={sua.anh_url} size={96} />
+            <div className="flex-1 min-w-[220px] space-y-2">
+              <input className={inp} placeholder="Link ảnh (dán vào là hiện ngay)" value={sua.anh_url || ''} onChange={e => setSua({ ...sua, anh_url: e.target.value })} />
+              <div className="flex flex-wrap gap-2">
+                <label className={`${btnGhost} cursor-pointer`}>
+                  <LineIcon name="camera" size={14} /> {dangTaiAnh ? 'Đang tải…' : 'Tải ảnh lên'}
+                  <input type="file" accept="image/*" className="hidden" disabled={dangTaiAnh} onChange={e => { taiAnh(e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+                <a className={btnGhost} href={sua.link_shopee || linkShopeeTim(sua)} target="_blank" rel="noopener noreferrer" title={sua.link_shopee ? 'Mở sản phẩm trên Shopee' : 'Tìm mẫu này trên Shopee để lấy ảnh & giá thị trường'}>
+                  <LineIcon name="link" size={14} /> {sua.link_shopee ? 'Mở Shopee' : 'Tìm trên Shopee'}
+                </a>
+                {sua.anh_url && <button type="button" className={btnGhost} onClick={() => setSua({ ...sua, anh_url: '' })}><LineIcon name="x" size={14} /> Bỏ ảnh</button>}
+              </div>
+              <input className={inp} placeholder="Link Shopee sản phẩm (để so giá thị trường)" value={sua.link_shopee || ''} onChange={e => setSua({ ...sua, link_shopee: e.target.value })} />
+            </div>
+          </div>
           <input className={inp} type="number" placeholder="Giá tham khảo (vốn)" value={sua.gia_tham_khao ?? ''} onChange={e => setSua({ ...sua, gia_tham_khao: e.target.value ? Number(e.target.value) : null })} />
           <input className={inp} type="number" placeholder="Giá bán cố định (nếu có)" value={sua.gia_ban_co_dinh ?? ''} onChange={e => setSua({ ...sua, gia_ban_co_dinh: e.target.value ? Number(e.target.value) : null })} />
           <input className={inp} placeholder="NCC quen" value={sua.ncc_gan_nhat_ten || ''} onChange={e => setSua({ ...sua, ncc_gan_nhat_ten: e.target.value })} />
           <input className={`${inp} sm:col-span-2`} placeholder="Ghi chú" value={sua.ghi_chu || ''} onChange={e => setSua({ ...sua, ghi_chu: e.target.value })} />
           <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={sua.is_active !== false} onChange={e => setSua({ ...sua, is_active: e.target.checked })} /> Đang dùng</label>
-          <div className="flex gap-2 sm:col-span-3"><button className={btnGold} onClick={luuMau}><LineIcon name="check" size={14} /> Lưu</button><button className={btnGhost} onClick={() => setSua(null)}>Huỷ</button></div>
+          <div className="flex gap-2 sm:col-span-3"><button className={btnGold} onClick={luuMau}><LineIcon name="check" size={14} color="currentColor" /> Lưu</button><button className={btnGhost} onClick={() => setSua(null)}>Huỷ</button></div>
         </div>
       )}
 
@@ -302,12 +392,9 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
-        <select className={`${inp} flex-1 min-w-[220px]`} value={pid} onChange={e => setPid(e.target.value)}>
-          <option value="">— Chọn dự án —</option>
-          {duAns.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-        </select>
+        <ChonDuAn duAns={duAns} value={pid} onChange={setPid} />
         {pid && <Link href={`/projects?id=${pid}`} className={btnGhost}><LineIcon name="eye" size={14} /> Mở dự án</Link>}
-        {pid && <button className={btnGold} onClick={() => setMoThem(v => !v)}><LineIcon name="plus" size={14} /> Khách chọn mẫu</button>}
+        {pid && <button className={btnGold} onClick={() => setMoThem(v => !v)}><LineIcon name="plus" size={14} color="currentColor" /> Khách chọn mẫu</button>}
       </div>
 
       {!pid && <div className="glass-card p-8 text-center text-[var(--text-muted)]">Chọn dự án để xem phiếu vật tư. Mỗi phòng một nhóm dòng: khách chọn → Thu mua hỏi NCC → chốt giá.</div>}
@@ -321,7 +408,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
           <input className={inp} type="number" min={0} step="0.1" placeholder="Số lượng" value={form.so_luong} onChange={e => setForm({ ...form, so_luong: Number(e.target.value) })} />
           <input className={inp} placeholder="Đơn vị" value={form.don_vi} onChange={e => setForm({ ...form, don_vi: e.target.value })} />
           <input className={`${inp} lg:col-span-2`} placeholder="Ghi chú cho Thu mua" value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} />
-          <div className="flex gap-2 sm:col-span-2 lg:col-span-4"><button className={btnGold} onClick={them}><LineIcon name="check" size={14} /> Thêm dòng</button><button className={btnGhost} onClick={() => setMoThem(false)}>Đóng</button></div>
+          <div className="flex gap-2 sm:col-span-2 lg:col-span-4"><button className={btnGold} onClick={them}><LineIcon name="check" size={14} color="currentColor" /> Thêm dòng</button><button className={btnGhost} onClick={() => setMoThem(false)}>Đóng</button></div>
         </div>
       )}
 
@@ -469,7 +556,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                         {b.ngay_giao && <span className="text-xs text-[var(--text-muted)]">giao {b.ngay_giao}</span>}
                         {b.ghi_chu && <span className="text-xs text-[var(--text-muted)]">{b.ghi_chu}</span>}
                         <span className="flex-1" />
-                        {laThuMua && b.con_hang && <button className={`${btnGold} text-xs`} onClick={() => chot(d.id, b.id)}><LineIcon name="check" size={12} /> Chốt giá này</button>}
+                        {laThuMua && b.con_hang && <button className={`${btnGold} text-xs`} onClick={() => chot(d.id, b.id)}><LineIcon name="check" size={12} color="currentColor" /> Chốt giá này</button>}
                         {laThuMua && <button className="text-[var(--text-muted)] hover:text-red-400 p-1" onClick={async () => { await api.vatTuXoaBaoGia(b.id).catch(() => null); tai(); }}><LineIcon name="trash" size={12} /></button>}
                       </div>
                     ))}
@@ -541,7 +628,7 @@ function CaiGia({ bao }: { bao: (l: 'ok' | 'loi', t: string) => void }) {
         <input className={inp} placeholder="Thêm nhóm mới (vd Thiết bị vệ sinh)" value={moi} onChange={e => setMoi(e.target.value)} />
         <button className={btnGhost} onClick={() => { if (moi.trim() && !ds.some(x => x.nhom === moi.trim())) { setDs([...ds, { nhom: moi.trim(), phan_tram_lai: 15 }]); setMoi(''); } }}><LineIcon name="plus" size={14} /></button>
       </div>
-      <button className={btnGold} disabled={saving} onClick={luu}><LineIcon name="check" size={14} /> {saving ? 'Đang lưu…' : 'Lưu'}</button>
+      <button className={btnGold} disabled={saving} onClick={luu}><LineIcon name="check" size={14} color="currentColor" /> {saving ? 'Đang lưu…' : 'Lưu'}</button>
     </div>
   );
 }

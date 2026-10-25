@@ -274,7 +274,7 @@ function ProjectsPageInner() {
     toast(`Đã chọn ${results.length} ảnh — bấm «Đăng cập nhật» để lưu`, 'success');
   };
 
-  // 23/10/2026: tài liệu (PDF/DWG/SKP…) tải thẳng từ CRM — bot đăng vào topic dự án
+  // 23/10/2026: tài liệu (PDF/DWG/SKP…) tải thẳng từ ERP — bot đăng vào topic dự án
   // trong nhóm Kho ảnh và gắn làm file kết quả. Trước đó nhân viên phải tự gửi
   // Telegram rồi dán link, chủ dự án thấy làm khó nhân viên.
   const taiFileKetQua = async (file: File) => {

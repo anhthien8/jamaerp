@@ -18,7 +18,7 @@ async def cmd_start(message: types.Message):
         user = auth_result["user"]
         await message.answer(
             f"🏠 <b>Chào mừng {user['full_name']}!</b>\n\n"
-            f"Bạn đã đăng nhập vào <b>JAMA HOME CRM</b>\n"
+            f"Bạn đã đăng nhập vào <b>JAMA HOME ERP</b>\n"
             f"📋 Vai trò: <code>{user['role']}</code> · 👥 Phòng ban: <code>{user['department']}</code>\n\n"
             f"Chọn chức năng bên dưới:",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
@@ -49,10 +49,10 @@ async def cmd_start(message: types.Message):
         )
     else:
         await message.answer(
-            "❌ <b>Chưa liên kết tài khoản CRM</b>\n\n"
+            "❌ <b>Chưa liên kết tài khoản ERP</b>\n\n"
             "Telegram ID của bạn chưa được đăng ký trong hệ thống.\n"
             f"Telegram ID: <code>{tg_user.id}</code>\n\n"
-            "Bot đã ghi nhận bạn — Admin vào CRM → Tài khoản → mục "
+            "Bot đã ghi nhận bạn — Admin vào ERP → Tài khoản → mục "
             "<b>Telegram chưa gán</b> để gán cho bạn bằng 1 cú bấm.\n"
             "Cần gấp thì nhắn Admin kèm ID ở trên."
         )

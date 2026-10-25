@@ -472,7 +472,7 @@ async def run_backup(db: AsyncSession) -> dict:
 
     # 4) Gửi file qua Telegram
     caption = (
-        f"🗄 Sao lưu JAMA CRM · {now_vn.strftime('%d/%m/%Y %H:%M')} · "
+        f"🗄 Sao lưu JAMA ERP · {now_vn.strftime('%d/%m/%Y %H:%M')} · "
         f"{db_kind} · {size_mb} MB"
     )
     try:

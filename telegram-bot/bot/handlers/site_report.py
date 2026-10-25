@@ -12,7 +12,7 @@ from bot.keyboards import hien_ban_phim, nut_gui_anh, nut_huy
 
 router = Router()
 
-# Trang web CRM (bot dựng link «Xem trong CRM»)
+# Trang web ERP (bot dựng link «Xem trong ERP»)
 WEB_URL = os.getenv("WEB_URL", "https://frontend-jet-two-86.vercel.app").rstrip("/")
 
 
@@ -363,11 +363,11 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
         crm = ""
         if result.get("crm_path"):
             crm = (
-                f"\n\n🔎 <b>Xem trong CRM:</b> Dự án → {code} → đầu việc «{task}» → Nhật ký\n"
+                f"\n\n🔎 <b>Xem trong ERP:</b> Dự án → {code} → đầu việc «{task}» → Nhật ký\n"
                 f"{WEB_URL}{result['crm_path']}"
             )
         await message.answer(
-            f"✅ <b>Báo cáo đã được lưu vào CRM!</b>\n\n"
+            f"✅ <b>Báo cáo đã được lưu vào ERP!</b>\n\n"
             f"🏗 Dự án: <code>{code}</code>\n"
             f"📋 Đầu việc: {task}\n"
             f"👤 Người báo cáo: {result.get('reporter', '—')}\n"

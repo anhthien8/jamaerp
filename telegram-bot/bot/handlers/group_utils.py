@@ -30,7 +30,7 @@ async def cb_cancel(callback: types.CallbackQuery, state: FSMContext):
 
 @router.message(Command("id"))
 async def cmd_id(message: types.Message):
-    """Reply with the current chat's ID — dùng để cấu hình nhóm công ty trong CRM."""
+    """Reply with the current chat's ID — dùng để cấu hình nhóm công ty trong ERP."""
     chat = message.chat
     chat_type = {"private": "cá nhân", "group": "nhóm", "supergroup": "siêu nhóm", "channel": "kênh"}.get(
         chat.type, chat.type
@@ -43,7 +43,7 @@ async def cmd_id(message: types.Message):
         lines += [
             "",
             "📋 Copy Chat ID ở trên và dán vào:",
-            "CRM → Cài đặt → Tự động hóa → <b>Nhóm Telegram công ty</b>",
+            "ERP → Cài đặt → Tự động hóa → <b>Nhóm Telegram công ty</b>",
             "Bot sẽ gửi briefing công việc hàng ngày vào nhóm này.",
         ]
     if message.from_user:
@@ -63,7 +63,7 @@ async def on_added_to_group(message: types.Message):
         "🏠 <b>Xin chào JAMA HOME!</b>\n\n"
         "Tôi là trợ lý công việc của công ty. Để hoàn tất cài đặt:\n"
         "1️⃣ Gõ <b>/id</b> để lấy Chat ID của nhóm này\n"
-        "2️⃣ Admin dán Chat ID vào CRM → Cài đặt → Tự động hóa\n\n"
+        "2️⃣ Admin dán Chat ID vào ERP → Cài đặt → Tự động hóa\n\n"
         "Sau đó tôi sẽ gửi briefing công việc mỗi sáng 🌅\n"
         "Các lệnh dùng được trong nhóm: /duan · /baocao · /vatlieu · /suco · /checkin · /pipeline"
     )

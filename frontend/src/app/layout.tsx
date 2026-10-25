@@ -20,7 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "JAMA HOME ERP — Hệ thống Quản lý",
-  description: "ERP + CRM cho JAMA HOME — Nội thất cao cấp",
+  description: "ERP + ERP cho JAMA HOME — Nội thất cao cấp",
   // PWA (spec 08 §1.4): icon mark JM thương hiệu (sinh từ public/jama-logo.png,
   // xem lịch sử 22/07) — bộ icon-192/512 + maskable + apple-touch-icon.
   manifest: "/manifest.json",

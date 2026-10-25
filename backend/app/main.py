@@ -1,4 +1,4 @@
-"""JAMA HOME CRM Backend — FastAPI entry point."""
+"""JAMA HOME ERP Backend — FastAPI entry point."""
 
 import os
 from contextlib import asynccontextmanager

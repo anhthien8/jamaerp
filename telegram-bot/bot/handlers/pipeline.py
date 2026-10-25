@@ -41,7 +41,7 @@ async def cmd_pipeline(message: types.Message):
     total = stats.get("total_leads", 0)
 
     # Build visual pipeline
-    lines = ["📊 <b>PIPELINE CRM</b>\n"]
+    lines = ["📊 <b>PIPELINE ERP</b>\n"]
 
     for stage_key in ["new", "interested", "survey_scheduled", "potential", "signed_design"]:
         count = by_stage.get(stage_key, 0)

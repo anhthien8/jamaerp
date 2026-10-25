@@ -48,7 +48,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Nút "✅ Vào ca" trên web dùng khi đang ngồi máy tính',
       'Công của bạn tự tính vào bảng lương — quên tan ca hệ thống tự đóng 8h',
     ]},
-    { href: '/leads', icon: 'refresh', title: 'Quy trình CRM — nơi bạn sống cả ngày', points: [
+    { href: '/leads', icon: 'refresh', title: 'Quy trình ERP — nơi bạn sống cả ngày', points: [
       'Khách mới → bấm "+ Thêm Lead" (hoặc paste tin Zalo vào bot Telegram: /lead)',
       'Data do CSKH/trưởng nhóm giao cho bạn TỰ xuất hiện ở đây — không cần ai nhắn tay',
       'Sau MỖI cuộc gọi/gặp: mở thẻ khách → ghi chú lại nội dung',

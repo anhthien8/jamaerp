@@ -1,4 +1,4 @@
-"""JAMA HOME CRM Telegram Bot — aiogram 3.x entry point."""
+"""JAMA HOME ERP Telegram Bot — aiogram 3.x entry point."""
 
 import asyncio
 import logging
@@ -54,7 +54,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 # ── Đợt 3: tự đăng nhập + ghi nhận người Telegram ─────────────────────────
 # Bot API không liệt kê được thành viên nhóm, nên mỗi người nhắn (nhóm/riêng)
-# hoặc vừa vào nhóm được báo về backend để admin gán vào tài khoản CRM.
+# hoặc vừa vào nhóm được báo về backend để admin gán vào tài khoản ERP.
 # Cần BotFather /setprivacy → Disable thì bot mới thấy tin thường trong nhóm.
 _GIAN_CACH = 600  # giây — mỗi người tối đa 1 lần/10 phút
 _lan_dang_nhap: dict[int, float] = {}
@@ -78,7 +78,7 @@ def _bao_da_gap(user: types.User, chat: types.Chat | None) -> None:
     asyncio.create_task(api.contact_seen(info))
 
 
-# Lệnh dùng được khi Telegram chưa gán tài khoản CRM.
+# Lệnh dùng được khi Telegram chưa gán tài khoản ERP.
 _LENH_TU_DO = {"start", "id", "cancel", "help"}
 
 
@@ -96,8 +96,8 @@ def _la_lenh_can_dang_nhap(event) -> bool:
 def _huong_dan_lien_ket(user: types.User) -> str:
     ten = " ".join(x for x in (user.first_name, user.last_name) if x) or "bạn"
     return (
-        f"🔗 <b>Telegram của {ten} chưa liên kết tài khoản CRM</b>\n\n"
-        "Bot đã ghi nhận bạn. Nhờ Admin vào <b>CRM → Tài khoản → «Telegram chưa gán»</b>, "
+        f"🔗 <b>Telegram của {ten} chưa liên kết tài khoản ERP</b>\n\n"
+        "Bot đã ghi nhận bạn. Nhờ Admin vào <b>ERP → Tài khoản → «Telegram chưa gán»</b>, "
         "chọn tên bạn rồi bấm <b>Gán</b>. Xong là dùng được ngay, không cần /start lại.\n"
         f"Telegram ID của bạn: <code>{user.id}</code>"
     )
@@ -114,7 +114,7 @@ async def nguoi_dung_middleware(handler, event, data):
         if api.chua_lien_ket(user.id):
             _bao_da_gap(user, chat)
             if isinstance(event, types.CallbackQuery):
-                await event.answer("Telegram của bạn chưa liên kết tài khoản CRM", show_alert=True)
+                await event.answer("Telegram của bạn chưa liên kết tài khoản ERP", show_alert=True)
                 if event.message:
                     await event.message.answer(_huong_dan_lien_ket(user))
             else:
@@ -202,7 +202,7 @@ async def main():
     except Exception as e:
         logger.warning(f"set_my_commands lỗi: {e}")
 
-    logger.info("JAMA HOME CRM Bot starting...")
+    logger.info("JAMA HOME ERP Bot starting...")
     await dp.start_polling(bot)
 
 

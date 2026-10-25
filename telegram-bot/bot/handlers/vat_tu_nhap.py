@@ -36,7 +36,7 @@ def _tien(v: float | None) -> str:
 
 def _loi(res: dict | None, mac_dinh: str) -> str:
     if res is None:
-        return "Không kết nối được máy chủ CRM, thử lại sau ít phút"
+        return "Không kết nối được máy chủ ERP, thử lại sau ít phút"
     return res.get("error") or mac_dinh
 
 

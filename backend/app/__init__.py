@@ -1,1 +1,1 @@
-# JAMA HOME CRM Backend
+# JAMA HOME ERP Backend

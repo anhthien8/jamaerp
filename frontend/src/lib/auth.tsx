@@ -40,7 +40,7 @@ export type AppMode = 'demo' | 'work';
 
 /**
  * Đọc hạn dùng (exp) ghi sẵn trong token, không cần gọi máy chủ.
- * Token của CRM sống 12 tiếng; hết hạn thì mọi lời gọi đều trả 401.
+ * Token của ERP sống 12 tiếng; hết hạn thì mọi lời gọi đều trả 401.
  */
 function tokenConHan(token: string | null): boolean {
   if (!token) return false;

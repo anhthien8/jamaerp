@@ -15,7 +15,7 @@ Giá vốn / NCC / lãi chỉ trả về cho Giám đốc, Thu mua, Trưởng ph
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -59,6 +59,9 @@ class MauVatTu(Base):
     be_mat: Mapped[str | None] = mapped_column(String(50), nullable=True)     # Bóng/Mờ/Nhám
     don_vi: Mapped[str] = mapped_column(String(20), nullable=False, default="m2")
     anh_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Link sản phẩm trên Shopee để Thu mua/khách check giá thị trường (25/10/2026).
+    # Không tự cào Shopee (chặn bot, không có API mở) — người dùng dán link tay.
+    link_shopee: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
     tinh_trang: Mapped[str | None] = mapped_column(String(100), nullable=True)  # «Còn hàng» theo sheet
     gia_tham_khao: Mapped[float | None] = mapped_column(Float, nullable=True)   # từ sheet
@@ -74,6 +77,25 @@ class MauVatTu(Base):
     __table_args__ = (
         Index("ix_mau_vat_tu_ma", "ma"),
         Index("ix_mau_vat_tu_nhom", "nhom"),
+    )
+
+
+class AnhVatTu(Base):
+    """Ảnh mẫu vật tư tải từ máy (25/10/2026) — JPG cạnh dài ≤800px lưu thẳng Postgres.
+
+    Giống ảnh đại diện: không đi qua Kho ảnh Telegram (catalog nội bộ, không phải
+    ảnh công trình). Xem qua URL ký HMAC /media/vat-tu/{id}/{sig}.jpg, ghi vào
+    `MauVatTu.anh_url` như một link ảnh bình thường.
+    """
+
+    __tablename__ = "anh_vat_tu"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
 

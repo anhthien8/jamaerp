@@ -1,4 +1,4 @@
-"""JAMA HOME CRM Backend Configuration."""
+"""JAMA HOME ERP Backend Configuration."""
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment."""
 
     # App
-    APP_NAME: str = "JAMA HOME CRM"
+    APP_NAME: str = "JAMA HOME ERP"
     APP_ENV: str = "development"
     DEBUG: bool = True
     # In mọi câu SQL ra log — chỉ bật khi gỡ lỗi. Bật mặc định từng làm prod

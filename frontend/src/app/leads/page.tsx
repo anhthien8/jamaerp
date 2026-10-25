@@ -868,7 +868,7 @@ function LeadsContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Quy trình CRM</h1>
+            <h1 className="text-2xl font-bold">Quy trình ERP</h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
                 {viewMode === 'list' ? 'Click vào dòng để xem chi tiết' : 'Click vào card để xem chi tiết'} · {shownCount}/{leads.length} leads
               </p>

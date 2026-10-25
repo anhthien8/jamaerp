@@ -180,6 +180,7 @@ ROUTE_CONG_KHAI = {
     "/api/v1/media/{media_id}/{sig}.jpg",
     "/api/v1/media/docs/{doc_id}/{sig}/{ten}",  # link ký HMAC như ảnh
     "/api/v1/media/avatar/{user_id}/{sig}.jpg",  # 24/10 ảnh đại diện, ký HMAC("avatar:"+id)
+    "/api/v1/media/vat-tu/{anh_id}/{sig}.jpg",  # 25/10 ảnh mẫu vật tư, ký HMAC("vat-tu:"+id)
     "/api/v1/feedback/telegram",
     # 23/10/2026 — bot báo «vừa gặp người Telegram này» (có thể chưa có tài khoản
     # CRM nên không có JWT); xác thực bằng X-Telegram-Bot-Secret như /auth/telegram.

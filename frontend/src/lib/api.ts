@@ -2039,7 +2039,8 @@ class ApiClient {
     return this.request<{ ok: boolean }>('/push/unsubscribe', { method: 'POST', body: { endpoint } });
   }
   async pushTest() {
-    return this.request<{ ok: boolean }>('/push/test', { method: 'POST' });
+    // 25/10/2026: trả kết quả thật từng máy (devices, sent, codes, reason) để Cài đặt báo lỗi đúng chỗ
+    return this.request<{ ok: boolean; devices: number; sent: number; codes: number[]; reason?: string }>('/push/test', { method: 'POST' });
   }
 
   // ── Vật tư Đợt 1 (25/10/2026): danh mục mẫu · phiếu chọn theo dự án · hỏi giá NCC ──
@@ -2058,6 +2059,10 @@ class ApiClient {
   }
   async vatTuSuaMau(id: string, body: Partial<MauVatTu>) {
     return this.request<MauVatTu>(`/vat-tu/mau/${id}`, { method: 'PUT', body });
+  }
+  /** Tải ảnh mẫu từ máy (JPG base64 đã nén) → anh_url ký HMAC để gắn vào mẫu. Thu mua. */
+  async vatTuTaiAnh(data_base64: string) {
+    return this.request<{ id: string; anh_url: string; size_bytes: number }>('/vat-tu/anh', { method: 'POST', body: { data_base64 } });
   }
   async vatTuImportSheet(url: string, ghiDe = false) {
     return this.request<{ doc_duoc: number; them: number; sua: number }>('/vat-tu/mau/import-sheet', { method: 'POST', body: { url, ghi_de: ghiDe } });
@@ -2338,7 +2343,7 @@ export interface Activity {
 // ── Vật tư (25/10/2026) ──
 export interface MauVatTu {
   id: string; ma: string; ten?: string | null; hang?: string | null; nhom: string; be_mat?: string | null;
-  don_vi: string; anh_url?: string | null; ghi_chu?: string | null; tinh_trang?: string | null; is_active: boolean;
+  don_vi: string; anh_url?: string | null; link_shopee?: string | null; ghi_chu?: string | null; tinh_trang?: string | null; is_active: boolean;
   // chỉ có khi được xem giá vốn
   gia_tham_khao?: number | null; gia_von_gan_nhat?: number | null; gia_von_cap_nhat_luc?: string | null;
   ncc_gan_nhat_ten?: string | null; gia_ban_co_dinh?: number | null;

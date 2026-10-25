@@ -1,4 +1,4 @@
-// JAMA CRM — service worker chỉ để nhận thông báo đẩy (25/10/2026).
+// JAMA ERP — service worker chỉ để nhận thông báo đẩy (25/10/2026).
 // Không cache trang: app luôn lấy bản mới từ mạng.
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -9,9 +9,9 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'JAMA CRM', body: event.data ? event.data.text() : '' };
+    data = { title: 'JAMA ERP', body: event.data ? event.data.text() : '' };
   }
-  const title = data.title || 'JAMA CRM';
+  const title = data.title || 'JAMA ERP';
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',

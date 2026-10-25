@@ -103,10 +103,19 @@ async def test_push(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Gửi thử: ghi một thông báo chuông cho chính mình → tự đẩy ra mọi máy đã bật."""
-    db.add(Notification(
-        user_id=current_user.id, type="system", title="Thử thông báo JAMA",
-        body="Máy này đã nhận được thông báo từ CRM.", link="/",
-    ))
-    await db.commit()
-    return {"ok": True}
+    """Gửi thử: đẩy NGAY tới mọi máy của người bấm và trả kết quả thật
+    (số máy, số gửi được, mã lỗi) — không đi đường chuông nền để màn hình
+    Cài đặt nói được vì sao không thấy gì (25/10/2026, feedback «Gửi thử không thấy gì»)."""
+    so_may = (await db.execute(
+        select(func.count()).select_from(PushSubscription).where(PushSubscription.user_id == current_user.id)
+    )).scalar_one()
+    if not web_push.bat():
+        return {"ok": False, "devices": so_may, "sent": 0, "codes": [], "reason": "Máy chủ chưa cấu hình khoá VAPID"}
+    if so_may == 0:
+        return {"ok": False, "devices": 0, "sent": 0, "codes": [], "reason": "Máy này chưa đăng ký nhận thông báo — bấm Tắt rồi Bật lại"}
+    ket_qua = await web_push.day_nhieu_chi_tiet([{
+        "user_id": current_user.id, "title": "Thử thông báo JAMA",
+        "body": "Máy này đã nhận được thông báo từ ERP.", "url": "/", "tag": f"test-{current_user.id}",
+    }], db=db)
+    gui = sum(1 for m in ket_qua if 200 <= m < 300)
+    return {"ok": gui > 0, "devices": so_may, "sent": gui, "codes": ket_qua}

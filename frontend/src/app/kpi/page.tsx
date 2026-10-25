@@ -99,7 +99,7 @@ export default function KpiPage() {
     setBusy(true);
     setKpiError(null);
     // Tách 403 khỏi lỗi hệ thống: vai trò tùy chỉnh (VD Điều phối KD) chưa được backend
-    // cho xem KPI đội, trước đây chỉ hiện "Không thể tải dữ liệu KPI" nên nhìn như CRM hỏng.
+    // cho xem KPI đội, trước đây chỉ hiện "Không thể tải dữ liệu KPI" nên nhìn như ERP hỏng.
     const bao = (e: unknown) => setKpiError(
       laLoiThieuQuyen(e)
         ? 'Tài khoản của bạn chưa được cấp quyền xem mục này. Liên hệ quản trị nếu cần.'

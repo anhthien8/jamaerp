@@ -1,4 +1,4 @@
-"""Insight Agent — generate weekly business insights from CRM data.
+"""Insight Agent — generate weekly business insights from ERP data.
 
 Uses litellm acompletion for LLM-powered narrative analysis with a
 rule-based fallback when the LLM is unavailable or the API key is blank.
@@ -31,7 +31,7 @@ SYSTEM_PROMPT = """\
 You are a senior business analyst for JAMA HOME, a premium interior design
 and construction company in Vietnam.
 
-You will receive structured CRM metrics for a given reporting period.
+You will receive structured ERP metrics for a given reporting period.
 Analyse the data and produce a JSON object with exactly these keys:
 
 {

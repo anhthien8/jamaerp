@@ -464,7 +464,7 @@ export default function CustomersPage() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h2 className="text-xl font-bold text-[var(--text-primary)]">{editing ? 'Sửa khách hàng' : 'Thêm khách hàng'}</h2>
-                  <p className="text-xs text-[var(--text-muted)] mt-1">Dữ liệu khách hàng phục vụ CRM, hợp đồng và dự án.</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Dữ liệu khách hàng phục vụ ERP, hợp đồng và dự án.</p>
                 </div>
                 <button type="button" onClick={() => !saving && setFormOpen(false)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
               </div>

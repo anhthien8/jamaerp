@@ -116,6 +116,31 @@ def url_avatar(user) -> str | None:
     return f"/media/avatar/{user.id}/{ky_media('avatar:' + user.id)}.jpg?v={ver}"
 
 
+def url_anh_vat_tu(anh_id: str) -> str:
+    """URL ảnh mẫu vật tư tải từ máy (tương đối /api/v1)."""
+    return f"/media/vat-tu/{anh_id}/{ky_media('vat-tu:' + anh_id)}.jpg"
+
+
+def lam_anh_mau(data: bytes, canh_dai: int = 800) -> bytes:
+    """Ảnh mẫu vật tư: giữ tỉ lệ, cạnh dài ≤`canh_dai`px, JPG q85, xoay đúng, bỏ EXIF."""
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise MediaError("Không đọc được ảnh. Chỉ nhận JPG/PNG/WebP.") from exc
+    img = ImageOps.exif_transpose(img)
+    if img.mode != "RGB":
+        nen = Image.new("RGB", img.size, (255, 255, 255))
+        nen.paste(img.convert("RGBA"), mask=img.convert("RGBA").split()[-1]) if img.mode in ("RGBA", "LA", "P") else None
+        img = nen if img.mode in ("RGBA", "LA", "P") else img.convert("RGB")
+    img.thumbnail((canh_dai, canh_dai), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=85, optimize=True)
+    return out.getvalue()
+
+
 def lam_avatar(data: bytes, canh: int = 320) -> bytes:
     """Ảnh bất kỳ → JPG vuông `canh`px (cắt giữa), xoay đúng chiều, bỏ EXIF."""
     from PIL import Image, ImageOps, UnidentifiedImageError
@@ -557,5 +582,5 @@ async def gui_anh_thu(db: AsyncSession) -> dict:
 
     out = io.BytesIO()
     Image.new("RGB", (64, 64), (196, 154, 108)).save(out, format="JPEG")
-    chat_id, msg = await _dang_anh(db, None, out.getvalue(), "✅ JAMA CRM: thử kết nối Kho ảnh")
+    chat_id, msg = await _dang_anh(db, None, out.getvalue(), "✅ JAMA ERP: thử kết nối Kho ảnh")
     return {"chat_id": chat_id, "message_id": msg.get("message_id")}

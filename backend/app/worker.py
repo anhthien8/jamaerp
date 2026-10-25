@@ -1,5 +1,5 @@
 """
-Background task worker for JAMA HOME CRM.
+Background task worker for JAMA HOME ERP.
 
 Handles periodic lead scoring, task coordination, and insight generation.
 Structured for easy migration to Redis/Celery or similar task queue.
@@ -394,7 +394,7 @@ class BackgroundWorker:
     # ------------------------------------------------------------------
 
     async def run_task_coordination(self) -> dict[str, Any]:
-        """Coordinate pending CRM tasks (reminders, follow-ups, escalations)."""
+        """Coordinate pending ERP tasks (reminders, follow-ups, escalations)."""
         logger.info("Running task coordination...")
         try:
             from app.agents.task_coordinator import coordinate_tasks
@@ -443,7 +443,7 @@ async def process_lead_scoring() -> dict[str, Any]:
 
 
 async def process_task_coordination() -> dict[str, Any]:
-    """Coordinate and dispatch pending CRM tasks."""
+    """Coordinate and dispatch pending ERP tasks."""
     logger.info("Starting task coordination...")
     try:
         from app.agents.task_coordinator import coordinate_tasks

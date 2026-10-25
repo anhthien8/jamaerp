@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hướng dẫn cài đặt &amp; cấu hình — JAMA HOME CRM (Admin/IT)</title>
+<title>Hướng dẫn cài đặt &amp; cấu hình — JAMA HOME ERP (Admin/IT)</title>
 <style>
   :root {
     --gold: #C9A96E; --teal: #1A535C; --bg: #0D1117; --surface: #161B22; --surface-2: #1C2430;
@@ -87,7 +87,7 @@
 <header class="hero">
   <div class="container">
     <div class="logo">🛠️</div>
-    <h1>Cài đặt &amp; Cấu hình <span>JAMA HOME CRM</span></h1>
+    <h1>Cài đặt &amp; Cấu hình <span>JAMA HOME ERP</span></h1>
     <p>Tài liệu kỹ thuật dành cho <b>Admin / IT</b>: cài đặt webapp, bot Telegram, cấu hình môi trường, deploy production và vận hành hằng ngày.</p>
     <div class="badges">
       <span class="badge">Next.js 16 + FastAPI</span>
@@ -309,7 +309,7 @@ TIMEZONE=Asia/Ho_Chi_Minh</code></pre>
         <ol class="steps">
           <li><strong>Tạo nhóm</strong> <em>JAMA HOME — Công việc</em>, bật <b>Topics</b> (Edit nhóm → Topics), thêm nhân viên + thêm bot (nên cho bot làm admin nhóm)</li>
           <li><strong>Lấy Chat ID</strong> — gõ <code>/id</code> trong nhóm → bot trả số âm dạng <code>-100xxxx</code></li>
-          <li><strong>Dán vào CRM</strong> — Cài đặt → Tự động hóa → ô <em>📢 Nhóm Telegram công ty</em> → Lưu → bấm <em>Gửi briefing nhóm</em> để test</li>
+          <li><strong>Dán vào ERP</strong> — Cài đặt → Tự động hóa → ô <em>📢 Nhóm Telegram công ty</em> → Lưu → bấm <em>Gửi briefing nhóm</em> để test</li>
         </ol>
       </div>
       <div class="card">
@@ -327,10 +327,10 @@ TIMEZONE=Asia/Ho_Chi_Minh</code></pre>
         <h3>Bước 7: Liên kết nhân viên (bắt buộc để dùng lệnh)</h3>
         <ol class="steps">
           <li>Nhân viên chat riêng với bot → gõ <code>/id</code> → nhận User ID (số dương)</li>
-          <li>Admin mở CRM → <code>/hr</code> → hồ sơ nhân viên → điền <b>Telegram User ID</b></li>
+          <li>Admin mở ERP → <code>/hr</code> → hồ sơ nhân viên → điền <b>Telegram User ID</b></li>
           <li>Nhân viên gõ <code>/start</code> → bot chào đúng tên + role là thành công</li>
         </ol>
-        <div class="tip"><b>Cơ chế xác thực:</b> bot map <code>telegram_user_id</code> → tài khoản CRM → cấp JWT — nhân viên chỉ thấy đúng dữ liệu theo role của mình, kể cả qua bot.</div>
+        <div class="tip"><b>Cơ chế xác thực:</b> bot map <code>telegram_user_id</code> → tài khoản ERP → cấp JWT — nhân viên chỉ thấy đúng dữ liệu theo role của mình, kể cả qua bot.</div>
       </div>
     </div>
   </section>
@@ -494,9 +494,9 @@ git push origin main</code></pre>
 
 <footer>
   <div class="container">
-    🛠️ JAMA HOME CRM — Tài liệu Admin/IT ·
+    🛠️ JAMA HOME ERP — Tài liệu Admin/IT ·
     <a href="/huong-dan.html">📖 Hướng dẫn sử dụng cho nhân viên</a> ·
-    <a href="/">Về trang CRM</a>
+    <a href="/">Về trang ERP</a>
   </div>
 </footer>
 

@@ -1,5 +1,5 @@
 /**
- * JAMA HOME CRM — Realistic Demo Data (100 leads, HCMC market)
+ * JAMA HOME ERP — Realistic Demo Data (100 leads, HCMC market)
  *
  * CÂU CHUYỆN: JAMA HOME là công ty thiết kế nội thất cao cấp tại TP.HCM,
  * 100 nhân sự, doanh thu ~98 tỷ/tháng, 100+ đơn hàng đang xử lý.

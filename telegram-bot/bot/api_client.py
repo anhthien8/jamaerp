@@ -15,7 +15,7 @@ class APIClient:
     def __init__(self):
         self._base_url = f"{API_BASE}/api/v1"
         self._tokens: dict[int, str] = {}  # telegram_user_id → JWT
-        # TG ID backend trả 404 (chưa gán vào tài khoản CRM nào) — để bot nói
+        # TG ID backend trả 404 (chưa gán vào tài khoản ERP nào) — để bot nói
         # đúng «chưa liên kết» thay vì «không kết nối được server».
         self._chua_gan: set[int] = set()
         # Vai trò/phòng ban lấy khi đăng nhập — /help hiện đúng lệnh cho từng người
@@ -114,7 +114,7 @@ class APIClient:
             return None
 
     async def create_lead(self, tg_user_id: int, data: dict) -> dict | None:
-        """Create lead in CRM."""
+        """Create lead in ERP."""
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(

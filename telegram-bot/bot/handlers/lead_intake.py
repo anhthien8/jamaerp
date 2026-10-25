@@ -89,7 +89,7 @@ async def process_lead_text(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "lead_confirm")
 async def confirm_lead(callback: types.CallbackQuery, state: FSMContext):
-    """Save confirmed lead to CRM."""
+    """Save confirmed lead to ERP."""
     data = await state.get_data()
     parsed = data.get("parsed_lead", {})
 
@@ -119,7 +119,7 @@ async def confirm_lead(callback: types.CallbackQuery, state: FSMContext):
             f"📱 {result.get('phone')}\n"
             f"🏷 Giai đoạn: {STAGE_LABELS.get(result.get('stage'), result.get('stage'))}\n"
             f"🆔 ID: <code>{result.get('id', '')[:8]}</code>\n\n"
-            f"→ Đã sync lên CRM ✓"
+            f"→ Đã sync lên ERP ✓"
         )
     else:
         await callback.message.edit_text("❌ Lỗi khi lưu lead. Vui lòng thử lại.")

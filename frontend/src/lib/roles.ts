@@ -1,5 +1,5 @@
 /**
- * JAMA HOME CRM — Role-Based Access Control (RBAC)
+ * JAMA HOME ERP — Role-Based Access Control (RBAC)
  * Defines permissions for each user role.
  */
 

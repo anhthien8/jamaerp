@@ -22,10 +22,10 @@ MEDIA_KINDS = ("tien_do", "su_co", "vat_tu", "khac")
 
 
 class ProjectDocument(Base):
-    """Tài liệu dự án (PDF/DWG/SKP/Excel…) tải thẳng từ CRM (23/10/2026).
+    """Tài liệu dự án (PDF/DWG/SKP/Excel…) tải thẳng từ ERP (23/10/2026).
 
     Trước đây nhân viên phải tự gửi file vào nhóm Telegram rồi dán link vào ô
-    «Lưu File» — chủ dự án thấy làm khó nhân viên. Nay CRM nhận file (≤50MB, giới
+    «Lưu File» — chủ dự án thấy làm khó nhân viên. Nay ERP nhận file (≤50MB, giới
     hạn gửi của Bot API) và bot đăng vào topic dự án trong nhóm Kho ảnh. Tải về:
     ≤20MB backend stream lại (giới hạn getFile); lớn hơn chuyển sang link tin nhắn
     Telegram (người trong nhóm mở được).

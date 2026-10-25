@@ -747,7 +747,7 @@ async def seed_vai_tro_phong_ban(db: AsyncSession):
     - Chỉ THÊM vai trò còn thiếu (so theo role_key) — TUYỆT ĐỐI không ghi đè
       vai trò đã có, vì admin có thể đã chỉnh quyền trên trang Phân quyền.
     - Chạy mỗi lần khởi động (khác seed_database vốn chỉ chạy khi DB trống),
-      nên bản CRM đang chạy thật trên prod cũng tự có 4 vai trò sau lần deploy này.
+      nên bản ERP đang chạy thật trên prod cũng tự có 4 vai trò sau lần deploy này.
     """
     import copy
     import json

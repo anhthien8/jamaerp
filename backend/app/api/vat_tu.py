@@ -83,7 +83,8 @@ class MauIn(BaseModel):
     nhom: str = "Khác"
     be_mat: str | None = None
     don_vi: str = "m2"
-    anh_url: str | None = None
+    anh_url: str | None = Field(default=None, max_length=500)
+    link_shopee: str | None = Field(default=None, max_length=500)
     ghi_chu: str | None = None
     tinh_trang: str | None = None
     gia_tham_khao: float | None = None
@@ -150,7 +151,7 @@ class KhachDongYIn(BaseModel):
 def _mau_dict(m: MauVatTu, thay_gia_von: bool) -> dict:
     d = {
         "id": m.id, "ma": m.ma, "ten": m.ten, "hang": m.hang, "nhom": m.nhom, "be_mat": m.be_mat,
-        "don_vi": m.don_vi, "anh_url": m.anh_url, "ghi_chu": m.ghi_chu, "tinh_trang": m.tinh_trang,
+        "don_vi": m.don_vi, "anh_url": m.anh_url, "link_shopee": m.link_shopee, "ghi_chu": m.ghi_chu, "tinh_trang": m.tinh_trang,
         "is_active": m.is_active, "gia_ban_co_dinh": m.gia_ban_co_dinh if thay_gia_von else None,
     }
     if thay_gia_von:
@@ -272,6 +273,41 @@ async def sua_mau(mau_id: str, body: MauIn, user: User = Depends(yeu_cau_thu_mua
     await db.commit()
     await db.refresh(m)
     return _mau_dict(m, True)
+
+
+class AnhIn(BaseModel):
+    data_base64: str  # JPG/PNG nén ở FE (canvas); server ép về JPG cạnh dài ≤800px
+
+
+MAX_ANH_BYTES = 6 * 1024 * 1024
+
+
+@router.post("/anh", status_code=201)
+async def tai_anh_mau(body: AnhIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    """Tải ảnh mẫu từ máy → lưu Postgres → trả `anh_url` ký HMAC để gắn vào mẫu.
+    Tách khỏi mẫu để tải được ngay khi đang điền form «Thêm mẫu» (mẫu chưa có id)."""
+    import base64
+    import binascii
+
+    from app.models.vat_tu import AnhVatTu
+    from app.services.media_gateway import MediaError, lam_anh_mau, url_anh_vat_tu
+
+    try:
+        raw = base64.b64decode(body.data_base64.split(",")[-1], validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(422, "Ảnh gửi lên không hợp lệ")
+    if not raw:
+        raise HTTPException(422, "Ảnh rỗng")
+    if len(raw) > MAX_ANH_BYTES:
+        raise HTTPException(413, "Ảnh quá lớn (tối đa 6MB)")
+    try:
+        jpg = lam_anh_mau(raw)
+    except MediaError as exc:
+        raise HTTPException(422, str(exc))
+    anh = AnhVatTu(data=jpg, size_bytes=len(jpg), created_by=user.id)
+    db.add(anh)
+    await db.commit()
+    return {"id": anh.id, "anh_url": url_anh_vat_tu(anh.id), "size_bytes": len(jpg)}
 
 
 @router.post("/mau/import-sheet")
