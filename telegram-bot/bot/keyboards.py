@@ -16,6 +16,7 @@ TEN_LENH = {
     "vatlieu": "📦 Yêu cầu vật tư",
     "checkin": "⏰ Vào ca",
     "checkout": "🕐 Tan ca",
+    "baogia": "💰 Nhập báo giá NCC",
 }
 
 NUT_HUY = types.InlineKeyboardButton(text="❌ Hủy", callback_data="fsm:cancel")

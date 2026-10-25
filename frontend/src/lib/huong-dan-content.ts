@@ -1380,6 +1380,31 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Gõ /help để bot tự hướng dẫn"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Gõ `/help` trong chat với bot: bot gửi sổ tay ngắn **theo đúng vai của bạn** (ai cũng thấy chấm công, báo cáo công trình, nghỉ phép; Kinh doanh thêm /lead, /pipeline; Thu mua thêm phần nhập báo giá; Trưởng phòng/BGĐ thêm phần duyệt). Người chưa được gán tài khoản cũng gõ được.",
+          "Đang làm dở việc gì, gõ `/cancel` là thoát."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Thu mua: gửi tệp báo giá NCC cho bot (/baogia)"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Gõ `/baogia` → bấm chọn dự án → gửi **tệp báo giá của nhà cung cấp**: Excel (.xlsx), CSV, PDF hoặc ảnh chụp bảng giá. Bot đọc tệp, tìm mã sản phẩm và giá, rồi **khớp mã với phiếu vật tư của dự án**.",
+          "Bot hiện **bản xem trước**: phòng · mã · giá · còn hàng; mã nào không có trong phiếu thì báo bỏ qua. **Chưa ghi gì** cho tới khi bạn bấm **«✅ Ghi N báo giá»**. Tệp không ghi tên NCC thì gõ tên NCC trước khi bấm Ghi.",
+          "Ghi xong, báo giá nằm trong từng dòng phiếu ở web (Vật tư → Cần hỏi giá), ghi chú «Nhập từ tệp … bởi … (bot)». Chốt giá vẫn làm trên web như cũ.",
+          "Chỉ Thu mua (và Giám đốc) dùng được; Kinh doanh/Thiết kế gọi sẽ bị từ chối. Không nhập từ Word (hợp đồng, biên bản) hay bảng giá không có mã — bot sẽ báo rõ lý do.",
+          "`/nhapmau <link Google Sheet>`: thêm mẫu mới vào Danh mục ngay từ Telegram (chỉ thêm, không ghi đè mẫu đã có). Sheet phải ở chế độ «Bất kỳ ai có liên kết đều xem được»."
+        ]
+      },
+      {
+        "type": "h3",
         "text": "Bấm chọn dự án, không cần nhớ mã"
       },
       {

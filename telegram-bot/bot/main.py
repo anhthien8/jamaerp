@@ -29,6 +29,8 @@ from bot.handlers import (
     hr,
     estimation,
     kho_anh,
+    help as help_cmd,
+    vat_tu_nhap,
 )
 
 load_dotenv()
@@ -134,6 +136,7 @@ async def nguoi_dung_middleware(handler, event, data):
 
 LENH_GOI_Y = [
     ("start", "Menu chính"),
+    ("help", "Hướng dẫn dùng bot"),
     ("checkin", "Vào ca (văn phòng / công trình)"),
     ("checkout", "Tan ca"),
     ("baocao", "Báo cáo công trình kèm ảnh"),
@@ -145,6 +148,8 @@ LENH_GOI_Y = [
     ("nghiphep", "Xin nghỉ phép"),
     ("dutoan", "Dự toán cải tạo"),
     ("lead", "Nhập lead mới"),
+    ("baogia", "Thu mua: nhập báo giá NCC từ tệp"),
+    ("nhapmau", "Thu mua: nhập danh mục mẫu từ Google Sheet"),
     ("cancel", "Hủy thao tác đang làm"),
     ("id", "Xem Telegram ID / Chat ID"),
 ]
@@ -178,6 +183,8 @@ async def main():
     dp.include_router(group_utils.router)  # /id, /cancel chung + group welcome (trước để ưu tiên)
     dp.include_router(chon_du_an.router)   # nút bấm chọn dự án / ✅ Gửi
     dp.include_router(start.router)
+    dp.include_router(help_cmd.router)
+    dp.include_router(vat_tu_nhap.router)  # /nhapmau, /baogia (Thu mua)
     dp.include_router(lead_intake.router)
     dp.include_router(pipeline.router)
     dp.include_router(briefing.router)

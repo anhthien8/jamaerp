@@ -18,6 +18,8 @@ class APIClient:
         # TG ID backend trả 404 (chưa gán vào tài khoản CRM nào) — để bot nói
         # đúng «chưa liên kết» thay vì «không kết nối được server».
         self._chua_gan: set[int] = set()
+        # Vai trò/phòng ban lấy khi đăng nhập — /help hiện đúng lệnh cho từng người
+        self._users: dict[int, dict] = {}
 
     async def authenticate(self, telegram_user_id: int, username: str | None = None) -> dict | None:
         """Authenticate TG user → JWT."""
@@ -34,6 +36,7 @@ class APIClient:
                 if resp.status_code == 200:
                     data = resp.json()
                     self._tokens[telegram_user_id] = data["access_token"]
+                    self._users[telegram_user_id] = data.get("user") or {}
                     self._chua_gan.discard(telegram_user_id)
                     return data
                 if resp.status_code in (403, 404):  # chưa gán / tài khoản bị khóa
@@ -51,6 +54,12 @@ class APIClient:
 
     def chua_lien_ket(self, telegram_user_id: int) -> bool:
         return telegram_user_id in self._chua_gan
+
+    async def thong_tin(self, telegram_user_id: int) -> dict:
+        """{full_name, role, department} của người này (đăng nhập nếu chưa có)."""
+        if telegram_user_id not in self._users:
+            await self.authenticate(telegram_user_id)
+        return self._users.get(telegram_user_id, {})
 
     async def _post_media(self, tg_user_id: int, path: str, data: dict) -> dict | None:
         """POST tới /media/*. Bot vừa khởi động lại thì cache JWT rỗng → tự
@@ -348,7 +357,8 @@ class APIClient:
 
     # ── HR Phase 1: chấm công / nghỉ phép / lương / phê duyệt ─────────────
 
-    async def _post(self, tg_user_id: int, path: str, payload: dict | None = None, error_default: str = "Loi he thong") -> dict | None:
+    async def _post(self, tg_user_id: int, path: str, payload: dict | None = None, error_default: str = "Loi he thong",
+                    timeout: float = 15.0) -> dict | None:
         if tg_user_id not in self._tokens:
             await self.authenticate(tg_user_id)
         try:
@@ -358,7 +368,7 @@ class APIClient:
                         f"{self._base_url}{path}",
                         json=payload or {},
                         headers=self._headers(tg_user_id),
-                        timeout=15.0,
+                        timeout=timeout,
                     )
                     if resp.status_code == 401 and lan == 0 and await self.authenticate(tg_user_id):
                         continue
@@ -550,6 +560,20 @@ class APIClient:
                 )
         except Exception:
             pass
+
+    # ── Vật tư: nhập qua bot (25/10/2026) ───────────────────────────────
+
+    async def vat_tu_import_sheet(self, tg_user_id: int, url: str) -> dict | None:
+        """/nhapmau <link Google Sheet> → danh mục mẫu (chỉ Thu mua)."""
+        return await self._post(tg_user_id, "/vat-tu/mau/import-sheet", {"url": url, "ghi_de": False},
+                                "Loi nhap danh muc", timeout=90.0)
+
+    async def vat_tu_trich_bao_gia(self, tg_user_id: int, data: dict) -> dict | None:
+        """Tệp báo giá NCC → bản xem trước (AI đọc + khớp mã với phiếu dự án). Chưa ghi."""
+        return await self._post(tg_user_id, "/vat-tu/bot/trich-bao-gia", data, "Loi doc tep bao gia", timeout=120.0)
+
+    async def vat_tu_ghi_bao_gia(self, tg_user_id: int, items: list[dict], nguon: str | None) -> dict | None:
+        return await self._post(tg_user_id, "/vat-tu/bot/ghi-bao-gia", {"items": items, "nguon": nguon}, "Loi ghi bao gia")
 
 
 # Singleton

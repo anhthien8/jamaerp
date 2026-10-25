@@ -4,7 +4,7 @@ gác giá vốn theo vai, nhập Google Sheet."""
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.vat_tu import tinh_gia_ban
@@ -12,7 +12,7 @@ from app.middleware.auth import hash_password
 from app.models.notification import Notification
 from app.models.project import Project
 from app.models.user import User
-from app.models.vat_tu import GiaNhomVatTu, MauVatTu
+from app.models.vat_tu import BaoGiaDongVatTu, DongPhieuVatTu, GiaNhomVatTu, MauVatTu
 from app.services import vat_tu_sheet
 from tests.conftest import _uid, auth_header
 
@@ -233,3 +233,93 @@ async def test_import_sheet_vao_danh_muc(client: AsyncClient, thu_mua, sales_use
     assert {n["nhom"]: (n["so_mau"], n["phan_tram_lai"]) for n in nhom} == {"30X30": (2, 15), "60x60": (2, 15)}
     r = await client.get("/api/v1/vat-tu/mau", headers=auth_header(sales_user), params={"q": "tm 6"})
     assert [i["ma"] for i in r.json()["items"]] == ["TM 606"]
+
+
+# ── Bot nhập báo giá từ tệp (25/10/2026) ──────────────────────────────────
+
+from app.services import vat_tu_bao_gia_tep as tep  # noqa: E402
+
+
+def test_khop_ma_bo_khoang_trang_va_gach():
+    dong = [{"dong_id": "d1", "ma": "TM 76006", "phong": "Khách"}, {"dong_id": "d2", "ma": "TM 76006", "phong": "Bếp"},
+            {"dong_id": "d3", "ma": "6A01 / 6A02", "phong": "WC"}]
+    items = [{"ma": "tm-76006", "gia": 185000.0, "con_hang": True, "don_vi": None, "ghi_chu": None},
+             {"ma": "XYZ", "gia": 1.0, "con_hang": True, "don_vi": None, "ghi_chu": None},
+             {"ma": "TM76006", "gia": None, "con_hang": False, "don_vi": None, "ghi_chu": None}]
+    khop, khong = tep.khop_ma(items, dong)
+    assert [k["dong_id"] for k in khop] == ["d1", "d2"]      # một mã → hai phòng
+    assert [k["ma"] for k in khong] == ["XYZ", "TM76006"]    # mã lạ + không có giá
+
+
+def test_chuan_hoa_gia_viet():
+    out = tep._chuan_hoa('{"ncc_ten": " Hiệp Phát ", "items": [{"ma": "A1", "gia": "185.000đ"}, {"ma": "A2", "gia": "liên hệ", "con_hang": false}, {"gia": 5}]}')
+    assert out["ncc_ten"] == "Hiệp Phát"
+    assert out["items"][0]["gia"] == 185000 and out["items"][0]["con_hang"] is True
+    assert out["items"][1]["gia"] is None and out["items"][1]["con_hang"] is False
+    assert len(out["items"]) == 2  # dòng không có mã bị bỏ
+
+
+def test_tep_sang_chu_xlsx_va_tu_choi_word():
+    import io
+
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Mã", "Giá", "Tình trạng"])
+    ws.append(["TM 76006", 185000, "Còn hàng"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    loai, chu = tep.tep_sang_chu(buf.getvalue(), "baogia.xlsx", None)
+    assert loai == "xlsx" and "TM 76006 | 185000 | Còn hàng" in chu
+    with pytest.raises(tep.TepError):
+        tep.tep_sang_chu(b"x", "hopdong.docx", None)
+    assert tep.tep_sang_chu(b"\xff\xd8", "anh.jpg", "image/jpeg") == ("image", "")
+
+
+@pytest.mark.asyncio
+async def test_bot_trich_roi_ghi_bao_gia(client: AsyncClient, thu_mua, sales_user, thiet_ke, du_an, mau, db_session, monkeypatch):
+    # Phiếu có 1 dòng mẫu TM 76006
+    r = await client.post(f"/api/v1/vat-tu/du-an/{du_an.id}/dong", headers=auth_header(thiet_ke),
+                          json={"phong": "Phòng khách", "mau_id": mau.id, "so_luong": 40})
+    dong_id = r.json()["id"]
+
+    async def _tai(file_id):
+        return b"ma,gia\nTM 76006,185000\nLA-9,99000\n"
+
+    async def _trich(chu):
+        assert "TM 76006" in chu
+        return {"ncc_ten": "Hiệp Phát", "items": [
+            {"ma": "TM-76006", "gia": 185000.0, "con_hang": True, "don_vi": "m2", "ghi_chu": None},
+            {"ma": "LA-9", "gia": 99000.0, "con_hang": True, "don_vi": None, "ghi_chu": None},
+        ]}
+    monkeypatch.setattr(tep, "tai_tep_telegram", _tai)
+    monkeypatch.setattr(tep, "trich_tu_chu", _trich)
+
+    body = {"project_id": du_an.id, "file_id": "F1", "file_name": "baogia.csv"}
+    # Sale không được nhập báo giá
+    assert (await client.post("/api/v1/vat-tu/bot/trich-bao-gia", headers=auth_header(sales_user), json=body)).status_code == 403
+    r = await client.post("/api/v1/vat-tu/bot/trich-bao-gia", headers=auth_header(thu_mua), json=body)
+    assert r.status_code == 200, r.text
+    xem = r.json()
+    assert xem["ncc_ten"] == "Hiệp Phát" and xem["so_doc_duoc"] == 2
+    assert len(xem["khop"]) == 1 and xem["khop"][0]["dong_id"] == dong_id and xem["khop"][0]["phong"] == "Phòng khách"
+    assert xem["khong_khop"][0]["ma"] == "LA-9"
+    # Chưa ghi gì cho tới khi xác nhận
+    assert (await db_session.execute(select(func.count()).select_from(BaoGiaDongVatTu))).scalar_one() == 0
+
+    r = await client.post("/api/v1/vat-tu/bot/ghi-bao-gia", headers=auth_header(thu_mua), json={
+        "nguon": "tệp baogia.csv",
+        "items": [{"dong_id": dong_id, "ncc_ten": "Hiệp Phát", "gia": 185000, "con_hang": True}],
+    })
+    assert r.status_code == 201 and r.json() == {"ghi": 1, "loi": []}
+    db_session.expire_all()
+    bg = (await db_session.execute(select(BaoGiaDongVatTu))).scalar_one()
+    assert bg.gia == 185000 and "baogia.csv" in bg.ghi_chu and "Thu Mua Test" in bg.ghi_chu
+    assert (await db_session.get(DongPhieuVatTu, dong_id)).trang_thai == "hoi_ncc"
+
+
+@pytest.mark.asyncio
+async def test_bot_trich_du_an_chua_co_phieu_400(client: AsyncClient, thu_mua, du_an):
+    r = await client.post("/api/v1/vat-tu/bot/trich-bao-gia", headers=auth_header(thu_mua),
+                          json={"project_id": du_an.id, "file_id": "F", "file_name": "a.xlsx"})
+    assert r.status_code == 400 and "chưa có dòng" in r.json()["detail"]

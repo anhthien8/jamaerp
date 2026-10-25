@@ -16,6 +16,22 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '25/10/2026',
+    title: 'Bot Telegram: /help hướng dẫn theo vai, Thu mua gửi tệp báo giá NCC là bot nhập vào phiếu vật tư',
+    tag: 'MỚI',
+    news: [
+      'Gõ /help trong chat với @jamahome_bot: bot gửi sổ tay ngắn đúng vai của bạn (chấm công, báo cáo công trình, nghỉ phép; Kinh doanh thêm lead/pipeline; Thu mua thêm nhập báo giá; Trưởng phòng thêm duyệt).',
+      'Thu mua: /baogia → chọn dự án → gửi tệp báo giá NCC (Excel, CSV, PDF hoặc ảnh chụp). Bot đọc mã + giá, khớp với phiếu vật tư dự án, hiện bản xem trước — bấm «Ghi» mới lưu, không tự ghi.',
+      'Thu mua: /nhapmau <link Google Sheet> thêm mẫu mới vào Danh mục ngay trên Telegram.',
+      'Mỗi báo giá nhập qua bot ghi rõ «Nhập từ tệp … bởi … (bot)» trong ghi chú để tra lại.',
+    ],
+    test: [
+      'Ai cũng: gõ /help → nhận hướng dẫn, không còn «lệnh không hợp lệ».',
+      'Thu mua: /baogia → chọn dự án có phiếu → gửi Excel báo giá → xem trước đúng mã/giá → Ghi → web Vật tư → Cần hỏi giá thấy báo giá.',
+      'Kinh doanh: /baogia → bot từ chối (chỉ Thu mua).',
+    ],
+  },
+  {
+    date: '25/10/2026',
     title: 'Vật tư: khách chọn mẫu theo phòng, Thu mua hỏi giá NCC, chốt giá bán tự tính',
     tag: 'MỚI',
     news: [

@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "groq/llama-3.3-70b-versatile"
     LLM_API_KEY: str = ""
     LLM_FALLBACK_MODEL: str = "ollama/llama3.2"
+    # Model đọc ảnh (bot đọc ảnh chụp báo giá NCC) — dùng chung key với LLM_MODEL cùng provider
+    LLM_VISION_MODEL: str = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

@@ -521,3 +521,90 @@ async def tong_quan(user: User = Depends(get_current_user), db: AsyncSession = D
         select(DongPhieuVatTu.trang_thai, func.count()).group_by(DongPhieuVatTu.trang_thai)
     )).all())
     return {"so_mau": so_mau, "theo_trang_thai": theo_tt, "thay_gia_von": xem_gia_von(user), "la_thu_mua": la_thu_mua(user)}
+
+
+# ── Bot Telegram nhập báo giá từ tệp (25/10/2026) ─────────────────────────
+# Luồng: Thu mua gửi tệp cho bot → /bot/trich-bao-gia đọc + khớp mã với phiếu
+# dự án → bot hiện bản xem trước → người bấm «Ghi» → /bot/ghi-bao-gia.
+# Không bao giờ ghi thẳng từ tệp.
+
+class TrichBaoGiaIn(BaseModel):
+    project_id: str
+    file_id: str
+    file_name: str | None = None
+    mime: str | None = None
+
+
+class BaoGiaBotItem(BaseModel):
+    dong_id: str
+    ncc_ten: str = Field(min_length=1, max_length=150)
+    gia: float = Field(gt=0)
+    con_hang: bool = True
+    ghi_chu: str | None = Field(default=None, max_length=300)
+
+
+class GhiBaoGiaIn(BaseModel):
+    items: list[BaoGiaBotItem] = Field(min_length=1, max_length=200)
+    nguon: str | None = Field(default=None, max_length=200)  # «tệp baogia.xlsx»
+
+
+async def _dong_cho_khop(db: AsyncSession, project_id: str) -> list[dict]:
+    ds = (await db.execute(
+        select(DongPhieuVatTu).where(DongPhieuVatTu.project_id == project_id).order_by(DongPhieuVatTu.thu_tu)
+    )).scalars().all()
+    ids = {d.mau_id for d in ds if d.mau_id}
+    mau = {m.id: m for m in (await db.execute(select(MauVatTu).where(MauVatTu.id.in_(ids)))).scalars()} if ids else {}
+    out = []
+    for d in ds:
+        m = mau.get(d.mau_id or "")
+        out.append({
+            "dong_id": d.id, "ma": (m.ma if m else d.ma_tu_do), "ma_phieu": (m.ma if m else d.ma_tu_do),
+            "phong": d.phong, "so_luong": d.so_luong, "don_vi_phieu": d.don_vi, "trang_thai": d.trang_thai,
+        })
+    return out
+
+
+@router.post("/bot/trich-bao-gia")
+async def bot_trich_bao_gia(body: TrichBaoGiaIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    """Đọc tệp báo giá NCC (Excel/CSV/PDF/ảnh) từ Telegram → bản xem trước đã khớp
+    mã với phiếu vật tư dự án. CHƯA ghi gì."""
+    from app.services import vat_tu_bao_gia_tep as tep
+
+    proj = await db.get(Project, body.project_id)
+    if not proj:
+        raise HTTPException(404, "Project not found")
+    dong = await _dong_cho_khop(db, proj.id)
+    if not dong:
+        raise HTTPException(400, f"Dự án {proj.code} chưa có dòng vật tư nào — thêm phiếu chọn trên web trước")
+    try:
+        data = await tep.tai_tep_telegram(body.file_id)
+        loai, chu = tep.tep_sang_chu(data, body.file_name, body.mime)
+        kq = await tep.trich_tu_anh(data, body.mime) if loai == "image" else await tep.trich_tu_chu(chu)
+    except tep.TepError as e:
+        raise HTTPException(e.status, str(e))
+    khop, khong = tep.khop_ma(kq["items"], dong)
+    return {
+        "project_code": proj.code, "project_name": proj.name, "ncc_ten": kq["ncc_ten"],
+        "loai_tep": loai, "so_dong_phieu": len(dong), "so_doc_duoc": len(kq["items"]),
+        "khop": khop, "khong_khop": khong[:30],
+    }
+
+
+@router.post("/bot/ghi-bao-gia", status_code=201)
+async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    """Ghi hàng loạt báo giá đã được Thu mua xác nhận trên bot. Ghi chú ghi rõ nguồn tệp + người nhập."""
+    ghi, loi = 0, []
+    nguon = f"Nhập từ {body.nguon} bởi {user.full_name} (bot)" if body.nguon else f"Nhập qua bot bởi {user.full_name}"
+    for it in body.items:
+        d = await db.get(DongPhieuVatTu, it.dong_id)
+        if not d:
+            loi.append({"dong_id": it.dong_id, "loi": "Không có dòng này"})
+            continue
+        ghi_chu = f"{it.ghi_chu} · {nguon}" if it.ghi_chu else nguon
+        db.add(BaoGiaDongVatTu(dong_id=d.id, ncc_ten=it.ncc_ten.strip(), gia=it.gia, con_hang=it.con_hang,
+                               ghi_chu=ghi_chu[:500], created_by=user.id))
+        if d.trang_thai == "khach_chon":
+            d.trang_thai = "hoi_ncc"
+        ghi += 1
+    await db.commit()
+    return {"ghi": ghi, "loi": loi}
