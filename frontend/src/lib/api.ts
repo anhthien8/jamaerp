@@ -2042,6 +2042,60 @@ class ApiClient {
     return this.request<{ ok: boolean }>('/push/test', { method: 'POST' });
   }
 
+  // ── Vật tư Đợt 1 (25/10/2026): danh mục mẫu · phiếu chọn theo dự án · hỏi giá NCC ──
+  // Giá vốn/NCC/lãi chỉ có trong JSON khi backend cho vai đó xem (thay_gia_von).
+  async vatTuTongQuan() {
+    return this.request<VatTuTongQuan>('/vat-tu/tong-quan');
+  }
+  async vatTuMau(params?: Record<string, string>) {
+    return this.request<{ items: MauVatTu[]; total: number; thay_gia_von: boolean }>('/vat-tu/mau', { params });
+  }
+  async vatTuNhom() {
+    return this.request<{ nhom: string; so_mau: number; phan_tram_lai: number | null }[]>('/vat-tu/nhom');
+  }
+  async vatTuTaoMau(body: Partial<MauVatTu>) {
+    return this.request<MauVatTu>('/vat-tu/mau', { method: 'POST', body });
+  }
+  async vatTuSuaMau(id: string, body: Partial<MauVatTu>) {
+    return this.request<MauVatTu>(`/vat-tu/mau/${id}`, { method: 'PUT', body });
+  }
+  async vatTuImportSheet(url: string, ghiDe = false) {
+    return this.request<{ doc_duoc: number; them: number; sua: number }>('/vat-tu/mau/import-sheet', { method: 'POST', body: { url, ghi_de: ghiDe } });
+  }
+  async vatTuCaiGia() {
+    return this.request<{ nhom: string; phan_tram_lai: number }[]>('/vat-tu/cai-gia');
+  }
+  async vatTuLuuCaiGia(body: { nhom: string; phan_tram_lai: number }[]) {
+    return this.request<{ ok: boolean }>('/vat-tu/cai-gia', { method: 'PUT', body });
+  }
+  async vatTuPhieu(projectId: string) {
+    return this.request<PhieuVatTu>(`/vat-tu/du-an/${projectId}/dong`);
+  }
+  async vatTuThemDong(projectId: string, body: Partial<DongVatTu>) {
+    return this.request<DongVatTu>(`/vat-tu/du-an/${projectId}/dong`, { method: 'POST', body });
+  }
+  async vatTuSuaDong(id: string, body: Partial<DongVatTu>) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${id}`, { method: 'PATCH', body });
+  }
+  async vatTuXoaDong(id: string) {
+    return this.request<void>(`/vat-tu/dong/${id}`, { method: 'DELETE' });
+  }
+  async vatTuKhachDongY(id: string, ghiChu?: string) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${id}/khach-dong-y`, { method: 'POST', body: { ghi_chu: ghiChu || null } });
+  }
+  async vatTuCanHoiGia(trangThai?: string) {
+    return this.request<{ items: DongVatTu[] }>('/vat-tu/can-hoi-gia', { params: trangThai ? { trang_thai: trangThai } : undefined });
+  }
+  async vatTuThemBaoGia(dongId: string, body: { supplier_id?: string | null; ncc_ten?: string; gia: number; con_hang?: boolean; ngay_giao?: string; ghi_chu?: string }) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${dongId}/bao-gia`, { method: 'POST', body });
+  }
+  async vatTuXoaBaoGia(id: string) {
+    return this.request<void>(`/vat-tu/bao-gia/${id}`, { method: 'DELETE' });
+  }
+  async vatTuChot(dongId: string, body: { bao_gia_id?: string; gia_von?: number; supplier_id?: string | null; ncc_ten?: string }) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${dongId}/chot`, { method: 'POST', body });
+  }
+
   // === Automation (admin/executive) ===
   async getAutomationSettings() {
     return this.request<AutomationSettings>('/automation/settings');
@@ -2279,6 +2333,39 @@ export interface Activity {
   telegram_message_id?: number;
   created_at: string;
   user_name?: string;
+}
+
+// ── Vật tư (25/10/2026) ──
+export interface MauVatTu {
+  id: string; ma: string; ten?: string | null; hang?: string | null; nhom: string; be_mat?: string | null;
+  don_vi: string; anh_url?: string | null; ghi_chu?: string | null; tinh_trang?: string | null; is_active: boolean;
+  // chỉ có khi được xem giá vốn
+  gia_tham_khao?: number | null; gia_von_gan_nhat?: number | null; gia_von_cap_nhat_luc?: string | null;
+  ncc_gan_nhat_ten?: string | null; gia_ban_co_dinh?: number | null;
+}
+export interface BaoGiaVatTu {
+  id: string; supplier_id?: string | null; ncc_ten: string; gia: number; con_hang: boolean;
+  ngay_giao?: string | null; ghi_chu?: string | null; duoc_chon: boolean; created_at?: string;
+}
+export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_khach_duyet_lai' | 'da_chot_gia' | 'da_dat' | 'da_giao' | 'huy';
+export interface DongVatTu {
+  id: string; project_id: string; phong: string; hang_muc?: string | null; mau_id?: string | null;
+  ma?: string | null; hang?: string | null; nhom?: string | null; anh_url?: string | null; ma_tu_do?: string | null;
+  so_luong: number; don_vi: string; trang_thai: TrangThaiDongVatTu; trang_thai_nhan: string;
+  mau_thay_the_id?: string | null; ma_thay_the?: string | null; ly_do_doi?: string | null;
+  gia_ban?: number | null; thanh_tien?: number | null; chot_luc?: string | null;
+  khach_dong_y_luc?: string | null; khach_ghi_chu?: string | null; ghi_chu?: string | null; thu_tu: number;
+  created_at?: string; updated_at?: string; so_bao_gia: number;
+  project_code?: string; project_name?: string; client_name?: string;
+  // chỉ có khi được xem giá vốn
+  gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
+  lai?: number | null; bao_gia?: BaoGiaVatTu[]; gia_von_gan_nhat?: number | null; gia_tham_khao?: number | null;
+}
+export interface PhieuVatTu {
+  items: DongVatTu[]; tong_gia_ban: number; tong_lai?: number; thay_gia_von: boolean; co_the_chot: boolean;
+}
+export interface VatTuTongQuan {
+  so_mau: number; theo_trang_thai: Record<string, number>; thay_gia_von: boolean; la_thu_mua: boolean;
 }
 
 export interface Project {

@@ -67,6 +67,7 @@ const ALL_ITEMS: NavItem[] = [
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
   { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
   { href: '/quotations', label: 'Báo giá', icon: Icon.quotations, perm: 'canViewQuotations' },
+  { href: '/vat-tu', label: 'Vật tư', icon: Icon.inventory, perm: 'canViewProjects' },
   { href: '/inventory', label: 'Kho vật tư', icon: Icon.inventory, perm: 'canViewInventory' },
   { href: '/suppliers', label: 'Nhà cung cấp', icon: Icon.inventory, perm: 'canViewInventory' },
   { href: '/accounting', label: 'Kế toán', icon: Icon.accounting, perm: 'canViewAccounting' },
@@ -105,7 +106,7 @@ type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
   { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/approvals', '/attendance', '/projects', '/kpi'] },
   { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
-  { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/inventory', '/suppliers'] },
+  { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
   { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/changelog', '/feedback', '/settings'] },

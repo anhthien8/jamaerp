@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import MoneyInput from '@/components/ui/MoneyInput';
+import Link from 'next/link';
 import LineIcon from '@/components/ui/LineIcon';
 import ChuCoLink from '@/components/ui/ChuCoLink';
 
@@ -1283,6 +1284,13 @@ function ProjectsPageInner() {
 
               {/* Ảnh công trình — Kho ảnh (Telegram «JAMA Công trình») */}
               <AnhDuAn projectId={selectedProject.id} />
+
+              {/* Vật tư (25/10): phiếu khách chọn mẫu → Thu mua hỏi NCC → chốt giá */}
+              <Link href={`/vat-tu?project=${selectedProject.id}`}
+                className="flex items-center justify-between glass-card px-4 py-3 text-sm hover:border-[var(--gold-400)] transition-colors">
+                <span className="flex items-center gap-2 text-[var(--text-primary)]"><LineIcon name="package" size={16} /> Phiếu vật tư của dự án</span>
+                <span className="text-[var(--text-muted)]">Mở →</span>
+              </Link>
 
               {/* Bàn giao & bảo hành */}
               {selectedProject.handover_date && (

@@ -16,6 +16,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '25/10/2026',
+    title: 'Vật tư: khách chọn mẫu theo phòng, Thu mua hỏi giá NCC, chốt giá bán tự tính',
+    tag: 'MỚI',
+    news: [
+      'Menu Kho hàng → «Vật tư»: danh mục mẫu gạch của JAMA nhập thẳng từ Google Sheet (12 nhóm kích thước, có ảnh, hãng, bề mặt). Thu mua bấm «Nhập Google Sheet» là xong.',
+      'Phiếu vật tư theo dự án, chia theo phòng: Thiết kế / Kinh doanh ngồi cùng khách bấm «Khách chọn mẫu», rồi «Khách đã đồng ý» kèm ghi chú. Mở từ chi tiết dự án → «Phiếu vật tư của dự án».',
+      'Thu mua có bảng «Cần hỏi giá» gom mọi dự án: nhập 2–3 báo giá NCC (rẻ nhất lên đầu), bấm «Chốt giá này» → giá bán tự tính = giá vốn + % lãi theo nhóm (hoặc giá cố định nếu cao hơn). Chốt xong app báo cho Thiết kế, Kinh doanh, PM.',
+      'Hết hàng: Thu mua bấm «Hết hàng / đề xuất thay» chọn mã thay → dòng đỏ chờ khách duyệt lại → «Khách đã đồng ý» đổi sang mã mới.',
+      'Giá vốn, tên NCC, lãi chỉ Giám đốc, Thu mua, Trưởng phòng thấy; Kinh doanh & Thiết kế chỉ thấy giá bán. Giám đốc cài % lãi từng nhóm ở tab «% lãi theo nhóm».',
+    ],
+    test: [
+      'Thu mua: Vật tư → Nhập Google Sheet → danh mục hiện ~340 mẫu có ảnh.',
+      'Thiết kế: mở dự án → Phiếu vật tư → Khách chọn mẫu (60x60, 45 m2) → không thấy giá vốn.',
+      'Thu mua: Cần hỏi giá → thêm 2 báo giá → Chốt giá rẻ → giá bán = vốn × 1,15; Thiết kế nhận thông báo.',
+    ],
+  },
+  {
+    date: '25/10/2026',
     title: 'Bản vẽ/PDF gửi bot về đúng topic dự án + thông báo ra điện thoại, máy tính',
     tag: 'MỚI',
     news: [

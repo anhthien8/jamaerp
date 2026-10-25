@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '23/10/2026';
+export const GUIDE_UPDATED = '25/10/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -812,6 +812,44 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "tip",
         "text": "**Cách dùng cho nhân viên Sale:** gửi link `crm.jamahome.vn/bao-gia` cho khách qua Zalo/Facebook. Khách điền xong, hệ thống **tự tạo khách hàng tiềm năng nóng** kèm số điện thoại — bạn vào mục «Quy trình» để nhận và gọi tư vấn trong 24h."
       }
+    ]
+  },
+  {
+    "id": "vat-tu",
+    "icon": "package",
+    "title": "Vật tư — khách chọn mẫu, Thu mua hỏi giá, chốt giá bán «Vật tư»",
+    "roles": ["Thiết kế", "Kinh doanh", "Thu mua", "Giám đốc"],
+    "blocks": [
+      { "type": "p", "text": "Menu **Kho hàng → Vật tư** (từ 25/10/2026). JAMA không có bảng giá vật tư chuẩn: khách chọn mẫu → Thu mua hỏi 2–3 nhà cung cấp → chốt giá. App gói đúng luồng đó thành **phiếu vật tư theo dự án**, từng phòng một." },
+      { "type": "h3", "text": "Quy tắc giá — ai thấy gì" },
+      { "type": "list", "items": [
+        "**Giá bán cho khách = giá vốn + % lãi theo nhóm** (gạch 30x30, 60x60… mỗi nhóm một %; Giám đốc cài ở tab «% lãi theo nhóm»). Mẫu nào có **giá bán cố định** thì áp giá nào **cao hơn**.",
+        "**Chỉ Thu mua chốt giá.** Không ai gõ giá bán tay — tránh mỗi dự án một kiểu.",
+        "**Giá vốn, tên NCC, lãi** chỉ Giám đốc, Thu mua và Trưởng phòng thấy. Kinh doanh, Thiết kế chỉ thấy **giá bán** — máy chủ không gửi cột giá vốn xuống, không phải chỉ ẩn trên màn hình.",
+        "Khách không bao giờ thấy giá vốn hay NCC (portal cho khách duyệt mẫu làm ở đợt sau)."
+      ] },
+      { "type": "h3", "text": "Thiết kế / Kinh doanh — ngồi cùng khách" },
+      { "type": "steps", "items": [
+        "Mở dự án → bấm **«Phiếu vật tư của dự án»** (hoặc menu Vật tư → tab Phiếu dự án → chọn dự án).",
+        "Bấm **«Khách chọn mẫu»**: chọn phòng (Phòng khách, Bếp, WC…), hạng mục (sàn, tường…), gõ mã hoặc hãng để chọn trong danh mục có ảnh; nhập số lượng. Mã chưa có trong danh mục thì gõ tự do.",
+        "Dòng mới ở trạng thái **Khách chọn** — Thu mua tự thấy ở bảng «Cần hỏi giá», không cần nhắn.",
+        "Khi khách gật đầu (ở quán, qua Zalo…), bấm **«Khách đã đồng ý»** và ghi chú khách nói gì, qua kênh nào.",
+        "Nếu Thu mua báo **Hết hàng / đề xuất thay**, dòng hiện đỏ kèm mã thay thế: hỏi lại khách, bấm «Khách đã đồng ý» → mã thay thành mã chính, Thu mua hỏi giá tiếp."
+      ] },
+      { "type": "h3", "text": "Thu mua — bảng «Cần hỏi giá»" },
+      { "type": "steps", "items": [
+        "Tab **Cần hỏi giá** gom mọi dòng chờ của tất cả dự án. Bấm một dòng để mở.",
+        "Nhập từng báo giá NCC: tên NCC, giá vốn, còn hàng không, ngày giao. Báo giá **rẻ nhất tự lên đầu**.",
+        "Bấm **«Chốt giá này»** → app tính giá bán theo % lãi nhóm (hoặc giá cố định nếu cao hơn), ghi «giá gần nhất» về mẫu để lần sau tham khảo, và báo cho Thiết kế / Kinh doanh / PM của dự án.",
+        "Hết hàng: bấm **«Hết hàng / đề xuất thay»**, chọn mã thay và lý do → dòng chuyển sang chờ khách duyệt lại.",
+        "Sau chốt: bấm **Đã đặt** → **Đã giao** theo tiến độ."
+      ] },
+      { "type": "h3", "text": "Danh mục mẫu" },
+      { "type": "list", "items": [
+        "Thu mua bấm **«Nhập Google Sheet»** dán link bảng mẫu của JAMA (mỗi tab = một nhóm kích thước): app đọc cột MÃ, THƯƠNG HIỆU, HÌNH ẢNH, TÍNH CHẤT, TÌNH TRẠNG, ĐƠN GIÁ, NCC. Nhập lại chỉ thêm mẫu mới, tick «Ghi đè» mới cập nhật mẫu cũ.",
+        "Có thể thêm/sửa từng mẫu tay: mã, hãng, nhóm, ảnh, giá tham khảo, giá bán cố định, tắt «Đang dùng» khi ngừng bán."
+      ] },
+      { "type": "tip", "text": "Dòng đã chốt giá chỉ Giám đốc xoá được. Thu mua không cần được gắn vào dự án vẫn xem và chốt mọi phiếu." }
     ]
   },
   {
