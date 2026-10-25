@@ -75,17 +75,29 @@ async def _build_project_costs(
 # ---------------------------------------------------------------------------
 
 async def _build_project_revenues(db: AsyncSession) -> dict[str, float]:
-    """Return {project_id: sum of signed contract total_value}."""
-    q = (
-        select(
-            Contract.project_id,
-            func.coalesce(func.sum(Contract.total_value), 0).label("total"),
-        )
-        .where(Contract.status == "signed")
+    """{project_id: tiền đã thu} — tổng các đợt thanh toán đã tích «đã thu»
+    của HĐ không hủy (26/10/2026; trước đây = giá trị HĐ «đã ký», prod ra 0 vì
+    HĐ còn nháp và không phản ánh tiền thật về)."""
+    from app.services.hoa_hong import tien_dot
+
+    rows = (await db.execute(select(Contract).where(Contract.status != "cancelled"))).scalars().all()
+    out: dict[str, float] = {}
+    for hd in rows:
+        dots = (hd.payment_terms or {}).get("installments") or []
+        thu = sum(tien_dot(hd, i) for i, d in enumerate(dots) if (d or {}).get("status") == "paid")
+        if thu:
+            out[hd.project_id] = out.get(hd.project_id, 0.0) + thu
+    return out
+
+
+async def _build_contract_values(db: AsyncSession) -> dict[str, float]:
+    """{project_id: giá trị HĐ đã ký/hoàn thành} — để đối chiếu với tiền đã thu."""
+    rows = (await db.execute(
+        select(Contract.project_id, func.coalesce(func.sum(Contract.total_value), 0))
+        .where(Contract.status.in_(["signed", "completed"]))
         .group_by(Contract.project_id)
-    )
-    rows = (await db.execute(q)).all()
-    return {project_id: float(total) for project_id, total in rows}
+    )).all()
+    return {pid: float(v) for pid, v in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +116,7 @@ async def company_pl_summary(
     """Company-wide P&L: total revenue, total costs, net profit, margin %."""
     revenues = await _build_project_revenues(db)
     costs = await _build_project_costs(db)
+    gia_tri_hd = await _build_contract_values(db)
 
     total_revenue = sum(revenues.values())
     total_cost_material = sum(c["material"] for c in costs.values())
@@ -114,6 +127,7 @@ async def company_pl_summary(
 
     return PLSummary(
         total_revenue=total_revenue,
+        total_contract_value=sum(gia_tri_hd.values()),
         total_cost_material=total_cost_material,
         total_cost_transaction=total_cost_transaction,
         total_cost=total_cost,
@@ -133,10 +147,11 @@ async def project_pl_list(
     """Per-project P&L list showing revenue, costs, profit and margin."""
     revenues = await _build_project_revenues(db)
     costs = await _build_project_costs(db)
+    gia_tri_hd = await _build_contract_values(db)
 
     # Merge all known project IDs — loại None (giao dịch/vật tư không gắn dự án),
     # nếu không sorted() ném TypeError None-vs-str → 500 cả endpoint (audit 22/07)
-    all_project_ids = {pid for pid in (set(revenues.keys()) | set(costs.keys())) if pid}
+    all_project_ids = {pid for pid in (set(revenues.keys()) | set(costs.keys()) | set(gia_tri_hd.keys())) if pid}
 
     result = await db.execute(select(Project))
     projects_map = {p.id: p for p in result.scalars().all()}
@@ -156,6 +171,7 @@ async def project_pl_list(
                 project_code=p.code if p else "N/A",
                 project_name=p.name if p else "Unknown",
                 revenue=rev,
+                contract_value=gia_tri_hd.get(pid, 0.0),
                 cost_material=c["material"],
                 cost_transaction=c["transaction"],
                 total_cost=total_cost,
@@ -182,12 +198,9 @@ async def project_pl_detail(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Revenue from signed contracts
-    rev_result = await db.execute(
-        select(func.coalesce(func.sum(Contract.total_value), 0))
-        .where(Contract.project_id == project_id, Contract.status == "signed")
-    )
-    revenue = float(rev_result.scalar())
+    # Doanh thu = tiền đã thu theo đợt (cùng quy tắc /summary)
+    revenue = (await _build_project_revenues(db)).get(project_id, 0.0)
+    contract_value = (await _build_contract_values(db)).get(project_id, 0.0)
 
     # Material usage costs
     mat_result = await db.execute(
@@ -243,6 +256,7 @@ async def project_pl_detail(
         start_date=project.start_date.date().isoformat() if project.start_date else None,
         status=project.status,
         revenue=revenue,
+        contract_value=contract_value,
         cost_material=cost_material,
         cost_transaction=cost_transaction,
         total_cost=total_cost,

@@ -16,6 +16,7 @@ interface ProjectPL {
   project_code: string;
   project_name: string;
   revenue: number;
+  contract_value?: number; // giá trị HĐ đã ký — để so với doanh thu đã thu
   costs: number;
   profit: number;
   margin: number;
@@ -30,6 +31,7 @@ interface ProjectPL {
 
 interface CompanyPLSummary {
   total_revenue: number;
+  total_contract_value: number;
   total_costs: number;
   net_profit: number;
   margin: number;
@@ -249,6 +251,7 @@ function computeSummary(items: ProjectPL[]): CompanyPLSummary {
   const net_profit = total_revenue - total_costs;
   return {
     total_revenue,
+    total_contract_value: items.reduce((s, p) => s + (p.contract_value || 0), 0),
     total_costs,
     net_profit,
     margin: total_revenue > 0 ? (net_profit / total_revenue) * 100 : 0,
@@ -375,6 +378,7 @@ export default function PLPage() {
             status: item.status || 'active',
             // Không bịa ngày 01/01 — để rỗng thì bộ lọc kỳ giữ lại dự án (nhánh isNaN)
             start_date: item.start_date || '',
+            contract_value: Number(item.contract_value) || 0,
           }));
           setAllProjects(normalizedProjects);
           setPlError('');
@@ -680,11 +684,13 @@ export default function PLPage() {
               <div className="glass-card p-4 md:p-5 border-l-2 border-l-emerald-500">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] md:text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Tổng Doanh thu</p>
+                    <p className="text-[10px] md:text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Doanh thu đã thu</p>
                     <p className="text-lg md:text-2xl font-bold text-emerald-400">{formatCurrency(summary.total_revenue)}</p>
-                    <p className="text-[10px] md:text-xs text-[var(--text-secondary)] mt-1">{summary.project_count} dự án</p>
+                    <p className="text-[10px] md:text-xs text-[var(--text-secondary)] mt-1">
+                      {summary.total_contract_value > 0 ? `Giá trị HĐ đã ký: ${formatCurrency(summary.total_contract_value)}` : `${summary.project_count} dự án`}
+                    </p>
                   </div>
-                  <span className="text-xl md:text-2xl">&#x1F4B5;</span>
+                  <LineIcon name="money" size={22} />
                 </div>
               </div>
 

@@ -216,6 +216,7 @@ class TestPLCache:
             title="HD test cache",
             status="signed",
             total_value=1_000_000_000,
+            payment_terms={"installments": [{"name": "Đợt 1", "percentage": 100, "status": "paid"}]},
         ))
         await db_session.commit()
 

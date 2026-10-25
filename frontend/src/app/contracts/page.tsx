@@ -10,6 +10,7 @@ import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import MoneyInput from '@/components/ui/MoneyInput';
 import LineIcon from '@/components/ui/LineIcon';
 import ThuVienMau from '@/components/contracts/ThuVienMau';
+import TepHopDong from '@/components/contracts/TepHopDong';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -461,6 +462,11 @@ export default function ContractsPage() {
                     <p className="text-sm font-medium text-[var(--text-primary)]">{value}</p>
                   </div>
                 ))}
+              </div>
+
+              <div className="mb-6">
+                <TepHopDong contractId={selected.id} choTaiLen={permissions.canCreateContracts}
+                  laQuanLy={user?.role === 'admin' || user?.role === 'accountant'} userId={user?.id} />
               </div>
 
               {/* Payment terms */}

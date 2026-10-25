@@ -17,7 +17,8 @@ class PLProjectItem(BaseModel):
     project_id: str
     project_code: str
     project_name: str
-    revenue: float = 0.0
+    revenue: float = 0.0  # tiền đã thu theo đợt
+    contract_value: float = 0.0  # giá trị HĐ đã ký — đối chiếu
     cost_material: float = 0.0
     cost_transaction: float = 0.0
     total_cost: float = 0.0
@@ -39,7 +40,8 @@ class PLProjectDetail(PLProjectItem):
 
 class PLSummary(BaseModel):
     """Company-wide P&L summary."""
-    total_revenue: float = 0.0
+    total_revenue: float = 0.0  # tiền đã thu theo đợt
+    total_contract_value: float = 0.0
     total_cost_material: float = 0.0
     total_cost_transaction: float = 0.0
     total_cost: float = 0.0

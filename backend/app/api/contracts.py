@@ -105,6 +105,8 @@ async def create_contract(
     )
     db.add(contract)
     await db.flush()
+    from app.cache import cache
+    cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
 
 
@@ -139,6 +141,8 @@ async def update_contract(
             await hoa_hong.khi_nghiem_thu(db, contract)
 
     await db.flush()
+    from app.cache import cache
+    cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
 
 
@@ -193,5 +197,132 @@ async def update_payment(
         await hoa_hong.khi_bo_thu_tien(db, contract, installment_idx)
 
     await db.flush()
+    from app.cache import cache
+    cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
 
+
+
+# ── Tệp hợp đồng đã ký (26/10/2026) ───────────────────────────────────────
+# Xem/tải: ô «Xem Hợp đồng». Đính kèm: ô «Tạo Hợp đồng». Gỡ: người tải lên,
+# BGĐ hoặc Kế toán (ẩn, không xoá cứng).
+
+from pathlib import PurePath
+from urllib.parse import quote
+
+from fastapi import File, UploadFile
+from fastapi.responses import Response
+from sqlalchemy.orm import defer
+
+from app.middleware.permissions import yeu_cau
+from app.models.contract_file import ContractFile
+
+TEP_HD_TOI_DA = 40 * 1024 * 1024
+TEP_HD_DUOI = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+
+
+def _tep_dict(f: ContractFile) -> dict:
+    return {
+        "id": f.id, "filename": f.filename, "mime": f.mime, "size_bytes": f.size_bytes,
+        "uploaded_by": f.uploaded_by,
+        "uploaded_by_name": f.uploaded_by_name,
+        "created_at": f.created_at.isoformat() if f.created_at else None,
+    }
+
+
+async def _lay_hd(db: AsyncSession, contract_id: str) -> Contract:
+    hd = await db.get(Contract, contract_id)
+    if not hd:
+        raise HTTPException(status_code=404, detail="Hợp đồng không tồn tại")
+    return hd
+
+
+@router.get("/{contract_id}/files")
+async def list_contract_files(
+    contract_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(yeu_cau("canViewContracts")),
+):
+    await _lay_hd(db, contract_id)
+    rows = (await db.execute(
+        select(ContractFile).options(defer(ContractFile.data))
+        .where(ContractFile.contract_id == contract_id, ContractFile.is_active.is_(True))
+        .order_by(ContractFile.created_at.desc())
+    )).scalars().all()
+    return {"items": [_tep_dict(f) for f in rows]}
+
+
+@router.post("/{contract_id}/files", status_code=201)
+async def upload_contract_files(
+    contract_id: str,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _yeu_cau_quyen_hop_dong(current_user, db)
+    await _lay_hd(db, contract_id)
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Mỗi lượt tối đa 10 tệp")
+    goi = []
+    for f in files:
+        ten = PurePath(f.filename or "").name
+        duoi = PurePath(ten).suffix.lower()
+        if duoi not in TEP_HD_DUOI:
+            raise HTTPException(status_code=400, detail=f"«{ten}»: chỉ nhận PDF, Word hoặc ảnh chụp")
+        data = await f.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"«{ten}» rỗng")
+        if len(data) > TEP_HD_TOI_DA:
+            raise HTTPException(status_code=413, detail=f"«{ten}» quá 40 MB")
+        goi.append((ten, TEP_HD_DUOI[duoi], data))
+    ra = []
+    for ten, mime, data in goi:
+        m = ContractFile(contract_id=contract_id, filename=ten, mime=mime, data=data, size_bytes=len(data),
+                         uploaded_by=current_user.id, uploaded_by_name=current_user.full_name)
+        db.add(m)
+        await db.flush()
+        ra.append(_tep_dict(m))
+    await db.commit()
+    return {"items": ra}
+
+
+@router.get("/{contract_id}/files/{file_id}/download")
+async def download_contract_file(
+    contract_id: str,
+    file_id: str,
+    inline: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(yeu_cau("canViewContracts")),
+):
+    f = await db.get(ContractFile, file_id)
+    if not f or f.contract_id != contract_id or not f.is_active:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tệp")
+    kieu = "inline" if inline else "attachment"
+    return Response(content=f.data, media_type=f.mime, headers={
+        "Content-Disposition": f"{kieu}; filename*=UTF-8''{quote(f.filename)}",
+        "Cache-Control": "private, no-store",
+    })
+
+
+@router.delete("/{contract_id}/files/{file_id}")
+async def remove_contract_file(
+    contract_id: str,
+    file_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    f = await db.get(ContractFile, file_id)
+    if not f or f.contract_id != contract_id or not f.is_active:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tệp")
+    if current_user.role not in ("admin", "accountant") and f.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Chỉ người tải lên, BGĐ hoặc Kế toán được gỡ tệp")
+    f.is_active = False
+    await db.commit()
+    return {"ok": True}

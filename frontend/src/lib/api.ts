@@ -1246,6 +1246,62 @@ class ApiClient {
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
+  // ── Tệp hợp đồng đã ký (26/10/2026) ──
+  async listContractFiles(contractId: string) {
+    if (isDemoMode()) return { items: [] as ContractFile[] };
+    return this.request<{ items: ContractFile[] }>(`/contracts/${contractId}/files`);
+  }
+  async uploadContractFiles(contractId: string, files: File[]) {
+    if (isDemoMode()) {
+      throw new Error('Chế độ Tập luyện không tải tệp lên được — chuyển sang Chế độ Làm việc.');
+    }
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/contracts/${contractId}/files`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    const tokenMoi = res.headers.get('X-Phien-Moi');
+    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Tải tệp lên thất bại' }));
+      if (res.status === 401) xuLyHetPhien('/contracts');
+      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
+    }
+    return res.json() as Promise<{ items: ContractFile[] }>;
+  }
+  /** Xem (PDF/ảnh mở tab mới) hoặc tải tệp HĐ — tệp nằm sau JWT nên đi qua blob URL */
+  async openContractFile(contractId: string, f: ContractFile, xem: boolean) {
+    const moTab = xem && (f.mime.includes('pdf') || f.mime.startsWith('image/'));
+    const tab = moTab ? window.open('', '_blank') : null;
+    const t = this.getToken();
+    const res = await fetch(`${this.baseUrl}/contracts/${contractId}/files/${f.id}/download?inline=${moTab}`, {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!res.ok) {
+      tab?.close();
+      if (res.status === 401) xuLyHetPhien('/contracts');
+      throw new ApiError(`HTTP ${res.status}`, res.status);
+    }
+    const url = URL.createObjectURL(new Blob([await res.blob()], { type: f.mime }));
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = f.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+  async removeContractFile(contractId: string, fileId: string) {
+    return this.request<{ ok: boolean }>(`/contracts/${contractId}/files/${fileId}`, { method: 'DELETE' });
+  }
+
   /** Nhập danh sách nhân sự (Excel HCNS) → Hồ sơ 360°. apply=false chỉ xem trước. */
   async importEmployeesExcel(file: File, apply: boolean) {
     if (isDemoMode()) {
@@ -2825,6 +2881,16 @@ export interface Customer {
 }
 
 export type NhomMau = 'hop_dong' | 'bien_ban' | 'thanh_toan' | 'phu_luc' | 'khac';
+export interface ContractFile {
+  id: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  uploaded_by?: string | null;
+  uploaded_by_name?: string | null;
+  created_at?: string | null;
+}
+
 export interface ContractTemplate {
   id: string;
   name: string;

@@ -731,6 +731,18 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Đính kèm hợp đồng đã ký (PDF/Word/ảnh scan)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Bấm vào một hợp đồng để mở cửa sổ chi tiết → khối **Tệp hợp đồng đã ký**.",
+          "Người có quyền tạo hợp đồng bấm **Đính kèm HĐ đã ký**, chọn tệp PDF, Word hoặc ảnh scan (nhiều tệp một lúc, mỗi tệp tối đa 40 MB).",
+          "Ai xem được Hợp đồng đều bấm **Xem** (PDF/ảnh mở tab mới) hoặc **Tải** về máy. Gỡ nhầm tệp: người tải lên, BGĐ hoặc Kế toán bấm biểu tượng thùng rác."
+        ]
+      },
+      {
+        "type": "h3",
         "text": "Theo dõi đợt thanh toán và xác nhận đã thu tiền"
       },
       {

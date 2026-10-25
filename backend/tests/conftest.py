@@ -284,6 +284,8 @@ async def project_with_financials(
         title="Hop dong thiet ke",
         status="signed",
         total_value=4_500_000_000,
+        # P&L tính doanh thu theo đợt đã thu (26/10/2026)
+        payment_terms={"installments": [{"name": "Đợt 1", "percentage": 100, "status": "paid"}]},
     )
     db_session.add(contract)
 

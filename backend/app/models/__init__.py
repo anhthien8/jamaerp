@@ -26,9 +26,11 @@ from app.models.telegram_contact import TelegramContact
 from app.models.lead import LeadAttachment
 from app.models.danh_gia_khach import DanhGiaKhach
 from app.models.contract_template import ContractTemplate
+from app.models.contract_file import ContractFile
 from app.models.push_subscription import PushSubscription
 
 __all__ = [
+    "ContractFile",
     "User", "Team",
     "Lead", "Activity",
     "Project", "Task", "TaskActivity", "TaskAssignee",

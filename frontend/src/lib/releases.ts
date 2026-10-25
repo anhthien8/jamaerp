@@ -15,6 +15,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '26/10/2026',
+    title: 'Hợp đồng: đính kèm bản đã ký, xem & tải ngay · P&L tính doanh thu theo đợt đã thu',
+    tag: 'MỚI',
+    news: [
+      'Cửa sổ chi tiết hợp đồng có khối «Tệp hợp đồng đã ký»: đính kèm PDF, Word hoặc ảnh scan; bấm Xem (mở tab mới) hoặc Tải về.',
+      'P&L: doanh thu nay là tiền thực thu — cộng các đợt thanh toán đã xác nhận «Đã thu» (kể cả HĐ chưa chuyển sang Đã ký). Thẻ đầu ghi kèm «Giá trị HĐ đã ký» để so.',
+    ],
+  },
+  {
     date: '25/10/2026',
     title: 'Khách hàng: doanh thu & số hợp đồng từng khách · tải ảnh CCCD tự điền thông tin · nhắc sale sinh nhật khách',
     tag: 'MỚI',
