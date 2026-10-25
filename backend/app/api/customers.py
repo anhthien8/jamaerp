@@ -14,7 +14,11 @@ from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.customer import Customer
 from app.models.project import Project
+from pydantic import BaseModel
+
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse
+from app.services import khach_hang
+from app.services.attendance_service import vn_today
 
 def _escape_like(term: str) -> str:
     return term.replace("%", "\\%").replace("_", "\\_")
@@ -109,10 +113,15 @@ async def list_customers(
     result = await db.execute(q)
     customers = result.scalars().all()
 
+    tk = await khach_hang.thong_ke_khach(db, list(customers))
+    hom_nay = vn_today()
     items = []
     for c in customers:
         resp = CustomerResponse.model_validate(c).model_dump()
         resp["phone"] = _mask_phone(resp.get("phone"), current_user)
+        resp["national_id"] = _mask_phone(resp.get("national_id"), current_user)
+        resp.update(tk.get(c.id, {}))
+        resp["sinh_nhat_con_ngay"] = khach_hang.sinh_nhat_sap_toi(c.birthday, hom_nay)
         items.append(resp)
     return {
         "items": items,
@@ -154,9 +163,44 @@ async def get_customer(
 
     resp = CustomerResponse.model_validate(customer).model_dump()
     resp["phone"] = _mask_phone(resp.get("phone"), current_user)
+    resp["national_id"] = _mask_phone(resp.get("national_id"), current_user)
     resp["projects"] = projects
     resp["project_count"] = len(projects)
+    resp.update((await khach_hang.thong_ke_khach(db, [customer])).get(customer.id, {}))
+    resp["sinh_nhat_con_ngay"] = khach_hang.sinh_nhat_sap_toi(customer.birthday, vn_today())
     return resp
+
+
+class CccdIn(BaseModel):
+    data_base64: str
+
+
+MAX_CCCD_BYTES = 8 * 1024 * 1024
+
+
+@router.post("/doc-cccd")
+async def doc_cccd(
+    data: CccdIn,
+    current_user: User = Depends(require_customer_write),
+):
+    """Ảnh CCCD → {name, national_id, birthday, gender, address} để điền form.
+    Ảnh chỉ đọc trong bộ nhớ, KHÔNG lưu (giấy tờ tùy thân của khách)."""
+    import base64
+    import binascii
+
+    try:
+        anh = base64.b64decode(data.data_base64.split(",")[-1], validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(422, "Ảnh không hợp lệ")
+    if not anh:
+        raise HTTPException(422, "Ảnh trống")
+    if len(anh) > MAX_CCCD_BYTES:
+        raise HTTPException(413, "Ảnh quá 8MB")
+    mime = "image/png" if anh.startswith(bytes([0x89, 0x50, 0x4E, 0x47])) else "image/jpeg"
+    try:
+        return await khach_hang.doc_cccd(anh, mime)
+    except khach_hang.CccdError as e:
+        raise HTTPException(e.status, str(e))
 
 
 @router.post("", response_model=CustomerResponse)

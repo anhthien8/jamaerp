@@ -88,6 +88,7 @@ class BackgroundWorker:
         self._last_attendance_close_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
         self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
+        self._last_birthday_notify_date: str = ""  # nhắc sinh nhật khách (25/10/2026)
         self._last_contract_notify_date: str = ""  # "YYYY-MM-DD" (VN time) — nhắc hạn HĐLĐ
         self._last_media_mirror: float = 0.0  # sao ảnh công trình sang Drive, mỗi 5 phút
         self._last_zalo_unanswered: float = 0.0  # Trợ lý Zalo: quét khách chờ, mỗi 10 phút
@@ -291,6 +292,15 @@ class BackgroundWorker:
                 self.enqueue_task(
                     "contract_expiry_notify",
                     process_contract_expiry_notify,
+                    priority=TaskPriority.NORMAL,
+                )
+
+            # 08:00 VN: nhắc sale sinh nhật khách (trước 3 ngày + đúng ngày)
+            if vn_now.hour >= 8 and self._last_birthday_notify_date != today_str:
+                self._last_birthday_notify_date = today_str
+                self.enqueue_task(
+                    "customer_birthday_notify",
+                    process_customer_birthday,
                     priority=TaskPriority.NORMAL,
                 )
 
@@ -771,6 +781,23 @@ async def process_contract_expiry_notify() -> dict[str, Any]:
         return {"status": "completed", "notified": notified}
     except Exception as exc:
         logger.exception("Contract expiry notification failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_customer_birthday() -> dict[str, Any]:
+    """08:00 VN — nhắc sale phụ trách sinh nhật khách. _notify dedupe theo ref_id
+    (khách + ngày + mốc) nên redeploy trong ngày không nhắc trùng."""
+    try:
+        from app.database import async_session
+        from app.services.attendance_service import vn_today
+        from app.services.khach_hang import nhac_sinh_nhat
+
+        async with async_session() as session:
+            n = await nhac_sinh_nhat(session, vn_today())
+            await session.commit()
+        return {"status": "completed", "notified": n}
+    except Exception as exc:
+        logger.exception("Customer birthday notify failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

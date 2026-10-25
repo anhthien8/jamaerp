@@ -567,7 +567,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Ô tìm kiếm: gõ **tên, SĐT hoặc email** là ra ngay.",
           "Ô lọc bên cạnh: **Tất cả loại KH / Cá nhân / Doanh nghiệp**.",
-          "Bảng danh sách hiện: Tên, Loại, SĐT, Email, Địa chỉ. Trên điện thoại hiển thị dạng thẻ gọn.",
+          "Bảng danh sách hiện: Tên, Loại, SĐT, Email, **Doanh thu** (tổng giá trị các dự án khách đã mang lại, bỏ dự án hủy) và **Số HĐ**. Khách sắp sinh nhật (trong 7 ngày) có nhãn vàng «Sinh nhật còn N ngày».",
           "Bấm vào 1 khách → cửa sổ chi tiết: SĐT, email, địa chỉ, mã số thuế, ghi chú nội bộ, và **danh sách dự án** của khách kèm % tiến độ từng dự án."
         ]
       },
@@ -580,12 +580,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm nút vàng **«+ Thêm khách hàng»** góc phải.",
           "Điền **Tên khách hàng** và **SĐT** (2 ô bắt buộc). Khách công ty thì chọn loại «Doanh nghiệp» và điền thêm tên công ty, mã số thuế.",
+          "Có căn cước của khách: bấm khung **«Tải ảnh CCCD»** và chụp mặt trước — ERP tự điền họ tên, ngày sinh, số CCCD, địa chỉ. Kiểm lại rồi mới lưu. Ảnh chỉ dùng để đọc, không lưu lại.",
           "Bấm **«Tạo khách hàng»**. Muốn sửa sau này: bấm nút **«Sửa»** ở cuối dòng."
         ]
       },
       {
         "type": "tip",
-        "text": "Ô **«Ghi chú nội bộ»** chỉ người trong công ty thấy — ghi thói quen, sở thích, lưu ý khi làm việc với khách vào đây để đồng nghiệp tiếp quản không bị bỡ ngỡ."
+        "text": "Có **ngày sinh**, 8 giờ sáng ERP tự nhắc **sale phụ trách** khách trước 3 ngày và đúng ngày sinh nhật để kịp chuẩn bị quà. Ô **«Ghi chú nội bộ»** chỉ người trong công ty thấy — ghi thói quen, sở thích, lưu ý khi làm việc với khách vào đây để đồng nghiệp tiếp quản không bị bỡ ngỡ."
       },
       {
         "type": "p",

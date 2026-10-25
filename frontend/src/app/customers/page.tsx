@@ -7,6 +7,17 @@ import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 import { api, Customer, fetchAllPages } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
+import { compressImage } from '@/lib/nhan-su';
+
+const vnd = (n?: number) => (n ? `${Math.round(n).toLocaleString('vi-VN')}đ` : '—');
+function BadgeSinhNhat({ n }: { n?: number | null }) {
+  if (n == null || n > 7) return null;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-500)' }}>
+      <LineIcon name="gift" size={12} color="currentColor" />{n === 0 ? 'Sinh nhật hôm nay' : `Sinh nhật còn ${n} ngày`}
+    </span>
+  );
+}
 
 const TYPE_LABELS: Record<string, string> = {
   individual: 'Cá nhân',
@@ -22,6 +33,8 @@ type CustomerForm = {
   company_name: string;
   tax_code: string;
   notes: string;
+  birthday: string;
+  national_id: string;
 };
 
 const EMPTY_FORM: CustomerForm = {
@@ -33,6 +46,8 @@ const EMPTY_FORM: CustomerForm = {
   company_name: '',
   tax_code: '',
   notes: '',
+  birthday: '',
+  national_id: '',
 };
 
 function toForm(customer?: Customer | null): CustomerForm {
@@ -46,13 +61,18 @@ function toForm(customer?: Customer | null): CustomerForm {
     company_name: customer.company_name || '',
     tax_code: customer.tax_code || '',
     notes: customer.notes || '',
+    birthday: customer.birthday || '',
+    national_id: customer.national_id || '',
   };
 }
 
 function cleanPayload(form: CustomerForm) {
-  return Object.fromEntries(
+  const out: Record<string, string | undefined> = Object.fromEntries(
     Object.entries(form).map(([key, value]) => [key, value.trim() || undefined])
   );
+  // Số CCCD đang hiện dạng che (***) thì không gửi để khỏi ghi đè số thật
+  if (out.national_id?.includes('*')) delete out.national_id;
+  return out;
 }
 
 function AccessDenied() {
@@ -95,6 +115,29 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState<CustomerForm>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [docCccd, setDocCccd] = useState(false);
+
+  const handleCccd = async (file?: File) => {
+    if (!file) return;
+    setDocCccd(true);
+    try {
+      const anh = await compressImage(file);
+      if (!anh) throw new Error('Không mở được ảnh');
+      const d = await api.docCccd(anh.base64);
+      setForm(f => ({
+        ...f,
+        name: d.name || f.name,
+        national_id: d.national_id || f.national_id,
+        birthday: d.birthday || f.birthday,
+        address: d.address || f.address,
+      }));
+      toast('Đã điền thông tin từ CCCD — kiểm tra lại trước khi lưu', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Không đọc được CCCD', 'error');
+    } finally {
+      setDocCccd(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -276,6 +319,7 @@ export default function CustomersPage() {
                         <div>
                           <p className="text-sm font-medium text-[var(--text-primary)]">{c.name}</p>
                           {c.company_name && <p className="text-[10px] text-[var(--text-muted)]">{c.company_name}</p>}
+                          <BadgeSinhNhat n={c.sinh_nhat_con_ngay} />
                         </div>
                       </div>
                       <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ background: c.type === 'company' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)', color: c.type === 'company' ? '#60a5fa' : '#34d399' }}>
@@ -285,6 +329,7 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                       {c.phone && <span>{c.phone}</span>}
                       {c.email && <span className="truncate">{c.email}</span>}
+                      {!!c.doanh_thu && <span className="font-medium text-[var(--text-primary)]">{vnd(c.doanh_thu)} · {c.so_hop_dong || 0} HĐ</span>}
                       {'project_count' in c && (c as Customer).project_count ? (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(201,169,110,0.1)', color: '#C9A96E' }}>
                           {(c as Customer).project_count} dự án
@@ -310,7 +355,8 @@ export default function CustomersPage() {
                     <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Loại</th>
                     <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">SĐT</th>
                     <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Email</th>
-                    <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">Địa chỉ</th>
+                    <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Doanh thu</th>
+                    <th className="text-center px-5 py-3 text-[var(--text-tertiary)] font-medium">Số HĐ</th>
                     <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Thao tác</th>
                   </tr>
                 </thead>
@@ -325,6 +371,7 @@ export default function CustomersPage() {
                           <div>
                             <p>{c.name}</p>
                             {c.company_name && <p className="text-xs text-[var(--text-muted)]">{c.company_name}</p>}
+                            <BadgeSinhNhat n={c.sinh_nhat_con_ngay} />
                           </div>
                         </div>
                       </td>
@@ -335,7 +382,8 @@ export default function CustomersPage() {
                       </td>
                       <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.phone || '—'}</td>
                       <td className="px-5 py-3.5 text-[var(--text-secondary)]">{c.email || '—'}</td>
-                      <td className="px-5 py-3.5 text-[var(--text-secondary)] max-w-[220px] truncate">{c.address || '—'}</td>
+                      <td className="px-5 py-3.5 text-right font-medium text-[var(--text-primary)] whitespace-nowrap">{vnd(c.doanh_thu)}</td>
+                      <td className="px-5 py-3.5 text-center text-[var(--text-secondary)]">{c.so_hop_dong || 0}</td>
                       <td className="px-5 py-3.5 text-right">
                         {canEditCustomers && (
                           <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
@@ -370,6 +418,10 @@ export default function CustomersPage() {
               </div>
               <div className="space-y-3 text-sm">
                 {[
+                  ['Doanh thu mang lại', vnd(selected.doanh_thu)],
+                  ['Số hợp đồng', String(selected.so_hop_dong || 0)],
+                  ['Sinh nhật', selected.birthday ? selected.birthday.split('-').reverse().join('/') : ''],
+                  ['Số CCCD', selected.national_id],
                   ['SĐT', selected.phone],
                   ['Email', selected.email],
                   ['Địa chỉ', selected.address],
@@ -469,7 +521,23 @@ export default function CustomersPage() {
                 <button type="button" onClick={() => !saving && setFormOpen(false)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
               </div>
 
+              <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer border border-dashed border-white/15 hover:border-[#C9A96E] transition-all">
+                <LineIcon name="camera" size={22} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm text-[var(--text-primary)]">{docCccd ? 'Đang đọc CCCD…' : 'Tải ảnh CCCD — tự điền họ tên, ngày sinh, số, địa chỉ'}</span>
+                  <span className="block text-xs text-[var(--text-muted)]">Chụp mặt trước, rõ chữ. Ảnh chỉ dùng để đọc, không lưu lại.</span>
+                </span>
+                <input type="file" accept="image/*" className="hidden" disabled={docCccd} onChange={e => { handleCccd(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--text-muted)]">Ngày sinh (nhắc sale tặng quà)</span>
+                  <input type="date" value={form.birthday} onChange={e => setForm({ ...form, birthday: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--text-muted)]">Số CCCD</span>
+                  <input inputMode="numeric" value={form.national_id} onChange={e => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                </label>
                 {[
                   ['name', 'Tên khách hàng *'],
                   ['phone', `SĐT ${editing ? '' : '*'}`],

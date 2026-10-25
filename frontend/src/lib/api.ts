@@ -1455,6 +1455,9 @@ class ApiClient {
   async updateCustomer(id: string, data: Partial<Customer>) {
     return this.request<Customer>(`/customers/${id}`, { method: 'PUT', body: data });
   }
+  async docCccd(data_base64: string) {
+    return this.request<{ name?: string | null; national_id?: string | null; birthday?: string | null; gender?: string | null; address?: string | null }>('/customers/doc-cccd', { method: 'POST', body: { data_base64 } });
+  }
 
   async generatePortalLink(customerId: string) {
     return this.request<{ portal_token: string; portal_url: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
@@ -2813,6 +2816,12 @@ export interface Customer {
   updated_at: string;
   projects?: Array<{ id: string; code: string; name: string; status: string; stage: string; total_value?: number; spent?: number; progress: number; created_at: string }>;
   project_count?: number;
+  birthday?: string | null;
+  national_id?: string | null;
+  doanh_thu?: number;
+  so_hop_dong?: number;
+  so_du_an?: number;
+  sinh_nhat_con_ngay?: number | null;
 }
 
 export type NhomMau = 'hop_dong' | 'bien_ban' | 'thanh_toan' | 'phu_luc' | 'khac';

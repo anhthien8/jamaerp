@@ -1,7 +1,7 @@
 """Customer schemas."""
 
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 
 
 class CustomerCreate(BaseModel):
@@ -14,6 +14,8 @@ class CustomerCreate(BaseModel):
     company_name: str | None = None
     lead_id: str | None = None
     notes: str | None = None
+    birthday: date | None = None
+    national_id: str | None = None
 
 
 class CustomerUpdate(BaseModel):
@@ -25,6 +27,8 @@ class CustomerUpdate(BaseModel):
     tax_code: str | None = None
     company_name: str | None = None
     notes: str | None = None
+    birthday: date | None = None
+    national_id: str | None = None
 
 
 class CustomerResponse(BaseModel):
@@ -38,6 +42,8 @@ class CustomerResponse(BaseModel):
     company_name: str | None = None
     lead_id: str | None = None
     notes: str | None = None
+    birthday: date | None = None
+    national_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

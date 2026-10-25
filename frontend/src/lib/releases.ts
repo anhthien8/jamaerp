@@ -16,6 +16,16 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '25/10/2026',
+    title: 'Khách hàng: doanh thu & số hợp đồng từng khách · tải ảnh CCCD tự điền thông tin · nhắc sale sinh nhật khách',
+    tag: 'MỚI',
+    news: [
+      'Danh sách Khách hàng thêm cột «Doanh thu» (tổng giá trị dự án khách mang lại, bỏ dự án hủy) và «Số HĐ» — biết khách nào cần chăm kỹ dịp lễ tết.',
+      'Form thêm/sửa khách có khung «Tải ảnh CCCD»: chụp mặt trước, ERP tự điền họ tên, ngày sinh, số CCCD, địa chỉ. Ảnh không lưu lại.',
+      'Có ngày sinh, 8 giờ sáng ERP nhắc sale phụ trách trước 3 ngày và đúng ngày sinh nhật khách. Khách sắp sinh nhật có nhãn vàng trong danh sách.',
+    ],
+  },
+  {
+    date: '25/10/2026',
     title: 'Vật tư dễ dùng hơn: tìm dự án, ảnh mẫu hiện ngay & tải từ máy, link Shopee so giá · chữ CRM → ERP · «Gửi thử» thông báo báo kết quả thật',
     tag: 'SỬA',
     news: [

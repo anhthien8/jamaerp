@@ -1,9 +1,9 @@
 """Customer model — converted leads or standalone clients."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import String, Text, ForeignKey, DateTime, Index
+from sqlalchemy import Date, String, Text, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -28,6 +28,11 @@ class Customer(Base):
     lead_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("leads.id"), nullable=True)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # 25/10/2026: ngày sinh (nhắc sale tặng quà) + số CCCD trích từ ảnh căn cước.
+    # Ảnh CCCD KHÔNG lưu — chỉ đọc một lần để điền form.
+    birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
+    national_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
