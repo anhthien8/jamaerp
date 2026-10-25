@@ -151,7 +151,7 @@ app.add_middleware(
     # + tên miền chính thức crm.jamahome.vn (trỏ CNAME về Vercel — 07/08/2026)
     allow_origin_regex=r"https://(frontend-[a-z0-9-]+\.vercel\.app|crm\.jamahome\.vn)",
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     # Phiên trượt: header gia hạn token phải được expose thì fetch() phía
     # frontend (khác origin) mới đọc được — thiếu dòng này là gia hạn câm lặng.

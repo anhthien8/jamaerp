@@ -23,6 +23,9 @@ export const RELEASES: Release[] = [
       'BGĐ và Kế toán bấm «Tải mẫu lên», chọn cả bộ tệp một lần: app tự xếp vào nhóm Hợp đồng / Phụ lục / Biên bản / Thanh toán và gắn nhãn Thiết kế / Thi công.',
       'Tải lên lại tệp cùng tên là thay bản cũ (ghi «bản 2, bản 3…»), không sinh bản trùng. Mẫu cũ không dùng nữa thì bấm «Ẩn».',
     ],
+    fixes: [
+      'Bấm công tắc «Khách thấy» trên ảnh dự án (và vài nút sửa khác) báo «Failed to fetch» — đã sửa.',
+    ],
     test: [
       'Hợp đồng → Mẫu & biên bản → bấm «Tải về» một mẫu → mở được bằng Word/Excel.',
       'Tài khoản Kế toán: Tải mẫu lên → chọn nhiều tệp → thấy xếp đúng nhóm.',
