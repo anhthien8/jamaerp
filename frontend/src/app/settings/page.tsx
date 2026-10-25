@@ -8,6 +8,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { api, AutomationSettings, AISettingsResponse, BackupSettingsResponse, TaskSlaConfig, MediaStatus } from '@/lib/api';
 import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
+import BatThongBaoMay from '@/components/BatThongBaoMay';
 import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
@@ -1521,6 +1522,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <ChangePasswordSection />
+            {!isDemo && <BatThongBaoMay />}
             <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
             <MyAIKeySection />
           </div>

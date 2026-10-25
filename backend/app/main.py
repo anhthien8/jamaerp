@@ -273,6 +273,9 @@ app.include_router(hr_profile_router, prefix="/api/v1")
 from app.api.contract_templates import router as contract_templates_router
 app.include_router(contract_templates_router, prefix="/api/v1")
 
+from app.api.push import router as push_router
+app.include_router(push_router, prefix="/api/v1")
+
 from app.api.approvals import router as approvals_router
 app.include_router(approvals_router, prefix="/api/v1")
 

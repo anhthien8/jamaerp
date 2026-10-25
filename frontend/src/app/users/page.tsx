@@ -74,6 +74,9 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState(''); // '' = tất cả, 'none' = chưa xếp đội
+  const [searchQ, setSearchQ] = useState(''); // bản trễ 300ms của ô tìm — khỏi gọi server mỗi phím
   const [page, setPage] = useState(1);
   const [loading2, setLoading2] = useState(true);
   const [modal, setModal] = useState<'create' | 'edit' | 'password' | null>(null);
@@ -145,19 +148,22 @@ export default function UsersPage() {
     try {
       const params: Record<string, string> = { page: String(page), page_size: String(pageSize) };
       if (roleFilter) params.role = roleFilter;
+      if (deptFilter) params.department = deptFilter;
+      if (teamFilter) params.team_id = teamFilter;
+      // Tìm phía server — trước đây lọc trong 20 dòng của trang hiện tại nên sót người
+      if (searchQ.trim()) params.q = searchQ.trim();
       const res = await api.getUsers(params);
-      let filtered = res.items || [];
-      if (search) {
-        const q = search.toLowerCase();
-        filtered = filtered.filter(u => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
-      }
-      setUsers(filtered);
+      setUsers(res.items || []);
       setTotal(res.total || 0);
     } catch { /* empty */ }
     setLoading2(false);
-  }, [page, roleFilter, search]);
+  }, [page, roleFilter, deptFilter, teamFilter, searchQ]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // Load custom roles on mount
   useEffect(() => {
@@ -439,24 +445,54 @@ export default function UsersPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="flex flex-col lg:flex-row gap-3 mb-4">
           <input
-            type="text"
+            type="search"
             placeholder="Tìm theo tên hoặc email..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="flex-1 px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)]"
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)]"
           />
-          <select
-            value={roleFilter}
-            onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
-          >
-            <option value="">Tất cả vai trò</option>
-            {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
-            {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Tùy chỉnh ──</option>}
-            {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
-          </select>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:flex">
+            <select
+              aria-label="Lọc theo vai trò"
+              value={roleFilter}
+              onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
+              className="min-w-0 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+            >
+              <option value="">Tất cả vai trò</option>
+              {BUILTIN_ROLES.map(r => <option key={r} value={r}>{getRoleLabel(r)}</option>)}
+              {customRoles.length > 0 && <option disabled className="text-[var(--text-muted)]">── Tùy chỉnh ──</option>}
+              {customRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.role_name}</option>)}
+            </select>
+            <select
+              aria-label="Lọc theo bộ phận"
+              value={deptFilter}
+              onChange={e => { setDeptFilter(e.target.value); setTeamFilter(''); setPage(1); }}
+              className="min-w-0 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+            >
+              <option value="">Tất cả bộ phận</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{labelOf(DEPARTMENT_LABELS, d)}</option>)}
+            </select>
+            <select
+              aria-label="Lọc theo đội"
+              value={teamFilter}
+              onChange={e => { setTeamFilter(e.target.value); setPage(1); }}
+              className="col-span-2 sm:col-span-1 min-w-0 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]"
+            >
+              <option value="">Tất cả đội</option>
+              <option value="none">Chưa xếp đội</option>
+              {teams.filter(t => !deptFilter || t.department === deptFilter).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          {(search || roleFilter || deptFilter || teamFilter) && (
+            <button
+              onClick={() => { setSearch(''); setRoleFilter(''); setDeptFilter(''); setTeamFilter(''); setPage(1); }}
+              className="px-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] whitespace-nowrap"
+            >
+              Bỏ lọc
+            </button>
+          )}
         </div>
 
         {canManageTeams && tgContacts.length > 0 && (

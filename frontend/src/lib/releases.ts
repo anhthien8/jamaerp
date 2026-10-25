@@ -16,6 +16,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '25/10/2026',
+    title: 'Bản vẽ/PDF gửi bot về đúng topic dự án + thông báo ra điện thoại, máy tính',
+    tag: 'MỚI',
+    news: [
+      'Gửi bản vẽ, PDF, video trong /baocao (kể cả tệp 200+ MB): bot tự chép vào topic dự án trong nhóm «JAMA Công trình», tệp vào luôn Tài liệu dự án, link Telegram ghi vào nhật ký cập nhật của dự án.',
+      'Có báo cáo công trình mới, CRM báo ngay cho người phụ trách dự án (PM, thiết kế, kinh doanh, thu mua) và người đảm nhận đầu việc.',
+      'Thông báo hiện lên điện thoại/máy tính kể cả khi không mở CRM: vào Cài đặt → «Thông báo trên máy này» → Bật (mỗi máy bật một lần). iPhone/iPad: «Thêm vào MH chính» trước rồi mở JAMA từ màn hình chính.',
+      'Tài khoản: lọc theo Vai trò, Bộ phận, Đội (có «Chưa xếp đội») và ô tìm theo tên/email — lọc trên toàn bộ danh sách, không chỉ trang đang xem.',
+    ],
+    test: [
+      'Telegram: /baocao → chọn dự án → gửi một tệp PDF → bot báo «đã chép vào topic dự án» → mở topic dự án trong nhóm Kho thấy tệp.',
+      'Cài đặt → Thông báo trên máy này → Bật → bấm «Gửi thử» → máy hiện thông báo.',
+    ],
+  },
+  {
+    date: '25/10/2026',
     title: 'Thư viện mẫu hợp đồng, phụ lục, biên bản ngay trong app',
     tag: 'MỚI',
     news: [

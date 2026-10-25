@@ -162,6 +162,29 @@ def _tep(message: types.Message) -> dict:
     return {"name": ten[:200], "size_text": _co_dung_luong(f.file_size), "link": _link_tin(message)}
 
 
+async def _tep_vao_kho(message: types.Message, state: FSMContext) -> tuple[dict, str | None]:
+    """Bản vẽ/PDF/video → chép (copyMessage, không giới hạn dung lượng) vào topic
+    dự án trong nhóm Kho «JAMA Công trình» + ghi vào Tài liệu dự án. Link trong
+    nhật ký trỏ về bản trong topic. Lỗi thì giữ link tin gốc và báo lý do."""
+    tep = _tep(message)
+    data = await state.get_data()
+    f = message.document or message.video or message.audio or message.voice or message.video_note
+    res = await api.document_from_telegram(message.from_user.id, {
+        "project_code": data.get("project_code"),
+        "from_chat_id": message.chat.id,
+        "message_id": message.message_id,
+        "thread_id": message.message_thread_id,
+        "file_id": f.file_id,
+        "file_name": tep["name"],
+        "mime": getattr(f, "mime_type", None),
+        "file_size": f.file_size,
+        "caption": (message.caption or data.get("report_content") or "")[:300] or None,
+    })
+    if not res or res.get("error"):
+        return tep, (res.get("error") if res else "Không kết nối được server")
+    return {**tep, "link": res.get("link") or tep["link"], "in_storage": True}, None
+
+
 async def _luu_anh(message: types.Message, state: FSMContext) -> str | None:
     """Ảnh → Kho ảnh (topic dự án). Trả câu lỗi nếu không lưu được."""
     data = await state.get_data()
@@ -233,10 +256,11 @@ async def nhan_tep_khi_cho_noi_dung(message: types.Message, state: FSMContext):
             return
         ten = "ảnh"
     else:
+        tep, loi = await _tep_vao_kho(message, state)
         data = await state.get_data()
-        tep = _tep(message)
         await state.update_data(attachments=data.get("attachments", []) + [tep])
         ten = f"tệp <b>{tep['name']}</b>" + (f" ({tep['size_text']})" if tep["size_text"] else "")
+        ten += " — đã chép vào topic dự án" if not loi else f"\n⚠️ Chưa chép được vào topic dự án ({loi}), báo cáo vẫn kèm link tin gốc"
     caption = (message.caption or "").strip()
     if caption and not caption.startswith("/"):
         await _sang_buoc_gom(message, state, caption, _link_tin(message))
@@ -279,14 +303,15 @@ async def collect_photo(message: types.Message, state: FSMContext):
 
 @router.message(SiteReportState.collecting_photos, _LA_TEP)
 async def collect_file(message: types.Message, state: FSMContext):
-    """Bản vẽ/video/tệp nặng: ghi tên + link tin Telegram vào báo cáo."""
+    """Bản vẽ/video/tệp nặng: chép vào topic dự án, ghi link vào báo cáo."""
+    tep, loi = await _tep_vao_kho(message, state)
     data = await state.get_data()
-    tep = _tep(message)
     ds = data.get("attachments", []) + [tep]
     await state.update_data(attachments=ds)
     co = f" ({tep['size_text']})" if tep["size_text"] else ""
+    noi = " — đã chép vào topic dự án" if not loi else f"\n⚠️ Chưa chép được vào topic dự án ({loi}), báo cáo vẫn kèm link tin gốc"
     await message.answer(
-        f"✅ Đã nhận tệp <b>{tep['name']}</b>{co} — {len(ds)} tệp. Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
+        f"✅ Đã nhận tệp <b>{tep['name']}</b>{co}{noi}\n{len(ds)} tệp. Gửi thêm hoặc bấm <b>✅ Gửi</b>.",
         reply_markup=nut_gui_anh(),
     )
 
@@ -327,7 +352,14 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
         code = result.get("project_code", project_code)
         task = result.get("task_title", "—")
         photo_info = f"\n📸 Ảnh: {len(photos)} ảnh (đã vào Kho ảnh)" if photos else ""
-        tep_info = f"\n📎 Tệp: {len(attachments)} tệp (kèm link mở trong nhóm)" if attachments else ""
+        kho = sum(1 for t in attachments if t.get("in_storage"))
+        tep_info = (
+            f"\n📎 Tệp: {len(attachments)} tệp"
+            + (f" ({kho} đã vào topic dự án)" if kho else " (kèm link mở trong nhóm)")
+            if attachments else ""
+        )
+        if result.get("notified"):
+            tep_info += f"\n🔔 Đã báo {result['notified']} người phụ trách"
         crm = ""
         if result.get("crm_path"):
             crm = (

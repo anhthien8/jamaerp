@@ -471,6 +471,44 @@ async def luu_tai_lieu(
     return doc
 
 
+async def chep_tep_tu_telegram(
+    db: AsyncSession, *, from_chat_id: int, message_id: int, thread_id: int | None,
+    filename: str, mime: str | None, size_bytes: int | None, file_id: str | None,
+    project: Project, tieu_de: str | None, user_id: str | None, nguoi: str | None,
+) -> ProjectDocument:
+    """Tệp nhân viên gửi bot (/baocao) → chép vào topic dự án của nhóm Kho bằng
+    copyMessage (25/10/2026). Không tải về nên tệp nặng mấy cũng chép được
+    (bản vẽ .skp 200+ MB) — getFile/sendDocument thì kẹt 20/50 MB.
+    Gửi sẵn trong đúng topic dự án → chỉ ghi nhận, không chép lại."""
+    chat_id = await lay_storage_chat_id(db)
+    if not chat_id:
+        raise MediaError(
+            "Chưa cấu hình nhóm Kho. Admin vào Cài đặt → Tự động hoá → «Nhóm Telegram Kho ảnh».", 503,
+        )
+    if str(from_chat_id) == chat_id and thread_id and thread_id == project.telegram_topic_id:
+        msg_id = message_id
+    else:
+        caption = _caption(project, f"📁 {tieu_de}" if tieu_de else f"📁 {filename}", nguoi)
+
+        async def gui(cid: str, tid: int | None) -> dict:
+            d = {"chat_id": cid, "from_chat_id": str(from_chat_id), "message_id": str(message_id),
+                 "caption": caption}
+            if tid:
+                d["message_thread_id"] = str(tid)
+            return await _tg("copyMessage", d)
+
+        _, kq = await _gui_vao_topic(db, project, gui)
+        msg_id = kq.get("message_id")
+    doc = ProjectDocument(
+        project_id=project.id, filename=filename[:255], mime=(mime or None) and mime[:100],
+        size_bytes=size_bytes or 0, telegram_chat_id=chat_id, telegram_message_id=msg_id,
+        telegram_file_id=file_id, uploaded_by=user_id,
+    )
+    db.add(doc)
+    await db.flush()
+    return doc
+
+
 async def tai_tai_lieu(doc: ProjectDocument) -> bytes:
     if not doc.telegram_file_id:
         raise MediaError("File không còn trên Telegram", 404)

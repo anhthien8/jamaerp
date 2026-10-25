@@ -2025,6 +2025,23 @@ class ApiClient {
     return this.request<{ status: string }>('/notifications/read-all', { method: 'PUT' });
   }
 
+  // === Web Push (thông báo ra điện thoại/máy tính) ===
+  async pushPublicKey() {
+    return this.request<{ enabled: boolean; public_key: string | null }>('/push/public-key');
+  }
+  async pushSubscribe(sub: PushSubscriptionJSON) {
+    return this.request<{ ok: boolean }>('/push/subscribe', {
+      method: 'POST',
+      body: { endpoint: sub.endpoint, keys: sub.keys, user_agent: navigator.userAgent.slice(0, 255) },
+    });
+  }
+  async pushUnsubscribe(endpoint: string) {
+    return this.request<{ ok: boolean }>('/push/unsubscribe', { method: 'POST', body: { endpoint } });
+  }
+  async pushTest() {
+    return this.request<{ ok: boolean }>('/push/test', { method: 'POST' });
+  }
+
   // === Automation (admin/executive) ===
   async getAutomationSettings() {
     return this.request<AutomationSettings>('/automation/settings');

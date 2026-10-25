@@ -80,6 +80,10 @@ class APIClient:
         """Ảnh gửi trong /baocao, /suco → Kho ảnh (đăng lại vào topic dự án)."""
         return await self._post_media(tg_user_id, "/media/from-telegram", data)
 
+    async def document_from_telegram(self, tg_user_id: int, data: dict) -> dict | None:
+        """Bản vẽ/PDF/video trong /baocao → chép vào topic dự án + Tài liệu dự án."""
+        return await self._post_media(tg_user_id, "/media/document-from-telegram", data)
+
     async def ingest_storage_photo(self, tg_user_id: int, data: dict) -> dict | None:
         """Ảnh thả thẳng vào topic dự án trong nhóm Kho ảnh → ghi metadata."""
         return await self._post_media(tg_user_id, "/media/ingest-telegram", data)

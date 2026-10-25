@@ -1355,6 +1355,23 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Gửi bản vẽ, PDF trong báo cáo"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Trong `/baocao`, gửi bản vẽ (.skp, .dwg), PDF, video như gửi tệp bình thường — nặng mấy cũng được.",
+          "Bot tự **chép tệp vào topic của dự án** trong nhóm «JAMA Công trình» và ghi vào **Tài liệu dự án** trên CRM; nhật ký cập nhật dự án có link mở đúng tệp đó.",
+          "Bấm **«✅ Gửi»** xong, người phụ trách dự án và người đảm nhận đầu việc nhận thông báo ngay (chuông trên CRM, và điện thoại/máy tính nếu đã bật).",
+          "Bot báo «Chưa chép được vào topic dự án» thì báo cáo vẫn lưu kèm link tin gốc — báo Admin kiểm tra nhóm Kho."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "**Nhận thông báo trên điện thoại/máy tính:** vào **Cài đặt → Thông báo trên máy này → Bật**, bấm **«Gửi thử»** để kiểm. Mỗi máy bật một lần. iPhone/iPad (iOS 16.4+): mở CRM bằng Safari → nút Chia sẻ → **«Thêm vào MH chính»**, rồi mở JAMA từ màn hình chính mới bật được."
+      },
+      {
+        "type": "h3",
         "text": "Các lệnh dùng hằng ngày"
       },
       {

@@ -79,6 +79,9 @@ async def get_db():
         try:
             yield session
             await session.commit()
+            # Thông báo chuông vừa ghi → đẩy Web Push ra điện thoại/máy tính (chạy nền)
+            from app.services.web_push import day_sau_commit
+            day_sau_commit(session)
         except Exception:
             await session.rollback()
             raise

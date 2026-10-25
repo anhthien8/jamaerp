@@ -73,6 +73,8 @@ def _get_combined_permissions(role: str, custom: dict | None) -> dict:
 async def list_users(
     role: str | None = None,
     department: str | None = None,
+    team_id: str | None = None,
+    q_search: str | None = Query(None, alias="q", max_length=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
@@ -108,6 +110,15 @@ async def list_users(
         q = q.where(User.role == role)
     if department:
         q = q.where(User.department == department)
+    # Lọc theo đội — «none» = chưa xếp đội (25/10/2026)
+    if team_id == "none":
+        q = q.where(User.team_id.is_(None))
+    elif team_id:
+        q = q.where(User.team_id == team_id)
+    # Tìm trên CẢ danh sách (trước đây FE chỉ lọc trong trang đang mở)
+    if q_search and q_search.strip():
+        kw = f"%{q_search.strip()}%"
+        q = q.where(User.full_name.ilike(kw) | User.email.ilike(kw))
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())

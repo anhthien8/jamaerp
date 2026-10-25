@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # ngăn kẻ tấn công mạo danh nhân viên chỉ bằng telegram_user_id.
     TELEGRAM_AUTH_SECRET: str = ""
 
+    # Web Push (25/10/2026) — khoá VAPID sinh một lần, đặt env trên Railway.
+    # Thiếu khoá → nút «Bật thông báo trên máy này» báo chưa cấu hình.
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "https://crm.jamahome.vn"
+
     # Kho ảnh công trình (Đợt 2, 23/10/2026): bản sao ảnh sang Google Drive công
     # ty bằng Service Account. GDRIVE_SA_JSON = nguyên nội dung file key JSON;
     # GDRIVE_MEDIA_FOLDER_ID = thư mục gốc đã share quyền Editor cho email SA.

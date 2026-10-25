@@ -18,9 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
-from app.models.project import Project, Task, TaskActivity
+from app.models.project import Project, Task, TaskActivity, TaskAssignee
 from app.models.inventory import Material
 from app.models.media import MediaFile
+from app.models.notification import Notification
 from app.services.media_gateway import url_media
 
 # ---------------------------------------------------------------------------
@@ -86,6 +87,8 @@ class TepDinhKem(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     size_text: str | None = Field(None, max_length=20)
     link: str | None = Field(None, max_length=300)
+    # True = bot đã chép tệp vào topic dự án trong nhóm Kho (link trỏ tới bản đó)
+    in_storage: bool = False
 
 
 SiteReportRequest.model_rebuild()
@@ -296,7 +299,8 @@ async def create_site_report(
         for t in data.attachments:
             ten = t.name + (f" ({t.size_text})" if t.size_text else "")
             dong.append(f"• {ten}" + (f" — {t.link}" if _link_telegram(t.link) else ""))
-        full_content += "\n\n📎 Tệp đính kèm (mở trong nhóm Telegram):\n" + "\n".join(dong)
+        noi = "topic dự án, nhóm Kho" if all(t.in_storage for t in data.attachments) else "nhóm Telegram"
+        full_content += f"\n\n📎 Tệp đính kèm (mở trong {noi}):\n" + "\n".join(dong)
     if _link_telegram(data.message_link):
         full_content += f"\n\n💬 Tin gốc trong Telegram: {data.message_link}"
 
@@ -310,10 +314,33 @@ async def create_site_report(
     db.add(activity)
     await db.flush()
 
+    # Báo người phụ trách dự án (chuông trong app + đẩy ra điện thoại/máy tính)
+    nguoi_dam_nhan = (await db.execute(
+        select(TaskAssignee.user_id).where(TaskAssignee.task_id == target_task.id)
+    )).scalars().all()
+    nguoi_nhan = {
+        project.pm_id, project.designer_id, project.sales_id,
+        getattr(project, "purchasing_id", None), target_task.assigned_to, *nguoi_dam_nhan,
+    } - {None, reporter.id}
+    kem = []
+    if anh:
+        kem.append(f"{len(anh)} ảnh")
+    if data.attachments:
+        kem.append(f"{len(data.attachments)} tệp")
+    tieu_de = f"Báo cáo mới · {project.code}" + (f" ({', '.join(kem)})" if kem else "")
+    for uid in nguoi_nhan:
+        db.add(Notification(
+            user_id=uid, type="site_report", title=tieu_de[:255],
+            body=f"{reporter.full_name}: {data.content}"[:500],
+            link=f"/projects?id={project.id}", ref_id=activity.id,
+        ))
+    await db.flush()
+
     return {
         "activity_id": activity.id,
         "task_id": target_task.id,
         "task_title": target_task.title,
+        "notified": len(nguoi_nhan),
         "project_code": project.code,
         "reporter": reporter.full_name,
         "created_at": activity.created_at.isoformat(),

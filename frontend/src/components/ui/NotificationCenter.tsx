@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Lead, Project } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
+import BatThongBaoMay from '@/components/BatThongBaoMay';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -487,6 +488,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     return (
       <>
         {renderHeader()}
+        <BatThongBaoMay gon />
         {renderNotificationList()}
         {renderFooter()}
       </>
@@ -501,6 +503,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
           <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border-default)' }} />
         </div>
         {renderHeader()}
+        <BatThongBaoMay gon />
         {renderNotificationList()}
         {renderFooter()}
       </>

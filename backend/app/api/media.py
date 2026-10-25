@@ -20,6 +20,7 @@ from app.services import drive_mirror
 from app.services.media_gateway import (
     MediaError,
     chu_ky_hop_le,
+    chep_tep_tu_telegram,
     gui_anh_thu,
     lay_storage_chat_id,
     luu_anh_tu_telegram,
@@ -433,3 +434,42 @@ async def get_media_file(media_id: str, sig: str, db: AsyncSession = Depends(get
         media_type=media.mime or "image/jpeg",
         headers={"Cache-Control": "private, max-age=86400", "ETag": f'"{media.id}"'},
     )
+
+
+class TelegramDocument(BaseModel):
+    """Tệp nhân viên gửi bot trong /baocao (bản vẽ, PDF, video…)."""
+    project_code: str | None = Field(default=None, max_length=50)
+    project_id: str | None = None
+    from_chat_id: int
+    message_id: int
+    thread_id: int | None = None
+    file_id: str | None = Field(default=None, max_length=255)
+    file_name: str = Field(..., min_length=1, max_length=255)
+    mime: str | None = Field(default=None, max_length=100)
+    file_size: int | None = None
+    caption: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/document-from-telegram", status_code=201)
+async def document_from_telegram(
+    data: TelegramDocument,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Chép tệp vào topic dự án trong nhóm Kho (copyMessage, không giới hạn
+    dung lượng) + ghi vào Tài liệu dự án. Trả link t.me tới bản trong topic."""
+    project = await _tim_du_an(db, data.project_id, data.project_code)
+    try:
+        doc = await chep_tep_tu_telegram(
+            db, from_chat_id=data.from_chat_id, message_id=data.message_id,
+            thread_id=data.thread_id, filename=data.file_name, mime=data.mime,
+            size_bytes=data.file_size, file_id=data.file_id, project=project,
+            tieu_de=data.caption, user_id=current_user.id, nguoi=current_user.full_name,
+        )
+    except MediaError as exc:
+        raise _loi(exc)
+    await db.commit()
+    return {
+        "id": doc.id, "filename": doc.filename, "size_bytes": doc.size_bytes,
+        "link": link_tin_nhan(doc), "url": url_tai_lieu(doc),
+    }
