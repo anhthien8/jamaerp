@@ -21,6 +21,7 @@ export const RELEASES: Release[] = [
     news: [
       'Hợp đồng → tab «Mẫu & biên bản»: toàn bộ mẫu hợp đồng thiết kế/thi công, phụ lục vật tư, biên bản nhận mặt bằng/nghiệm thu, đề nghị/xác nhận thanh toán ở một chỗ — bấm «Tải về» là có bản mới nhất.',
       'BGĐ và Kế toán bấm «Tải mẫu lên», chọn cả bộ tệp một lần: app tự xếp vào nhóm Hợp đồng / Phụ lục / Biên bản / Thanh toán và gắn nhãn Thiết kế / Thi công.',
+      'Tài khoản → Sửa đội nhóm: thêm ô tìm thành viên (gõ không dấu được). Đội Ban Giám đốc chọn trưởng nhóm là Giám đốc / Ban điều hành và tick được cả Giám đốc vào đội.',
       'Tải lên lại tệp cùng tên là thay bản cũ (ghi «bản 2, bản 3…»), không sinh bản trùng. Mẫu cũ không dùng nữa thì bấm «Ẩn».',
     ],
     fixes: [

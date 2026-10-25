@@ -1180,7 +1180,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Mỗi đội hiện thành một khối: **trưởng nhóm nằm trên cùng** (khung viền vàng), các thành viên xếp bên dưới. Ai chưa được xếp vào đội nào sẽ nằm ở khối «Chưa xếp đội» cuối trang. Muốn tạo đội mới hoặc đổi trưởng nhóm: làm trong trang **Tài khoản** (khối Đội nhóm) — việc của Admin."
+        "text": "Mỗi đội hiện thành một khối: **trưởng nhóm nằm trên cùng** (khung viền vàng), các thành viên xếp bên dưới. Ai chưa được xếp vào đội nào sẽ nằm ở khối «Chưa xếp đội» cuối trang. Muốn tạo đội mới hoặc đổi trưởng nhóm: làm trong trang **Tài khoản** (khối Đội nhóm) — việc của Admin. Trong khung sửa đội có ô **Tìm tên hoặc email** (gõ không dấu cũng được) để tick thành viên nhanh. Đội thuộc bộ phận **Ban Giám đốc** chọn trưởng nhóm là Giám đốc / Ban điều hành; các đội khác chọn Trưởng phòng / Trưởng nhóm KD."
       },
       {
         "type": "h3",

@@ -25,6 +25,9 @@ interface CustomRole {
 // Tài khoản cũ còn vai này vẫn hiện đúng trong form sửa nhờ LEGACY_ROLES.
 const BUILTIN_ROLES: UserRole[] = ['admin', 'leader', 'data_entry', 'accountant'];
 const LEGACY_ROLES: UserRole[] = ['supervisor'];
+// Bỏ dấu để tìm «toan» ra «Toàn»
+const boDau = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+
 const DEPARTMENTS = ['EXEC', 'SALES', 'DESIGN', 'OPS', 'PURCHASING', 'ACCT'];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -103,6 +106,7 @@ export default function UsersPage() {
   const [teamModal, setTeamModal] = useState<'create' | 'edit' | null>(null);
   const [teamForm, setTeamForm] = useState({ name: '', code: '', department: 'SALES', leader_id: '' });
   const [teamMemberIds, setTeamMemberIds] = useState<Set<string>>(new Set());
+  const [teamSearch, setTeamSearch] = useState('');
   const [teamEditId, setTeamEditId] = useState('');
   const [teamSaving, setTeamSaving] = useState(false);
   const [teamError, setTeamError] = useState('');
@@ -324,7 +328,7 @@ export default function UsersPage() {
   const openTeamCreate = () => {
     setTeamForm({ name: '', code: '', department: 'SALES', leader_id: '' });
     setTeamMemberIds(new Set());
-    setTeamEditId(''); setTeamError(''); setTeamModal('create');
+    setTeamEditId(''); setTeamError(''); setTeamSearch(''); setTeamModal('create');
   };
   const openTeamEdit = (t: Team) => {
     // teamMemberIds seed MỘT LẦN tại đây từ allUsers. Mở modal khi getUsers(500) chưa về
@@ -336,7 +340,7 @@ export default function UsersPage() {
     // lưu lần nào cũng 400 «người đã nghỉ việc» (review 14/08). Người nghỉ vẫn giữ
     // nhãn đội phía backend, không bị đụng khi lưu roster.
     setTeamMemberIds(new Set(allUsers.filter(u => u.team_id === t.id && u.is_active).map(u => u.id)));
-    setTeamEditId(t.id); setTeamError(''); setTeamModal('edit');
+    setTeamEditId(t.id); setTeamError(''); setTeamSearch(''); setTeamModal('edit');
   };
 
   const handleTeamSave = async () => {
@@ -396,15 +400,20 @@ export default function UsersPage() {
 
   // Ứng viên trưởng nhóm: đang hoạt động + vai trò trưởng (leader hệ thống / sale_leader tùy chỉnh);
   // giữ cả trưởng nhóm hiện tại để select không rơi về rỗng nếu vai trò của họ đã bị đổi
+  // Đội Ban Giám đốc: trưởng nhóm là Giám đốc (admin) / Ban điều hành, không phải trưởng phòng
+  const doiBgd = teamForm.department === 'EXEC';
+  const vaiTruong = doiBgd ? ['admin', 'executive'] : ['leader', 'sale_leader'];
   const leaderOptions = allUsers.filter(u =>
-    (u.is_active && (u.role === 'leader' || u.role === 'sale_leader')
+    (u.is_active && vaiTruong.includes(u.role)
       // Đang lãnh đội KHÁC thì ẩn khỏi lựa chọn — backend cũng chặn, tránh chọn xong mới 400
       && !teams.some(t => t.leader_id === u.id && t.id !== teamEditId))
     || u.id === teamForm.leader_id
   );
-  // Danh sách tick thành viên: bỏ admin (không xếp đội), người cùng bộ phận với đội lên trước
+  // Danh sách tick thành viên: bỏ admin (trừ đội Ban Giám đốc), người cùng bộ phận với đội lên trước
+  const tuKhoa = boDau(teamSearch.trim());
   const memberCandidates = [...allUsers]
-    .filter(u => u.is_active && u.role !== 'admin')
+    .filter(u => u.is_active && (doiBgd || u.role !== 'admin'))
+    .filter(u => !tuKhoa || boDau(`${u.full_name} ${u.email ?? ''}`).includes(tuKhoa))
     .sort((a, b) => {
       const ad = a.department === teamForm.department ? 0 : 1;
       const bd = b.department === teamForm.department ? 0 : 1;
@@ -984,16 +993,23 @@ export default function UsersPage() {
                     <option value="">— Chưa chọn —</option>
                     {leaderOptions.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
                   </select>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-1">Chỉ vai trò Trưởng phòng / Trưởng nhóm KD</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">{doiBgd ? 'Giám đốc / Ban điều hành' : 'Chỉ vai trò Trưởng phòng / Trưởng nhóm KD'}</p>
                 </div>
               </div>
               {/* Thành viên */}
               <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                 <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-1">Thành viên ({teamMemberIds.size})</h3>
                 <p className="text-[10px] text-[var(--text-muted)] mb-2">Tick người thuộc đội — người đang ở đội khác sẽ được kéo về đội này khi lưu.</p>
+                <input
+                  type="search"
+                  value={teamSearch}
+                  onChange={e => setTeamSearch(e.target.value)}
+                  placeholder="Tìm tên hoặc email…"
+                  className="w-full mb-2 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] placeholder:text-[var(--text-disabled)]"
+                />
                 <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
                   {memberCandidates.length === 0 ? (
-                    <p className="text-xs text-[var(--text-muted)] py-2">Đang tải danh sách nhân sự...</p>
+                    <p className="text-xs text-[var(--text-muted)] py-2">{tuKhoa ? 'Không thấy ai khớp' : 'Đang tải danh sách nhân sự...'}</p>
                   ) : memberCandidates.map(u => {
                     const isLeader = u.id === teamForm.leader_id;
                     const leadsOther = teams.find(t => t.leader_id === u.id && t.id !== teamEditId);
