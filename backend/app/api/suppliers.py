@@ -74,6 +74,8 @@ async def list_suppliers(
         q = q.where(
             Supplier.name.ilike(f"%{escaped}%", escape="\\")
             | Supplier.contact_name.ilike(f"%{escaped}%", escape="\\")
+            | Supplier.ma_so_thue.ilike(f"%{escaped}%", escape="\\")
+            | Supplier.ten_cong_ty.ilike(f"%{escaped}%", escape="\\")
         )
     if category:
         q = q.where(Supplier.category == category)
@@ -109,6 +111,19 @@ async def create_supplier(
     db.add(supplier)
     await db.flush()
     return SupplierResponse.model_validate(supplier)
+
+
+@router.get("/tra-mst/{mst}")
+async def tra_ma_so_thue(mst: str, current_user: User = Depends(get_current_user)):
+    """Tra MST (dữ liệu Cục Thuế qua VietQR) → tên công ty + địa chỉ để điền form NCC."""
+    from app.services import ncc
+
+    if not ncc.chuan_mst(mst):
+        raise HTTPException(400, "Mã số thuế gồm 10 số (chi nhánh: 10 số-3 số)")
+    kq = await ncc.tra_mst(mst)
+    if not kq:
+        raise HTTPException(404, "Không tìm thấy mã số thuế này — kiểm tra lại hoặc nhập tay")
+    return kq
 
 
 @router.get("/{supplier_id}", response_model=SupplierResponse)

@@ -14,6 +14,8 @@ class SupplierCreate(BaseModel):
     region: str | None = None
     category: str = "general"
     rating: float = 5.0
+    ma_so_thue: str | None = Field(default=None, max_length=20)
+    ten_cong_ty: str | None = Field(default=None, max_length=255)
     chiet_khau_pct: float = Field(default=0.0, ge=0, le=100)
     notes: str | None = None
 
@@ -28,6 +30,8 @@ class SupplierUpdate(BaseModel):
     region: str | None = None
     category: str | None = None
     rating: float | None = None
+    ma_so_thue: str | None = Field(default=None, max_length=20)
+    ten_cong_ty: str | None = Field(default=None, max_length=255)
     chiet_khau_pct: float | None = Field(default=None, ge=0, le=100)
     notes: str | None = None
     is_active: bool | None = None
@@ -44,6 +48,8 @@ class SupplierResponse(BaseModel):
     region: str | None = None
     category: str
     rating: float
+    ma_so_thue: str | None = None
+    ten_cong_ty: str | None = None
     chiet_khau_pct: float = 0.0
     notes: str | None = None
     is_active: bool

@@ -139,7 +139,10 @@ async def nhan_tep_bao_gia(message: types.Message, state: FSMContext):
         return
     if not ncc:
         dong.append("\n✍️ Gõ <b>tên nhà cung cấp</b> rồi bấm Ghi, hoặc bấm Ghi luôn để ghi là «NCC chưa rõ».")
-    await state.update_data(bg_khop=khop, bg_ncc=ncc, bg_nguon=f"tệp {ten}")
+    if res.get("ncc_mst"):
+        dong[0] += f" · MST {res['ncc_mst']}"
+    await state.update_data(bg_khop=khop, bg_ncc=ncc, bg_nguon=f"tệp {ten}",
+                            bg_mst=res.get("ncc_mst"), bg_dia_chi=res.get("ncc_dia_chi"))
     await state.set_state(BaoGiaState.cho_xac_nhan)
     await cho.edit_text("\n".join(dong), reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[[
         types.InlineKeyboardButton(text=f"✅ Ghi {len(khop)} báo giá", callback_data="bg:ghi"), NUT_HUY,
@@ -175,7 +178,8 @@ async def cb_ghi(callback: types.CallbackQuery, state: FSMContext):
     ncc = data.get("bg_ncc") or "NCC chưa rõ"
     items = [{"dong_id": k["dong_id"], "ncc_ten": ncc, "gia": k["gia"], "con_hang": k.get("con_hang", True),
               "ghi_chu": k.get("ghi_chu")} for k in khop if k.get("gia")]
-    res = await api.vat_tu_ghi_bao_gia(callback.from_user.id, items, data.get("bg_nguon"))
+    res = await api.vat_tu_ghi_bao_gia(callback.from_user.id, items, data.get("bg_nguon"),
+                                       data.get("bg_mst"), data.get("bg_dia_chi"))
     if not res or res.get("error"):
         await callback.message.answer(f"❌ {_loi(res, 'Không ghi được')}")
         return

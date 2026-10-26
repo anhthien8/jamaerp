@@ -49,7 +49,8 @@ export default function SuppliersPage() {
   const loi = (e: unknown, mac: string) => (e instanceof Error && e.message ? e.message : mac);
 
   // Form states
-  const [form, setForm] = useState({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
+  const [form, setForm] = useState({ name: '', ma_so_thue: '', ten_cong_ty: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
+  const [traMst, setTraMst] = useState('');
   const [quoteForm, setQuoteForm] = useState({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
 
   const loadSuppliers = useCallback(async () => {
@@ -94,7 +95,7 @@ export default function SuppliersPage() {
     try {
       await api.createSupplier(form);
       setShowAddModal(false);
-      setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
+      setForm({ name: '', ma_so_thue: '', ten_cong_ty: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
       setError(null);
       loadSuppliers();
     } catch (e) {
@@ -290,6 +291,28 @@ export default function SuppliersPage() {
                   {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span> {selectedSupplier.phone}</div>}
                   {selectedSupplier.email && <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {selectedSupplier.email}</div>}
                   {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Địa chỉ:</span> {selectedSupplier.address}</div>}
+                  {selectedSupplier.ten_cong_ty && <div className="col-span-2"><span style={{ color: 'var(--text-muted)' }}>Công ty:</span> {selectedSupplier.ten_cong_ty}</div>}
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Mã số thuế:</span>{' '}
+                    {selectedSupplier.ma_so_thue ? (
+                      <a href={`https://masothue.com/Search/?q=${encodeURIComponent(selectedSupplier.ma_so_thue)}&type=auto`} target="_blank" rel="noopener noreferrer"
+                        className="underline" style={{ color: 'var(--gold-400)' }}>{selectedSupplier.ma_so_thue}</a>
+                    ) : (
+                      <button className="underline" style={{ color: 'var(--gold-400)' }} onClick={async () => {
+                        const v = window.prompt('Mã số thuế NCC (10 số)');
+                        if (!v) return;
+                        try {
+                          const t = await api.traMaSoThue(v).catch(() => null);
+                          const body: Partial<Supplier> = { ma_so_thue: t?.ma_so_thue || v.trim() };
+                          if (t?.ten_cong_ty) body.ten_cong_ty = t.ten_cong_ty;
+                          if (t?.dia_chi && !selectedSupplier.address) body.address = t.dia_chi;
+                          const r = await api.updateSupplier(selectedSupplier.id, body);
+                          setSelectedSupplier({ ...selectedSupplier, ...r });
+                          loadSuppliers();
+                        } catch (e) { setError(e instanceof Error ? e.message : 'Lưu mã số thuế thất bại'); }
+                      }}>Thêm</button>
+                    )}
+                  </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Chiết khấu:</span> {selectedSupplier.chiet_khau_pct || 0}%{' '}
                     <button className="underline" style={{ color: 'var(--accent, #C9A96E)' }} onClick={async () => {
@@ -386,6 +409,29 @@ export default function SuppliersPage() {
           >
             <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Thêm nhà cung cấp mới</h2>
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Mã số thuế</label>
+                <div className="flex gap-2">
+                  <input inputMode="numeric" value={form.ma_so_thue} placeholder="10 số — bấm Tra để tự điền"
+                    onChange={e => setForm({ ...form, ma_so_thue: e.target.value })}
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg text-base sm:text-sm outline-none"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
+                  <button type="button" disabled={!form.ma_so_thue.trim() || traMst === 'dang'}
+                    className="px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-50"
+                    style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}
+                    onClick={async () => {
+                      setTraMst('dang');
+                      try {
+                        const t = await api.traMaSoThue(form.ma_so_thue);
+                        setForm(f => ({ ...f, ma_so_thue: t.ma_so_thue, ten_cong_ty: t.ten_cong_ty || '',
+                          name: f.name || t.ten_ngan || t.ten_cong_ty || '', address: f.address || t.dia_chi || '' }));
+                        setTraMst(t.trang_thai ? `Đã điền · ${t.trang_thai}` : 'Đã điền');
+                      } catch (e) { setTraMst(e instanceof Error ? e.message : 'Không tra được'); }
+                    }}>{traMst === 'dang' ? 'Đang tra…' : 'Tra'}</button>
+                </div>
+                {traMst && traMst !== 'dang' && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{traMst}</p>}
+                {form.ten_cong_ty && <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{form.ten_cong_ty}</p>}
+              </div>
               {([
                 { key: 'name', label: 'Tên NCC', required: true },
                 { key: 'contact_name', label: 'Người liên hệ', required: false },

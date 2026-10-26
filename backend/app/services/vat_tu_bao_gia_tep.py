@@ -147,6 +147,8 @@ _PROMPT = (
     "Bạn đọc BẢNG BÁO GIÁ của nhà cung cấp vật liệu (gạch, đá, thiết bị) cho công ty nội thất Việt Nam. "
     "Trích MỌI dòng có mã sản phẩm và giá. Trả JSON đúng dạng:\n"
     '{"ncc_ten": "tên nhà cung cấp nếu thấy, không thì null", '
+    '"ncc_mst": "mã số thuế NCC nếu có in trong tệp, không thì null", '
+    '"ncc_dia_chi": "địa chỉ NCC nếu có, không thì null", '
     '"items": [{"ma": "mã sản phẩm y nguyên trong tệp", "gia": số VNĐ (không dấu chấm/phẩy, không chữ), '
     '"don_vi": "m2|viên|thùng|bộ|cái|null", "con_hang": true/false/null, "ghi_chu": "ghi chú ngắn hoặc null"}]}\n'
     "Quy tắc: giá ghi 'liên hệ'/'hết hàng' → gia null, con_hang false nếu ghi hết hàng. "
@@ -189,7 +191,10 @@ def _chuan_hoa(data: Any) -> dict:
             "ghi_chu": (str(it["ghi_chu"]).strip()[:200] if it.get("ghi_chu") else None),
         })
     ncc = data.get("ncc_ten")
-    return {"ncc_ten": (str(ncc).strip()[:150] if ncc else None), "items": items}
+    mst, dc = data.get("ncc_mst"), data.get("ncc_dia_chi")
+    return {"ncc_ten": (str(ncc).strip()[:150] if ncc else None),
+            "ncc_mst": (str(mst).strip()[:20] if mst else None),
+            "ncc_dia_chi": (str(dc).strip()[:500] if dc else None), "items": items}
 
 
 def _noi_dung_tra_ve(raw: Any) -> str:

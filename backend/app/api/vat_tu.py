@@ -27,6 +27,7 @@ from app.models.vat_tu import (
     NHAN_TRANG_THAI, TRANG_THAI_DONG, BaoGiaDongVatTu, DongPhieuVatTu, GiaNhomVatTu, MauVatTu,
 )
 from app.services import shopee_affiliate, vat_tu_sheet
+from app.services.ncc import BoNcc
 
 router = APIRouter(prefix="/vat-tu", tags=["vat-tu"])
 
@@ -89,6 +90,7 @@ class MauIn(BaseModel):
     tinh_trang: str | None = None
     gia_tham_khao: float | None = None
     gia_ban_co_dinh: float | None = None
+    ncc_gan_nhat_ten: str | None = Field(default=None, max_length=255)
     is_active: bool = True
 
 
@@ -258,10 +260,28 @@ async def danh_sach_nhom(user: User = Depends(get_current_user), db: AsyncSessio
     return [{"nhom": n, "so_mau": c, "phan_tram_lai": pt.get(n)} for n, c in rows]
 
 
+async def _gan_ncc_mau(bo: BoNcc, m: MauVatTu) -> None:
+    """Tên NCC gõ ở mẫu → nối với mục Nhà cung cấp (chưa có thì tạo)."""
+    s = await bo.lay(m.ncc_gan_nhat_ten)
+    m.ncc_gan_nhat_id = s.id if s else None
+    if s:
+        m.ncc_gan_nhat_ten = s.name
+
+
+@router.get("/ncc")
+async def ds_ncc(user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    """Tên NCC cho ô gợi ý khi Thu mua gõ."""
+    rows = (await db.execute(
+        select(Supplier.id, Supplier.name, Supplier.chiet_khau_pct).where(Supplier.is_active.is_(True)).order_by(Supplier.name)
+    )).all()
+    return [{"id": i, "name": n, "chiet_khau_pct": ck} for i, n, ck in rows]
+
+
 @router.post("/mau", status_code=201)
 async def tao_mau(body: MauIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
     m = MauVatTu(**body.model_dump())
     db.add(m)
+    await _gan_ncc_mau(BoNcc(db), m)
     await db.commit()
     await db.refresh(m)
     return _mau_dict(m, True)
@@ -274,6 +294,7 @@ async def sua_mau(mau_id: str, body: MauIn, user: User = Depends(yeu_cau_thu_mua
         raise HTTPException(404, "Không có mẫu này")
     for k, v in body.model_dump().items():
         setattr(m, k, v)
+    await _gan_ncc_mau(BoNcc(db), m)
     await db.commit()
     await db.refresh(m)
     return _mau_dict(m, True)
@@ -324,6 +345,8 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
         raise HTTPException(502, f"Không đọc được Google Sheet: {e}")
     co = {(m.ma.upper(), m.nhom): m for m in (await db.execute(select(MauVatTu))).scalars()}
     them = sua = 0
+    bo = BoNcc(db)
+    so_ncc_truoc = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
     for r in ds:
         khoa = (r["ma"].upper(), r["nhom"])
         if khoa in co:
@@ -331,10 +354,12 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
                 for k, v in r.items():
                     if v is not None:
                         setattr(co[khoa], k, v)
+                await _gan_ncc_mau(bo, co[khoa])
                 sua += 1
             continue
         m = MauVatTu(**r)
         db.add(m)
+        await _gan_ncc_mau(bo, m)
         co[khoa] = m
         them += 1
     # Nhóm mới chưa có % lãi → tạo dòng mặc định 15% để admin chỉnh một chỗ
@@ -342,7 +367,8 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
     for nhom in {r["nhom"] for r in ds} - set(pt):
         db.add(GiaNhomVatTu(nhom=nhom, phan_tram_lai=15.0, updated_by=user.id))
     await db.commit()
-    return {"doc_duoc": len(ds), "them": them, "sua": sua}
+    so_ncc_sau = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
+    return {"doc_duoc": len(ds), "them": them, "sua": sua, "ncc_moi": so_ncc_sau - so_ncc_truoc}
 
 
 # ── Cài giá bán ───────────────────────────────────────────────────────────
@@ -489,7 +515,12 @@ async def them_bao_gia(dong_id: str, body: BaoGiaIn, user: User = Depends(yeu_ca
         ten = ten or s.name
     if not ten:
         raise HTTPException(400, "Cần tên NCC")
-    b = BaoGiaDongVatTu(dong_id=d.id, supplier_id=body.supplier_id, ncc_ten=ten, gia=body.gia, con_hang=body.con_hang,
+    supplier_id = body.supplier_id
+    if not supplier_id:
+        s = await BoNcc(db).lay(ten)
+        if s:
+            supplier_id, ten = s.id, s.name
+    b = BaoGiaDongVatTu(dong_id=d.id, supplier_id=supplier_id, ncc_ten=ten, gia=body.gia, con_hang=body.con_hang,
                         ngay_giao=body.ngay_giao, ghi_chu=body.ghi_chu, created_by=user.id)
     db.add(b)
     if d.trang_thai == "khach_chon":
@@ -527,6 +558,10 @@ async def chot_gia(dong_id: str, body: ChotIn, user: User = Depends(yeu_cau_thu_
             b.duoc_chon = b.id == chon.id
     if not gia_von:
         raise HTTPException(400, "Cần chọn một báo giá hoặc gõ giá vốn")
+    if not supplier_id and ncc_ten:
+        s = await BoNcc(db).lay(ncc_ten)
+        if s:
+            supplier_id, ncc_ten = s.id, s.name
     mau = await db.get(MauVatTu, d.mau_id) if d.mau_id else None
     nhom = mau.nhom if mau else "Khác"
     pt = (await _phan_tram_nhom(db)).get(nhom, 15.0)
@@ -586,6 +621,8 @@ class BaoGiaBotItem(BaseModel):
 class GhiBaoGiaIn(BaseModel):
     items: list[BaoGiaBotItem] = Field(min_length=1, max_length=200)
     nguon: str | None = Field(default=None, max_length=200)  # «tệp baogia.xlsx»
+    ncc_mst: str | None = Field(default=None, max_length=20)      # AI đọc được trong tệp
+    ncc_dia_chi: str | None = Field(default=None, max_length=500)
 
 
 async def _dong_cho_khop(db: AsyncSession, project_id: str) -> list[dict]:
@@ -625,6 +662,7 @@ async def bot_trich_bao_gia(body: TrichBaoGiaIn, user: User = Depends(yeu_cau_th
     khop, khong = tep.khop_ma(kq["items"], dong)
     return {
         "project_code": proj.code, "project_name": proj.name, "ncc_ten": kq["ncc_ten"],
+        "ncc_mst": kq.get("ncc_mst"), "ncc_dia_chi": kq.get("ncc_dia_chi"),
         "loai_tep": loai, "so_dong_phieu": len(dong), "so_doc_duoc": len(kq["items"]),
         "khop": khop, "khong_khop": khong[:30],
     }
@@ -635,13 +673,16 @@ async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mu
     """Ghi hàng loạt báo giá đã được Thu mua xác nhận trên bot. Ghi chú ghi rõ nguồn tệp + người nhập."""
     ghi, loi = 0, []
     nguon = f"Nhập từ {body.nguon} bởi {user.full_name} (bot)" if body.nguon else f"Nhập qua bot bởi {user.full_name}"
+    bo = BoNcc(db)
     for it in body.items:
         d = await db.get(DongPhieuVatTu, it.dong_id)
         if not d:
             loi.append({"dong_id": it.dong_id, "loi": "Không có dòng này"})
             continue
         ghi_chu = f"{it.ghi_chu} · {nguon}" if it.ghi_chu else nguon
-        db.add(BaoGiaDongVatTu(dong_id=d.id, ncc_ten=it.ncc_ten.strip(), gia=it.gia, con_hang=it.con_hang,
+        s = await bo.lay(it.ncc_ten, body.ncc_mst, body.ncc_dia_chi)
+        db.add(BaoGiaDongVatTu(dong_id=d.id, supplier_id=s.id if s else None,
+                               ncc_ten=s.name if s else it.ncc_ten.strip(), gia=it.gia, con_hang=it.con_hang,
                                ghi_chu=ghi_chu[:500], created_by=user.id))
         if d.trang_thai == "khach_chon":
             d.trang_thai = "hoi_ncc"

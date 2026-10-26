@@ -145,7 +145,7 @@ class TestPhieuVaChotGia:
         # Admin thấy đủ
         r = await client.get(f"/api/v1/vat-tu/du-an/{du_an.id}/dong", headers=auth_header(admin_user))
         assert r.json()["tong_lai"] == round(28500 * 42.5)
-        assert next(i for i in r.json()["items"] if i["id"] == dong["id"])["ncc_ten"] is None  # NCC gõ tay, không có id
+        assert next(i for i in r.json()["items"] if i["id"] == dong["id"])["ncc_ten"] == "Daisan"  # gõ tay → tự tạo NCC
 
     async def test_chot_bang_gia_co_dinh_khi_lai_hon(self, client: AsyncClient, thu_mua, du_an, mau, db_session):
         mau.gia_ban_co_dinh = 300000
@@ -225,10 +225,10 @@ async def test_import_sheet_vao_danh_muc(client: AsyncClient, thu_mua, sales_use
     url = "https://docs.google.com/spreadsheets/d/abc/edit"
     assert (await client.post("/api/v1/vat-tu/mau/import-sheet", headers=auth_header(sales_user), json={"url": url})).status_code == 403
     r = await client.post("/api/v1/vat-tu/mau/import-sheet", headers=auth_header(thu_mua), json={"url": url})
-    assert r.status_code == 200 and r.json() == {"doc_duoc": 4, "them": 4, "sua": 0}
+    assert r.status_code == 200 and {k: r.json()[k] for k in ("doc_duoc", "them", "sua")} == {"doc_duoc": 4, "them": 4, "sua": 0}
     # Nhập lại: không trùng; nhóm mới có % lãi mặc định 15
     r = await client.post("/api/v1/vat-tu/mau/import-sheet", headers=auth_header(thu_mua), json={"url": url})
-    assert r.json() == {"doc_duoc": 4, "them": 0, "sua": 0}
+    assert r.json() == {"doc_duoc": 4, "them": 0, "sua": 0, "ncc_moi": 0}
     nhom = (await client.get("/api/v1/vat-tu/nhom", headers=auth_header(thu_mua))).json()
     assert {n["nhom"]: (n["so_mau"], n["phan_tram_lai"]) for n in nhom} == {"30X30": (2, 15), "60x60": (2, 15)}
     r = await client.get("/api/v1/vat-tu/mau", headers=auth_header(sales_user), params={"q": "tm 6"})

@@ -16,6 +16,20 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '26/10/2026',
+    title: 'Nhà cung cấp tự tạo khi nhập vật tư, thêm mã số thuế tra Cục Thuế',
+    tag: 'MỚI',
+    news: [
+      'Ô NCC ở form mẫu, báo giá và chốt nhanh gợi ý các NCC có sẵn khi gõ.',
+      'Gõ tên NCC mới ở Vật tư, nhập sheet hoặc gửi báo giá qua bot: NCC tự được tạo trong mục Nhà cung cấp (không tạo trùng). Các NCC cũ đã ghi ở mẫu cũng được tạo bù.',
+      'Thêm nhà cung cấp có ô «Mã số thuế» và nút «Tra» tự điền tên công ty, địa chỉ. Trong hồ sơ NCC, bấm mã số thuế để mở trang masothue.com.',
+    ],
+    test: [
+      'Nhà cung cấp → Thêm → gõ MST 10 số → Tra → tên và địa chỉ tự điền.',
+      'Vật tư → Thêm mẫu, gõ NCC mới → lưu → NCC đó xuất hiện ở mục Nhà cung cấp.',
+    ],
+  },
+  {
+    date: '26/10/2026',
     title: 'Vật tư: giá Shopee cạnh giá NCC, nhãn «cao hơn Shopee», gợi ý NCC theo chiết khấu',
     tag: 'MỚI',
     news: [

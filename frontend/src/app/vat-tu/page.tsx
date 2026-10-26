@@ -207,7 +207,7 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
     setDangImport(true);
     try {
       const r = await api.vatTuImportSheet(sheetUrl.trim(), ghiDe);
-      bao('ok', `Đọc ${r.doc_duoc} dòng · thêm ${r.them} · cập nhật ${r.sua}`);
+      bao('ok', `Đọc ${r.doc_duoc} dòng · thêm ${r.them} · cập nhật ${r.sua}${r.ncc_moi ? ` · tạo ${r.ncc_moi} NCC mới` : ''}`);
       setMoImport(false); tai();
     } catch (e) { bao('loi', loi(e, 'Nhập sheet thất bại')); }
     finally { setDangImport(false); }
@@ -286,7 +286,7 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
           </div>
           <input className={inp} type="number" placeholder="Giá tham khảo (vốn)" value={sua.gia_tham_khao ?? ''} onChange={e => setSua({ ...sua, gia_tham_khao: e.target.value ? Number(e.target.value) : null })} />
           <input className={inp} type="number" placeholder="Giá bán cố định (nếu có)" value={sua.gia_ban_co_dinh ?? ''} onChange={e => setSua({ ...sua, gia_ban_co_dinh: e.target.value ? Number(e.target.value) : null })} />
-          <input className={inp} placeholder="NCC quen" value={sua.ncc_gan_nhat_ten || ''} onChange={e => setSua({ ...sua, ncc_gan_nhat_ten: e.target.value })} />
+          <NccGoiY /><input className={inp} list="ds-ncc" placeholder="NCC quen — gõ để chọn NCC có sẵn" value={sua.ncc_gan_nhat_ten || ''} onChange={e => setSua({ ...sua, ncc_gan_nhat_ten: e.target.value })} />
           <input className={`${inp} sm:col-span-2`} placeholder="Ghi chú" value={sua.ghi_chu || ''} onChange={e => setSua({ ...sua, ghi_chu: e.target.value })} />
           <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={sua.is_active !== false} onChange={e => setSua({ ...sua, is_active: e.target.checked })} /> Đang dùng</label>
           <div className="flex gap-2 sm:col-span-3"><button className={btnGold} onClick={luuMau}><LineIcon name="check" size={14} color="currentColor" /> Lưu</button><button className={btnGhost} onClick={() => setSua(null)}>Huỷ</button></div>
@@ -580,7 +580,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                 {laThuMua && (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                      <input className={inp} placeholder="Tên NCC *" value={bg.ncc_ten} onChange={e => setBg({ ...bg, ncc_ten: e.target.value })} />
+                      <NccGoiY /><input className={inp} list="ds-ncc" placeholder="Tên NCC *" value={bg.ncc_ten} onChange={e => setBg({ ...bg, ncc_ten: e.target.value })} />
                       <input className={inp} type="number" placeholder={`Giá vốn/${d.don_vi} *`} value={bg.gia} onChange={e => setBg({ ...bg, gia: e.target.value })} />
                       <input className={inp} placeholder="Giao (vd 3 ngày)" value={bg.ngay_giao} onChange={e => setBg({ ...bg, ngay_giao: e.target.value })} />
                       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] px-1"><input type="checkbox" checked={bg.con_hang} onChange={e => setBg({ ...bg, con_hang: e.target.checked })} /> Còn hàng</label>
@@ -590,7 +590,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                       {giaTay?.id === d.id ? (
                         <>
                           <input className={`${inp} w-40`} type="number" placeholder="Giá vốn" value={giaTay.gia_von} onChange={e => setGiaTay({ ...giaTay, gia_von: e.target.value })} />
-                          <input className={`${inp} w-48`} placeholder="NCC" value={giaTay.ncc_ten} onChange={e => setGiaTay({ ...giaTay, ncc_ten: e.target.value })} />
+                          <input className={`${inp} w-48`} list="ds-ncc" placeholder="NCC" value={giaTay.ncc_ten} onChange={e => setGiaTay({ ...giaTay, ncc_ten: e.target.value })} />
                           <button className={btnGold} onClick={chotTay}>Chốt</button><button className={btnGhost} onClick={() => setGiaTay(null)}>Huỷ</button>
                         </>
                       ) : (
@@ -777,4 +777,15 @@ function CanThuongLuongTab() {
       ))}
     </div>
   );
+}
+
+// Gợi ý tên NCC có sẵn trong mục Nhà cung cấp (gõ tên mới thì tự tạo NCC khi lưu)
+let nccCache: Promise<{ id: string; name: string }[]> | null = null;
+function NccGoiY() {
+  const [ds, setDs] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    nccCache ??= api.vatTuDsNcc().catch(() => { nccCache = null; return []; });
+    nccCache.then(setDs);
+  }, []);
+  return <datalist id="ds-ncc">{ds.map(n => <option key={n.id} value={n.name} />)}</datalist>;
 }

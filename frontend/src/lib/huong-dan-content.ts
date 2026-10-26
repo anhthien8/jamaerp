@@ -923,6 +923,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "Vào menu **Nhà cung cấp**: danh sách NCC nằm bên trái, bấm vào một NCC để xem thông tin liên hệ và **Bảng giá** của họ bên phải.",
+          "NCC gõ ở **Vật tư** (mẫu, báo giá, nhập sheet, bot) tự được tạo ở đây nếu chưa có. Khi thêm NCC, nhập **Mã số thuế** rồi bấm **Tra** để tự điền tên công ty và địa chỉ. Trong hồ sơ NCC, bấm vào mã số thuế để mở masothue.com.",
           "Muốn biết vật tư nào mua ở đâu rẻ nhất: gõ tên vật tư vào ô **So sánh giá** (ví dụ: Gỗ sồi) rồi bấm nút **So sánh giá** — bảng so sánh giá giữa các NCC hiện ra.",
           "Thêm NCC mới: bấm **+ Thêm nhà cung cấp**, điền Tên NCC (bắt buộc), người liên hệ, điện thoại, loại hàng rồi bấm **Thêm**.",
           "Ghi báo giá NCC vừa gửi: chọn NCC đó, bấm **+ Thêm báo giá**, điền tên vật tư, đơn giá, số lượng tối thiểu, số ngày giao hàng."

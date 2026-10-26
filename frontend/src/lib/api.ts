@@ -2124,7 +2124,7 @@ class ApiClient {
     return this.request<{ id: string; anh_url: string; size_bytes: number }>('/vat-tu/anh', { method: 'POST', body: { data_base64 } });
   }
   async vatTuImportSheet(url: string, ghiDe = false) {
-    return this.request<{ doc_duoc: number; them: number; sua: number }>('/vat-tu/mau/import-sheet', { method: 'POST', body: { url, ghi_de: ghiDe } });
+    return this.request<{ doc_duoc: number; them: number; sua: number; ncc_moi?: number }>('/vat-tu/mau/import-sheet', { method: 'POST', body: { url, ghi_de: ghiDe } });
   }
   async vatTuCaiGia() {
     return this.request<{ nhom: string; phan_tram_lai: number }[]>('/vat-tu/cai-gia');
@@ -2173,6 +2173,12 @@ class ApiClient {
   }
   async vatTuCanThuongLuong() {
     return this.request<{ items: CanThuongLuong[] }>('/vat-tu/can-thuong-luong');
+  }
+  async vatTuDsNcc() {
+    return this.request<{ id: string; name: string; chiet_khau_pct: number }[]>('/vat-tu/ncc');
+  }
+  async traMaSoThue(mst: string) {
+    return this.request<{ ma_so_thue: string; ten_cong_ty?: string | null; ten_ngan?: string | null; dia_chi?: string | null; trang_thai?: string | null }>(`/suppliers/tra-mst/${encodeURIComponent(mst.trim())}`);
   }
   async vatTuGoiYNcc(mauId: string) {
     return this.request<{ gia_shopee?: number | null; link_shopee_aff?: string | null; items: GoiYNcc[]; goi_y: GoiYNcc | null }>(`/vat-tu/mau/${mauId}/goi-y-ncc`);
@@ -3512,6 +3518,9 @@ export interface Supplier {
   is_active: boolean;
   /** % chiết khấu NCC dành cho JAMA — dùng xếp gợi ý NCC (26/10/2026) */
   chiet_khau_pct?: number;
+  /** Mã số thuế + tên pháp lý (tra từ Cục Thuế) — 26/10/2026 */
+  ma_so_thue?: string | null;
+  ten_cong_ty?: string | null;
   quote_count?: number;
   created_at: string;
   updated_at: string;

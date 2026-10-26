@@ -572,8 +572,11 @@ class APIClient:
         """Tệp báo giá NCC → bản xem trước (AI đọc + khớp mã với phiếu dự án). Chưa ghi."""
         return await self._post(tg_user_id, "/vat-tu/bot/trich-bao-gia", data, "Loi doc tep bao gia", timeout=120.0)
 
-    async def vat_tu_ghi_bao_gia(self, tg_user_id: int, items: list[dict], nguon: str | None) -> dict | None:
-        return await self._post(tg_user_id, "/vat-tu/bot/ghi-bao-gia", {"items": items, "nguon": nguon}, "Loi ghi bao gia")
+    async def vat_tu_ghi_bao_gia(self, tg_user_id: int, items: list[dict], nguon: str | None,
+                                 ncc_mst: str | None = None, ncc_dia_chi: str | None = None) -> dict | None:
+        return await self._post(tg_user_id, "/vat-tu/bot/ghi-bao-gia",
+                                {"items": items, "nguon": nguon, "ncc_mst": ncc_mst, "ncc_dia_chi": ncc_dia_chi},
+                                "Loi ghi bao gia")
 
 
 # Singleton
