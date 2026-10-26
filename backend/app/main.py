@@ -289,6 +289,8 @@ from app.api.estimations import router as estimations_router
 app.include_router(payroll_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")
 app.include_router(vat_tu_router, prefix="/api/v1")
+from app.api.shopee_settings import router as shopee_settings_router  # noqa: E402
+app.include_router(shopee_settings_router, prefix="/api/v1")
 app.include_router(estimations_router, prefix="/api/v1")
 
 # Bảng điều khiển Kinh doanh (13/10/2026) — đăng ký SAU dashboard_router để

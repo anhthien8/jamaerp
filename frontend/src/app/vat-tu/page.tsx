@@ -7,7 +7,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { api, mediaUrl, type DongVatTu, type MauVatTu, type PhieuVatTu, type Project, type VatTuTongQuan } from '@/lib/api';
+import { api, mediaUrl, type CanThuongLuong, type DongVatTu, type GoiYNcc, type MauVatTu, type ShopeeSanPham, type PhieuVatTu, type Project, type VatTuTongQuan } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
@@ -17,7 +17,7 @@ import { compressImage } from '@/lib/nhan-su';
 // Bỏ dấu + thường hoá để tìm dự án không cần gõ dấu
 const boDau = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-type Tab = 'danh-muc' | 'can-hoi-gia' | 'du-an' | 'cai-gia';
+type Tab = 'danh-muc' | 'can-hoi-gia' | 'thuong-luong' | 'du-an' | 'cai-gia';
 
 const MAU_TRANG_THAI: Record<string, string> = {
   khach_chon: '#F59E0B', hoi_ncc: '#3B82F6', het_hang: '#EF4444', cho_khach_duyet_lai: '#A78BFA',
@@ -122,6 +122,7 @@ function VatTuNoiDung() {
     { id: 'du-an', nhan: 'Phiếu dự án', icon: 'clipboard' },
     { id: 'danh-muc', nhan: 'Danh mục mẫu', icon: 'package', so: tongQuan?.so_mau },
     { id: 'can-hoi-gia', nhan: 'Cần hỏi giá', icon: 'receipt', so: choHoi, an: !thayGiaVon },
+    { id: 'thuong-luong', nhan: 'Cần thương lượng', icon: 'handshake', an: !thayGiaVon },
     { id: 'cai-gia', nhan: '% lãi theo nhóm', icon: 'percent', an: !laAdmin },
   ];
 
@@ -151,6 +152,7 @@ function VatTuNoiDung() {
         {tab === 'du-an' && <PhieuDuAn key={projectParam || ''} projectId={projectParam} thayGiaVon={thayGiaVon} laThuMua={laThuMua} laAdmin={laAdmin} bao={bao} />}
         {tab === 'danh-muc' && <DanhMuc thayGiaVon={thayGiaVon} laThuMua={laThuMua} bao={bao} />}
         {tab === 'can-hoi-gia' && thayGiaVon && <CanHoiGia laThuMua={laThuMua} bao={bao} />}
+        {tab === 'thuong-luong' && thayGiaVon && <CanThuongLuongTab />}
         {tab === 'cai-gia' && laAdmin && <CaiGia bao={bao} />}
       </div>
     </Sidebar>
@@ -172,6 +174,7 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
   const [sua, setSua] = useState<Partial<MauVatTu> | null>(null);
   const [nhomMoi, setNhomMoi] = useState(false);
   const [dangTaiAnh, setDangTaiAnh] = useState(false);
+  const [shopee, setShopee] = useState<MauVatTu | null>(null);
 
   const taiAnh = async (f: File | undefined) => {
     if (!f || !sua) return;
@@ -305,12 +308,21 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
                 {thayGiaVon && (m.gia_von_gan_nhat || m.gia_tham_khao) && (
                   <div className="text-xs text-[var(--gold-400)] mt-0.5">Vốn {tien(m.gia_von_gan_nhat || m.gia_tham_khao || 0)}{m.ncc_gan_nhat_ten ? ` · ${m.ncc_gan_nhat_ten}` : ''}</div>
                 )}
-                {laThuMua && <button className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-400)] mt-1 inline-flex items-center gap-1" onClick={() => setSua({ ...m })}><LineIcon name="edit" size={12} /> Sửa</button>}
+                <GiaShopee m={m} />
+                {laThuMua && (
+                  <div className="flex flex-wrap gap-x-3">
+                    <button className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-400)] mt-1 inline-flex items-center gap-1" onClick={() => setSua({ ...m })}><LineIcon name="edit" size={12} /> Sửa</button>
+                    <button className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-400)] mt-1 inline-flex items-center gap-1" onClick={() => setShopee(m)}><LineIcon name="search" size={12} /> Giá Shopee</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
+      {shopee && <ChonShopee mau={shopee} onDong={() => setShopee(null)}
+        onXong={mm => { setItems(ds => ds.map(x => x.id === mm.id ? { ...x, ...mm } : x)); setShopee(null); bao('ok', mm.gia_shopee ? `Đã ghép giá Shopee ${tien(mm.gia_shopee)}` : 'Đã lưu'); }}
+        bao={bao} />}
     </div>
   );
 }
@@ -538,6 +550,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                   {d.client_name && <> · {d.client_name}</>} · {d.phong}{d.hang_muc ? ` · ${d.hang_muc}` : ''} · {d.so_luong} {d.don_vi}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
+                  {d.gia_shopee ? <span className="text-orange-300">Shopee {tien(d.gia_shopee)} · </span> : null}
                   {d.so_bao_gia} báo giá{d.gia_von_gan_nhat ? ` · giá gần nhất ${tien(d.gia_von_gan_nhat)}` : d.gia_tham_khao ? ` · tham khảo ${tien(d.gia_tham_khao)}` : ''}
                   {d.ghi_chu && <> · {d.ghi_chu}</>}
                 </div>
@@ -545,6 +558,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
             </button>
             {dangMo && (
               <div className="border-t border-[var(--border-subtle)] p-3 space-y-3 bg-[var(--surface-1)]">
+                {d.mau_id && <GoiYNccKhoi mauId={d.mau_id} />}
                 {bgs.length > 0 && (
                   <div className="space-y-1">
                     {bgs.map((b, i) => (
@@ -553,6 +567,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                         <span className="text-[var(--gold-400)] font-semibold">{tien(b.gia)}</span>
                         {i === 0 && <span className="text-xs text-emerald-400">rẻ nhất</span>}
                         {!b.con_hang && <span className="text-xs text-red-300">hết hàng</span>}
+                        {b.cao_hon_shopee && d.gia_shopee && <span className="text-xs rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">cao hơn Shopee {Math.round((b.gia / d.gia_shopee - 1) * 100)}%</span>}
                         {b.ngay_giao && <span className="text-xs text-[var(--text-muted)]">giao {b.ngay_giao}</span>}
                         {b.ghi_chu && <span className="text-xs text-[var(--text-muted)]">{b.ghi_chu}</span>}
                         <span className="flex-1" />
@@ -629,6 +644,137 @@ function CaiGia({ bao }: { bao: (l: 'ok' | 'loi', t: string) => void }) {
         <button className={btnGhost} onClick={() => { if (moi.trim() && !ds.some(x => x.nhom === moi.trim())) { setDs([...ds, { nhom: moi.trim(), phan_tram_lai: 15 }]); setMoi(''); } }}><LineIcon name="plus" size={14} /></button>
       </div>
       <button className={btnGold} disabled={saving} onClick={luu}><LineIcon name="check" size={14} color="currentColor" /> {saving ? 'Đang lưu…' : 'Lưu'}</button>
+    </div>
+  );
+}
+
+
+// ── Shopee: giá thị trường, ghép sản phẩm, thương lượng, gợi ý NCC (26/10/2026) ──
+
+function GiaShopee({ m }: { m: MauVatTu }) {
+  if (!m.gia_shopee) return null;
+  return (
+    <div className="text-xs mt-0.5 text-orange-300 flex items-center gap-1">
+      Shopee {tien(m.gia_shopee)}
+      {m.link_shopee_aff && <a href={m.link_shopee_aff} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--gold-400)]" title="Mở trên Shopee"><LineIcon name="link" size={11} /></a>}
+    </div>
+  );
+}
+
+function ChonShopee({ mau, onDong, onXong, bao }: { mau: MauVatTu; onDong: () => void; onXong: (m: MauVatTu) => void; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const [q, setQ] = useState('');
+  const [ds, setDs] = useState<ShopeeSanPham[] | null>(null);
+  const [dang, setDang] = useState(false);
+  const [loiTim, setLoiTim] = useState('');
+  const [link, setLink] = useState('');
+
+  const tim = useCallback(async (tu?: string) => {
+    setDang(true); setLoiTim('');
+    try { const r = await api.vatTuTimShopee(mau.id, tu); setQ(r.tu_khoa); setDs(r.items); }
+    catch (e) { setLoiTim(loi(e, 'Không tìm được trên Shopee')); setDs([]); }
+    finally { setDang(false); }
+  }, [mau.id]);
+  useEffect(() => { tim(); }, [tim]);
+
+  const chon = async (sp: ShopeeSanPham) => {
+    try { onXong(await api.vatTuChonShopee(mau.id, { item_id: sp.item_id, ten: sp.ten, gia: sp.gia, link_aff: sp.link_aff })); }
+    catch (e) { bao('loi', loi(e, 'Lưu thất bại')); }
+  };
+  const doiLink = async () => {
+    try { onXong(await api.vatTuLinkAff(mau.id, link.trim())); }
+    catch (e) { bao('loi', loi(e, 'Không đổi được link')); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center" onClick={onDong}>
+      <div className="glass-card w-full sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 space-y-3 rounded-b-none sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold text-[var(--text-primary)]">Giá Shopee · {mau.ma}</h3>
+          <button className="p-1 text-[var(--text-muted)]" onClick={onDong} aria-label="Đóng"><LineIcon name="x" size={16} /></button>
+        </div>
+        <form className="flex gap-2" onSubmit={e => { e.preventDefault(); tim(q); }}>
+          <input className={inp} value={q} onChange={e => setQ(e.target.value)} placeholder="Từ khoá tìm trên Shopee" />
+          <button className={btnGold} disabled={dang}><LineIcon name="search" size={14} color="currentColor" /> Tìm</button>
+        </form>
+        {loiTim && <p className="text-sm text-red-300">{loiTim}</p>}
+        {dang && <p className="text-sm text-[var(--text-muted)]">Đang tìm…</p>}
+        {ds && !dang && ds.length === 0 && !loiTim && <p className="text-sm text-[var(--text-muted)]">Không có trên Shopee — thử từ khoá khác.</p>}
+        <div className="space-y-2">
+          {ds?.map(sp => (
+            <div key={sp.item_id} className="flex gap-3 items-center rounded-xl p-2 bg-[var(--surface-2)]">
+              {sp.anh ? <img src={sp.anh} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" /> : <div className="w-14 h-14 rounded-lg bg-[var(--surface-3)]" />}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-[var(--text-primary)] line-clamp-2">{sp.ten}</div>
+                <div className="text-xs text-[var(--text-muted)]">
+                  <span className="text-orange-300 font-semibold">{sp.gia ? tien(sp.gia) : '—'}</span>
+                  {sp.gia_max && sp.gia && sp.gia_max > sp.gia ? ` – ${tien(sp.gia_max)}` : ''} · đã bán {sp.da_ban}{sp.shop ? ` · ${sp.shop}` : ''}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <button className={`${btnGold} text-xs`} onClick={() => chon(sp)}><LineIcon name="check" size={12} color="currentColor" /> Chọn</button>
+                {sp.link && <a className="text-xs text-center text-[var(--text-muted)] hover:text-[var(--gold-400)]" href={sp.link_aff || sp.link} target="_blank" rel="noopener noreferrer">Xem</a>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2">
+          <p className="text-xs text-[var(--text-muted)]">Hoặc dán link sản phẩm Shopee đã tìm tay — hệ thống đổi sang link tiếp thị của JAMA.</p>
+          <div className="flex gap-2">
+            <input className={inp} value={link} onChange={e => setLink(e.target.value)} placeholder="https://shopee.vn/…" />
+            <button className={btnGhost} disabled={link.trim().length < 8} onClick={doiLink}>Lưu link</button>
+          </div>
+          {mau.gia_shopee && (
+            <button className="text-xs text-red-300 hover:underline" onClick={async () => {
+              try { onXong(await api.vatTuBoShopee(mau.id)); } catch (e) { bao('loi', loi(e, 'Bỏ ghép thất bại')); }
+            }}>Bỏ ghép Shopee hiện tại ({tien(mau.gia_shopee)})</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GoiYNccKhoi({ mauId }: { mauId: string }) {
+  const [ds, setDs] = useState<GoiYNcc[] | null>(null);
+  useEffect(() => { api.vatTuGoiYNcc(mauId).then(r => setDs(r.items)).catch(() => setDs([])); }, [mauId]);
+  if (!ds || ds.length === 0) return null;
+  return (
+    <div className="rounded-xl p-3 bg-[var(--surface-2)] space-y-1">
+      <div className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1"><LineIcon name="sparkle" size={12} /> Gợi ý NCC (giá sau chiết khấu → JAMA đã mua nhiều)</div>
+      {ds.slice(0, 3).map((g, i) => (
+        <div key={(g.supplier_id || g.ncc_ten) + i} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className={i === 0 ? 'text-emerald-400 font-medium' : 'text-[var(--text-primary)]'}>{i + 1}. {g.ncc_ten}</span>
+          <span className="text-[var(--gold-400)]">{tien(g.gia_sau_ck)}</span>
+          {g.chiet_khau_pct > 0 && <span className="text-xs text-[var(--text-muted)]">(CK {g.chiet_khau_pct}% từ {tien(g.gia)})</span>}
+          {g.da_mua > 0 && <span className="text-xs text-[var(--text-muted)]">đã mua {tien(g.da_mua)}</span>}
+          {!g.con_hang && <span className="text-xs text-red-300">hết hàng</span>}
+          {g.cao_hon_shopee && <span className="text-xs text-red-300">cao hơn Shopee</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CanThuongLuongTab() {
+  const [items, setItems] = useState<CanThuongLuong[] | null>(null);
+  useEffect(() => { api.vatTuCanThuongLuong().then(r => setItems(r.items)).catch(() => setItems([])); }, []);
+  if (!items) return <div className="glass-card p-8 text-center text-[var(--text-muted)]">Đang tải…</div>;
+  if (items.length === 0) return <div className="glass-card p-8 text-center text-[var(--text-muted)]">Chưa có báo giá NCC nào cao hơn Shopee. Ghép giá Shopee ở «Danh mục mẫu» để bảng này tự so.</div>;
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-[var(--text-muted)]">Báo giá NCC cao hơn giá bán lẻ trên Shopee — mang số này đi thương lượng.</p>
+      {items.map(x => (
+        <div key={x.bao_gia_id} className="glass-card p-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="font-medium text-[var(--text-primary)]">{x.ma}</span>
+          {x.hang && <span className="text-xs text-[var(--text-muted)]">{x.hang}</span>}
+          <span className="text-[var(--text-secondary)]">{x.ncc_ten} <span className="text-[var(--gold-400)]">{tien(x.gia_ncc)}</span></span>
+          <span className="text-orange-300">Shopee {tien(x.gia_shopee)}</span>
+          <span className="rounded-full px-2 py-0.5 text-xs bg-red-500/15 text-red-300">+{x.chenh_pct}% ({tien(x.chenh)}/{x.don_vi})</span>
+          {x.project_code && <span className="text-xs text-[var(--text-muted)]">{x.project_code}</span>}
+          {x.duoc_chon && <span className="text-xs text-amber-300">đã chốt</span>}
+          {x.link_shopee_aff && <a href={x.link_shopee_aff} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-400)] inline-flex items-center gap-1"><LineIcon name="link" size={11} /> Shopee</a>}
+        </div>
+      ))}
     </div>
   );
 }

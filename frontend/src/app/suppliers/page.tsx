@@ -49,7 +49,7 @@ export default function SuppliersPage() {
   const loi = (e: unknown, mac: string) => (e instanceof Error && e.message ? e.message : mac);
 
   // Form states
-  const [form, setForm] = useState({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '' });
+  const [form, setForm] = useState({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
   const [quoteForm, setQuoteForm] = useState({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
 
   const loadSuppliers = useCallback(async () => {
@@ -94,7 +94,7 @@ export default function SuppliersPage() {
     try {
       await api.createSupplier(form);
       setShowAddModal(false);
-      setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '' });
+      setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'general', notes: '', chiet_khau_pct: 0 });
       setError(null);
       loadSuppliers();
     } catch (e) {
@@ -290,6 +290,20 @@ export default function SuppliersPage() {
                   {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span> {selectedSupplier.phone}</div>}
                   {selectedSupplier.email && <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {selectedSupplier.email}</div>}
                   {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Địa chỉ:</span> {selectedSupplier.address}</div>}
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Chiết khấu:</span> {selectedSupplier.chiet_khau_pct || 0}%{' '}
+                    <button className="underline" style={{ color: 'var(--accent, #C9A96E)' }} onClick={async () => {
+                      const v = window.prompt('Chiết khấu NCC dành cho JAMA (%)', String(selectedSupplier.chiet_khau_pct || 0));
+                      if (v === null) return;
+                      const n = Number(v.replace(',', '.'));
+                      if (!Number.isFinite(n) || n < 0 || n > 100) { setError('Chiết khấu phải từ 0 đến 100%'); return; }
+                      try {
+                        const r = await api.updateSupplier(selectedSupplier.id, { chiet_khau_pct: n });
+                        setSelectedSupplier({ ...selectedSupplier, ...r, chiet_khau_pct: n });
+                        loadSuppliers();
+                      } catch (e) { setError(e instanceof Error ? e.message : 'Lưu chiết khấu thất bại'); }
+                    }}>Sửa</button>
+                  </div>
                 </div>
                 {selectedSupplier.notes && (
                   <p className="text-xs mt-3 p-2 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
@@ -403,6 +417,14 @@ export default function SuppliersPage() {
                     <option key={k} value={k}>{v}</option>
                   ))}
                 </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Chiết khấu cho JAMA (%)</label>
+                <input type="number" min={0} max={100} step={0.5} inputMode="decimal"
+                  value={form.chiet_khau_pct}
+                  onChange={e => setForm({ ...form, chiet_khau_pct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
+                  className="w-full px-3 py-2 rounded-lg text-base sm:text-sm outline-none"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Ghi chú</label>

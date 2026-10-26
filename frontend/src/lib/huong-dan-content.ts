@@ -853,7 +853,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { "type": "steps", "items": [
         "Tab **Danh mục** → **«Thêm mẫu»** (hoặc «Sửa» trên thẻ mẫu). Chọn **Nhóm** trong danh sách (kích thước 30x30, 60x60…) hoặc «+ Nhóm mới…».",
         "**Ảnh mẫu**: dán link ảnh là thấy ngay; hoặc bấm **«Tải ảnh lên»** chụp/chọn từ máy — app nén và lưu trong ERP, không cần link ngoài.",
-        "Chưa có ảnh hay muốn xem giá thị trường: bấm **«Tìm trên Shopee»** — mở sẵn Shopee tìm theo hãng + mã. Thấy đúng sản phẩm thì chép link ảnh và dán **Link Shopee sản phẩm** vào form để lần sau so giá bằng nút «Mở Shopee». ERP không tự lấy dữ liệu từ Shopee (Shopee chặn máy đọc tự động).",
+        "Chưa có ảnh: bấm **«Tìm trên Shopee»** trong form — mở sẵn Shopee tìm theo hãng + mã để chép link ảnh.",
         "Bấm **Lưu**. Giá tham khảo (vốn) và NCC quen chỉ Thu mua / Giám đốc / Trưởng phòng thấy."
       ] },
       { "type": "h3", "text": "Thu mua — bảng «Cần hỏi giá»" },
@@ -863,6 +863,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "Bấm **«Chốt giá này»** → app tính giá bán theo % lãi nhóm (hoặc giá cố định nếu cao hơn), ghi «giá gần nhất» về mẫu để lần sau tham khảo, và báo cho Thiết kế / Kinh doanh / PM của dự án.",
         "Hết hàng: bấm **«Hết hàng / đề xuất thay»**, chọn mã thay và lý do → dòng chuyển sang chờ khách duyệt lại.",
         "Sau chốt: bấm **Đã đặt** → **Đã giao** theo tiến độ."
+      ] },
+      { "type": "h3", "text": "Giá Shopee, «Cần thương lượng» và gợi ý NCC (từ 26/10/2026)" },
+      { "type": "list", "items": [
+        "Thu mua bấm **«Giá Shopee»** trên thẻ mẫu → app tìm sẵn theo hãng + mã qua Shopee Affiliate → bấm **Chọn** đúng sản phẩm. Giá Shopee hiện màu cam trên thẻ mẫu cho mọi người, kèm link mở Shopee (link tiếp thị của JAMA). Không tìm thấy thì dán link sản phẩm đã tìm tay.",
+        "Giá Shopee **tự cập nhật sáng thứ Hai hằng tuần**. Mẫu không có trên Shopee thì để trống — app không đoán giá.",
+        "Ở «Cần hỏi giá», báo giá NCC **đắt hơn Shopee** có nhãn đỏ «cao hơn Shopee x%». Tab **«Cần thương lượng»** gom tất cả các báo giá đó, chênh nhiều nhất lên đầu — mang số này đi đàm phán.",
+        "Mở một dòng sẽ thấy **Gợi ý NCC**: xếp theo giá sau chiết khấu (rẻ nhất trước), bằng giá thì NCC JAMA đã mua nhiều tiền hơn lên trước. **% chiết khấu** của từng NCC nhập ở **Nhà cung cấp** → chọn NCC → «Chiết khấu: Sửa».",
+        "Admin nhập khoá Shopee (App ID + Secret) ở **Cài đặt → Tích hợp → Shopee Affiliate**, bấm «Thử» để kiểm tra."
       ] },
       { "type": "h3", "text": "Danh mục mẫu" },
       { "type": "list", "items": [

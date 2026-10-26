@@ -1,6 +1,6 @@
 """Supplier schemas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
@@ -14,6 +14,7 @@ class SupplierCreate(BaseModel):
     region: str | None = None
     category: str = "general"
     rating: float = 5.0
+    chiet_khau_pct: float = Field(default=0.0, ge=0, le=100)
     notes: str | None = None
 
 
@@ -27,6 +28,7 @@ class SupplierUpdate(BaseModel):
     region: str | None = None
     category: str | None = None
     rating: float | None = None
+    chiet_khau_pct: float | None = Field(default=None, ge=0, le=100)
     notes: str | None = None
     is_active: bool | None = None
 
@@ -42,6 +44,7 @@ class SupplierResponse(BaseModel):
     region: str | None = None
     category: str
     rating: float
+    chiet_khau_pct: float = 0.0
     notes: str | None = None
     is_active: bool
     created_at: datetime

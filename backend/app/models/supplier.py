@@ -21,6 +21,7 @@ class Supplier(Base):
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="general")
     # Categories: wood, stone, metal, paint, glass, electrical, plumbing, furniture, fabric, general
     rating: Mapped[float] = mapped_column(Float, nullable=False, default=5.0)  # 1-5 stars
+    chiet_khau_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)  # % CK NCC dành cho JAMA
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
 

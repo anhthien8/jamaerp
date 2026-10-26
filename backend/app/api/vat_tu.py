@@ -26,7 +26,7 @@ from app.models.user import User
 from app.models.vat_tu import (
     NHAN_TRANG_THAI, TRANG_THAI_DONG, BaoGiaDongVatTu, DongPhieuVatTu, GiaNhomVatTu, MauVatTu,
 )
-from app.services import vat_tu_sheet
+from app.services import shopee_affiliate, vat_tu_sheet
 
 router = APIRouter(prefix="/vat-tu", tags=["vat-tu"])
 
@@ -153,6 +153,8 @@ def _mau_dict(m: MauVatTu, thay_gia_von: bool) -> dict:
         "id": m.id, "ma": m.ma, "ten": m.ten, "hang": m.hang, "nhom": m.nhom, "be_mat": m.be_mat,
         "don_vi": m.don_vi, "anh_url": m.anh_url, "link_shopee": m.link_shopee, "ghi_chu": m.ghi_chu, "tinh_trang": m.tinh_trang,
         "is_active": m.is_active, "gia_ban_co_dinh": m.gia_ban_co_dinh if thay_gia_von else None,
+        "shopee_item_id": m.shopee_item_id, "shopee_ten": m.shopee_ten, "link_shopee_aff": m.link_shopee_aff,
+        "gia_shopee": m.gia_shopee, "gia_shopee_luc": m.gia_shopee_luc,
     }
     if thay_gia_von:
         d.update({
@@ -162,10 +164,11 @@ def _mau_dict(m: MauVatTu, thay_gia_von: bool) -> dict:
     return d
 
 
-def _bao_gia_dict(b: BaoGiaDongVatTu) -> dict:
+def _bao_gia_dict(b: BaoGiaDongVatTu, gia_shopee: float | None = None) -> dict:
     return {
         "id": b.id, "supplier_id": b.supplier_id, "ncc_ten": b.ncc_ten, "gia": b.gia, "con_hang": b.con_hang,
         "ngay_giao": b.ngay_giao, "ghi_chu": b.ghi_chu, "duoc_chon": b.duoc_chon, "created_at": b.created_at,
+        "cao_hon_shopee": bool(gia_shopee and b.gia and b.gia > gia_shopee),
     }
 
 
@@ -185,6 +188,7 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
         "chot_luc": d.chot_luc, "khach_dong_y_luc": d.khach_dong_y_luc, "khach_ghi_chu": d.khach_ghi_chu,
         "ghi_chu": d.ghi_chu, "thu_tu": d.thu_tu, "created_at": d.created_at, "updated_at": d.updated_at,
         "so_bao_gia": len(bao_gia),
+        "gia_shopee": (m.gia_shopee if m else None), "link_shopee_aff": (m.link_shopee_aff if m else None),
     }
     if du_an is not None:
         out.update({"project_code": du_an.code, "project_name": du_an.name, "client_name": du_an.client_name})
@@ -193,7 +197,7 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
             "gia_von": d.gia_von, "ncc_id": d.ncc_id, "ncc_ten": ncc.get(d.ncc_id or ""),
             "phan_tram_ap_dung": d.phan_tram_ap_dung,
             "lai": (round((d.gia_ban - d.gia_von) * d.so_luong) if d.gia_ban and d.gia_von else None),
-            "bao_gia": [_bao_gia_dict(b) for b in bao_gia],
+            "bao_gia": [_bao_gia_dict(b, m.gia_shopee if m else None) for b in bao_gia],
             "gia_von_gan_nhat": (m.gia_von_gan_nhat if m else None),
             "gia_tham_khao": (m.gia_tham_khao if m else None),
         })
@@ -644,3 +648,137 @@ async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mu
         ghi += 1
     await db.commit()
     return {"ghi": ghi, "loi": loi}
+
+
+# ── Shopee Affiliate: giá thị trường, cần thương lượng, gợi ý NCC (26/10/2026) ──
+
+class ChonShopeeIn(BaseModel):
+    item_id: str = Field(min_length=1, max_length=30)
+    ten: str | None = Field(default=None, max_length=255)
+    gia: float | None = Field(default=None, gt=0)
+    link_aff: str | None = Field(default=None, max_length=500)
+
+
+class LinkAffIn(BaseModel):
+    url: str = Field(min_length=8, max_length=500)
+
+
+async def _mau_hoac_404(db: AsyncSession, mau_id: str) -> MauVatTu:
+    m = await db.get(MauVatTu, mau_id)
+    if not m:
+        raise HTTPException(404, "Không có mẫu này")
+    return m
+
+
+@router.get("/mau/{mau_id}/shopee")
+async def tim_shopee_cho_mau(
+    mau_id: str, q: str | None = None, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db),
+):
+    m = await _mau_hoac_404(db, mau_id)
+    tu_khoa = (q or "").strip() or shopee_affiliate.tu_khoa_mau(m)
+    try:
+        items = await shopee_affiliate.tim_san_pham(db, tu_khoa)
+    except shopee_affiliate.ShopeeError as exc:
+        raise HTTPException(exc.status, str(exc))
+    return {"tu_khoa": tu_khoa, "items": items}
+
+
+@router.put("/mau/{mau_id}/shopee")
+async def chon_shopee_cho_mau(
+    mau_id: str, body: ChonShopeeIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db),
+):
+    m = await _mau_hoac_404(db, mau_id)
+    m.shopee_item_id, m.shopee_ten, m.gia_shopee = body.item_id, body.ten, body.gia
+    m.link_shopee_aff, m.gia_shopee_luc = body.link_aff, _now()
+    await db.commit()
+    await db.refresh(m)
+    return _mau_dict(m, xem_gia_von(user))
+
+
+@router.delete("/mau/{mau_id}/shopee")
+async def bo_shopee_cho_mau(mau_id: str, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    m = await _mau_hoac_404(db, mau_id)
+    m.shopee_item_id = m.shopee_ten = m.link_shopee_aff = None
+    m.gia_shopee = m.gia_shopee_luc = None
+    await db.commit()
+    await db.refresh(m)
+    return _mau_dict(m, xem_gia_von(user))
+
+
+@router.post("/mau/{mau_id}/shopee/link")
+async def doi_link_aff(mau_id: str, body: LinkAffIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
+    """Link Shopee dán tay → link affiliate của JAMA."""
+    m = await _mau_hoac_404(db, mau_id)
+    url = body.url.strip()
+    if "shopee" not in url.lower() and "shp.ee" not in url.lower():
+        raise HTTPException(400, "Đây không phải link Shopee")
+    try:
+        m.link_shopee_aff = await shopee_affiliate.link_aff(db, url)
+    except shopee_affiliate.ShopeeError as exc:
+        raise HTTPException(exc.status, str(exc))
+    m.link_shopee = m.link_shopee or url
+    await db.commit()
+    await db.refresh(m)
+    return _mau_dict(m, xem_gia_von(user))
+
+
+@router.get("/can-thuong-luong")
+async def can_thuong_luong(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Báo giá NCC cao hơn giá Shopee của cùng mẫu — danh sách để đi thương lượng."""
+    if not xem_gia_von(user):
+        raise HTTPException(403, "Bảng này dành cho Thu mua / Ban giám đốc")
+    rows = (await db.execute(
+        select(BaoGiaDongVatTu, MauVatTu, DongPhieuVatTu.project_id)
+        .join(DongPhieuVatTu, DongPhieuVatTu.id == BaoGiaDongVatTu.dong_id)
+        .join(MauVatTu, MauVatTu.id == DongPhieuVatTu.mau_id)
+        .where(MauVatTu.gia_shopee.is_not(None), BaoGiaDongVatTu.gia > MauVatTu.gia_shopee,
+               DongPhieuVatTu.trang_thai != "huy")
+        .order_by(BaoGiaDongVatTu.created_at.desc()).limit(300)
+    )).all()
+    pids = {pid for _, _, pid in rows}
+    du_an = {p.id: p.code for p in (await db.execute(select(Project).where(Project.id.in_(pids)))).scalars()} if pids else {}
+    items = [{
+        "bao_gia_id": b.id, "dong_id": b.dong_id, "ncc_ten": b.ncc_ten, "supplier_id": b.supplier_id,
+        "gia_ncc": b.gia, "gia_shopee": m.gia_shopee, "chenh": round(b.gia - m.gia_shopee),
+        "chenh_pct": round((b.gia / m.gia_shopee - 1) * 100, 1), "mau_id": m.id, "ma": m.ma, "hang": m.hang,
+        "don_vi": m.don_vi, "link_shopee_aff": m.link_shopee_aff, "project_code": du_an.get(pid),
+        "duoc_chon": b.duoc_chon, "created_at": b.created_at,
+    } for b, m, pid in rows]
+    items.sort(key=lambda x: -x["chenh_pct"])
+    return {"items": items}
+
+
+@router.get("/mau/{mau_id}/goi-y-ncc")
+async def goi_y_ncc(mau_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Xếp NCC cho một mẫu: còn hàng → giá sau chiết khấu thấp nhất → tổng tiền JAMA đã mua của NCC cao nhất."""
+    if not xem_gia_von(user):
+        raise HTTPException(403, "Chỉ Thu mua / Ban giám đốc xem được giá NCC")
+    m = await _mau_hoac_404(db, mau_id)
+    bgs = (await db.execute(
+        select(BaoGiaDongVatTu).join(DongPhieuVatTu, DongPhieuVatTu.id == BaoGiaDongVatTu.dong_id)
+        .where(DongPhieuVatTu.mau_id == mau_id).order_by(BaoGiaDongVatTu.created_at.desc())
+    )).scalars().all()
+    moi_nhat: dict[str, BaoGiaDongVatTu] = {}  # mỗi NCC lấy báo giá mới nhất
+    for b in bgs:
+        moi_nhat.setdefault(b.supplier_id or f"ten:{(b.ncc_ten or '').strip().lower()}", b)
+    sids = [b.supplier_id for b in moi_nhat.values() if b.supplier_id]
+    ncc = {s.id: s for s in (await db.execute(select(Supplier).where(Supplier.id.in_(sids)))).scalars()} if sids else {}
+    da_mua = dict((await db.execute(
+        select(DongPhieuVatTu.ncc_id, func.sum(DongPhieuVatTu.gia_von * DongPhieuVatTu.so_luong))
+        .where(DongPhieuVatTu.ncc_id.in_(sids), DongPhieuVatTu.gia_von.is_not(None), DongPhieuVatTu.trang_thai != "huy")
+        .group_by(DongPhieuVatTu.ncc_id)
+    )).all()) if sids else {}
+    items = []
+    for b in moi_nhat.values():
+        s = ncc.get(b.supplier_id or "")
+        ck = float(s.chiet_khau_pct or 0) if s else 0.0
+        sau_ck = round(b.gia * (1 - ck / 100))
+        items.append({
+            "supplier_id": b.supplier_id, "ncc_ten": s.name if s else b.ncc_ten, "gia": b.gia, "chiet_khau_pct": ck,
+            "gia_sau_ck": sau_ck, "da_mua": round(float(da_mua.get(b.supplier_id, 0) or 0)),
+            "con_hang": b.con_hang, "bao_gia_luc": b.created_at,
+            "cao_hon_shopee": bool(m.gia_shopee and sau_ck > m.gia_shopee),
+        })
+    items.sort(key=lambda x: (not x["con_hang"], x["gia_sau_ck"], -x["da_mua"]))
+    return {"gia_shopee": m.gia_shopee, "link_shopee_aff": m.link_shopee_aff, "items": items,
+            "goi_y": items[0] if items else None}

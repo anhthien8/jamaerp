@@ -16,6 +16,22 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '26/10/2026',
+    title: 'Vật tư: giá Shopee cạnh giá NCC, nhãn «cao hơn Shopee», gợi ý NCC theo chiết khấu',
+    tag: 'MỚI',
+    news: [
+      'Thẻ mẫu vật tư hiện giá Shopee (màu cam) kèm link mở Shopee. Thu mua bấm «Giá Shopee» để tìm và chọn đúng sản phẩm; giá tự cập nhật sáng thứ Hai hằng tuần.',
+      'Báo giá NCC đắt hơn Shopee có nhãn đỏ. Tab mới «Cần thương lượng» gom các báo giá đó, chênh nhiều nhất lên đầu.',
+      'Mở một dòng «Cần hỏi giá» thấy Gợi ý NCC: rẻ nhất sau chiết khấu trước, bằng giá thì NCC JAMA đã mua nhiều hơn lên trước.',
+      'Nhà cung cấp có thêm ô «Chiết khấu cho JAMA (%)».',
+      'Admin nhập khoá Shopee Affiliate ở Cài đặt → Tích hợp.',
+    ],
+    test: [
+      'Thu mua: Danh mục mẫu → «Giá Shopee» trên một mẫu → Chọn sản phẩm → thẻ hiện giá cam.',
+      'Ghi một báo giá NCC cao hơn giá Shopee → thấy nhãn đỏ và dòng mới ở «Cần thương lượng».',
+    ],
+  },
+  {
+    date: '26/10/2026',
     title: 'Hợp đồng: đính kèm bản đã ký, xem & tải ngay · P&L tính doanh thu theo đợt đã thu',
     tag: 'MỚI',
     news: [

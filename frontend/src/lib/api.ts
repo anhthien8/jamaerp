@@ -2159,6 +2159,33 @@ class ApiClient {
   async vatTuChot(dongId: string, body: { bao_gia_id?: string; gia_von?: number; supplier_id?: string | null; ncc_ten?: string }) {
     return this.request<DongVatTu>(`/vat-tu/dong/${dongId}/chot`, { method: 'POST', body });
   }
+  async vatTuTimShopee(mauId: string, q?: string) {
+    return this.request<{ tu_khoa: string; items: ShopeeSanPham[] }>(`/vat-tu/mau/${mauId}/shopee`, { params: q ? { q } : undefined });
+  }
+  async vatTuChonShopee(mauId: string, sp: { item_id: string; ten?: string; gia?: number | null; link_aff?: string | null }) {
+    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee`, { method: 'PUT', body: sp });
+  }
+  async vatTuBoShopee(mauId: string) {
+    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee`, { method: 'DELETE' });
+  }
+  async vatTuLinkAff(mauId: string, url: string) {
+    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee/link`, { method: 'POST', body: { url } });
+  }
+  async vatTuCanThuongLuong() {
+    return this.request<{ items: CanThuongLuong[] }>('/vat-tu/can-thuong-luong');
+  }
+  async vatTuGoiYNcc(mauId: string) {
+    return this.request<{ gia_shopee?: number | null; link_shopee_aff?: string | null; items: GoiYNcc[]; goi_y: GoiYNcc | null }>(`/vat-tu/mau/${mauId}/goi-y-ncc`);
+  }
+  async shopeeCaiDat() {
+    return this.request<{ app_id: string; secret_masked: string; secret_set: boolean; san_sang: boolean }>('/shopee-settings');
+  }
+  async shopeeLuuCaiDat(body: { app_id?: string; secret?: string }) {
+    return this.request<{ app_id: string; secret_masked: string; secret_set: boolean; san_sang: boolean }>('/shopee-settings', { method: 'PUT', body });
+  }
+  async shopeeThu() {
+    return this.request<{ ok: boolean; so_ket_qua: number; vi_du: ShopeeSanPham[] }>('/shopee-settings/thu', { method: 'POST' });
+  }
 
   // === Automation (admin/executive) ===
   async getAutomationSettings() {
@@ -2406,10 +2433,27 @@ export interface MauVatTu {
   // chỉ có khi được xem giá vốn
   gia_tham_khao?: number | null; gia_von_gan_nhat?: number | null; gia_von_cap_nhat_luc?: string | null;
   ncc_gan_nhat_ten?: string | null; gia_ban_co_dinh?: number | null;
+  // giá thị trường Shopee (mọi vai thấy) — 26/10/2026
+  shopee_item_id?: string | null; shopee_ten?: string | null; link_shopee_aff?: string | null;
+  gia_shopee?: number | null; gia_shopee_luc?: string | null;
+}
+export interface ShopeeSanPham {
+  item_id: string; ten: string; gia: number | null; gia_max?: number | null; da_ban: number; sao?: number | null;
+  shop?: string | null; anh?: string | null; link?: string | null; link_aff?: string | null; hoa_hong_pct: number;
+}
+export interface CanThuongLuong {
+  bao_gia_id: string; dong_id: string; ncc_ten: string; supplier_id?: string | null; gia_ncc: number;
+  gia_shopee: number; chenh: number; chenh_pct: number; mau_id: string; ma: string; hang?: string | null;
+  don_vi: string; link_shopee_aff?: string | null; project_code?: string | null; duoc_chon: boolean; created_at?: string;
+}
+export interface GoiYNcc {
+  supplier_id?: string | null; ncc_ten: string; gia: number; chiet_khau_pct: number; gia_sau_ck: number;
+  da_mua: number; con_hang: boolean; bao_gia_luc?: string; cao_hon_shopee: boolean;
 }
 export interface BaoGiaVatTu {
   id: string; supplier_id?: string | null; ncc_ten: string; gia: number; con_hang: boolean;
   ngay_giao?: string | null; ghi_chu?: string | null; duoc_chon: boolean; created_at?: string;
+  cao_hon_shopee?: boolean;
 }
 export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_khach_duyet_lai' | 'da_chot_gia' | 'da_dat' | 'da_giao' | 'huy';
 export interface DongVatTu {
@@ -2420,6 +2464,7 @@ export interface DongVatTu {
   gia_ban?: number | null; thanh_tien?: number | null; chot_luc?: string | null;
   khach_dong_y_luc?: string | null; khach_ghi_chu?: string | null; ghi_chu?: string | null; thu_tu: number;
   created_at?: string; updated_at?: string; so_bao_gia: number;
+  gia_shopee?: number | null; link_shopee_aff?: string | null;
   project_code?: string; project_name?: string; client_name?: string;
   // chỉ có khi được xem giá vốn
   gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
@@ -3465,6 +3510,8 @@ export interface Supplier {
   category: string; // wood | stone | metal | paint | electrical | plumbing | furniture | glass | general
   notes?: string;
   is_active: boolean;
+  /** % chiết khấu NCC dành cho JAMA — dùng xếp gợi ý NCC (26/10/2026) */
+  chiet_khau_pct?: number;
   quote_count?: number;
   created_at: string;
   updated_at: string;

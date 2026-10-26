@@ -62,6 +62,12 @@ class MauVatTu(Base):
     # Link sản phẩm trên Shopee để Thu mua/khách check giá thị trường (25/10/2026).
     # Không tự cào Shopee (chặn bot, không có API mở) — người dùng dán link tay.
     link_shopee: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Shopee Affiliate (26/10/2026): sản phẩm Thu mua ghép → giá thị trường, làm mới hằng tuần
+    shopee_item_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    shopee_ten: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    link_shopee_aff: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    gia_shopee: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gia_shopee_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
     tinh_trang: Mapped[str | None] = mapped_column(String(100), nullable=True)  # «Còn hàng» theo sheet
     gia_tham_khao: Mapped[float | None] = mapped_column(Float, nullable=True)   # từ sheet

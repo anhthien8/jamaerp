@@ -140,6 +140,71 @@ function MyAIKeySection() {
   );
 }
 
+/** Shopee Affiliate — admin nhập App ID / Secret; Thu mua dùng để lấy giá thị trường + link aff (26/10/2026). */
+function ShopeeSection() {
+  const [appId, setAppId] = useState('');
+  const [secret, setSecret] = useState('');
+  const [trangThai, setTrangThai] = useState<{ secret_masked: string; secret_set: boolean; san_sang: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    api.shopeeCaiDat().then(r => { setAppId(r.app_id); setTrangThai(r); })
+      .catch(() => setMsg({ text: 'Không tải được cài đặt Shopee', ok: false }));
+  }, []);
+
+  const luu = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await api.shopeeLuuCaiDat({ app_id: appId.trim(), secret: secret.trim() || undefined });
+      setTrangThai(r); setSecret('');
+      setMsg({ text: r.san_sang ? 'Đã lưu — bấm «Thử» để kiểm tra khoá' : 'Đã lưu — còn thiếu App ID hoặc Secret', ok: true });
+    } catch (e) { setMsg({ text: e instanceof Error ? e.message : 'Lưu thất bại', ok: false }); }
+    finally { setBusy(false); }
+  };
+  const thu = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await api.shopeeThu();
+      const vd = r.vi_du[0];
+      setMsg({ text: `Khoá chạy được — tìm thấy ${r.so_ket_qua} sản phẩm${vd ? `, ví dụ «${vd.ten.slice(0, 50)}» ${vd.gia?.toLocaleString('vi-VN')}đ` : ''}`, ok: true });
+    } catch (e) { setMsg({ text: e instanceof Error ? e.message : 'Thử thất bại', ok: false }); }
+    finally { setBusy(false); }
+  };
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-base sm:text-sm focus:outline-none focus:border-[#C9A96E] font-mono';
+  return (
+    <div className="glass-card p-6">
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="package" />Shopee Affiliate</h2>
+      <div className="space-y-3">
+        <p className="text-xs text-[var(--text-secondary)]">
+          Lấy giá thị trường Shopee cho danh mục vật tư và gắn link tiếp thị liên kết của JAMA. Tạo khoá ở{' '}
+          <a href="https://affiliate.shopee.vn/open_api" target="_blank" rel="noopener noreferrer" className="text-[#C9A96E] hover:underline">affiliate.shopee.vn → Open API</a>.
+          Giá tự cập nhật sáng thứ Hai hằng tuần.
+        </p>
+        <label className="block text-xs text-[var(--text-secondary)]">App ID
+          <input value={appId} onChange={e => setAppId(e.target.value)} className={inputCls + ' mt-1'} autoComplete="off" inputMode="numeric" />
+        </label>
+        <label className="block text-xs text-[var(--text-secondary)]">Secret {trangThai?.secret_set && <span className="font-mono">(đang lưu: {trangThai.secret_masked})</span>}
+          <input type="password" value={secret} onChange={e => setSecret(e.target.value)} className={inputCls + ' mt-1'}
+            placeholder={trangThai?.secret_set ? 'Để trống nếu giữ nguyên' : 'Dán Secret'} autoComplete="off" />
+        </label>
+        <div className="flex gap-2">
+          <button onClick={luu} disabled={busy}
+            className="px-4 py-2 rounded-full bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+            {busy ? 'Đang xử lý...' : 'Lưu'}
+          </button>
+          <button onClick={thu} disabled={busy || !trangThai?.san_sang}
+            className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm hover:bg-white/10 disabled:opacity-50">
+            Thử
+          </button>
+        </div>
+        {msg && <p className="text-xs" style={{ color: msg.ok ? '#34D399' : '#F87171' }}>{msg.text}</p>}
+      </div>
+    </div>
+  );
+}
+
 /** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
 function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
   const { isDemo } = useAuth();
@@ -1545,10 +1610,11 @@ export default function SettingsPage() {
         {/* ── Nhóm 2: Tích hợp — admin ── */}
         {user.role === 'admin' && (
           <div className="max-w-5xl">
-            {groupLabel('zap', 'Tích hợp', 'AI, Zalo — kết nối dịch vụ ngoài')}
+            {groupLabel('zap', 'Tích hợp', 'AI, Zalo, Shopee — kết nối dịch vụ ngoài')}
             <div className="columns-1 lg:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
               <AISettingsSection />
               <ZaloSection />
+              <ShopeeSection />
               <OfficeCheckinSection />
             </div>
           </div>

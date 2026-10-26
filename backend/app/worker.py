@@ -89,6 +89,7 @@ class BackgroundWorker:
         self._last_timesheet_notify_period: str = ""  # "YYYY-MM" (VN time)
         self._last_payment_reminder_date: str = ""  # "YYYY-MM-DD" (VN time)
         self._last_birthday_notify_date: str = ""  # nhắc sinh nhật khách (25/10/2026)
+        self._last_shopee_week: str = ""  # "YYYY-Www" — cập nhật giá Shopee hàng tuần (26/10/2026)
         self._last_contract_notify_date: str = ""  # "YYYY-MM-DD" (VN time) — nhắc hạn HĐLĐ
         self._last_media_mirror: float = 0.0  # sao ảnh công trình sang Drive, mỗi 5 phút
         self._last_zalo_unanswered: float = 0.0  # Trợ lý Zalo: quét khách chờ, mỗi 10 phút
@@ -303,6 +304,12 @@ class BackgroundWorker:
                     process_customer_birthday,
                     priority=TaskPriority.NORMAL,
                 )
+
+            # Thứ Hai 02:00 VN: cập nhật giá Shopee các mẫu đã ghép
+            this_week = vn_now.strftime("%G-W%V")
+            if vn_now.weekday() == 0 and vn_now.hour >= 2 and self._last_shopee_week != this_week:
+                self._last_shopee_week = this_week
+                self.enqueue_task("shopee_price_refresh", process_shopee_prices, priority=TaskPriority.LOW)
 
             # Mùng 1 hàng tháng: báo kế toán chốt bảng công tháng trước
             this_period = vn_now.strftime("%Y-%m")
@@ -1032,3 +1039,18 @@ if __name__ == "__main__":
         asyncio.run(start())
     except KeyboardInterrupt:
         logger.info("Interrupted by user.")
+
+
+async def process_shopee_prices() -> dict[str, Any]:
+    """Thứ Hai — làm mới giá Shopee cho mẫu vật tư đã ghép item (dừng êm nếu chưa có khoá)."""
+    try:
+        from app.database import async_session
+        from app.services.shopee_affiliate import cap_nhat_gia_hang_tuan
+
+        async with async_session() as session:
+            n = await cap_nhat_gia_hang_tuan(session)
+            await session.commit()
+        return {"status": "completed", "updated": n}
+    except Exception as exc:
+        logger.exception("Shopee price refresh failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
