@@ -144,7 +144,7 @@ async def test_my_llm_key(
     if not model.startswith("groq/"):
         # Key cá nhân là key Groq — model hệ thống đang không phải Groq thì
         # test bằng model Groq nhanh, không gửi key sang provider khác.
-        model = "groq/llama-3.1-8b-instant"
+        model = "groq/openai/gpt-oss-20b"
     try:
         from litellm import acompletion
 

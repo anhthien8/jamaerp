@@ -16,6 +16,16 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '26/10/2026',
+    title: 'AI: đổi sang model Groq còn hoạt động, thêm DeepSeek qua OpenCode',
+    tag: 'SỬA LỖI',
+    news: [
+      'Groq đã ngừng các model Llama cũ nên một số tính năng AI (đọc báo giá, đọc CCCD, trợ lý) có lúc không chạy. Hệ thống tự chuyển sang model mới, không cần cài lại.',
+      'Admin chọn được DeepSeek V4.1 Flash (miễn phí có thời hạn) hoặc DeepSeek V4 Pro trong Cài đặt → Cấu hình AI Model, dán khóa OpenCode.',
+    ],
+    test: ['Admin: Cài đặt → Cấu hình AI Model → bấm Test kết nối → thấy model trả lời.'],
+  },
+  {
+    date: '26/10/2026',
     title: 'Nhà cung cấp tự tạo khi nhập vật tư, thêm mã số thuế tra Cục Thuế',
     tag: 'MỚI',
     news: [

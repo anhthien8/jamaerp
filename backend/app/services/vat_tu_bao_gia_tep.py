@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 TOI_DA_BYTES = 20 * 1024 * 1024  # Bot API getFile chỉ cho tải ≤ 20 MB
 TOI_DA_CHU = 12000  # ký tự đưa vào prompt (báo giá NCC thường < 200 dòng)
-MODEL_VISION_MAC_DINH = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
+MODEL_VISION_MAC_DINH = "groq/qwen/qwen3.8-27b"
 
 
 class TepError(Exception):
@@ -236,7 +236,8 @@ async def trich_tu_anh(anh: bytes, mime: str | None) -> dict:
     from app.services.llm_config import get_llm_config
 
     cfg = await get_llm_config()
-    model = get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH
+    from app.services.llm_config import chuan_model
+    model = chuan_model(get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
     key = cfg.get("llm_api_key", "")
     if not key or not (cfg.get("llm_model", "").split("/")[0] == model.split("/")[0]):
         raise TepError(

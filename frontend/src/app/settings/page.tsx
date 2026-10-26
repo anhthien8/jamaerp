@@ -889,8 +889,8 @@ function AISettingsSection() {
         llm_model: '', llm_api_key_masked: '', llm_api_key_set: false,
         llm_fallback_model: '', llm_fallback_api_key_masked: '', llm_fallback_api_key_set: false,
         presets: [
-          { label: 'Groq — Llama 3.3 70B (free)', model: 'groq/llama-3.3-70b-versatile' },
-          { label: 'Google Gemini 2.0 Flash (free)', model: 'google/gemini-2.0-flash-exp' },
+          { label: 'Groq — GPT-OSS 120B (free)', model: 'groq/openai/gpt-oss-120b' },
+          { label: 'OpenCode — DeepSeek V4.1 Flash (free có thời hạn)', model: 'opencode/deepseek-v4.1-flash-free' },
           { label: 'Ollama local', model: 'ollama/llama3.2' },
         ],
       });
@@ -944,6 +944,9 @@ function AISettingsSection() {
   return (
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><LineIcon name="brain" />Cấu hình AI Model (toàn hệ thống)</h2>
+      <p className="text-xs text-[var(--text-muted)] mb-1">
+        Khóa Groq lấy ở console.groq.com/keys; khóa OpenCode (DeepSeek) lấy ở opencode.ai/auth → API Keys.
+      </p>
       <p className="text-xs text-[var(--text-muted)] mb-4">
         Áp dụng cho 5 AI agents và toàn bộ bot Telegram của mọi role. Model chính lỗi/hết quota → tự chuyển sang model dự phòng → hết thì dùng rule-based.
       </p>
@@ -967,7 +970,7 @@ function AISettingsSection() {
             type="text"
             value={form.llm_model}
             onChange={e => setForm(f => ({ ...f, llm_model: e.target.value }))}
-            placeholder="vd: groq/llama-3.3-70b-versatile"
+            placeholder="vd: groq/openai/gpt-oss-120b"
             className={`${inputCls} mt-2 font-mono text-xs`}
           />
         </div>
@@ -980,7 +983,7 @@ function AISettingsSection() {
             type="password"
             value={form.llm_api_key}
             onChange={e => setForm(f => ({ ...f, llm_api_key: e.target.value }))}
-            placeholder={data.llm_api_key_set ? 'Nhập key mới để thay đổi' : 'Dán API key (Groq/Gemini/OpenRouter...)'}
+            placeholder={data.llm_api_key_set ? 'Nhập key mới để thay đổi' : 'Dán API key (Groq/OpenCode/Gemini...)'}
             className={inputCls}
           />
         </div>
@@ -992,9 +995,11 @@ function AISettingsSection() {
               type="text"
               value={form.llm_fallback_model}
               onChange={e => setForm(f => ({ ...f, llm_fallback_model: e.target.value }))}
-              placeholder="vd: gemini/gemini-2.0-flash"
+              list="ds-model-ai"
+              placeholder="vd: opencode/deepseek-v4.1-flash-free"
               className={`${inputCls} font-mono text-xs`}
             />
+            <datalist id="ds-model-ai">{data.presets.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}</datalist>
           </div>
           <div>
             <label className="text-sm block mb-1">
@@ -1004,7 +1009,7 @@ function AISettingsSection() {
               type="password"
               value={form.llm_fallback_api_key}
               onChange={e => setForm(f => ({ ...f, llm_fallback_api_key: e.target.value }))}
-              placeholder="Trống = dùng key chính"
+              placeholder="Trống = dùng key chính (chỉ khi cùng nhà cung cấp)"
               className={inputCls}
             />
           </div>

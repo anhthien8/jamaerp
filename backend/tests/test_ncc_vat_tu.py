@@ -83,3 +83,28 @@ async def test_tra_mst(client: AsyncClient, admin_user, monkeypatch):
     assert r.status_code == 400
     r = await client.get("/api/v1/suppliers/tra-mst/0100109106", headers=auth_header(admin_user))
     assert r.status_code == 200 and r.json()["ten_cong_ty"] == "CÔNG TY A"
+
+
+def test_model_ai_da_tat_va_opencode():
+    from app.services import llm_config as lc
+    assert lc.chuan_model("groq/llama-3.1-8b-instant") == "groq/openai/gpt-oss-20b"
+    assert lc.tham_so_model("opencode/deepseek-v4.1-flash-free") == {
+        "model": "openai/deepseek-v4.1-flash-free", "api_base": lc.OPENCODE_API_BASE}
+    assert lc.tham_so_model("groq/llama-3.3-70b-versatile") == {"model": "groq/openai/gpt-oss-120b"}
+
+
+@pytest.mark.asyncio
+async def test_fallback_khac_nha_cung_cap_khong_muon_key(monkeypatch):
+    from app.services import llm_config as lc
+    async def cfg(db=None):
+        return {"llm_model": "groq/openai/gpt-oss-120b", "llm_api_key": "gsk_x",
+                "llm_fallback_model": "opencode/deepseek-v4.1-flash-free", "llm_fallback_api_key": ""}
+    goi = []
+    async def fake(**p):
+        goi.append(p)
+        raise RuntimeError("down")
+    monkeypatch.setattr(lc, "get_llm_config", cfg)
+    monkeypatch.setattr(lc, "acompletion", fake)
+    with pytest.raises(RuntimeError):
+        await lc.llm_complete([{"role": "user", "content": "hi"}])
+    assert [p["model"] for p in goi] == ["groq/openai/gpt-oss-120b"]

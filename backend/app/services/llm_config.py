@@ -37,12 +37,40 @@ LLM_SETTING_KEYS = (
 
 # Gợi ý model free (hiển thị trong UI)
 FREE_MODEL_PRESETS = [
-    {"label": "Groq — Llama 3.3 70B (free tier)", "model": "groq/llama-3.3-70b-versatile"},
-    {"label": "Groq — Llama 3.1 8B (free, nhanh)", "model": "groq/llama-3.1-8b-instant"},
+    {"label": "Groq — GPT-OSS 120B (free tier)", "model": "groq/openai/gpt-oss-120b"},
+    {"label": "Groq — GPT-OSS 20B (free, nhanh)", "model": "groq/openai/gpt-oss-20b"},
+    {"label": "OpenCode — DeepSeek V4.1 Flash (free có thời hạn)", "model": "opencode/deepseek-v4.1-flash-free"},
+    {"label": "OpenCode — DeepSeek V4.1 Flash (trả phí, rẻ)", "model": "opencode/deepseek-v4.1-flash"},
+    {"label": "OpenCode — DeepSeek V4 Pro (trả phí)", "model": "opencode/deepseek-v4-pro"},
     {"label": "Google Gemini 2.0 Flash (free tier)", "model": "gemini/gemini-2.0-flash"},
     {"label": "OpenRouter — Llama 3.3 70B (free)", "model": "openrouter/meta-llama/llama-3.3-70b-instruct:free"},
     {"label": "Ollama — Llama 3.2 (local, không cần key)", "model": "ollama/llama3.2"},
 ]
+
+# Groq đã tắt các model này (07–08/2026) — cấu hình cũ trong DB/env tự đổi sang model thay thế Groq khuyên dùng
+MODEL_DA_TAT = {
+    "groq/llama-3.1-8b-instant": "groq/openai/gpt-oss-20b",
+    "groq/llama-3.3-70b-versatile": "groq/openai/gpt-oss-120b",
+    "groq/meta-llama/llama-4-scout-17b-16e-instruct": "groq/qwen/qwen3.8-27b",
+    "groq/qwen/qwen3-32b": "groq/openai/gpt-oss-120b",
+    "groq/qwen/qwen3.6-27b": "groq/qwen/qwen3.8-27b",
+}
+
+# OpenCode Zen: API kiểu OpenAI — "opencode/<id>" → litellm "openai/<id>" + api_base
+OPENCODE_API_BASE = "https://opencode.ai/inference/openai/v1"
+
+
+def chuan_model(model: str) -> str:
+    return MODEL_DA_TAT.get((model or "").strip(), (model or "").strip())
+
+
+def tham_so_model(model: str) -> dict[str, str]:
+    """Tham số litellm cho một model đã cấu hình (đổi model đã tắt, nối OpenCode)."""
+    model = chuan_model(model)
+    if model.startswith("opencode/"):
+        return {"model": "openai/" + model.removeprefix("opencode/"), "api_base": OPENCODE_API_BASE}
+    return {"model": model}
+
 
 # ---------------------------------------------------------------------------
 # Config cache (tránh query DB mỗi lần gọi LLM)
@@ -98,6 +126,8 @@ async def get_llm_config(db=None) -> dict[str, str]:
     except Exception as exc:
         logger.warning("Could not load LLM settings from DB, using env: %s", exc)
 
+    for k in ("llm_model", "llm_fallback_model"):
+        config[k] = chuan_model(config.get(k, ""))
     _cache = config
     _cache_at = time.time()
     return config
@@ -155,7 +185,10 @@ async def llm_complete(
 
     fallback_model = config.get("llm_fallback_model", "")
     if fallback_model and fallback_model != primary_model:
-        fb_key = config.get("llm_fallback_api_key") or config.get("llm_api_key", "")
+        fb_key = config.get("llm_fallback_api_key") or ""
+        # Mượn key chính chỉ khi cùng nhà cung cấp — không gửi key Groq sang OpenCode và ngược lại
+        if not fb_key and fallback_model.split("/")[0] == primary_model.split("/")[0]:
+            fb_key = system_key
         if fb_key or _needs_no_key(fallback_model):
             attempts.append((fallback_model, fb_key))
 
@@ -166,7 +199,7 @@ async def llm_complete(
     for model, api_key in attempts:
         try:
             params: dict[str, Any] = {
-                "model": model,
+                **tham_so_model(model),
                 "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,

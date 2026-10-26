@@ -132,7 +132,8 @@ async def doc_cccd(anh: bytes, mime: str | None = "image/jpeg") -> dict:
     from app.services.vat_tu_bao_gia_tep import MODEL_VISION_MAC_DINH
 
     cfg = await get_llm_config()
-    model = get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH
+    from app.services.llm_config import chuan_model
+    model = chuan_model(get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
     key = cfg.get("llm_api_key", "")
     if not key or cfg.get("llm_model", "").split("/")[0] != model.split("/")[0]:
         raise CccdError("Cấu hình AI hiện tại chưa đọc được ảnh — nhập tay giúp nhé", 503)
