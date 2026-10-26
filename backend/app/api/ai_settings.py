@@ -4,6 +4,7 @@
 mọi role đều hưởng cấu hình này. Chỉ admin được thay đổi.
 """
 
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -14,6 +15,9 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.services.automation import set_automation_setting
 from app.services.llm_config import (
+    MAX_FALLBACKS,
+    chuan_model,
+    ds_du_phong,
     FREE_MODEL_PRESETS,
     LLM_SETTING_KEYS,
     get_llm_config,
@@ -45,11 +49,18 @@ class AISettingsUpdate(BaseModel):
     llm_api_key: str | None = None
     llm_fallback_model: str | None = None
     llm_fallback_api_key: str | None = None
+    # Chuỗi dự phòng: api_key bỏ trống = giữ khoá đã lưu của model đó
+    fallbacks: list[dict] | None = None
 
 
 async def _settings_response(db: AsyncSession) -> dict:
     config = await get_llm_config(db)
     return {
+        "fallbacks": [
+            {"model": x["model"], "api_key_masked": _mask(x["api_key"]), "api_key_set": bool(x["api_key"])}
+            for x in ds_du_phong(config)
+        ],
+        "max_fallbacks": MAX_FALLBACKS,
         "llm_model": config.get("llm_model", ""),
         "llm_api_key_masked": _mask(config.get("llm_api_key", "")),
         "llm_api_key_set": bool(config.get("llm_api_key")),
@@ -75,7 +86,21 @@ async def update_ai_settings(
     _: User = Depends(_require_admin),
 ):
     updates = payload.model_dump(exclude_none=True)
-    if not updates:
+    fallbacks = updates.pop("fallbacks", None)
+    if fallbacks is not None:
+        cu = {x["model"]: x["api_key"] for x in ds_du_phong(await get_llm_config(db))}
+        moi = []
+        for x in fallbacks[:MAX_FALLBACKS]:
+            model = chuan_model(str(x.get("model") or ""))
+            if not model:
+                continue
+            key = str(x.get("api_key") or "").strip() or cu.get(model, "")
+            moi.append({"model": model, "api_key": key})
+        await set_automation_setting(db, "llm_fallbacks", json.dumps(moi))
+        # Giữ 2 ô cũ khớp với dự phòng đầu tiên (bản app cũ còn đọc)
+        await set_automation_setting(db, "llm_fallback_model", moi[0]["model"] if moi else "")
+        await set_automation_setting(db, "llm_fallback_api_key", moi[0]["api_key"] if moi else "")
+    elif not updates:
         raise HTTPException(status_code=400, detail="No settings provided")
 
     for key, value in updates.items():

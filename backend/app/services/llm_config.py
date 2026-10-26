@@ -13,6 +13,7 @@ Fallback flow: model chính lỗi → thử model fallback → raise để agent
 dùng rule-based fallback của riêng nó.
 """
 
+import json
 import logging
 import time
 from typing import Any
@@ -33,7 +34,10 @@ LLM_SETTING_KEYS = (
     "llm_api_key",
     "llm_fallback_model",
     "llm_fallback_api_key",
+    "llm_fallbacks",  # JSON [{model, api_key}] — chuỗi nhiều dự phòng (26/10/2026)
 )
+
+MAX_FALLBACKS = 5
 
 # Gợi ý model free (hiển thị trong UI)
 FREE_MODEL_PRESETS = [
@@ -92,6 +96,7 @@ def _env_defaults() -> dict[str, str]:
         "llm_api_key": settings.LLM_API_KEY,
         "llm_fallback_model": settings.LLM_FALLBACK_MODEL,
         "llm_fallback_api_key": "",
+        "llm_fallbacks": "",
     }
 
 
@@ -133,9 +138,33 @@ async def get_llm_config(db=None) -> dict[str, str]:
     return config
 
 
+def nha_cung_cap(model: str) -> str:
+    return (model or "").split("/")[0]
+
+
+def ds_du_phong(config: dict) -> list[dict[str, str]]:
+    """Chuỗi model dự phòng theo thứ tự. Cấu hình cũ (1 model) vẫn đọc được."""
+    try:
+        ds = json.loads(config.get("llm_fallbacks") or "[]")
+    except ValueError:
+        ds = []
+    kq = [
+        {"model": chuan_model(str(x.get("model") or "")), "api_key": str(x.get("api_key") or "")}
+        for x in ds if isinstance(x, dict) and x.get("model")
+    ]
+    if not kq and config.get("llm_fallback_model"):
+        kq = [{"model": config["llm_fallback_model"], "api_key": config.get("llm_fallback_api_key") or ""}]
+    return kq[:MAX_FALLBACKS]
+
+
 def _needs_no_key(model: str) -> bool:
     """Local models (ollama) don't need an API key."""
     return model.startswith("ollama")
+
+
+def _khoa_hop(model: str, key: str) -> bool:
+    """Chặn rõ ràng nhất: khoá Groq (gsk_) chỉ đi với model groq/ và ngược lại."""
+    return key.startswith("gsk_") == model.startswith("groq/")
 
 
 def _user_key_applies(model: str) -> bool:
@@ -180,17 +209,23 @@ async def llm_complete(
         # trùng nhau thì khỏi thử hai lần, model không phải Groq thì không dùng
         if user_key and user_key != system_key and _user_key_applies(primary_model):
             attempts.append((primary_model, user_key))
-        if system_key or _needs_no_key(primary_model):
+        if system_key and not _khoa_hop(primary_model, system_key):
+            logger.warning("Khoá chính không hợp model %s (khác nhà cung cấp) — bỏ qua", primary_model)
+        elif system_key or _needs_no_key(primary_model):
             attempts.append((primary_model, system_key))
 
-    fallback_model = config.get("llm_fallback_model", "")
-    if fallback_model and fallback_model != primary_model:
-        fb_key = config.get("llm_fallback_api_key") or ""
-        # Mượn key chính chỉ khi cùng nhà cung cấp — không gửi key Groq sang OpenCode và ngược lại
-        if not fb_key and fallback_model.split("/")[0] == primary_model.split("/")[0]:
-            fb_key = system_key
-        if fb_key or _needs_no_key(fallback_model):
-            attempts.append((fallback_model, fb_key))
+    du_phong = ds_du_phong(config)
+    # Khoá đã nhập theo nhà cung cấp — dự phòng bỏ trống khoá thì mượn khoá CÙNG nhà cung cấp,
+    # không bao giờ gửi khoá Groq sang OpenCode và ngược lại
+    khoa_ncc: dict[str, str] = {}
+    for m, k in [(primary_model, system_key)] + [(x["model"], x["api_key"]) for x in du_phong]:
+        if k and _khoa_hop(m, k):
+            khoa_ncc.setdefault(nha_cung_cap(m), k)
+    for x in du_phong:
+        fb_key = x["api_key"] if x["api_key"] and _khoa_hop(x["model"], x["api_key"]) else ""
+        fb_key = fb_key or khoa_ncc.get(nha_cung_cap(x["model"]), "")
+        if (fb_key or _needs_no_key(x["model"])) and (x["model"], fb_key) not in attempts:
+            attempts.append((x["model"], fb_key))
 
     if not attempts:
         raise RuntimeError("No LLM model configured (missing API key)")

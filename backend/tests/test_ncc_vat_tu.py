@@ -108,3 +108,42 @@ async def test_fallback_khac_nha_cung_cap_khong_muon_key(monkeypatch):
     with pytest.raises(RuntimeError):
         await lc.llm_complete([{"role": "user", "content": "hi"}])
     assert [p["model"] for p in goi] == ["groq/openai/gpt-oss-120b"]
+
+
+@pytest.mark.asyncio
+async def test_chuoi_nhieu_du_phong_muon_khoa_cung_nha(monkeypatch):
+    import json
+    from app.services import llm_config as lc
+    async def cfg(db=None):
+        return {"llm_model": "opencode/deepseek-v4.1-flash-free", "llm_api_key": "gsk_sai_nha",
+                "llm_fallbacks": json.dumps([
+                    {"model": "groq/openai/gpt-oss-120b", "api_key": "gsk_dung"},
+                    {"model": "opencode/deepseek-v4.1-flash", "api_key": "sk-oc"},
+                    {"model": "groq/qwen/qwen3.8-27b", "api_key": ""},
+                ])}
+    goi = []
+    async def fake(**p):
+        goi.append((p["model"], p.get("api_key")))
+        raise RuntimeError("down")
+    monkeypatch.setattr(lc, "get_llm_config", cfg)
+    monkeypatch.setattr(lc, "acompletion", fake)
+    with pytest.raises(RuntimeError):
+        await lc.llm_complete([{"role": "user", "content": "hi"}])
+    # model chính bị bỏ vì khoá Groq không gửi sang OpenCode; dự phòng 3 mượn khoá Groq
+    assert goi == [("groq/openai/gpt-oss-120b", "gsk_dung"), ("openai/deepseek-v4.1-flash", "sk-oc"),
+                   ("groq/qwen/qwen3.8-27b", "gsk_dung")]
+
+
+@pytest.mark.asyncio
+async def test_api_luu_chuoi_du_phong_giu_khoa(client, admin_user):
+    from app.services.llm_config import invalidate_llm_cache
+    r = await client.put("/api/v1/ai-settings", json={"fallbacks": [
+        {"model": "groq/openai/gpt-oss-120b", "api_key": "gsk_abcdefghijkl"},
+        {"model": "opencode/deepseek-v4.1-flash", "api_key": "sk-ocabcdefgh"}]}, headers=auth_header(admin_user))
+    assert r.status_code == 200 and len(r.json()["fallbacks"]) == 2
+    invalidate_llm_cache()
+    r = await client.put("/api/v1/ai-settings", json={"fallbacks": [
+        {"model": "opencode/deepseek-v4.1-flash", "api_key": ""}]}, headers=auth_header(admin_user))
+    fb = r.json()["fallbacks"]
+    assert fb[0]["api_key_set"] is True and "sk-ocabcdefgh" not in r.text
+    assert r.json()["llm_fallback_model"] == "opencode/deepseek-v4.1-flash"

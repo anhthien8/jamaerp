@@ -16,6 +16,17 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '26/10/2026',
+    title: 'AI: nhiều model dự phòng nối tiếp nhau',
+    tag: 'MỚI',
+    news: [
+      'Admin thêm được tối đa 5 model dự phòng (Groq, DeepSeek...) trong Cài đặt → Cấu hình AI Model. Model chính lỗi hoặc quá tải thì hệ thống thử lần lượt từng model.',
+      'Ô khoá của model dự phòng để trống thì tự mượn khoá cùng nhà cung cấp đã nhập. Khoá Groq không bao giờ bị gửi sang nhà cung cấp khác.',
+      'Cảnh báo ngay khi khoá chính không khớp model chính (vd chọn DeepSeek nhưng khoá là khoá Groq).',
+    ],
+    test: ['Admin: Cài đặt → Cấu hình AI Model → Thêm model dự phòng → Lưu → Test kết nối.'],
+  },
+  {
+    date: '26/10/2026',
     title: 'Tăng ca không cần duyệt — tính thành điểm chuyên cần',
     tag: 'THAY ĐỔI',
     news: [

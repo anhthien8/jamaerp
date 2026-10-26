@@ -2255,6 +2255,7 @@ class ApiClient {
     llm_api_key: string;
     llm_fallback_model: string;
     llm_fallback_api_key: string;
+    fallbacks: { model: string; api_key?: string }[];
   }>) {
     return this.request<AISettingsResponse>('/ai-settings', { method: 'PUT', body: data });
   }
@@ -3254,6 +3255,8 @@ export interface AISettingsResponse {
   llm_fallback_model: string;
   llm_fallback_api_key_masked: string;
   llm_fallback_api_key_set: boolean;
+  fallbacks?: { model: string; api_key_masked: string; api_key_set: boolean }[];
+  max_fallbacks?: number;
   presets: { label: string; model: string }[];
 }
 

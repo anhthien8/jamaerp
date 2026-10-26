@@ -240,7 +240,7 @@ async def test_key_ca_nhan_khong_dung_cho_model_khac_groq(monkeypatch):
     monkeypatch.setattr(
         llm_config_module,
         "get_llm_config",
-        _fake_config(llm_model="gemini/gemini-2.0-flash"),
+        _fake_config(llm_model="gemini/gemini-2.0-flash", llm_api_key="AIza_gemini_system_key"),
     )
     monkeypatch.setattr(llm_config_module, "acompletion", _capture_acompletion(calls))
 
@@ -252,7 +252,7 @@ async def test_key_ca_nhan_khong_dung_cho_model_khac_groq(monkeypatch):
 
     # Chỉ 1 attempt bằng key hệ thống — key cá nhân không rời khỏi nhà
     assert len(calls) == 1
-    assert calls[0]["api_key"] == SYSTEM_KEY
+    assert calls[0]["api_key"] == "AIza_gemini_system_key"
 
 
 # ---------------------------------------------------------------------------

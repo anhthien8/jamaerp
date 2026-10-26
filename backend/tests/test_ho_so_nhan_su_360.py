@@ -490,15 +490,7 @@ class TestWebhookGopCaVaChongPha:
                 json={"email": sales_user.email, "event_time": t, "direction": d},
                 headers={"X-Device-Key": key},
             )
-        # Admin duyệt OT (9h elapsed → 1h OT pending)
-        me = await client.get(
-            "/api/v1/attendance/ot/pending", headers=auth_header(admin_user)
-        )
-        rid = next(i["id"] for i in me.json()["items"] if i["user_id"] == sales_user.id)
-        approved = await client.post(
-            f"/api/v1/attendance/{rid}/ot-approve", headers=auth_header(admin_user)
-        )
-        assert approved.json()["record"]["ot_status"] == "approved"
+        # OT tự ghi nhận, không cần duyệt (26/10/2026)
 
         # Máy đẩy bù lượt quẹt 07:30 → giờ công PHẢI tính lại + vết duyệt cũ PHẢI xóa
         backfill = await client.post(

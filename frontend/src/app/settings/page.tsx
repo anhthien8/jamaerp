@@ -863,6 +863,12 @@ function BackupSection() {
   );
 }
 
+// Khoá Groq bắt đầu gsk_ — dán nhầm nhà cung cấp thì backend bỏ qua model đó
+function lechKhoa(model: string, masked: string): boolean {
+  if (!model || !masked || model.startsWith('ollama')) return false;
+  return masked.startsWith('gsk_') !== model.startsWith('groq/');
+}
+
 function AISettingsSection() {
   const [data, setData] = useState<AISettingsResponse | null>(null);
   const [saving, setSaving] = useState(false);
@@ -871,9 +877,9 @@ function AISettingsSection() {
   const [form, setForm] = useState({
     llm_model: '',
     llm_api_key: '',
-    llm_fallback_model: '',
-    llm_fallback_api_key: '',
   });
+  // Chuỗi dự phòng: thử lần lượt từ trên xuống. api_key trống = giữ khoá đã lưu
+  const [duPhong, setDuPhong] = useState<{ model: string; api_key: string; masked: string }[]>([]);
 
   useEffect(() => {
     api.getAISettings().then(s => {
@@ -881,8 +887,9 @@ function AISettingsSection() {
       setForm(f => ({
         ...f,
         llm_model: s.llm_model,
-        llm_fallback_model: s.llm_fallback_model,
       }));
+      setDuPhong((s.fallbacks ?? (s.llm_fallback_model ? [{ model: s.llm_fallback_model, api_key_masked: s.llm_fallback_api_key_masked, api_key_set: s.llm_fallback_api_key_set }] : []))
+        .map(x => ({ model: x.model, api_key: '', masked: x.api_key_masked })));
     }).catch(() => {
       // Fallback: vẫn hiện form để admin cấu hình (trước đây return null làm section biến mất)
       setData({
@@ -901,24 +908,24 @@ function AISettingsSection() {
     setSaving(true);
     setMessage('');
     try {
-      const payload: Record<string, string> = {
+      const payload: Parameters<typeof api.updateAISettings>[0] = {
         llm_model: form.llm_model,
-        llm_fallback_model: form.llm_fallback_model,
+        fallbacks: duPhong.filter(x => x.model.trim()).map(x => ({ model: x.model.trim(), api_key: x.api_key })),
       };
       // Chỉ gửi key khi người dùng nhập mới (tránh ghi đè bằng chuỗi rỗng)
       if (form.llm_api_key) payload.llm_api_key = form.llm_api_key;
-      if (form.llm_fallback_api_key) payload.llm_fallback_api_key = form.llm_fallback_api_key;
 
       const updated = await api.updateAISettings(payload);
       setData(updated);
-      setForm(f => ({ ...f, llm_api_key: '', llm_fallback_api_key: '' }));
+      setForm(f => ({ ...f, llm_api_key: '' }));
+      setDuPhong((updated.fallbacks ?? []).map(x => ({ model: x.model, api_key: '', masked: x.api_key_masked })));
       setMessage('✅ Đã lưu — áp dụng ngay cho toàn bộ AI agents & bot Telegram');
     } catch (e) {
       setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi lưu cài đặt'}`);
     } finally {
       setSaving(false);
     }
-  }, [form]);
+  }, [form, duPhong]);
 
   const test = useCallback(async () => {
     setTesting(true);
@@ -988,31 +995,58 @@ function AISettingsSection() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm block mb-1">Model dự phòng (fallback)</label>
-            <input
-              type="text"
-              value={form.llm_fallback_model}
-              onChange={e => setForm(f => ({ ...f, llm_fallback_model: e.target.value }))}
-              list="ds-model-ai"
-              placeholder="vd: opencode/deepseek-v4.1-flash-free"
-              className={`${inputCls} font-mono text-xs`}
-            />
-            <datalist id="ds-model-ai">{data.presets.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}</datalist>
+        {lechKhoa(form.llm_model, data.llm_api_key_masked) && (
+          <p className="text-xs" style={{ color: 'var(--danger, #f87171)' }}>
+            Khoá chính đang là khoá {data.llm_api_key_masked.startsWith('gsk_') ? 'Groq' : 'không phải Groq'} nhưng model chính {form.llm_model.startsWith('groq/') ? 'là Groq' : 'không phải Groq'} — dán khoá đúng nhà cung cấp, nếu không model chính sẽ bị bỏ qua.
+          </p>
+        )}
+
+        <div>
+          <label className="text-sm block mb-1">Chuỗi model dự phòng — thử lần lượt từ trên xuống</label>
+          <div className="space-y-2">
+            {duPhong.map((x, i) => (
+              <div key={i} className="rounded-xl border border-white/10 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--text-muted)] w-5">{i + 1}.</span>
+                  <select
+                    value={data.presets.some(p => p.model === x.model) ? x.model : '_custom'}
+                    onChange={e => { const v = e.target.value; if (v !== '_custom') setDuPhong(d => d.map((y, j) => j === i ? { ...y, model: v } : y)); }}
+                    className={inputCls}
+                  >
+                    {data.presets.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}
+                    <option value="_custom">Tùy chỉnh (nhập bên dưới)</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setDuPhong(d => d.filter((_, j) => j !== i))}
+                    className="shrink-0 p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10"
+                    aria-label="Xoá dự phòng"
+                  ><LineIcon name="xCircle" size={16} /></button>
+                </div>
+                <input
+                  type="text"
+                  value={x.model}
+                  onChange={e => { const v = e.target.value; setDuPhong(d => d.map((y, j) => j === i ? { ...y, model: v } : y)); }}
+                  placeholder="vd: opencode/deepseek-v4.1-flash"
+                  className={`${inputCls} font-mono text-xs`}
+                />
+                <input
+                  type="password"
+                  value={x.api_key}
+                  onChange={e => { const v = e.target.value; setDuPhong(d => d.map((y, j) => j === i ? { ...y, api_key: v } : y)); }}
+                  placeholder={x.masked ? `Đã lưu ${x.masked} — nhập để thay` : 'Khoá API (trống = mượn khoá cùng nhà cung cấp)'}
+                  className={inputCls}
+                />
+              </div>
+            ))}
           </div>
-          <div>
-            <label className="text-sm block mb-1">
-              API Key dự phòng {data.llm_fallback_api_key_set && <span className="text-xs text-[var(--text-muted)]">({data.llm_fallback_api_key_masked})</span>}
-            </label>
-            <input
-              type="password"
-              value={form.llm_fallback_api_key}
-              onChange={e => setForm(f => ({ ...f, llm_fallback_api_key: e.target.value }))}
-              placeholder="Trống = dùng key chính (chỉ khi cùng nhà cung cấp)"
-              className={inputCls}
-            />
-          </div>
+          {duPhong.length < (data.max_fallbacks ?? 5) && (
+            <button
+              type="button"
+              onClick={() => setDuPhong(d => [...d, { model: data.presets.find(p => !d.some(y => y.model === p.model) && p.model !== form.llm_model)?.model ?? '', api_key: '', masked: '' }])}
+              className="mt-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+            ><LineIcon name="plus" size={16} className="inline-block align-[-2px] mr-1.5" />Thêm model dự phòng</button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pt-2 border-t border-white/5 flex-wrap">
