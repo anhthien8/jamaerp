@@ -866,11 +866,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       ] },
       { "type": "h3", "text": "Giá Shopee, «Cần thương lượng» và gợi ý NCC (từ 26/10/2026)" },
       { "type": "list", "items": [
-        "Thu mua bấm **«Giá Shopee»** trên thẻ mẫu → app tìm sẵn theo hãng + mã qua Shopee Affiliate → bấm **Chọn** đúng sản phẩm. Giá Shopee hiện màu cam trên thẻ mẫu cho mọi người, kèm link mở Shopee (link tiếp thị của JAMA). Không tìm thấy thì dán link sản phẩm đã tìm tay.",
+        "Thu mua bấm **«Giá Shopee»** trên thẻ mẫu → app tìm sẵn theo hãng + mã → bấm **Chọn** đúng sản phẩm. Giá Shopee hiện màu cam trên thẻ mẫu cho mọi người, kèm link mở Shopee. Không tìm thấy thì dán link sản phẩm đã tìm tay.",
         "Giá Shopee **tự cập nhật sáng thứ Hai hằng tuần**. Mẫu không có trên Shopee thì để trống — app không đoán giá.",
         "Ở «Cần hỏi giá», báo giá NCC **đắt hơn Shopee** có nhãn đỏ «cao hơn Shopee x%». Tab **«Cần thương lượng»** gom tất cả các báo giá đó, chênh nhiều nhất lên đầu — mang số này đi đàm phán.",
         "Mở một dòng sẽ thấy **Gợi ý NCC**: xếp theo giá sau chiết khấu (rẻ nhất trước), bằng giá thì NCC JAMA đã mua nhiều tiền hơn lên trước. **% chiết khấu** của từng NCC nhập ở **Nhà cung cấp** → chọn NCC → «Chiết khấu: Sửa».",
-        "Admin nhập khoá Shopee (App ID + Secret) ở **Cài đặt → Tích hợp → Shopee Affiliate**, bấm «Thử» để kiểm tra."
+        "Admin bật tìm giá Shopee ở **Cài đặt → Tích hợp**."
       ] },
       { "type": "h3", "text": "Danh mục mẫu" },
       { "type": "list", "items": [

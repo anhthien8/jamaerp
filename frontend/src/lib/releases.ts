@@ -23,7 +23,6 @@ export const RELEASES: Release[] = [
       'Báo giá NCC đắt hơn Shopee có nhãn đỏ. Tab mới «Cần thương lượng» gom các báo giá đó, chênh nhiều nhất lên đầu.',
       'Mở một dòng «Cần hỏi giá» thấy Gợi ý NCC: rẻ nhất sau chiết khấu trước, bằng giá thì NCC JAMA đã mua nhiều hơn lên trước.',
       'Nhà cung cấp có thêm ô «Chiết khấu cho JAMA (%)».',
-      'Admin nhập khoá Shopee Affiliate ở Cài đặt → Tích hợp.',
     ],
     test: [
       'Thu mua: Danh mục mẫu → «Giá Shopee» trên một mẫu → Chọn sản phẩm → thẻ hiện giá cam.',

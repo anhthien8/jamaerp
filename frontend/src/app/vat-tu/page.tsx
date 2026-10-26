@@ -718,7 +718,7 @@ function ChonShopee({ mau, onDong, onXong, bao }: { mau: MauVatTu; onDong: () =>
           ))}
         </div>
         <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2">
-          <p className="text-xs text-[var(--text-muted)]">Hoặc dán link sản phẩm Shopee đã tìm tay — hệ thống đổi sang link tiếp thị của JAMA.</p>
+          <p className="text-xs text-[var(--text-muted)]">Hoặc dán link sản phẩm Shopee đã tìm tay.</p>
           <div className="flex gap-2">
             <input className={inp} value={link} onChange={e => setLink(e.target.value)} placeholder="https://shopee.vn/…" />
             <button className={btnGhost} disabled={link.trim().length < 8} onClick={doiLink}>Lưu link</button>

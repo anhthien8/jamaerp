@@ -47,7 +47,7 @@ def ky(app_id: str, secret: str, ts: int, payload: str) -> str:
 async def _goi(db: AsyncSession, query: str, variables: dict | None = None) -> dict:
     app_id, secret = await lay_khoa(db)
     if not app_id or not secret:
-        raise ShopeeError("Chưa cài khoá Shopee Affiliate — Admin vào Cài đặt → Shopee Affiliate", 503)
+        raise ShopeeError("Chưa bật tìm giá Shopee — báo Admin", 503)
     payload = json.dumps({"query": query, "variables": variables or {}}, separators=(",", ":"), ensure_ascii=False)
     ts = int(time.time())
     headers = {
