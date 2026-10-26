@@ -22,6 +22,7 @@ export const RELEASES: Release[] = [
       'Admin thêm được tối đa 5 model dự phòng (Groq, DeepSeek...) trong Cài đặt → Cấu hình AI Model. Model chính lỗi hoặc quá tải thì hệ thống thử lần lượt từng model.',
       'Ô khoá của model dự phòng để trống thì tự mượn khoá cùng nhà cung cấp đã nhập. Khoá Groq không bao giờ bị gửi sang nhà cung cấp khác.',
       'Cảnh báo ngay khi khoá chính không khớp model chính (vd chọn DeepSeek nhưng khoá là khoá Groq).',
+      'Nút «Test kết nối» thử riêng từng model trong chuỗi (chính + mọi dự phòng) và báo OK/lỗi cho từng dòng.',
     ],
     test: ['Admin: Cài đặt → Cấu hình AI Model → Thêm model dự phòng → Lưu → Test kết nối.'],
   },

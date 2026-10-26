@@ -932,7 +932,11 @@ function AISettingsSection() {
     setMessage('⏳ Đang test kết nối AI...');
     try {
       const res = await api.testAIConnection();
-      if (res.status === 'ok') {
+      if (res.ket_qua?.length) {
+        setMessage(res.ket_qua.map((x, i) =>
+          `${i === 0 ? 'Chính' : `Dự phòng ${i}`} · ${x.model} (${x.key_masked || 'không khoá'}): ` +
+          (x.status === 'ok' ? `OK — "${x.reply || '…'}"` : `LỖI — ${x.detail}`)).join('\n'));
+      } else if (res.status === 'ok') {
         setMessage(`✅ Model "${res.model}" phản hồi: "${res.reply}"`);
       } else {
         setMessage(`❌ Lỗi kết nối: ${res.detail}`);
@@ -1065,7 +1069,7 @@ function AISettingsSection() {
             <LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Test kết nối
           </button>
         </div>
-        {message && <p className="text-xs text-[var(--text-secondary)]">{message}</p>}
+        {message && <p className="text-xs text-[var(--text-secondary)] whitespace-pre-line">{message}</p>}
       </div>
     </div>
   );

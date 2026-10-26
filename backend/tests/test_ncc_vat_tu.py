@@ -147,3 +147,27 @@ async def test_api_luu_chuoi_du_phong_giu_khoa(client, admin_user):
     fb = r.json()["fallbacks"]
     assert fb[0]["api_key_set"] is True and "sk-ocabcdefgh" not in r.text
     assert r.json()["llm_fallback_model"] == "opencode/deepseek-v4.1-flash"
+
+
+@pytest.mark.asyncio
+async def test_nut_test_thu_tung_mat_xich(client, admin_user, monkeypatch):
+    from app.services import llm_config as lc
+    import json
+    async def cfg(db=None):
+        return {"llm_model": "groq/openai/gpt-oss-120b", "llm_api_key": "gsk_chinh12345",
+                "llm_fallbacks": json.dumps([{"model": "groq/openai/gpt-oss-20b", "api_key": "gsk_phu123456"},
+                                             {"model": "opencode/deepseek-v4.1-flash", "api_key": "sk-oc12345678"}])}
+    monkeypatch.setattr(lc, "get_llm_config", cfg)
+    goi = []
+    class R:
+        def __init__(s, t): s.choices = [type("C", (), {"message": type("M", (), {"content": t})()})()]
+    async def fake(**p):
+        goi.append(p.get("api_key"))
+        if p.get("api_key") == "gsk_phu123456":
+            raise RuntimeError("401 sai khoá")
+        return R("Chào")
+    monkeypatch.setattr(lc, "acompletion", fake)
+    r = (await client.post("/api/v1/ai-settings/test", headers=auth_header(admin_user))).json()
+    assert goi == ["gsk_chinh12345", "gsk_phu123456", "sk-oc12345678"]
+    assert [x["status"] for x in r["ket_qua"]] == ["ok", "error", "ok"] and r["status"] == "ok"
+    assert "gsk_phu123456" not in str(r)

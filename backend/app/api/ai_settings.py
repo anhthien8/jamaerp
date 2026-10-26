@@ -22,8 +22,11 @@ from app.services.llm_config import (
     LLM_SETTING_KEYS,
     get_llm_config,
     invalidate_llm_cache,
+    ds_lan_thu,
     llm_complete,
+    tham_so_model,
 )
+from app.services import llm_config as _lc
 from app.services.llm_user_key import current_user_llm_key
 
 router = APIRouter(prefix="/ai-settings", tags=["ai-settings"])
@@ -201,20 +204,29 @@ async def test_ai_connection(
     không thì key chung chết mà nút test vẫn báo "ok" bằng key riêng của admin.
     """
     invalidate_llm_cache()
-    khoa_ca_nhan = current_user_llm_key.set("")
-    try:
-        response = await llm_complete(
-            messages=[
-                {"role": "system", "content": "Bạn là trợ lý JAMA HOME. Trả lời đúng 1 câu ngắn."},
-                {"role": "user", "content": "Chào bạn, hệ thống hoạt động chứ?"},
-            ],
-            temperature=0.1,
-            max_tokens=50,
-        )
-        reply = response.choices[0].message.content
-        model_used = getattr(response, "model", "unknown")
-        return {"status": "ok", "model": model_used, "reply": reply}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)[:300]}
-    finally:
-        current_user_llm_key.reset(khoa_ca_nhan)
+    # Thử TỪNG mắt xích (model chính + mọi dự phòng) riêng rẽ, không dừng ở cái đầu tiên chạy được
+    lan_thu = ds_lan_thu(await _lc.get_llm_config())
+    if not lan_thu:
+        return {"status": "error", "detail": "Chưa cấu hình model nào có khoá hợp lệ", "ket_qua": []}
+    ket_qua = []
+    for model, key in lan_thu:
+        try:
+            r = await _lc.acompletion(
+                **tham_so_model(model),
+                messages=[
+                    {"role": "system", "content": "Bạn là trợ lý JAMA HOME. Trả lời đúng 1 câu ngắn."},
+                    {"role": "user", "content": "Chào bạn, hệ thống hoạt động chứ?"},
+                ],
+                temperature=0.1,
+                max_tokens=400,  # gpt-oss nghĩ trước khi trả lời — 50 token là hết lời
+                **({"api_key": key} if key else {}),
+            )
+            ket_qua.append({"model": model, "status": "ok", "key_masked": _mask(key),
+                            "reply": (r.choices[0].message.content or "").strip()})
+        except Exception as exc:  # noqa: BLE001
+            ket_qua.append({"model": model, "status": "error", "key_masked": _mask(key),
+                            "detail": str(exc)[:200]})
+    dau = next((x for x in ket_qua if x["status"] == "ok"), None)
+    if dau:
+        return {"status": "ok", "model": dau["model"], "reply": dau["reply"], "ket_qua": ket_qua}
+    return {"status": "error", "detail": ket_qua[0]["detail"], "ket_qua": ket_qua}

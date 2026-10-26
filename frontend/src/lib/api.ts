@@ -2260,7 +2260,8 @@ class ApiClient {
     return this.request<AISettingsResponse>('/ai-settings', { method: 'PUT', body: data });
   }
   async testAIConnection() {
-    return this.request<{ status: string; model?: string; reply?: string; detail?: string }>(
+    return this.request<{ status: string; model?: string; reply?: string; detail?: string;
+      ket_qua?: { model: string; status: string; key_masked: string; reply?: string; detail?: string }[] }>(
       '/ai-settings/test', { method: 'POST' }
     );
   }

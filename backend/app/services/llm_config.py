@@ -187,23 +187,11 @@ async def llm_available() -> bool:
     )
 
 
-async def llm_complete(
-    messages: list[dict[str, str]],
-    temperature: float = 0.2,
-    max_tokens: int = 800,
-    response_format: dict | None = None,
-    **kwargs: Any,
-):
-    """Central completion call: primary model → fallback model → raise.
-
-    Agents should catch the exception and use their own rule-based fallback.
-    """
-    config = await get_llm_config()
-
+def ds_lan_thu(config: dict, user_key: str = "") -> list[tuple[str, str]]:
+    """Thứ tự (model, khoá) sẽ thử: model chính → chuỗi dự phòng (dùng cho gọi thật và nút Test)."""
     attempts: list[tuple[str, str]] = []
     primary_model = config.get("llm_model", "")
     system_key = config.get("llm_api_key", "")
-    user_key = current_user_llm_key.get()
     if primary_model:
         # Key cá nhân của user đang request đứng TRƯỚC key hệ thống —
         # trùng nhau thì khỏi thử hai lần, model không phải Groq thì không dùng
@@ -226,6 +214,23 @@ async def llm_complete(
         fb_key = fb_key or khoa_ncc.get(nha_cung_cap(x["model"]), "")
         if (fb_key or _needs_no_key(x["model"])) and (x["model"], fb_key) not in attempts:
             attempts.append((x["model"], fb_key))
+
+    return attempts
+
+
+async def llm_complete(
+    messages: list[dict[str, str]],
+    temperature: float = 0.2,
+    max_tokens: int = 800,
+    response_format: dict | None = None,
+    **kwargs: Any,
+):
+    """Central completion call: primary model → fallback model → raise.
+
+    Agents should catch the exception and use their own rule-based fallback.
+    """
+    config = await get_llm_config()
+    attempts = ds_lan_thu(config, current_user_llm_key.get())
 
     if not attempts:
         raise RuntimeError("No LLM model configured (missing API key)")
