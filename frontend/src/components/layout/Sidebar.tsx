@@ -501,7 +501,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Mode Banner */}
         {mode === 'demo' ? (
-          <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
             <div className="flex items-center gap-2">
               <LineIcon name="target" size={16} color="#FBBF24" />
               <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>CHẾ ĐỘ TẬP LUYỆN</span>
@@ -512,7 +512,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         ) : (
-          <div className="mx-4 mt-4 px-4 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
+          <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>

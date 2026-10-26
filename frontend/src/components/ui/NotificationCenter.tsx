@@ -322,7 +322,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const bellButton = (
     <button
       onClick={() => setOpen(true)}
-      className="fixed top-[9px] right-4 z-40 lg:top-16 lg:bottom-auto lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
+      className="fixed top-[9px] right-4 z-40 lg:top-[17px] lg:bottom-auto lg:right-6 p-2 rounded-xl transition-all hover:bg-white/5"
       style={{ color: 'var(--text-tertiary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
       aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}
     >
