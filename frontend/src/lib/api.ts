@@ -1830,6 +1830,9 @@ class ApiClient {
     if (filters.department) params.department = filters.department;
     return this.request<{ items: ZaloSignalInfo[] }>('/zalo/signals', { params });
   }
+  async aiHieuQua(ky = 30) {
+    return this.request<AiHieuQua>('/ai/hieu-qua', { params: { ky: String(ky) } });
+  }
   async zaloOverview() {
     return this.request<ZaloOverview>('/zalo/overview');
   }
@@ -1851,13 +1854,13 @@ class ApiClient {
     return this.request<{ cau_hinh: CdtCauHinh; hieu_luc_tu: string }>('/che-do-thuong', { method: 'PUT', body: { cau_hinh } });
   }
   async cdtXemThu(ky: string) {
-    return this.request<CdtBang>('/che-do-thuong/xem-thu', { params: { ky } });
+    return this.request<CdtBang>('/che-do-thuong/xem-thu', { params: { ky: String(ky) } });
   }
   async cdtChot(ky: string) {
     return this.request<{ luc: string; so_nguoi: number; tong: number; ky_luong: string; approval_id: string | null }>('/che-do-thuong/chot', { method: 'POST', params: { ky } });
   }
   async cdtLoaiTru(ky: string) {
-    return this.request<{ ky: string; user_ids: string[]; ly_do: Record<string, string> }>('/che-do-thuong/loai-tru', { params: { ky } });
+    return this.request<{ ky: string; user_ids: string[]; ly_do: Record<string, string> }>('/che-do-thuong/loai-tru', { params: { ky: String(ky) } });
   }
   async cdtLuuLoaiTru(ky: string, user_ids: string[], ly_do: Record<string, string> = {}) {
     return this.request<{ ky: string; user_ids: string[] }>('/che-do-thuong/loai-tru', { method: 'PUT', params: { ky }, body: { user_ids, ly_do } });
@@ -3084,6 +3087,20 @@ export interface ZaloGroupInfo {
   department: string | null;
   member_count: number | null;
   last_message_at: string | null;
+}
+
+// GET /ai/hieu-qua — xem backend/app/services/ai_eval.py. Tỷ lệ null = chưa đủ mẫu.
+export interface AiTyLeThang { da_chot: number; thang: number; ti_le_thang: number | null }
+export interface AiHieuQua {
+  so_ngay: number;
+  goi_y: { tong: number; da_lam: number; bo_qua: number; chua_phan_hoi: number; ti_le_lam: number | null };
+  diem_lead: {
+    cao: AiTyLeThang;
+    thap: AiTyLeThang;
+    cham_sai: { id: string; name: string; ai_score: number; stage: string }[];
+  };
+  di_tiep_7_ngay: { sau_da_lam: number | null; sau_bo_qua: number | null };
+  nguon: { llm: number; luat: number; ti_le_llm: number | null };
 }
 
 export interface ZaloOverview {

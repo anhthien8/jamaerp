@@ -21,7 +21,7 @@ from app.models.ai_memory import (
 )
 from app.models.user import User
 from app.models.lead import Lead
-from app.services import ai_memory
+from app.services import ai_eval, ai_memory
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -213,6 +213,18 @@ async def ghi_nhan_ket_qua(
         note=note.strip() if isinstance(note, str) and note.strip() else None,
     )
     return tom_luoc_ban_ghi(ban)
+
+
+@router.get("/hieu-qua")
+async def hieu_qua_ai(
+    ky: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bốn chỉ số đo AI có giúp được ai không — chỉ admin xem."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin xem được hiệu quả AI")
+    return await ai_eval.tinh_hieu_qua(db, so_ngay=ky)
 
 
 @router.post("/score-lead")

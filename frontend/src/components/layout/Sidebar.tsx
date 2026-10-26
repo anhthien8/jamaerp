@@ -81,6 +81,8 @@ const ALL_ITEMS: NavItem[] = [
     : []),
   // Trợ lý Zalo — BGĐ + trưởng phòng; khớp pham_vi_zalo() backend (zalo_assistant.py)
   { href: '/tro-ly-zalo', label: 'Trợ lý Zalo', icon: Icon.zalo, check: duocXemTroLyZalo },
+  // Hiệu quả AI 26/10/2026 — khớp hieu_qua_ai() backend (api/ai.py): chỉ admin
+  { href: '/hieu-qua-ai', label: 'Hiệu quả AI', icon: Icon.kpi, roles: ['admin'] },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
   // Trước 13/08/2026 mục này gán 'canViewAccounting' ⇒ trưởng phòng/sale thấy menu
   // nhưng 4 API trang gọi đều gác canViewPnL → toàn 403. Menu phải khớp cổng backend.
@@ -103,7 +105,7 @@ const ALL_ITEMS: NavItem[] = [
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
   { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/approvals', '/attendance', '/projects', '/kpi'] },
-  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
+  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo', '/hieu-qua-ai'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
