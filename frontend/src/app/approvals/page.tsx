@@ -24,6 +24,7 @@ const TYPE_ICON: Record<string, string> = {
   expense: 'truck',
   overtime: 'alarm',
   bonus_batch: 'trophy',
+  commission_rate: 'gift',
 };
 
 type Tab = 'pending' | 'mine' | 'handled';

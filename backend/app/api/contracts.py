@@ -139,9 +139,12 @@ async def update_contract(
         if project and project.sales_id:
             commissions_created = []
 
-            # Design commission: 3% of design_value
+            # Mức hoa hồng: cơ cấu đã được BGĐ duyệt, có hiệu lực tới hôm nay (mặc định 3% / 2%)
+            from app.services.hoa_hong import muc_hoa_hong
+            hom_nay = datetime.now(timezone.utc).date()
+
             if project.design_value and project.design_value > 0:
-                rate = 0.03
+                rate = await muc_hoa_hong(db, "design_commission", hom_nay)
                 commission = Commission(
                     user_id=project.sales_id,
                     project_id=project.id,
@@ -156,9 +159,8 @@ async def update_contract(
                 db.add(commission)
                 commissions_created.append("design")
 
-            # Construction commission: 2% of construction_value
             if project.construction_value and project.construction_value > 0:
-                rate = 0.02
+                rate = await muc_hoa_hong(db, "construction_commission", hom_nay)
                 commission = Commission(
                     user_id=project.sales_id,
                     project_id=project.id,

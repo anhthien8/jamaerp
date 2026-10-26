@@ -1908,6 +1908,7 @@ class ApiClient {
   async getCommissionStructures() { return this.request<CommissionStructure[]>('/commission-structures'); }
   async createCommissionStructure(data: Partial<CommissionStructure>) { return this.request<CommissionStructure>('/commission-structures', { method: 'POST', body: data }); }
   async updateCommissionStructure(id: string, data: Partial<CommissionStructure>) { return this.request<CommissionStructure>(`/commission-structures/${id}`, { method: 'PUT', body: data }); }
+  async guiDuyetCommissionStructure(id: string) { return this.request<{ id: string; status: string }>(`/commission-structures/${id}/gui-duyet`, { method: 'POST' }); }
   async deleteCommissionStructure(id: string) { return this.request<unknown>(`/commission-structures/${id}`, { method: 'DELETE' }); }
 
   // === Notifications ===
@@ -2792,6 +2793,10 @@ export interface CommissionStructure {
   rate: number;
   effective_date: string;
   created_at: string;
+  // Chỉ 'da_duyet' mới được hợp đồng dùng (backend/app/services/hoa_hong.py)
+  status?: 'cho_duyet' | 'da_duyet' | 'tu_choi';
+  approval_id?: string | null;
+  approved_at?: string | null;
 }
 
 // === Notifications & Automation ===

@@ -33,6 +33,9 @@ export default function FinancePage() {
   const [loadError, setLoadError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  // Đặt mức hoa hồng mới (26/10/2026) — gửi BGĐ duyệt, duyệt xong mới áp dụng cho hợp đồng ký từ ngày hiệu lực
+  const [hhMoi, setHhMoi] = useState({ commission_type: 'design_commission', phan_tram: '', effective_date: '' });
+  const [dangGuiHh, setDangGuiHh] = useState(false);
   const [projectsList, setProjectsList] = useState<Array<{id: string, name: string}>>([]);
 
   // /salary-grades backend gác CHẶT HƠN canViewPnL (chỉ admin/kế toán) — executive
@@ -97,6 +100,48 @@ export default function FinancePage() {
   useEffect(() => {
     if (user && !canViewSalary && tab === 'salary-grades') setTab('fixed-costs');
   }, [user, canViewSalary, tab]);
+
+  // Khớp _require_admin() ở backend/app/api/commission_structures.py
+  const duocDatHoaHong = !isDemo && (user?.role === 'admin' || user?.role === 'accountant');
+
+  async function datMucHoaHong() {
+    const pt = Number(hhMoi.phan_tram.replace(',', '.'));
+    if (!(pt > 0 && pt <= 100) || !hhMoi.effective_date) {
+      toast('Nhập tỷ lệ (%) và ngày áp dụng', 'error');
+      return;
+    }
+    setDangGuiHh(true);
+    try {
+      await api.createCommissionStructure({
+        department: 'sales', commission_type: hhMoi.commission_type,
+        rate: pt / 100, effective_date: hhMoi.effective_date,
+      });
+      toast('Đã gửi Ban giám đốc duyệt. Duyệt xong mức mới mới áp dụng.', 'success');
+      setHhMoi(h => ({ ...h, phan_tram: '', effective_date: '' }));
+      await loadData();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setDangGuiHh(false);
+    }
+  }
+
+  async function guiDuyetLai(id: string) {
+    try {
+      await api.guiDuyetCommissionStructure(id);
+      toast('Đã gửi Ban giám đốc duyệt', 'success');
+      await loadData();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  }
+
+  const trangThaiHh = (c: CommissionStructure) => {
+    if (c.status === 'da_duyet') return { nhan: 'BGĐ đã duyệt', mau: '#34D399' };
+    if (c.status === 'tu_choi') return { nhan: 'BGĐ từ chối', mau: '#F87171' };
+    if (c.approval_id) return { nhan: 'Chờ BGĐ duyệt', mau: '#FBBF24' };
+    return { nhan: 'Chưa gửi duyệt', mau: 'var(--text-muted)' };
+  };
 
   if (loading) return <Sidebar><div className="p-6"><div className="skeleton h-8 w-64 rounded-xl" /></div></Sidebar>;
   if (!user) return null;
@@ -346,7 +391,39 @@ export default function FinancePage() {
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <h3 className="text-sm font-bold"><LineIcon name="gift" size={16} className="inline-block align-[-2px] mr-1.5" />Cơ cấu hoa hồng theo phòng ban</h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Hợp đồng ký xong dùng mức <b>đã được BGĐ duyệt</b> mới nhất có ngày áp dụng tới hôm đó. Chưa có mức nào thì dùng 3% thiết kế / 2% thi công.
+                  </p>
                 </div>
+                {duocDatHoaHong && (
+                  <div className="p-4 border-b flex flex-wrap items-end gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <label className="text-xs text-[var(--text-muted)] flex flex-col gap-1">
+                      Loại hoa hồng (Sale)
+                      <select value={hhMoi.commission_type} onChange={e => setHhMoi(h => ({ ...h, commission_type: e.target.value }))}
+                        className="min-h-[44px] px-3 rounded-xl bg-white/5 border border-white/10 text-sm text-[var(--text-primary)]">
+                        <option value="design_commission">HH thiết kế</option>
+                        <option value="construction_commission">HH thi công</option>
+                      </select>
+                    </label>
+                    <label className="text-xs text-[var(--text-muted)] flex flex-col gap-1">
+                      Tỷ lệ (%)
+                      <input inputMode="decimal" value={hhMoi.phan_tram} placeholder="vd 3,5"
+                        onChange={e => setHhMoi(h => ({ ...h, phan_tram: e.target.value }))}
+                        className="min-h-[44px] w-28 px-3 rounded-xl bg-white/5 border border-white/10 text-sm text-[var(--text-primary)]" />
+                    </label>
+                    <label className="text-xs text-[var(--text-muted)] flex flex-col gap-1">
+                      Áp dụng từ ngày
+                      <input type="date" value={hhMoi.effective_date}
+                        onChange={e => setHhMoi(h => ({ ...h, effective_date: e.target.value }))}
+                        className="min-h-[44px] px-3 rounded-xl bg-white/5 border border-white/10 text-sm text-[var(--text-primary)]" />
+                    </label>
+                    <button onClick={datMucHoaHong} disabled={dangGuiHh}
+                      className="min-h-[44px] px-5 rounded-full text-sm font-semibold disabled:opacity-50"
+                      style={{ background: 'var(--text-primary)', color: 'var(--surface-1, #000)' }}>
+                      {dangGuiHh ? 'Đang gửi…' : 'Gửi BGĐ duyệt'}
+                    </button>
+                  </div>
+                )}
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-3">
                   {commissions.map(c => (
@@ -355,6 +432,7 @@ export default function FinancePage() {
                         <p className="font-medium text-sm">{labelOf(DEPARTMENT_LABELS, c.department)}</p>
                         <p className="text-xs text-[var(--text-muted)] mt-0.5">{labelOf(COMMISSION_TYPE_LABELS, c.commission_type)}</p>
                         <p className="text-xs text-[var(--text-muted)]">Từ {c.effective_date}</p>
+                        <p className="text-xs mt-0.5" style={{ color: trangThaiHh(c).mau }}>{trangThaiHh(c).nhan}</p>
                       </div>
                       <span className="text-[var(--gold-400)] font-mono font-bold text-lg">{(c.rate * 100).toFixed(1)}%</span>
                     </div>
@@ -369,6 +447,7 @@ export default function FinancePage() {
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loại HH</th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tỷ lệ</th>
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">Áp dụng từ</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -378,6 +457,12 @@ export default function FinancePage() {
                           <td className="p-3 text-xs text-[var(--text-secondary)]">{labelOf(COMMISSION_TYPE_LABELS, c.commission_type)}</td>
                           <td className="p-3 text-right text-[var(--gold-400)] font-mono font-bold">{(c.rate * 100).toFixed(1)}%</td>
                           <td className="p-3 text-xs text-[var(--text-muted)]">{c.effective_date}</td>
+                          <td className="p-3 text-xs">
+                            <span style={{ color: trangThaiHh(c).mau }}>{trangThaiHh(c).nhan}</span>
+                            {duocDatHoaHong && c.status === 'cho_duyet' && !c.approval_id && (
+                              <button onClick={() => guiDuyetLai(c.id)} className="ml-2 underline text-[var(--text-secondary)]">Gửi duyệt</button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
