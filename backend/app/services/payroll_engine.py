@@ -164,7 +164,9 @@ async def build_payroll_row(
     ot_hours = summary["ot_approved_hours"]
 
     hourly = (base_salary / standard_days / STANDARD_HOURS_PER_DAY) if base_salary else 0.0
-    ot_pay = round(hourly * ot_hours * settings["ot_multiplier"])
+    # 26/10/2026: OT chỉ là điểm năng suất (Chế độ thưởng → Chuyên cần), không cộng tiền lương
+    ot_pay = 0
+    _ = hourly
 
     commission = await _commission_total(db, user.id, period)
     advance_total, advances = await _pending_advances(db, user.id, period)

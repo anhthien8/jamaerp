@@ -152,7 +152,7 @@ class TestAttendance:
         data = r.json()["record"]
         assert data["work_hours"] == 8.0
         assert data["ot_hours"] == pytest.approx(2.0, abs=0.1)
-        assert data["ot_status"] == "pending"
+        assert data["ot_status"] == "approved"
 
     @pytest.mark.asyncio
     async def test_ot_self_approve_forbidden(self, client, db_session, admin_user):

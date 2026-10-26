@@ -16,6 +16,17 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '26/10/2026',
+    title: 'Tăng ca không cần duyệt — tính thành điểm chuyên cần',
+    tag: 'THAY ĐỔI',
+    news: [
+      'Tăng ca (OT) không còn tính tiền và không cần chờ duyệt. Vào ca, tan ca như thường: giờ làm quá 8 tiếng tự ghi nhận.',
+      'Mỗi giờ OT cộng điểm chuyên cần (mặc định 1 điểm/giờ, tối đa 20 điểm/kỳ) để xét thưởng cá nhân và phòng ban cuối kỳ ở Chế độ thưởng.',
+      'Các OT đang chờ duyệt trước đây được chuyển thành «OT ghi nhận».',
+    ],
+    test: ['Chấm công: tan ca sau hơn 8 tiếng → bảng công hiện «OT ghi nhận», không còn khối duyệt OT.'],
+  },
+  {
+    date: '26/10/2026',
     title: 'AI: đổi sang model Groq còn hoạt động, thêm DeepSeek qua OpenCode',
     tag: 'SỬA LỖI',
     news: [

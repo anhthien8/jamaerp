@@ -425,7 +425,7 @@ class TestVanPhongVaMayChamCong:
         record = second.json()["record"]
         assert record["work_hours"] == 8  # 10.5h → 8h công + OT chờ duyệt
         assert record["ot_hours"] == 2.5
-        assert record["ot_status"] == "pending"
+        assert record["ot_status"] == "approved"
 
     async def test_webhook_email_la_404(self, client, admin_user):
         from app.services.attendance_service import vn_today
@@ -509,7 +509,7 @@ class TestWebhookGopCaVaChongPha:
         record = backfill.json()["record"]
         assert record["check_in"].startswith(f"{hom_nay} 00:30")
         assert record["ot_hours"] == 2.5  # 10.5h elapsed
-        assert record["ot_status"] == "pending"  # số giờ MỚI — phải duyệt lại
+        assert record["ot_status"] == "approved"  # OT tự ghi nhận (26/10)
         assert record["ot_decided_by_name"] is None  # vết duyệt cũ không còn ứng
 
     async def test_ngay_ngoai_cua_so_bi_chan_422(self, client, admin_user, sales_user):

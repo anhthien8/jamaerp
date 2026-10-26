@@ -36,8 +36,8 @@ const fmtTimeVN = (utcStr: string | null | undefined): string => {
 
 const OT_BADGE: Record<string, { label: string; color: string }> = {
   none: { label: '—', color: 'var(--text-muted)' },
-  pending: { label: 'OT chờ duyệt', color: '#fbbf24' },
-  approved: { label: 'OT đã duyệt', color: '#34d399' },
+  pending: { label: 'OT ghi nhận', color: '#34d399' },
+  approved: { label: 'OT ghi nhận', color: '#34d399' },
   rejected: { label: 'OT từ chối', color: '#f87171' },
 };
 
@@ -87,8 +87,8 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
       detail: needsReview > 0 ? `Còn ${needsReview} ca quên tan ca — sửa ở bảng công bên dưới` : 'Sạch',
     },
     {
-      key: 'ot', label: '2. Duyệt tăng ca tồn', done: otPending === 0,
-      detail: otPending > 0 ? `⏳ Còn ${otPending} OT chờ duyệt` : 'Sạch',
+      key: 'ot', label: '2. Tăng ca (tự ghi nhận)', done: otPending === 0,
+      detail: 'Sạch',
     },
     {
       key: 'generate', label: '3. Sinh bảng lương', done: !!status,
@@ -202,7 +202,7 @@ export default function AttendancePage() {
       setSummary(me.summary);
       setRecords(me.records);
       if (canSeeTeam) {
-        const [team, ot] = await Promise.all([api.teamAttendance(period), api.pendingOT()]);
+        const [team, ot] = await Promise.all([api.teamAttendance(period), Promise.resolve({ items: [] })]);
         setTeamRows(team.items);
         setPendingOT(ot.items);
       }
@@ -345,16 +345,6 @@ export default function AttendancePage() {
     } finally { setBusy(false); }
   };
 
-  const handleOT = async (id: string, ok: boolean) => {
-    try {
-      if (ok) await api.approveOT(id); else await api.rejectOT(id);
-      toast(ok ? 'Đã duyệt OT' : 'Đã từ chối OT', 'success');
-      await loadAttendance();
-    } catch (e) {
-      toast(`Lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
-    }
-  };
-
   if (loading || !user) return null;
 
   const checkedIn = !!today?.check_in;
@@ -400,7 +390,7 @@ export default function AttendancePage() {
                   {phutDangLam != null && (
                     <div className="text-sm mt-0.5" style={{ color: 'var(--gold-500)' }}>
                       <LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />Đang làm: <b>{Math.floor(phutDangLam / 60)}h{String(phutDangLam % 60).padStart(2, '0')}</b>
-                      {phutDangLam >= 480 && <span style={{ color: 'var(--text-muted)' }}> · đủ 8h công, phần sau tính OT (chờ duyệt)</span>}
+                      {phutDangLam >= 480 && <span style={{ color: 'var(--text-muted)' }}> · đủ 8h công, phần sau ghi nhận OT (điểm chuyên cần)</span>}
                     </div>
                   )}
                   {summary && period === currentPeriod() && (
@@ -455,7 +445,7 @@ export default function AttendancePage() {
                 <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   <span>Ngày công: <b style={{ color: 'var(--text-primary)' }}>{summary.work_days_fraction.toLocaleString('vi-VN')}{summary.standard_days ? ` / ${summary.standard_days}` : ''}</b> <span style={{ color: 'var(--text-muted)' }}>(không gồm OT)</span></span>
                   <span>Giờ: <b style={{ color: 'var(--text-primary)' }}>{summary.total_hours}h</b></span>
-                  <span>OT đã duyệt (tính riêng): <b style={{ color: 'var(--text-primary)' }}>{summary.ot_approved_hours}h</b></span>
+                  <span>OT ghi nhận (điểm chuyên cần, không tính tiền): <b style={{ color: 'var(--text-primary)' }}>{summary.ot_approved_hours}h</b></span>
                   {summary.needs_review > 0 && <span style={{ color: '#fbbf24' }}><LineIcon name="alert" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{summary.needs_review} ca cần xác nhận</span>}
                 </div>
               )}
@@ -506,25 +496,6 @@ export default function AttendancePage() {
               </table>
             </div>
 
-            {/* OT pending (approvers) */}
-            {isApprover && pendingOT.length > 0 && (
-              <div className="rounded-2xl p-4 border" style={{ borderColor: '#fbbf24', background: 'rgba(251,191,36,0.05)' }}>
-                <div className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}><LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />OT chờ duyệt ({pendingOT.length})</div>
-                <div className="space-y-2">
-                  {pendingOT.map(r => (
-                    <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        <b style={{ color: 'var(--text-primary)' }}>{r.full_name}</b> · {fmtDateVN(r.work_date)} · {r.ot_hours}h
-                      </span>
-                      <span className="flex gap-2">
-                        <button onClick={() => handleOT(r.id, true)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#34d399' }}><LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Duyệt</button>
-                        <button onClick={() => handleOT(r.id, false)} className="px-3 py-1 rounded-lg text-white text-xs font-semibold" style={{ background: '#f87171' }}><LineIcon name="xCircle" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Từ chối</button>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Team summary (leader/admin/accountant) */}
             {canSeeTeam && teamRows.length > 0 && (
@@ -538,7 +509,7 @@ export default function AttendancePage() {
                       <th className="text-left px-4 py-2">Nhân viên</th>
                       <th className="text-right px-4 py-2">Công</th>
                       <th className="text-right px-4 py-2">Giờ</th>
-                      <th className="text-right px-4 py-2">OT duyệt</th>
+                      <th className="text-right px-4 py-2">OT ghi nhận</th>
                       <th className="text-right px-4 py-2">Cần xác nhận</th>
                     </tr>
                   </thead>

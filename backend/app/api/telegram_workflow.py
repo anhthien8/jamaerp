@@ -829,7 +829,7 @@ async def office_checkout(
         "ot_status": record.ot_status,
         "message": (
             f"Tan ca thành công — giờ công: {record.work_hours}h"
-            + (f", tăng ca chờ duyệt: {record.ot_hours}h" if record.ot_hours else "")
+            + (f", tăng ca ghi nhận: {record.ot_hours}h" if record.ot_hours else "")
         ),
     }
 

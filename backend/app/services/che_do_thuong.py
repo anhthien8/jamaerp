@@ -102,6 +102,8 @@ CAU_HINH_MAC_DINH: dict = {
             "tru_quen_ra": 2,
             "tru_nghi_khong_phep": 15,
             "thuong_du_cong": 500_000,
+            "diem_moi_gio_ot": 1,     # OT không trả tiền, mỗi giờ cộng điểm chuyên cần
+            "tran_diem_ot": 20,
         },
         "phan_hoi": {
             "bat": True,
@@ -276,6 +278,8 @@ def chuan_hoa_cau_hinh(cfg: dict) -> dict:
     for k in ("tru_tre", "tru_quen_ra", "tru_nghi_khong_phep"):
         cc[k] = _so(cc.get(k), 0, 0, 100)
     cc["thuong_du_cong"] = _so(cc.get("thuong_du_cong"))
+    cc["diem_moi_gio_ot"] = _so(cc.get("diem_moi_gio_ot", 1), 1, 0, 10)
+    cc["tran_diem_ot"] = _so(cc.get("tran_diem_ot", 20), 20, 0, 100)
 
     ph = ct["phan_hoi"]
     ph["phong"] = [str(p) for p in (ph.get("phong") or []) if p][:10] or ["SALES"]
@@ -527,6 +531,7 @@ async def tinh_chuyen_can(db: AsyncSession, users: list[User], tu: date, den: da
             kq[u.id] = {"co_du_lieu": False, "diem": None, "tre": 0, "quen_ra": 0, "nghi_kp": 0, "du_cong": False}
             continue
         tre = quen = 0
+        ot_gio = 0.0
         co_mat: set[date] = set()
         for r in ds:
             co_mat.add(r.work_date)
@@ -535,14 +540,19 @@ async def tinh_chuyen_can(db: AsyncSession, users: list[User], tu: date, den: da
                     tre += 1
             if r.needs_review and "auto-close" in (r.note or ""):
                 quen += 1
+            if r.ot_status == "approved":
+                ot_gio += r.ot_hours or 0
         bat_dau = max(tu, dau_tien[u.id])
         vang = sum(
             1 for d in _ngay_lam_viec(bat_dau, het)
             if d not in co_mat and d not in ngay_phep.get(u.id, set())
         )
         diem = max(0.0, 100 - tre * cfg["tru_tre"] - quen * cfg["tru_quen_ra"] - vang * cfg["tru_nghi_khong_phep"])
+        diem_ot = min(ot_gio * cfg.get("diem_moi_gio_ot", 1), cfg.get("tran_diem_ot", 20))
+        diem += diem_ot
         kq[u.id] = {
             "co_du_lieu": True, "diem": round(diem, 1), "tre": tre, "quen_ra": quen,
+            "ot_gio": round(ot_gio, 2), "diem_ot": round(diem_ot, 1),
             "nghi_kp": vang, "du_cong": tre == 0 and vang == 0,
         }
     return kq

@@ -142,7 +142,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "Trưởng phòng",
-            "Số liệu chung (lead, pipeline, dự án, hợp đồng) + khối **⚡ Cần xử lý ngay**: khách quá hạn, đơn chờ duyệt, tăng ca chờ — bấm vào là tới nơi."
+            "Số liệu chung (lead, pipeline, dự án, hợp đồng) + khối **⚡ Cần xử lý ngay**: khách quá hạn, đơn chờ duyệt, — bấm vào là tới nơi."
           ],
           [
             "Giám sát",
@@ -1148,11 +1148,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Xem bảng công của bạn:** ngay dưới nút chấm công có ô chọn tháng. Bảng liệt kê từng ngày: giờ vào, giờ ra, giờ công, tăng ca (OT). Phía trên có tổng: Công, Giờ, OT đã duyệt. Ngày nào có dấu ⚠️ nghĩa là bạn quên bấm tan ca — báo trưởng phòng hoặc kế toán để xác nhận lại."
+        "text": "**Xem bảng công của bạn:** ngay dưới nút chấm công có ô chọn tháng. Bảng liệt kê từng ngày: giờ vào, giờ ra, giờ công, tăng ca (OT). Phía trên có tổng: Công, Giờ, OT ghi nhận. Ngày nào có dấu ⚠️ nghĩa là bạn quên bấm tan ca — báo trưởng phòng hoặc kế toán để xác nhận lại."
       },
       {
         "type": "tip",
-        "text": "Trưởng phòng, Trưởng nhóm KD (team mình), Kế toán và Giám đốc còn thấy thêm: khối «OT chờ duyệt» và bảng công team / toàn công ty ở cuối trang."
+        "text": "Trưởng phòng, Trưởng nhóm KD (team mình), Kế toán và Giám đốc còn thấy thêm: bảng công team / toàn công ty ở cuối trang."
       },
       {
         "type": "h3",
@@ -1162,7 +1162,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "**Từ 22/10 vào ca văn phòng phải bật vị trí (GPS) và đứng trong bán kính 20 m** quanh văn phòng. Ngoài bán kính, màn hình báo bạn đang cách văn phòng bao nhiêu mét và không cho vào ca. Đang dùng wifi văn phòng thì không cần GPS. Nhân viên hiện trường (Giám sát, Quản lý dự án) và check-in tại công trình không bị giới hạn này. Vào ca hợp lệ thì bảng công gắn nhãn **✓VP**.",
-          "Thẻ hôm nay có đồng hồ **«Đang làm: 3h12»** tự chạy và dòng **«Ngày công tháng này: X / 22 (không gồm OT)»**. Đủ 8 tiếng/ngày là 1 công; làm quá thì phần dư tính OT riêng, chờ duyệt.",
+          "Thẻ hôm nay có đồng hồ **«Đang làm: 3h12»** tự chạy và dòng **«Ngày công tháng này: X / 22 (không gồm OT)»**. Đủ 8 tiếng/ngày là 1 công; làm quá thì phần dư ghi nhận OT (điểm chuyên cần, không tính tiền).",
           "Tăng ca (OT) sau khi được duyệt sẽ hiện rõ **ai duyệt, lúc mấy giờ** ngay trong bảng công của bạn.",
           "**Trưởng nhóm Kinh doanh** từ nay duyệt được OT của người trong nhóm mình (trước chỉ Trưởng phòng/Admin/Kế toán).",
           "Công ty có máy chấm công thì Admin nối máy vào hệ thống ở **Cài đặt → Chấm công văn phòng** — lượt quẹt máy tự đổ về bảng công (nguồn hiện «Máy chấm công»)."
@@ -1203,7 +1203,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Giờ tăng ca hiện ngay trong bảng công của bạn kèm trạng thái: «OT chờ duyệt», «OT đã duyệt» hoặc «OT từ chối». Trưởng phòng / Trưởng nhóm KD (team mình) / Kế toán / Giám đốc duyệt OT trong khối **OT chờ duyệt** ở trang Chấm công — bấm **Duyệt** hoặc **Từ chối** từng ca."
+        "text": "Từ 26/10/2026 tăng ca **không tính tiền và không cần duyệt**. Cứ vào ca, tan ca đúng: phần làm quá 8 tiếng tự hiện «OT ghi nhận» trong bảng công và được cộng **điểm chuyên cần** (mặc định 1 điểm/giờ, tối đa 20 điểm/kỳ) — đây là căn cứ xét thưởng cá nhân hoặc phòng ban cuối kỳ ở trang Chế độ thưởng."
       },
       {
         "type": "h3",

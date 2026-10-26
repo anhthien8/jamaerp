@@ -261,8 +261,9 @@ def _compute_hours(record: AttendanceRecord, out_at: datetime) -> None:
     record.work_hours = round(min(elapsed, STANDARD_HOURS_PER_DAY), 2)
     ot = elapsed - STANDARD_HOURS_PER_DAY
     if ot >= OT_MIN_HOURS:
+        # 26/10/2026: OT không tính tiền, không cần duyệt — tự ghi nhận làm điểm chuyên cần
         record.ot_hours = round(ot, 2)
-        record.ot_status = "pending"
+        record.ot_status = "approved"
     else:
         record.ot_hours = 0
         record.ot_status = "none"
