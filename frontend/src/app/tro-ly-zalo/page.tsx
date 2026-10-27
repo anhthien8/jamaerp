@@ -18,6 +18,7 @@ import { api, ZaloDigestList, ZaloOverview, ZaloSignalInfo } from '@/lib/api';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
 import { duocXemTroLyZalo } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
+import CreateLeadModal from '@/components/ui/CreateLeadModal';
 
 const TEN_LOAI: Record<string, string> = {
   unanswered: 'Khách chờ',
@@ -64,6 +65,7 @@ export default function TroLyZaloPage() {
   const [ngay, setNgay] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
   const [dangLam, setDangLam] = useState('');
+  const [taoLead, setTaoLead] = useState<ZaloSignalInfo | null>(null);
 
   const duocXem = duocXemTroLyZalo(user);
   const laBgd = user?.role === 'admin' || user?.role === 'executive';
@@ -228,6 +230,13 @@ export default function TroLyZaloPage() {
                       <p className="text-sm text-[var(--text-primary)] mt-1.5 break-words">{s.summary}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
+                      {(s.type === 'lead_candidate' || s.type === 'quote_request') && s.status === 'new' && (
+                        <button
+                          onClick={() => setTaoLead(s)}
+                          className="min-h-[44px] px-4 rounded-full text-sm font-semibold"
+                          style={{ background: 'var(--gold-400)', color: '#000' }}
+                        >Tạo lead</button>
+                      )}
                       <button
                         disabled={dangLam === s.id}
                         onClick={() => xuLy(s, 'actioned')}
@@ -312,6 +321,11 @@ export default function TroLyZaloPage() {
           Dùng để nắm việc và chăm khách — không dùng để chấm điểm hay kỷ luật nhân viên. Tin nhắn gốc tự xóa sau 7 ngày.
         </p>
       </div>
+      {taoLead && (
+        <CreateLeadModal key={taoLead.id} isOpen onClose={() => setTaoLead(null)}
+          initialData={{ phone: typeof taoLead.payload?.phone === 'string' ? taoLead.payload.phone as string : '', source: 'zalo',
+            needs: `[Zalo · ${taoLead.group_name}] ${taoLead.summary}`.slice(0, 500) }} />
+      )}
     </Sidebar>
   );
 }

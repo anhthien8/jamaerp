@@ -22,6 +22,10 @@ STAGE_LABELS = {
 class LeadIntakeState(StatesGroup):
     waiting_text = State()
     confirming = State()
+    editing_field = State()
+
+
+TRUONG_SUA = {"name": "Tên", "phone": "SĐT", "address": "Địa chỉ", "needs": "Nhu cầu", "area_sqm": "Diện tích (m²)"}
 
 
 @router.message(Command("lead"))
@@ -55,8 +59,11 @@ async def process_lead_text(message: types.Message, state: FSMContext):
 
     # Store parsed data for confirmation
     await state.update_data(parsed_lead=parsed, raw_text=raw_text)
-    await state.set_state(LeadIntakeState.confirming)
+    await _hien_xac_nhan(message, state, parsed)
 
+
+async def _hien_xac_nhan(message: types.Message, state: FSMContext, parsed: dict):
+    await state.set_state(LeadIntakeState.confirming)
     # Build confirmation message
     confidence_emoji = "🟢" if parsed.get("confidence", 0) >= 0.7 else "🟡" if parsed.get("confidence", 0) >= 0.4 else "🔴"
 
@@ -112,7 +119,9 @@ async def confirm_lead(callback: types.CallbackQuery, state: FSMContext):
 
     result = await api.create_lead(callback.from_user.id, lead_data)
 
-    if result:
+    if result and result.get("error"):
+        await callback.message.edit_text(f"⚠️ {result['error']}")
+    elif result:
         await callback.message.edit_text(
             f"✅ <b>Lead đã lưu thành công!</b>\n\n"
             f"👤 {result.get('name')}\n"
@@ -138,14 +147,42 @@ async def cancel_lead(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "lead_edit")
 async def edit_lead(callback: types.CallbackQuery, state: FSMContext):
-    """Allow manual editing."""
-    await callback.message.edit_text(
-        "✏️ <b>Chỉnh sửa thủ công</b>\n\n"
-        "Tính năng này đang phát triển.\n"
-        "Vui lòng gửi /lead để nhập lại từ đầu."
-    )
-    await state.clear()
+    """Chọn trường cần sửa (trước đây báo «đang phát triển» rồi xoá luôn dữ liệu đã phân tích)."""
+    if not (await state.get_data()).get("parsed_lead"):
+        await callback.answer("Phiên đã hết, gửi /lead lại nhé.")
+        return
+    nut = [[InlineKeyboardButton(text=nhan, callback_data=f"lead_f:{k}")] for k, nhan in TRUONG_SUA.items()]
+    await callback.message.edit_text("✏️ Sửa trường nào?", reply_markup=InlineKeyboardMarkup(inline_keyboard=nut))
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("lead_f:"))
+async def chon_truong_sua(callback: types.CallbackQuery, state: FSMContext):
+    k = callback.data.split(":", 1)[1]
+    if k not in TRUONG_SUA:
+        await callback.answer()
+        return
+    await state.update_data(truong_sua=k)
+    await state.set_state(LeadIntakeState.editing_field)
+    await callback.message.edit_text(f"Gõ {TRUONG_SUA[k]} mới:")
+    await callback.answer()
+
+
+@router.message(LeadIntakeState.editing_field, F.text)
+async def nhan_gia_tri_sua(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    parsed = dict(data.get("parsed_lead") or {})
+    k = data.get("truong_sua")
+    gia_tri = message.text.strip()
+    if k == "area_sqm":
+        try:
+            gia_tri = float(gia_tri.replace(",", "."))
+        except ValueError:
+            await message.answer("Diện tích phải là số, VD 85")
+            return
+    parsed[k] = gia_tri
+    await state.update_data(parsed_lead=parsed)
+    await _hien_xac_nhan(message, state, parsed)
 
 
 # Also catch forwarded/pasted messages (non-command) as lead intake

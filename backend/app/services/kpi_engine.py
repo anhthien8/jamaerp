@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, func, case, literal_column, and_, extract
+from sqlalchemy import select, func, case, literal_column, and_, or_, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, Team
@@ -228,7 +228,8 @@ async def snapshot_all(db: AsyncSession, period: str) -> int:
     """Snapshot KPI for all active sales users. Returns count of snapshots created/updated."""
     users = (await db.execute(
         select(User).where(
-            User.role.in_(SALES_ROLES),
+            or_(User.role.in_(SALES_ROLES),
+                and_(User.department == "SALES", User.role.not_in(("admin", "executive")))),
             User.is_active == True,  # noqa: E712
         )
     )).scalars().all()

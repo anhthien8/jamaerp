@@ -11,6 +11,7 @@ Quyết định dự án: bản sao lưu offsite chỉ dùng Telegram. Google Dr
 """
 
 import asyncio
+import html
 import json
 import logging
 import os
@@ -399,6 +400,8 @@ async def _write_last(
     await set_setting(db, "backup_last_status", status)
     await set_setting(db, "backup_last_detail", detail)
     await set_setting(db, "backup_last_size_mb", "" if size_mb is None else str(size_mb))
+    if status == "success":
+        await set_setting(db, "backup_last_success_at", now_vn.isoformat())
 
 
 async def _finish_error(
@@ -412,7 +415,32 @@ async def _finish_error(
     await _write_last(db, now_vn, "error", reason, size_mb)
     await db.commit()
     logger.warning("Sao lưu lỗi: %s", reason)
+    await bao_loi_sao_luu(db, reason)
     return {"status": "error", "reason": reason}
+
+
+async def bao_loi_sao_luu(db: AsyncSession, reason: str) -> None:
+    """Báo lỗi sao lưu: nhắn nhóm Telegram backup + thông báo admin (không bao giờ raise)."""
+    try:
+        from app.models.notification import Notification
+        from app.models.user import User
+
+        cfg = await get_backup_settings(db)
+        chat_id = (cfg.get("backup_telegram_chat_id") or "").strip()
+        if chat_id and has_telegram_token():
+            from app.services.telegram_notify import send_telegram
+            try:
+                await send_telegram(int(chat_id), "Sao lưu JAMA ERP LỖI: " + html.escape(reason[:500]))
+            except Exception:  # noqa: BLE001
+                logger.warning("Không nhắn được nhóm backup", exc_info=True)
+        ref = datetime.now(VN_TZ).strftime("%Y-%m-%d")
+        admins = (await db.execute(select(User.id).where(User.role == "admin", User.is_active.is_(True)))).scalars().all()
+        for uid in admins:
+            db.add(Notification(user_id=uid, type="backup_loi", title="Sao lưu dữ liệu bị lỗi",
+                                body=reason[:1000], link="/settings", ref_id=ref))
+        await db.commit()
+    except Exception:  # noqa: BLE001
+        logger.exception("Không gửi được cảnh báo lỗi sao lưu")
 
 
 # ---------------------------------------------------------------------------
@@ -502,3 +530,26 @@ async def run_backup(db: AsyncSession) -> dict:
         "file_name": file_path.name,
         "sent_telegram": True,
     }
+
+
+async def kiem_tra_sao_luu_cu(db: AsyncSession, gio: int = 48) -> bool:
+    """Lần sao lưu thành công gần nhất quá `gio` giờ → cảnh báo. Trả True nếu đã báo."""
+    gia_tri = await get_setting(db, "backup_last_success_at")
+    if not gia_tri and await get_setting(db, "backup_last_status") == "success":
+        gia_tri = await get_setting(db, "backup_last_run_at")  # bản cài cũ chưa có khoá success_at
+    moc = None
+    if gia_tri:
+        try:
+            moc = datetime.fromisoformat(gia_tri)
+        except ValueError:
+            moc = None
+    if moc is not None:
+        if moc.tzinfo is None:
+            moc = moc.replace(tzinfo=VN_TZ)
+        if (datetime.now(VN_TZ) - moc).total_seconds() < gio * 3600:
+            return False
+        ly_do = f"Đã hơn {gio} giờ chưa có bản sao lưu thành công (lần cuối {moc.strftime('%d/%m/%Y %H:%M')})"
+    else:
+        ly_do = "Chưa từng có bản sao lưu thành công — kiểm tra Cài đặt → Sao lưu"
+    await bao_loi_sao_luu(db, ly_do)
+    return True

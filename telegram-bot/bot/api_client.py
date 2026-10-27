@@ -114,19 +114,11 @@ class APIClient:
             return None
 
     async def create_lead(self, tg_user_id: int, data: dict) -> dict | None:
-        """Create lead in ERP."""
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{self._base_url}/leads",
-                    json=data,
-                    headers=self._headers(tg_user_id),
-                )
-                if resp.status_code == 201:
-                    return resp.json()
-                return None
-        except Exception:
-            return None
+        """Create lead in ERP. Lỗi → {"error": "..."} (VD trùng SĐT 409 kèm tên sale phụ trách)."""
+        kq = await self._post(tg_user_id, "/leads", data, error_default="Lỗi khi lưu lead")
+        if kq and isinstance(kq.get("error"), dict):
+            kq["error"] = kq["error"].get("message") or "Lỗi khi lưu lead"
+        return kq
 
     async def get_pipeline(self, tg_user_id: int) -> list | None:
         """Get kanban pipeline."""

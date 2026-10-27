@@ -102,6 +102,9 @@ async def get_team_kpi(
             q = q.where(User.id == current_user.id)
 
     rows = (await db.execute(q.order_by(KpiSnapshot.score.desc()))).all()
+    if not rows and not await _co_snapshot(db, period):
+        await snapshot_all(db, period)  # kỳ chưa chụp → chụp ngay thay vì để trống
+        rows = (await db.execute(q.order_by(KpiSnapshot.score.desc()))).all()
 
     return {
         "period": period,
@@ -130,7 +133,13 @@ async def get_kpi_leaderboard(
     current_user: User = Depends(get_current_user),
 ):
     period = period or _current_period()
+    if not await _co_snapshot(db, period):
+        await snapshot_all(db, period)
     return await get_leaderboard(db, period, current_user.id)
+
+
+async def _co_snapshot(db: AsyncSession, period: str) -> bool:
+    return (await db.execute(select(KpiSnapshot.id).where(KpiSnapshot.period == period).limit(1))).first() is not None
 
 
 # ---------------------------------------------------------------------------

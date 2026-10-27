@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
-import { api, Team, User } from '@/lib/api';
+import { api, ApiError, Team, User } from '@/lib/api';
 import { TINH_THANH_TRUC_THUOC_TW, TINH_THANH_TINH, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 import LineIcon from '@/components/ui/LineIcon';
@@ -113,6 +113,7 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
   const [form, setForm] = useState<CreateLeadForm>(buildInitial);
   const [errors, setErrors] = useState<Partial<Record<keyof CreateLeadForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [trung, setTrung] = useState<{ message: string; lead_id: string } | null>(null);
   const { toast } = useToast();
 
   // ── Giao data: chọn TRƯỞNG NHÓM trước, rồi mới chọn nhân viên trong nhóm đó ──
@@ -224,6 +225,10 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
       setErrors({});
       onClose();
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && e.data?.lead_id) {
+        setTrung({ message: e.message, lead_id: String(e.data.lead_id) });
+        return;
+      }
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Không tạo được lead'}`, 'error');
     } finally {
       setSubmitting(false);
@@ -266,7 +271,12 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
               <input value={form.name} onChange={set('name')} placeholder="VD: Chị Mai" className="input" />
             </Field>
             <Field label="Số điện thoại *" error={errors.phone}>
-              <input value={form.phone} onChange={set('phone')} placeholder="0901234567" inputMode="tel" className="input" />
+              <input value={form.phone} onChange={e => { setTrung(null); set('phone')(e); }} placeholder="0901234567" inputMode="tel" className="input" />
+              {trung && (
+                <div className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                  {trung.message} · <a href={`/leads?id=${trung.lead_id}`} className="underline">Mở lead đó</a>
+                </div>
+              )}
             </Field>
           </div>
 

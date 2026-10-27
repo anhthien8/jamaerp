@@ -102,14 +102,21 @@ async def _llm_enrich(text: str) -> list[dict]:
             temperature=0.1, max_tokens=300,
             response_format={"type": "json_object"},
         )
-        data = json.loads(raw) if isinstance(raw, str) else raw
+        # llm_complete trả ModelResponse (không phải str/dict) — lấy content rồi parse (27/10/2026)
+        if isinstance(raw, (str, dict)):
+            noi_dung = raw
+        else:
+            noi_dung = raw.choices[0].message.content or ""
+        data = json.loads(noi_dung) if isinstance(noi_dung, str) else noi_dung
+        if not isinstance(data, dict):
+            return []
         out = []
         for s in (data.get("signals") or [])[:3]:
             if s.get("type") and s.get("summary"):
                 out.append({"type": s["type"], "summary": s["summary"][:500], "payload": {"excerpt": text[:200], "by": "llm"}})
         return out
     except Exception as exc:
-        logger.debug("Zalo LLM enrich skipped: %s", exc)
+        logger.warning("Zalo LLM enrich skipped: %s", exc)
         return []
 
 

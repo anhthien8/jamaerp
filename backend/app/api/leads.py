@@ -485,8 +485,17 @@ async def create_lead(
         if not can_assign_lead_to(current_user, assignee):
             raise HTTPException(status_code=403, detail="Trưởng nhóm chỉ được gắn nhân viên trong nhóm mình")
 
+    from app.services.so_dien_thoai import chuan_hoa_sdt, tim_lead_trung
+    trung = await tim_lead_trung(db, data.phone)
+    if trung:
+        chu = await db.get(User, trung.assigned_to) if trung.assigned_to else None
+        raise HTTPException(status_code=409, detail={
+            "message": f"Số này đã là lead «{trung.name}» do {chu.full_name if chu else 'chưa ai'} phụ trách",
+            "lead_id": trung.id, "owner_name": chu.full_name if chu else None,
+        })
+
     lead = Lead(
-        name=data.name, phone=data.phone, email=data.email,
+        name=data.name, phone=chuan_hoa_sdt(data.phone) or data.phone, email=data.email,
         contact_person=data.contact_person, address=data.address,
         needs=data.needs, source=data.source, channel=data.channel,
         property_type=data.property_type, area_sqm=data.area_sqm,

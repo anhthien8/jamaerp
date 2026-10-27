@@ -851,8 +851,12 @@ interface ApiOptions {
  *  một câu "Không thể tải dữ liệu" rồi tưởng hệ thống sập.
  */
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
+  public data?: Record<string, unknown>;
+  constructor(message: unknown, public status: number) {
+    // Backend có thể trả detail dạng {message, ...} (VD lead trùng SĐT 409)
+    const obj = message && typeof message === 'object' && !Array.isArray(message) ? message as Record<string, unknown> : undefined;
+    super(obj ? String(obj.message ?? `HTTP ${status}`) : Array.isArray(message) ? `HTTP ${status}` : String(message));
+    this.data = obj;
     this.name = 'ApiError';
   }
 }

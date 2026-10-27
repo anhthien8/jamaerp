@@ -12,7 +12,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Coroutine, Optional
 from zoneinfo import ZoneInfo
@@ -277,6 +277,16 @@ class BackgroundWorker:
                         vn_now,
                         priority=TaskPriority.NORMAL,
                     )
+
+            # 01:00 VN: chụp KPI kỳ hiện tại để «Đội nhóm»/«Bảng xếp hạng» có số (27/10/2026)
+            if vn_now.hour >= 1 and getattr(self, "_last_kpi_snapshot_date", None) != today_str:
+                self._last_kpi_snapshot_date = today_str
+                self.enqueue_task("kpi_snapshot", process_kpi_snapshot, priority=TaskPriority.LOW)
+
+            # 08:00 VN: cảnh báo nếu >48h chưa có bản sao lưu thành công
+            if vn_now.hour >= 8 and getattr(self, "_last_backup_stale_date", None) != today_str:
+                self._last_backup_stale_date = today_str
+                self.enqueue_task("backup_stale_check", process_backup_stale_check, priority=TaskPriority.LOW)
 
             # Auto-close ca quên checkout — 23:00 VN hàng ngày
             if vn_now.hour >= 23 and self._last_attendance_close_date != today_str:
@@ -566,6 +576,26 @@ async def process_backup() -> dict[str, Any]:
         return {"status": "completed", "result": result}
     except Exception as exc:
         logger.exception("Daily backup failed: %s", exc)
+        try:
+            from app.database import async_session
+            from app.services.backup_service import bao_loi_sao_luu
+
+            async with async_session() as session:
+                await bao_loi_sao_luu(session, f"Lỗi bất ngờ: {type(exc).__name__}")
+        except Exception:
+            pass
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_backup_stale_check() -> dict[str, Any]:
+    try:
+        from app.database import async_session
+        from app.services.backup_service import kiem_tra_sao_luu_cu
+
+        async with async_session() as session:
+            return {"status": "completed", "alerted": await kiem_tra_sao_luu_cu(session)}
+    except Exception as exc:
+        logger.exception("Backup stale check failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 
@@ -705,6 +735,20 @@ async def process_bod_reports(vn_now: datetime) -> dict[str, Any]:
         return {"status": "completed", "result": results}
     except Exception as exc:
         logger.exception("BOD report delivery failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_kpi_snapshot() -> dict[str, Any]:
+    try:
+        from app.database import async_session
+        from app.services.kpi_engine import snapshot_all
+
+        period = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m")
+        async with async_session() as session:
+            n = await snapshot_all(session, period)
+        return {"status": "completed", "users": n}
+    except Exception as exc:
+        logger.exception("KPI snapshot failed: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

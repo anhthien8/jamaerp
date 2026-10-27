@@ -1090,6 +1090,14 @@ async def update_user(
     ):
         raise HTTPException(status_code=403, detail="Chỉ người có quyền «Quản lý Users» mới được chuyển bộ phận nhân sự")
 
+    # Gạt «ngừng hoạt động» khi còn việc = việc mồ côi; phải qua luồng Nghỉ việc ở /hr (27/10/2026)
+    if provided.get("is_active") is False and user.is_active:
+        con = await _viec_con_mo(db, user.id)
+        if any(con.values()):
+            raise HTTPException(status_code=409, detail=(
+                f"Còn {con['lead']} lead / {con['viec']} việc / {con['du_an']} dự án đang phụ trách — "
+                "dùng luồng «Nghỉ việc» ở Nhân sự để bàn giao trước"))
+
     allowed = ["full_name", "phone", "role", "department", "team_id", "is_active", "telegram_user_id", "telegram_username", "salary_grade_id", "dependents_count"]
     before_sensitive = {
         "role": user.role, "is_active": user.is_active, "team_id": user.team_id,
@@ -1219,3 +1227,18 @@ async def set_user_permissions(
         "custom_permissions": perms or None,
         "message": "Đã cập nhật phân quyền",
     }
+
+
+async def _viec_con_mo(db: AsyncSession, user_id: str) -> dict:
+    from sqlalchemy import func, or_
+    from app.models.lead import Lead
+    from app.models.project import Project, Task, dieu_kien_task_cua_nguoi
+    lead = (await db.execute(select(func.count(Lead.id)).where(
+        Lead.assigned_to == user_id, Lead.stage.notin_(["lost", "dormant", "signed_design"])))).scalar() or 0
+    viec = (await db.execute(select(func.count(Task.id)).where(
+        dieu_kien_task_cua_nguoi(user_id), Task.status.notin_(["done", "cancelled"])))).scalar() or 0
+    du_an = (await db.execute(select(func.count(Project.id)).where(
+        or_(Project.pm_id == user_id, Project.designer_id == user_id, Project.sales_id == user_id,
+            Project.purchasing_id == user_id),
+        Project.status.notin_(["completed", "cancelled"])))).scalar() or 0
+    return {"lead": lead, "viec": viec, "du_an": du_an}

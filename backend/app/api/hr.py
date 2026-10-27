@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -131,6 +131,10 @@ async def resign_preview(
         "tasks": task_items,
         "lead_count": len(leads),
         "task_count": len(tasks),
+        "project_count": (await db.execute(select(func.count(Project.id)).where(
+            or_(Project.pm_id == user.id, Project.designer_id == user.id, Project.sales_id == user.id,
+                Project.purchasing_id == user.id),
+            Project.status.notin_(["completed", "cancelled"])))).scalar() or 0,
     }
 
 
@@ -241,6 +245,33 @@ async def resign(
         ))
         transferred_tasks += 1
 
+    # --- PIC dự án chưa đóng (27/10/2026): trước đây bỏ sót → dự án mất PM/sale/thu mua ---
+    transferred_projects = 0
+    for cot in ("pm_id", "designer_id", "sales_id", "purchasing_id"):
+        ds_da = (await db.execute(select(Project).where(
+            getattr(Project, cot) == user.id, Project.status.notin_(["completed", "cancelled"])))).scalars().all()
+        for proj in ds_da:
+            target = (lead_target_id if cot == "sales_id" else None) or task_target_id or (
+                proj.pm_id if cot != "pm_id" and proj.pm_id != user.id else None) or lead_target_id
+            if not target:
+                continue
+            setattr(proj, cot, target)
+            db.add(HandoverRecord(
+                from_user_id=user.id, from_user_name=user.full_name,
+                to_user_id=target, to_user_name=await _user_name(target),
+                entity_type="project", entity_id=proj.id, entity_name=f"{proj.code} ({cot[:-3]})",
+                reason="resign", actor_id=current_user.id, actor_name=current_user.full_name,
+            ))
+            transferred_projects += 1
+
+    # --- Gỡ đăng ký Web Push: máy của người nghỉ không nhận thông báo nữa ---
+    try:
+        from sqlalchemy import delete as _del
+        from app.models.push_subscription import PushSubscription
+        await db.execute(_del(PushSubscription).where(PushSubscription.user_id == user.id))
+    except Exception:
+        pass
+
     # --- Hoa hồng còn treo (pending/approved chưa paid) — báo kế toán chốt kỳ cuối ---
     from app.models.payroll import Commission, Payroll
     comm_result = await db.execute(
@@ -324,12 +355,13 @@ async def resign(
     return {
         "transferred_leads": transferred_leads,
         "transferred_tasks": transferred_tasks,
+        "transferred_projects": transferred_projects,
         "pending_commissions": len(pending_commissions),
         "pending_commission_total": pending_commission_total,
         "telegram_unlinked": old_telegram_id is not None,
         "final_payroll_created": final_payroll_created,
         "final_period": final_period,
-        "message": f"Đã chuyển giao {transferred_leads} leads và {transferred_tasks} tasks. Nhân viên {user.full_name} đã được nghỉ việc.",
+        "message": f"Đã chuyển giao {transferred_leads} lead, {transferred_tasks} việc, {transferred_projects} vị trí PIC dự án. Nhân viên {user.full_name} đã được nghỉ việc.",
     }
 
 

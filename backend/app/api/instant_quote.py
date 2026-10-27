@@ -20,6 +20,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.lead import Lead
+from app.services.so_dien_thoai import chuan_hoa_sdt, tim_lead_trung
 from app.models.pricing import PriceItem, PRICE_CATEGORIES, PRICE_UNITS
 from app.services.instant_quote import (
     ensure_price_items,
@@ -164,6 +165,21 @@ async def generate(
 # Public endpoint — lead magnet, chỉ trả khoảng giá
 # ---------------------------------------------------------------------------
 
+async def _tao_lead_web(db: AsyncSession, lead: Lead) -> None:
+    """Lead từ web chưa ai nhận → báo người chia data (trước đây nằm im không ai biết)."""
+    from app.middleware.rbac import can_assign_leads
+    from app.models.notification import Notification
+
+    db.add(lead)
+    await db.flush()
+    ds = (await db.execute(select(User).where(User.is_active.is_(True)))).scalars().all()
+    nhan = [u for u in ds if u.role != "admin" and can_assign_leads(u)] or [u for u in ds if u.role == "admin"]
+    for u in nhan:
+        db.add(Notification(user_id=u.id, type="lead_unassigned", title=f"Lead web mới: {lead.name}",
+                            body="Khách vừa xin báo giá trên website — cần chia cho sale", link=f"/leads?id={lead.id}",
+                            ref_id=lead.id))
+
+
 @router.post("/public")
 async def public_quote(
     request: Request,
@@ -177,12 +193,9 @@ async def public_quote(
     if payload.mode == "renovation":
         quote = generate_renovation_quote(payload.area_sqm, payload.floors)
         # Tạo lead
-        phone_clean = "".join(c for c in payload.phone if c.isdigit() or c == "+")
-        existing = await db.execute(
-            select(Lead).where(Lead.phone == phone_clean, Lead.stage.notin_(["lost"]))
-        )
-        if not existing.scalars().first():
-            db.add(Lead(
+        phone_clean = chuan_hoa_sdt(payload.phone)
+        if not await tim_lead_trung(db, phone_clean):
+            await _tao_lead_web(db, Lead(
                 name=payload.name.strip(),
                 phone=phone_clean,
                 source="website",
@@ -214,12 +227,9 @@ async def public_quote(
     tier = suggest_tier(quote, payload.budget)
 
     # Tạo lead
-    phone_clean = "".join(c for c in payload.phone if c.isdigit() or c == "+")
-    existing = await db.execute(
-        select(Lead).where(Lead.phone == phone_clean, Lead.stage.notin_(["lost"]))
-    )
-    if not existing.scalars().first():
-        db.add(Lead(
+    phone_clean = chuan_hoa_sdt(payload.phone)
+    if not await tim_lead_trung(db, phone_clean):
+        await _tao_lead_web(db, Lead(
             name=payload.name.strip(),
             phone=phone_clean,
             source="website",
