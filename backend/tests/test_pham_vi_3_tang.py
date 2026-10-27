@@ -66,10 +66,18 @@ async def _tao_doi(client, admin, name, code):
     return resp.json()["id"]
 
 
+import itertools as _it
+_SDT = _it.count(1)
+
+
+def _sdt():
+    return f"09{next(_SDT):08d}"
+
+
 async def _tao_lead(client, admin, ten, nguoi_id):
     resp = await client.post(
         "/api/v1/leads",
-        json={"name": ten, "phone": "0901234567", "assigned_to": nguoi_id},
+        json={"name": ten, "phone": _sdt(), "assigned_to": nguoi_id},
         headers=auth_header(admin),
     )
     assert resp.status_code == 200, resp.text

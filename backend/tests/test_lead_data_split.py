@@ -135,7 +135,7 @@ async def test_cskh_coordinator_can_assign_and_sees_all(client, db_session, admi
 async def test_scope_sale_and_non_sales_custom_role_see_only_own(client, db_session, admin_user, sales_user):
     """'Tài khoản tên nào, chỉ xem tên đó': sale + vai trò tùy chỉnh ngoài KD chỉ thấy lead của mình."""
     mine = (await _create_lead(client, admin_user, name="Của Sale", assigned_to=sales_user.id)).json()
-    other = (await _create_lead(client, admin_user, name="Của Admin")).json()
+    other = (await _create_lead(client, admin_user, name="Của Admin", phone="0907654321")).json()
 
     # Sale (data_entry): chỉ thấy lead được gắn cho mình
     resp = await client.get("/api/v1/leads", headers=auth_header(sales_user))

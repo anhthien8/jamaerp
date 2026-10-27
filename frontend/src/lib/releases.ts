@@ -15,6 +15,26 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '27/10/2026',
+    title: 'Gỡ 30 điểm vướng quy trình: tiền, lương, hiện trường, vận hành, hợp đồng',
+    tag: 'MỚI',
+    news: [
+      'Tiền: giá trị HĐ đã ký tự về dự án; bấm «Đã thu» sinh luôn giao dịch thu ở Tài chính; thu một phần và sửa lịch thu (số đợt, %, hạn thu); vật tư đã đặt tính vào chi phí dự án.',
+      'Lương: ngày lễ được tính công (Cài đặt lịch lễ thêm Tết âm, nghỉ bù); rút đơn nghỉ thì hoàn phép; quản lý sửa được ca quên chấm (ghi lý do); nhân viên nghỉ việc vẫn có bảng lương kỳ cuối.',
+      'Hiện trường: sự cố có hạn xử lý theo mức (khẩn 4 giờ → thấp 7 ngày) và tự giao PM/thiết kế; /baocao chọn đúng đầu việc; trang «Việc của tôi» gom mọi việc đang mở; vật tư gửi từ bot vào thẳng Thu mua; khách duyệt giá vật tư trên trang tiến độ.',
+      'Vận hành: KPI tự chụp số hằng tháng; tin Zalo có SĐT tạo lead; không khoá được tài khoản còn việc dở; nghỉ việc tự bàn giao vai PIC; báo ngay khi sao lưu lỗi hoặc quá 48 giờ chưa sao lưu; tạo lead trùng SĐT bị chặn kèm link lead cũ; bot /lead sửa được từng ô trước khi lưu.',
+      'Hợp đồng: báo giá gắn lead và ghi vào nhật ký lead; báo giá đã duyệt mà sửa tiền thì quay về nháp; ký HĐ thiết kế tự lấy báo giá đã duyệt và tự tạo/khớp khách hàng theo SĐT; bật/tắt trang khách ngay ở Khách hàng.',
+      'Dự án: «Tạm dừng» giữ nguyên giai đoạn đang làm, chạy lại là về đúng chỗ; chuyển «Hoàn thành» tự ghi ngày bàn giao, tính bảo hành và nghiệm thu HĐ thi công; sự cố báo sau bàn giao thành việc Bảo hành cho PM; khối «Khách đã nghiệm thu» trong chi tiết dự án.',
+      'Phụ lục HĐ: nút «+ Phụ lục» ở hợp đồng gốc, giá trị phát sinh (dương) hoặc giảm trừ (âm) tự cộng vào giá trị dự án.',
+      'Báo cáo nội bộ: /baocao mở đầu bằng #noibo thì khách không thấy trên trang tiến độ.',
+    ],
+    test: [
+      'Tạo lead với SĐT đã có → báo trùng kèm «Mở lead đó».',
+      'Dự án đang Thi công → Tạm dừng → chạy lại vẫn ở Thi công.',
+      'Hợp đồng → chọn HĐ gốc → «+ Phụ lục» → giá trị dự án tăng tương ứng.',
+    ],
+  },
+  {
     date: '26/10/2026',
     title: 'AI: nhiều model dự phòng nối tiếp nhau',
     tag: 'MỚI',

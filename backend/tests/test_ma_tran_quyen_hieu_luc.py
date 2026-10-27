@@ -158,6 +158,9 @@ async def test_gd3_thiet_ke_khong_vao_kho(client, db_session):
 # feedback/telegram (shared secret của bot). Thêm route công khai MỚI thì phải
 # cân nhắc + bổ sung vào đây CÓ CHỦ ĐÍCH — test này chặn kiểu "quên gác".
 ROUTE_CONG_KHAI = {
+    # khách duyệt giá vật tư qua token portal (27/10)
+    "/api/v1/portal/{token}/projects/{project_id}/vat-tu",
+    "/api/v1/portal/{token}/vat-tu/{dong_id}/dong-y",
     "/api/v1/auth/login",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",

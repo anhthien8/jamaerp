@@ -481,7 +481,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "Bấm vào thẻ dự án → hiện cửa sổ chi tiết: tiến độ, tổng giá trị, đã chi, **Phân công bộ phận** (PM/Giám sát – Thiết kế – Báo giá/Thu mua – Kinh doanh), thông tin khách, ngân sách và cảnh báo khi chi vượt.",
-          "Đổi giai đoạn bằng ô **«Giai đoạn:»** ở góc trên cửa sổ. Chọn **«Tạm dừng»** thì hệ thống hỏi lý do (VD: đang xin phép, khách đi du lịch...) — nhập rồi bấm **«Xác nhận tạm dừng»**.",
+          "Đổi giai đoạn bằng ô **«Giai đoạn:»** ở góc trên cửa sổ. Chọn **«Tạm dừng»** thì hệ thống hỏi lý do (VD: đang xin phép, khách đi du lịch...) — nhập rồi bấm **«Xác nhận tạm dừng»**. Dự án vẫn giữ giai đoạn đang làm: chọn lại giai đoạn là chạy tiếp đúng chỗ.",
+          "Chọn **«Hoàn thành»**: hệ thống tự ghi ngày bàn giao (nếu chưa có), tính hạn bảo hành và chuyển HĐ thi công đã ký sang nghiệm thu. Sự cố báo sau đó tự thành việc **Bảo hành** giao PM. Khách xác nhận nghiệm thu trên trang tiến độ thì hiện ở khối **«Khách đã nghiệm thu»**.",
           "Kéo xuống mục **«Đầu việc»** — có thể xem gộp **«Theo giai đoạn»** hoặc **«Theo phòng ban»** (mỗi phòng thấy ngay phần việc của mình; phòng chưa tới lượt hiện mờ kèm chữ «Chờ giai đoạn trước»)."
         ]
       },
@@ -705,7 +706,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Bấm nút **+ Tạo hợp đồng mới** ở góc phải trên. Chỉ người có quyền **«Tạo hợp đồng»** mới tạo/sửa được (từ 22/10 vai trò tùy chỉnh phải được quản trị tick ô này trong Phân quyền).",
           "Nhập **Tiêu đề hợp đồng** (bắt buộc), chọn Dự án nếu có.",
           "Điền Giá trị hợp đồng, Số ngày thi công, Ngày bắt đầu, Ngày ký, Ghi chú.",
-          "Bấm **Tạo hợp đồng** để lưu. Muốn sửa lại, bấm nút **Sửa** màu xanh ở cuối dòng hợp đồng đó."
+          "Bấm **Tạo hợp đồng** để lưu. Muốn sửa lại, bấm nút **Sửa** màu xanh ở cuối dòng hợp đồng đó.",
+          "Phát sinh hoặc giảm trừ: mở hợp đồng gốc → **«+ Phụ lục»** → nhập nội dung và giá trị (giảm trừ ghi số âm). Phụ lục có mã «…-PL1», giá trị dự án tự cộng."
         ]
       },
       {

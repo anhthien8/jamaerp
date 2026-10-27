@@ -927,26 +927,33 @@ function AISettingsSection() {
     }
   }, [form, duPhong]);
 
+  // Test chạy trên cấu hình ĐÃ LƯU ở server — sửa mà chưa bấm Lưu thì nhắc, kẻo tưởng đang thử bản mới
+  const chuaLuu = !!data && (
+    !!form.llm_api_key || form.llm_model !== data.llm_model || duPhong.some(x => x.api_key) ||
+    duPhong.filter(x => x.model.trim()).map(x => x.model.trim()).join('|') !==
+      (data.fallbacks ?? []).map(x => x.model).join('|'));
+
   const test = useCallback(async () => {
     setTesting(true);
     setMessage('⏳ Đang test kết nối AI...');
+    const nhac = chuaLuu ? 'Bạn có thay đổi CHƯA LƯU — kết quả dưới đây là của cấu hình đã lưu. Bấm «Lưu cấu hình AI» rồi test lại.\n' : '';
     try {
       const res = await api.testAIConnection();
       if (res.ket_qua?.length) {
-        setMessage(res.ket_qua.map((x, i) =>
+        setMessage(nhac + res.ket_qua.map((x, i) =>
           `${i === 0 ? 'Chính' : `Dự phòng ${i}`} · ${x.model} (${x.key_masked || 'không khoá'}): ` +
           (x.status === 'ok' ? `OK — "${x.reply || '…'}"` : `LỖI — ${x.detail}`)).join('\n'));
       } else if (res.status === 'ok') {
-        setMessage(`✅ Model "${res.model}" phản hồi: "${res.reply}"`);
+        setMessage(`${nhac}✅ Model "${res.model}" phản hồi: "${res.reply}"`);
       } else {
-        setMessage(`❌ Lỗi kết nối: ${res.detail}`);
+        setMessage(`${nhac}❌ Lỗi kết nối: ${res.detail}`);
       }
     } catch (e) {
       setMessage(`❌ ${e instanceof Error ? e.message : 'Lỗi test'}`);
     } finally {
       setTesting(false);
     }
-  }, []);
+  }, [chuaLuu]);
 
   if (!data) return null;
 

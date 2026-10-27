@@ -69,7 +69,16 @@ async def _tao_doi(client, admin, *, name, code, leader_id=None):
     return resp.json()
 
 
-async def _tao_lead(client, actor, *, name, assigned_to=None, phone="0901234567"):
+import itertools as _it
+_SDT = _it.count(1)
+
+
+def _sdt():
+    return f"09{next(_SDT):08d}"
+
+
+async def _tao_lead(client, actor, *, name, assigned_to=None, phone=None):
+    phone = phone or _sdt()
     body = {"name": name, "phone": phone}
     if assigned_to:
         body["assigned_to"] = assigned_to
@@ -138,7 +147,7 @@ async def test_truong_nhom_chi_thay_lead_nhom_minh(client, bo_may):
     assert bo_may["lead_b1"]["id"] not in ids
     # SĐT lead trong nhóm: đầy đủ, không bị che
     lead = next(l for l in resp.json()["items"] if l["id"] == bo_may["lead_a1"]["id"])
-    assert lead["phone"] == "0901234567"
+    assert "*" not in lead["phone"]
 
     # Kanban lọc y hệt danh sách
     resp = await client.get("/api/v1/leads/pipeline/kanban", headers=h)
@@ -219,7 +228,7 @@ async def test_truong_nhom_chua_xep_doi(client, db_session, admin_user, bo_may):
     ids = [l["id"] for l in resp.json()["items"]]
     assert ids == [lead_c["id"]]
     # SĐT lead của CHÍNH mình phải đầy đủ — còn phải gọi khách
-    assert resp.json()["items"][0]["phone"] == "0901234567"
+    assert resp.json()["items"][0]["phone"].isdigit()
 
     # Thấy trong danh sách thì phải MỞ và LÀM được: review đối kháng 14/08 bắt
     # được vụ trưởng nhóm teamless thấy lead của mình nhưng mở/đổi giai đoạn
@@ -257,7 +266,7 @@ async def test_cskh_chia_thay_truong_nhom_khong_can_quyen_nhan_su(client, db_ses
     resp = await client.get("/api/v1/leads", headers=h)
     ids = [l["id"] for l in resp.json()["items"]]
     assert {bo_may["lead_a1"]["id"], bo_may["lead_b1"]["id"]} <= set(ids)
-    assert all(l["phone"] == "0901234567" for l in resp.json()["items"])
+    assert all("*" not in l["phone"] for l in resp.json()["items"])
 
     # Chia chéo đội thay trưởng nhóm: lead đội A → sale đội B, team_id đi theo
     resp = await client.post(

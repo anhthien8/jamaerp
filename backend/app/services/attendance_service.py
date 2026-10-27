@@ -338,7 +338,7 @@ async def month_records(db: AsyncSession, user_id: str, period: str) -> list[Att
 def _empty_summary(period: str) -> dict:
     return {
         "period": period, "records": 0, "work_days": 0, "work_days_fraction": 0.0,
-        "total_hours": 0.0, "ot_approved_hours": 0.0, "needs_review": 0,
+        "total_hours": 0.0, "ot_approved_hours": 0.0, "needs_review": 0, "ngay_le": 0,
     }
 
 
@@ -384,7 +384,23 @@ async def team_month_summary(db: AsyncSession, user_ids: list[str], period: str)
             "total_hours": round(float(hours or 0), 2),
             "ot_approved_hours": round(float(ot_hours or 0), 2),
             "needs_review": int(review or 0),
+            "ngay_le": 0,
         }
+    # Ngày lễ không đi làm vẫn được 1 công — giống month_summary()
+    nam, thang = int(period[:4]), int(period[5:7])
+    from datetime import timedelta as _td
+    le = await ngay_le_trong_khoang(db, start, end - _td(days=1)) if summaries else set()
+    if le:
+        da_lam: dict[str, set] = {}
+        r2 = await db.execute(select(AttendanceRecord.user_id, AttendanceRecord.work_date).where(
+            AttendanceRecord.user_id.in_(list(summaries)), AttendanceRecord.work_hours > 0,
+            AttendanceRecord.work_date >= start, AttendanceRecord.work_date < end))
+        for uid, d in r2.all():
+            da_lam.setdefault(uid, set()).add(d)
+        for uid, s in summaries.items():
+            n = sum(1 for d in le if d not in da_lam.get(uid, set()))
+            s["ngay_le"] = n
+            s["work_days_fraction"] = round(s["work_days_fraction"] + n, 2)
     return summaries
 
 
