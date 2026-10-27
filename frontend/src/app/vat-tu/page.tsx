@@ -362,7 +362,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
   const [phieu, setPhieu] = useState<PhieuVatTu | null>(null);
   const [loading, setLoading] = useState(false);
   const [moThem, setMoThem] = useState(false);
-  const [form, setForm] = useState<{ phong: string; hang_muc: string; mau_id: string | null; ma_tu_do: string; so_luong: number; don_vi: string; ghi_chu: string }>({ phong: 'Chung', hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, don_vi: 'm2', ghi_chu: '' });
+  const [form, setForm] = useState<{ phong: string; hang_muc: string; mau_id: string | null; ma_tu_do: string; so_luong: number; don_vi: string; ghi_chu: string; can_ngay: string }>({ phong: 'Chung', hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, don_vi: 'm2', ghi_chu: '', can_ngay: '' });
   const [dongY, setDongY] = useState<{ id: string; ghi_chu: string } | null>(null);
 
   useEffect(() => { api.getProjects({ page_size: '200' }).then(r => setDuAns(r.items || [])).catch(() => setDuAns([])); }, []);
@@ -377,8 +377,8 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
   const them = async () => {
     if (!form.mau_id && !form.ma_tu_do.trim()) { bao('loi', 'Chọn mẫu hoặc gõ mã'); return; }
     try {
-      await api.vatTuThemDong(pid, { phong: form.phong || 'Chung', hang_muc: form.hang_muc || null, mau_id: form.mau_id, ma_tu_do: form.mau_id ? null : form.ma_tu_do, so_luong: form.so_luong, don_vi: form.don_vi, ghi_chu: form.ghi_chu || null });
-      bao('ok', 'Đã thêm vào phiếu'); setMoThem(false); setForm(f => ({ ...f, hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, ghi_chu: '' })); tai();
+      await api.vatTuThemDong(pid, { phong: form.phong || 'Chung', hang_muc: form.hang_muc || null, mau_id: form.mau_id, ma_tu_do: form.mau_id ? null : form.ma_tu_do, so_luong: form.so_luong, don_vi: form.don_vi, ghi_chu: form.ghi_chu || null, can_ngay: form.can_ngay || null });
+      bao('ok', 'Đã thêm vào phiếu'); setMoThem(false); setForm(f => ({ ...f, hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, ghi_chu: '', can_ngay: '' })); tai();
     } catch (e) { bao('loi', loi(e, 'Không thêm được')); }
   };
   const xoa = async (d: DongVatTu) => {
@@ -420,6 +420,8 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
           <input className={inp} type="number" min={0} step="0.1" placeholder="Số lượng" value={form.so_luong} onChange={e => setForm({ ...form, so_luong: Number(e.target.value) })} />
           <input className={inp} placeholder="Đơn vị" value={form.don_vi} onChange={e => setForm({ ...form, don_vi: e.target.value })} />
           <input className={`${inp} lg:col-span-2`} placeholder="Ghi chú cho Thu mua" value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} />
+          <label className="text-xs text-[var(--text-muted)] flex items-center gap-2">Cần có trước ngày
+            <input className={inp} type="date" value={form.can_ngay} onChange={e => setForm({ ...form, can_ngay: e.target.value })} /></label>
           <div className="flex gap-2 sm:col-span-2 lg:col-span-4"><button className={btnGold} onClick={them}><LineIcon name="check" size={14} color="currentColor" /> Thêm dòng</button><button className={btnGhost} onClick={() => setMoThem(false)}>Đóng</button></div>
         </div>
       )}
@@ -457,6 +459,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
                         <div className="text-xs rounded-lg bg-red-500/10 text-red-300 px-2 py-1 flex items-start gap-1"><LineIcon name="alert" size={12} /> Hết hàng. Đề xuất thay: <b>{d.ma_thay_the || '—'}</b>{d.ly_do_doi ? ` — ${d.ly_do_doi}` : ''}. Cần khách duyệt lại.</div>
                       )}
                       {d.khach_dong_y_luc && <div className="text-xs text-emerald-400">Khách đồng ý {new Date(d.khach_dong_y_luc).toLocaleDateString('vi-VN')}{d.khach_ghi_chu ? ` — ${d.khach_ghi_chu}` : ''}</div>}
+                      {d.can_ngay && <div className="text-xs text-amber-300">Cần trước {new Date(d.can_ngay).toLocaleDateString('vi-VN')}</div>}
                       {d.ghi_chu && <div className="text-xs text-[var(--text-muted)]">{d.ghi_chu}</div>}
                       {dongY?.id === d.id && (
                         <div className="flex gap-2 pt-1">
@@ -552,6 +555,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                 <div className="text-xs text-[var(--text-muted)]">
                   {d.gia_shopee ? <span className="text-orange-300">Shopee {tien(d.gia_shopee)} · </span> : null}
                   {d.so_bao_gia} báo giá{d.gia_von_gan_nhat ? ` · giá gần nhất ${tien(d.gia_von_gan_nhat)}` : d.gia_tham_khao ? ` · tham khảo ${tien(d.gia_tham_khao)}` : ''}
+                  {d.can_ngay && <> · <span className="text-amber-300">cần trước {new Date(d.can_ngay).toLocaleDateString('vi-VN')}</span></>}
                   {d.ghi_chu && <> · {d.ghi_chu}</>}
                 </div>
               </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import MoneyInput from '@/components/ui/MoneyInput';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -618,6 +619,7 @@ function LeadsContent() {
   // thẳng API không hỏi.
   const [signedConfirmOpen, setSignedConfirmOpen] = useState(false);
   const [signedTarget, setSignedTarget] = useState<Lead | null>(null);
+  const [signedValue, setSignedValue] = useState('');
 
   const handleStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
     if (newStage === 'lost' && !reasonOverride) {
@@ -628,6 +630,7 @@ function LeadsContent() {
     // đều phải qua hộp xác nhận. Hủy = không gọi API.
     if (newStage === 'signed_design' && lead.stage !== 'signed_design') {
       setSignedTarget(lead);
+      setSignedValue(lead.design_contract_value ? String(lead.design_contract_value) : '');
       setSignedConfirmOpen(true);
       return;
     }
@@ -637,7 +640,7 @@ function LeadsContent() {
 
   // Thân thật của việc đổi giai đoạn — confirm dialog signed_design gọi thẳng vào
   // đây (đi lại handleStageChange sẽ bị hộp xác nhận chặn lần nữa, vòng lặp).
-  const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string }) => {
+  const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string; contractValue?: number }) => {
     if (stageBusy.current) return;
     stageBusy.current = true;
     try {
@@ -646,6 +649,7 @@ function LeadsContent() {
       // trả 200 mà lead nằm nguyên cột cũ, user tưởng đã chuyển xong (lỗi 27/08).
       await api.changeStage(lead.id, newStage, {
         lostReason: newStage === 'lost' ? opts?.reason : undefined,
+        designContractValue: opts?.contractValue,
         note: newStage === 'dormant' ? (opts?.reason ? `Ngủ đông: ${opts.reason}` : undefined) : undefined,
       });
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
@@ -2203,10 +2207,14 @@ function LeadsContent() {
           <div className="relative w-full max-w-md rounded-2xl p-5 glass-card">
             <h3 id="signed-confirm-title" className="text-base font-bold text-white"><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Xác nhận deal đã thắng</h3>
             <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Đã ký — thiết kế» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
+            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Giá trị hợp đồng đã ký (đ) — dùng cho doanh số, thưởng, P&amp;L
+              <MoneyInput valueDong={signedValue} onChangeDong={setSignedValue} placeholder="VD: 120.000.000" className="mt-1 w-full" />
+            </label>
+            {!Number(signedValue) && <p className="mt-1 text-[11px] text-[var(--text-muted)]">Bỏ trống thì tạm lấy ngân sách dự kiến, sửa lại sau ở Hợp đồng.</p>}
             <p className="mt-2 text-xs text-amber-400">Thao tác này không thể lùi lại. Chỉ xác nhận khi hợp đồng đã ký.</p>
             <div className="flex justify-end gap-2 mt-5">
               <button className="px-3 py-2 rounded-lg text-xs bg-white/10 text-white" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }}>Hủy</button>
-              <button className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300" onClick={() => { const target = signedTarget; setSignedConfirmOpen(false); setSignedTarget(null); void doStageChange(target, 'signed_design'); }}>Xác nhận deal thắng</button>
+              <button className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300" onClick={() => { const target = signedTarget; setSignedConfirmOpen(false); setSignedTarget(null); void doStageChange(target, 'signed_design', { contractValue: Number(signedValue) || undefined }); }}>Xác nhận deal thắng</button>
             </div>
           </div>
         </div>

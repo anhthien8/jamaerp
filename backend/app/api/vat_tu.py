@@ -8,7 +8,7 @@ Quyền (chốt với chủ dự án, không thêm ô ma trận):
 Giá bán = max(giá vốn × (1 + % nhóm), giá cố định của mẫu) — tính ở server, không ai gõ.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -112,6 +112,7 @@ class DongIn(BaseModel):
     so_luong: float = Field(default=1, gt=0)
     don_vi: str = "m2"
     ghi_chu: str | None = None
+    can_ngay: date | None = None  # công trình cần hàng trước ngày
 
 
 class DongPatch(BaseModel):
@@ -126,6 +127,7 @@ class DongPatch(BaseModel):
     mau_thay_the_id: str | None = None
     ma_thay_the: str | None = None
     ly_do_doi: str | None = None
+    can_ngay: date | None = None
 
 
 class BaoGiaIn(BaseModel):
@@ -188,7 +190,7 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
         "ly_do_doi": d.ly_do_doi, "gia_ban": d.gia_ban,
         "thanh_tien": (round(d.gia_ban * d.so_luong) if d.gia_ban else None),
         "chot_luc": d.chot_luc, "khach_dong_y_luc": d.khach_dong_y_luc, "khach_ghi_chu": d.khach_ghi_chu,
-        "ghi_chu": d.ghi_chu, "thu_tu": d.thu_tu, "created_at": d.created_at, "updated_at": d.updated_at,
+        "ghi_chu": d.ghi_chu, "can_ngay": d.can_ngay, "thu_tu": d.thu_tu, "created_at": d.created_at, "updated_at": d.updated_at,
         "so_bao_gia": len(bao_gia),
         "gia_shopee": (m.gia_shopee if m else None), "link_shopee_aff": (m.link_shopee_aff if m else None),
     }
@@ -396,6 +398,37 @@ async def cai_gia(body: list[GiaNhomIn], user: User = Depends(yeu_cau_admin), db
 
 # ── Phiếu chọn theo dự án ─────────────────────────────────────────────────
 
+def _naive(t: datetime) -> datetime:
+    return t.replace(tzinfo=None) if t.tzinfo else t
+
+
+async def _bao_thu_mua_dong_moi(db: AsyncSession, project_id: str, user: User, d: DongPhieuVatTu) -> None:
+    """Dòng vật tư mới → báo Thu mua của dự án (hoặc cả phòng Thu mua). Gộp: còn
+    thông báo chưa đọc của dự án thì không bắn thêm."""
+    proj = await db.get(Project, project_id)
+    if not proj:
+        return
+    ds = {getattr(proj, "purchasing_id", None)} - {None}
+    if not ds:
+        ds = set((await db.execute(select(User.id).where(
+            User.department == "PURCHASING", User.is_active == True  # noqa: E712
+        ))).scalars())
+    ds.discard(user.id)
+    han = f" · cần trước {d.can_ngay.strftime('%d/%m')}" if d.can_ngay else ""
+    for uid in ds:
+        con = (await db.execute(select(Notification.id).where(
+            Notification.user_id == uid, Notification.type == "vat_tu_moi",
+            Notification.ref_id == project_id, Notification.read == False,  # noqa: E712
+        ).limit(1))).first()
+        if con:
+            continue
+        db.add(Notification(
+            user_id=uid, type="vat_tu_moi", title=f"Vật tư mới cần hỏi giá · {proj.code}",
+            body=f"{d.phong} · {d.ma_tu_do or 'mẫu trong danh mục'}{han}",
+            link=f"/vat-tu?project={proj.id}", ref_id=project_id,
+        ))
+
+
 async def _dong_hoac_404(db: AsyncSession, dong_id: str) -> DongPhieuVatTu:
     d = await db.get(DongPhieuVatTu, dong_id)
     if not d:
@@ -428,6 +461,7 @@ async def them_dong(project_id: str, body: DongIn, user: User = Depends(quyen_du
     )).scalar_one() + 1
     d = DongPhieuVatTu(project_id=project_id, created_by=user.id, thu_tu=thu_tu, **body.model_dump())
     db.add(d)
+    await _bao_thu_mua_dong_moi(db, project_id, user, d)
     await db.commit()
     await db.refresh(d)
     return (await _goi_dong(db, [d], user))[0]
@@ -449,8 +483,17 @@ async def sua_dong(dong_id: str, body: DongPatch, user: User = Depends(get_curre
             raise HTTPException(400, "Chốt giá bằng nút «Chốt giá»")
         if tt == "het_hang" and not (data.get("mau_thay_the_id") or data.get("ma_thay_the") or d.mau_thay_the_id or d.ma_thay_the):
             raise HTTPException(400, "Hết hàng thì phải kèm mẫu thay thế")
+        # Đặt hàng khi khách chưa đồng ý giá bán = rủi ro công ty ôm hàng (27/10/2026)
+        if tt == "da_dat" and d.trang_thai != "da_dat" and d.gia_ban is not None and not (
+            d.khach_dong_y_luc and (not d.chot_luc or _naive(d.khach_dong_y_luc) >= _naive(d.chot_luc))
+        ):
+            raise HTTPException(400, "Khách chưa đồng ý giá bán — bấm «Khách đồng ý» trước khi đặt hàng")
     for k, v in data.items():
         setattr(d, k, v)
+    if tt is not None:
+        await db.flush()
+        from app.services.dong_bo_tai_chinh import tinh_lai_spent
+        await tinh_lai_spent(db, d.project_id)
     if tt == "het_hang":
         # Có mẫu thay → tự chuyển sang chờ khách duyệt lại khi thiết kế xem xong; Đợt 1 giữ het_hang
         pass

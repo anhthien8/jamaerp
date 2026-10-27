@@ -75,6 +75,9 @@ export default function ContractsPage() {
   const [selected, setSelected] = useState<Contract | null>(null);
   const [paymentModal, setPaymentModal] = useState<{ contractId: string; idx: number } | null>(null);
   const [proofUrl, setProofUrl] = useState('');
+  const [thuMotPhan, setThuMotPhan] = useState('');
+  const [lichThu, setLichThu] = useState<Array<{ name: string; percentage: string; due_date: string; milestone: string; khoa: boolean }> | null>(null);
+  const [luuLich, setLuuLich] = useState(false);
   const [proofPreview, setProofPreview] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [viewProof, setViewProof] = useState<string | null>(null);
@@ -143,11 +146,12 @@ export default function ContractsPage() {
     if (!paymentModal || !confirmChecked || confirming) return;
     setConfirming(true);
     try {
-      const updated = await api.updatePayment(paymentModal.contractId, paymentModal.idx, proofUrl || undefined);
+      const updated = await api.updatePayment(paymentModal.contractId, paymentModal.idx, proofUrl || undefined, Number(thuMotPhan) || undefined);
       setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
       setSelected(updated);
       setPaymentModal(null);
       setProofUrl('');
+      setThuMotPhan('');
       setProofPreview('');
       setConfirmChecked(false);
       toast('Xác nhận thanh toán thành công!', 'success');
@@ -156,8 +160,31 @@ export default function ContractsPage() {
     }
   };
 
+  const moLichThu = (c: Contract) => {
+    setLichThu((c.payment_terms?.installments || []).map(i => ({
+      name: i.name, percentage: String(i.percentage), due_date: (i.due_date || '').slice(0, 10),
+      milestone: i.milestone || '', khoa: i.status === 'paid' || i.status === 'partial',
+    })));
+  };
+  const tongPhanTram = (lichThu || []).reduce((t, d) => t + (Number(d.percentage) || 0), 0);
+  const luuLichThu = async () => {
+    if (!selected || !lichThu || luuLich) return;
+    if (Math.abs(tongPhanTram - 100) > 0.01) { toast('Tổng % các đợt phải bằng 100', 'error'); return; }
+    setLuuLich(true);
+    try {
+      const updated = await api.updateLichThu(selected.id, lichThu.map(d => ({
+        name: d.name.trim() || 'Đợt', percentage: Number(d.percentage) || 0, due_date: d.due_date || null, milestone: d.milestone,
+      })));
+      setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setSelected(updated);
+      setLichThu(null);
+      toast('Đã lưu lịch thu', 'success');
+    } catch (e) { toast(e instanceof Error ? e.message : 'Lưu lịch thu thất bại', 'error'); } finally { setLuuLich(false); }
+  };
+
   const openPaymentModal = (contractId: string, idx: number) => {
     setPaymentModal({ contractId, idx });
+    setThuMotPhan('');
     setProofUrl('');
     setProofPreview('');
     setConfirmChecked(false);
@@ -470,7 +497,45 @@ export default function ContractsPage() {
               </div>
 
               {/* Payment terms */}
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Tiến độ thanh toán</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Tiến độ thanh toán</h3>
+                {canConfirmTT && !lichThu && (
+                  <button onClick={() => moLichThu(selected)} className="text-xs px-3 py-1.5 rounded-full"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                    Sửa lịch thu
+                  </button>
+                )}
+              </div>
+              {lichThu && (
+                <div className="rounded-xl p-3 mb-3 space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-xs text-[var(--text-muted)]">Đặt cọc, số đợt, % và hạn thu. Đợt đã có tiền về không xoá được. Hạn thu dùng để nhắc kế toán/sale.</p>
+                  {lichThu.map((d, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                      <input className="col-span-5 px-2 py-1.5 rounded-lg text-sm" value={d.name} placeholder="Tên đợt (VD: Đặt cọc)"
+                        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        onChange={e => setLichThu(lichThu.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                      <input className="col-span-2 px-2 py-1.5 rounded-lg text-sm" type="number" inputMode="decimal" value={d.percentage} placeholder="%"
+                        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        onChange={e => setLichThu(lichThu.map((x, j) => j === i ? { ...x, percentage: e.target.value } : x))} />
+                      <input className="col-span-4 px-2 py-1.5 rounded-lg text-sm" type="date" value={d.due_date}
+                        style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                        onChange={e => setLichThu(lichThu.map((x, j) => j === i ? { ...x, due_date: e.target.value } : x))} />
+                      <button className="col-span-1 text-xs text-red-400 disabled:opacity-30" disabled={d.khoa} title={d.khoa ? 'Đợt đã thu' : 'Xoá đợt'}
+                        onClick={() => setLichThu(lichThu.filter((_, j) => j !== i))}>✕</button>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-1">
+                    <button className="text-xs text-[var(--gold-400)]" disabled={lichThu.length >= 12}
+                      onClick={() => setLichThu([...lichThu, { name: `Đợt ${lichThu.length + 1}`, percentage: '', due_date: '', milestone: '', khoa: false }])}>+ Thêm đợt</button>
+                    <span className={`text-xs ${Math.abs(tongPhanTram - 100) > 0.01 ? 'text-red-400' : 'text-emerald-400'}`}>Tổng {tongPhanTram}%</span>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button className="text-xs px-3 py-1.5 rounded-full" onClick={() => setLichThu(null)} style={{ color: 'var(--text-muted)' }}>Huỷ</button>
+                    <button className="text-xs px-3 py-1.5 rounded-full font-medium disabled:opacity-50" disabled={luuLich} onClick={luuLichThu}
+                      style={{ background: 'var(--gold-400)', color: '#000' }}>{luuLich ? 'Đang lưu…' : 'Lưu lịch thu'}</button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {selected.payment_terms?.installments?.map((inst, idx) => (
                   <div
@@ -499,7 +564,9 @@ export default function ContractsPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-[var(--text-primary)]">{inst.name}</p>
-                          <p className="text-xs text-[var(--text-muted)]">{inst.percentage}% — {fmtVND(selected.total_value ? selected.total_value * inst.percentage / 100 : 0)}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{inst.percentage}% — {fmtVND(selected.total_value ? selected.total_value * inst.percentage / 100 : 0)}
+                            {inst.due_date && inst.status !== 'paid' ? ` · hạn ${new Date(inst.due_date).toLocaleDateString('vi-VN')}` : ''}
+                            {inst.status === 'partial' && inst.amount ? ` · đã thu ${fmtVND(inst.amount)}` : ''}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -508,7 +575,7 @@ export default function ContractsPage() {
                             <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Có sao kê
                           </span>
                         )}
-                        {inst.status === 'pending' && canConfirmTT && (
+                        {(inst.status === 'pending' || inst.status === 'partial') && canConfirmTT && (
                           <button
                             onClick={(e) => { e.stopPropagation(); openPaymentModal(selected.id, idx); }}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -616,6 +683,11 @@ export default function ContractsPage() {
                   className="w-full px-3 py-2 rounded-xl text-sm"
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 />
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Khách mới trả một phần? Nhập số tiền đã nhận (để trống = thu đủ đợt)</label>
+                <MoneyInput valueDong={thuMotPhan} onChangeDong={setThuMotPhan} placeholder="Số tiền thu một phần" />
               </div>
 
               {/* Confirm checkbox */}

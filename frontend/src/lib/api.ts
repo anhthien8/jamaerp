@@ -1532,11 +1532,18 @@ class ApiClient {
   async updateContract(id: string, data: Partial<Contract>) {
     return this.request<Contract>(`/contracts/${id}`, { method: 'PUT', body: data });
   }
-  async updatePayment(contractId: string, installmentIdx: number, proofImage?: string) {
+  async updatePayment(contractId: string, installmentIdx: number, proofImage?: string, partialAmount?: number) {
+    const body: Record<string, unknown> = {};
+    if (proofImage) body.evidence_url = proofImage;
+    if (partialAmount && partialAmount > 0) { body.status = 'partial'; body.amount = partialAmount; }
     return this.request<Contract>(`/contracts/${contractId}/payments/${installmentIdx}`, {
       method: 'PUT',
-      body: proofImage ? { evidence_url: proofImage } : undefined,
+      body: Object.keys(body).length ? body : undefined,
     });
+  }
+  /** Sửa lịch thu: số đợt, %, hạn thu (tổng % = 100; đợt đã thu giữ nguyên trạng thái) */
+  async updateLichThu(contractId: string, dot: Array<{ name: string; percentage: number; due_date?: string | null; milestone?: string }>) {
+    return this.request<Contract>(`/contracts/${contractId}/lich-thu`, { method: 'PUT', body: { dot } });
   }
 
   // === ERP: Quotations ===
@@ -2467,7 +2474,7 @@ export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_kh
 export interface DongVatTu {
   id: string; project_id: string; phong: string; hang_muc?: string | null; mau_id?: string | null;
   ma?: string | null; hang?: string | null; nhom?: string | null; anh_url?: string | null; ma_tu_do?: string | null;
-  so_luong: number; don_vi: string; trang_thai: TrangThaiDongVatTu; trang_thai_nhan: string;
+  so_luong: number; don_vi: string; trang_thai: TrangThaiDongVatTu; trang_thai_nhan: string; can_ngay?: string | null;
   mau_thay_the_id?: string | null; ma_thay_the?: string | null; ly_do_doi?: string | null;
   gia_ban?: number | null; thanh_tien?: number | null; chot_luc?: string | null;
   khach_dong_y_luc?: string | null; khach_ghi_chu?: string | null; ghi_chu?: string | null; thu_tu: number;
@@ -2977,6 +2984,7 @@ export interface Contract {
       paid_date?: string;
       amount?: number;
       proof_image?: string;
+      due_date?: string;
     }>;
   };
   signed_date?: string;

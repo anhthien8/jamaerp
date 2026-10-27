@@ -63,6 +63,11 @@ async def _build_project_costs(
     for project_id, total in mat_rows:
         costs.setdefault(project_id, {"material": 0.0, "transaction": 0.0})
         costs[project_id]["material"] = float(total)
+    # Vật tư đã đặt/đã giao ở /vat-tu (giá vốn × số lượng) — 27/10/2026
+    from app.services.dong_bo_tai_chinh import chi_phi_vat_tu
+    for project_id, total in (await chi_phi_vat_tu(db)).items():
+        costs.setdefault(project_id, {"material": 0.0, "transaction": 0.0})
+        costs[project_id]["material"] += total
     for project_id, total in txn_rows:
         costs.setdefault(project_id, {"material": 0.0, "transaction": 0.0})
         costs[project_id]["transaction"] = float(total)
@@ -84,7 +89,7 @@ async def _build_project_revenues(db: AsyncSession) -> dict[str, float]:
     out: dict[str, float] = {}
     for hd in rows:
         dots = (hd.payment_terms or {}).get("installments") or []
-        thu = sum(tien_dot(hd, i) for i, d in enumerate(dots) if (d or {}).get("status") == "paid")
+        thu = sum(tien_dot(hd, i) for i, d in enumerate(dots) if (d or {}).get("status") in ("paid", "partial"))
         if thu:
             out[hd.project_id] = out.get(hd.project_id, 0.0) + thu
     return out
@@ -208,6 +213,8 @@ async def project_pl_detail(
         .where(MaterialUsage.project_id == project_id)
     )
     cost_material = float(mat_result.scalar())
+    from app.services.dong_bo_tai_chinh import chi_phi_vat_tu
+    cost_vat_tu = (await chi_phi_vat_tu(db, project_id)).get(project_id, 0.0)
 
     # Transaction expenses by category
     txn_cat_q = (
@@ -245,6 +252,9 @@ async def project_pl_detail(
             PLCostCategory(category="material", total=cost_material, count=mat_count)
         )
 
+    if cost_vat_tu > 0:
+        cost_by_category.append(PLCostCategory(category="vat_tu", total=cost_vat_tu, count=0))
+    cost_material += cost_vat_tu
     total_cost = cost_material + cost_transaction
     profit = revenue - total_cost
     margin = (profit / revenue * 100) if revenue else 0.0
@@ -294,14 +304,18 @@ async def receivables(
         pending = []
         pending_amount = 0.0
         for inst in installments:
-            if (inst or {}).get("status") == "pending":
+            st = (inst or {}).get("status")
+            if st in ("pending", "partial"):
                 pct = float(inst.get("percentage") or 0)
                 amount = round(total_value * pct / 100, 0)
+                if st == "partial":  # còn lại sau phần đã thu
+                    amount = max(0.0, amount - float(inst.get("amount") or 0))
                 pending.append({
                     "name": inst.get("name") or "Đợt thanh toán",
                     "percentage": pct,
                     "amount": amount,
                     "milestone": inst.get("milestone"),
+                    "due_date": inst.get("due_date"),
                 })
                 pending_amount += amount
         if not pending:

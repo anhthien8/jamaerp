@@ -12,7 +12,8 @@ from app.middleware.rbac import can_confirm_payment
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.contract import Contract
-from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate
+from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate, LichThuUpdate
+from app.services.dong_bo_tai_chinh import dong_bo_gia_tri_du_an, ghi_giao_dich_thu
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
@@ -105,6 +106,7 @@ async def create_contract(
     )
     db.add(contract)
     await db.flush()
+    await dong_bo_gia_tri_du_an(db, contract.project_id)
     from app.cache import cache
     cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
@@ -141,6 +143,8 @@ async def update_contract(
             await hoa_hong.khi_nghiem_thu(db, contract)
 
     await db.flush()
+    # Giá trị HĐ đổi → dự án đổi theo (Hũ thưởng, Bảng KD đọc giá trị dự án)
+    await dong_bo_gia_tri_du_an(db, contract.project_id)
     from app.cache import cache
     cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
@@ -169,6 +173,10 @@ async def update_payment(
     if installment_idx < 0 or installment_idx >= len(installments):
         raise HTTPException(status_code=400, detail="Đợt thanh toán không hợp lệ")
 
+    if data.status not in ("pending", "paid", "partial"):
+        raise HTTPException(status_code=400, detail="Trạng thái đợt không hợp lệ")
+    if data.status == "partial" and not data.amount:
+        raise HTTPException(status_code=400, detail="Thu một phần cần nhập số tiền đã thu")
     da_thu_truoc = installments[installment_idx].get("status") == "paid"
     installments[installment_idx]["status"] = data.status
     if data.paid_date:
@@ -195,12 +203,55 @@ async def update_payment(
         await hoa_hong.khi_thu_tien(db, contract, installment_idx)
     elif da_thu_truoc:
         await hoa_hong.khi_bo_thu_tien(db, contract, installment_idx)
+    # Tiền về → giao dịch thu ở Tài chính (kế toán khỏi nhập lại)
+    await ghi_giao_dich_thu(db, contract, installment_idx, current_user.id)
+    from app.cache import cache as _c
+    _c.clear_prefix("accounting")
 
     await db.flush()
     from app.cache import cache
     cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
 
+
+
+@router.put("/{contract_id}/lich-thu", response_model=ContractResponse)
+async def update_lich_thu(
+    contract_id: str,
+    data: LichThuUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sửa lịch thu (27/10/2026): số đợt, %, hạn thu. Bản cũ đóng cứng 4×25% không hạn.
+
+    Giữ nguyên trạng thái/tiền/chứng từ của các đợt đã có theo thứ tự; đợt đã thu
+    không được bỏ đi.
+    """
+    await _yeu_cau_quyen_hop_dong(current_user, db)
+    contract = await db.get(Contract, contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Hợp đồng không tồn tại")
+    if abs(sum(d.percentage for d in data.dot) - 100) > 0.01:
+        raise HTTPException(status_code=400, detail="Tổng % các đợt phải bằng 100")
+    cu = (contract.payment_terms or {}).get("installments") or []
+    if any((x or {}).get("status") in ("paid", "partial") for x in cu[len(data.dot):]):
+        raise HTTPException(status_code=400, detail="Không bỏ được đợt đã thu tiền")
+    moi = []
+    for i, d in enumerate(data.dot):
+        inst = dict(cu[i]) if i < len(cu) else {"status": "pending"}
+        inst.update({"name": d.name.strip()[:120] or f"Đợt {i + 1}", "percentage": d.percentage,
+                     "due_date": d.due_date.isoformat() if d.due_date else None})
+        if d.milestone:
+            inst["milestone"] = d.milestone
+        moi.append(inst)
+    contract.payment_terms = {**(contract.payment_terms or {}), "installments": moi}
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(contract, "payment_terms")
+    contract.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    from app.cache import cache
+    cache.clear_prefix("pl")
+    return ContractResponse.model_validate(contract)
 
 
 # ── Tệp hợp đồng đã ký (26/10/2026) ───────────────────────────────────────

@@ -7,7 +7,7 @@ Theo Brief JAMA HOME:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -307,16 +307,29 @@ async def run_payment_reminders(db: AsyncSession) -> dict:
     for contract in contracts:
         terms = contract.payment_terms or {}
         installments = terms.get("installments", [])
-        pending = [i for i in installments if i.get("status") == "pending"]
+        pending = [i for i in installments if i.get("status") in ("pending", "partial")]
         if not pending:
             continue
-        if (today - contract.signed_date).days < days:
+        # Có hạn thu (27/10/2026): chỉ nhắc đợt sắp tới hạn trong `days` ngày hoặc quá hạn
+        co_han = [i for i in pending if i.get("due_date")]
+        if co_han:
+            def _han(i):
+                try:
+                    return date.fromisoformat(str(i["due_date"])[:10])
+                except ValueError:
+                    return None
+            pending = [i for i in co_han if _han(i) and (_han(i) - today).days <= days]
+            if not pending:
+                continue
+        elif (today - contract.signed_date).days < days:
             continue
 
         total = contract.total_value or 0
         lines = [
             f"• {i.get('name', 'Đợt ?')} — {i.get('percentage', 0)}% "
             f"(~{total * i.get('percentage', 0) / 100:,.0f}đ)"
+            + (f" — hạn {i['due_date']}" + (" (QUÁ HẠN)" if str(i['due_date']) < today.isoformat() else "")
+               if i.get("due_date") else "")
             for i in pending
         ]
         body = (

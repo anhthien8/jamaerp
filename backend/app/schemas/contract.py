@@ -1,6 +1,6 @@
 """Contract schemas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime, date
 from typing import Literal
 
@@ -56,7 +56,19 @@ class ContractResponse(BaseModel):
 
 class PaymentUpdate(BaseModel):
     """Update a payment installment status."""
-    status: str = "paid"  # pending, paid
+    status: str = "paid"  # pending, paid, partial (thu một phần — kèm amount)
     paid_date: date | None = None
     amount: float | None = None
     evidence_url: str | None = None
+
+
+class DotThu(BaseModel):
+    name: str
+    percentage: float = Field(ge=0, le=100)
+    due_date: date | None = None
+    milestone: str | None = None
+
+
+class LichThuUpdate(BaseModel):
+    """Lịch thu tuỳ chỉnh (27/10/2026)."""
+    dot: list[DotThu] = Field(min_length=1, max_length=12)

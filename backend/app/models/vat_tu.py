@@ -13,9 +13,9 @@ Giá vốn / NCC / lãi chỉ trả về cho Giám đốc, Thu mua, Trưởng ph
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -143,6 +143,7 @@ class DongPhieuVatTu(Base):
     khach_dong_y_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     khach_ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
     ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
+    can_ngay: Mapped[date | None] = mapped_column(Date, nullable=True)  # công trình cần hàng trước ngày
     thu_tu: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)

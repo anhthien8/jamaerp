@@ -700,7 +700,7 @@ async def change_stage(
                     project_id=project.id,
                     title=f"Hợp đồng thiết kế - {lead.name}",
                     status="draft",
-                    total_value=lead.estimated_budget or lead.design_contract_value or 0,
+                    total_value=lead.design_contract_value or lead.estimated_budget or 0,
                     payment_terms={
                         "installments": [
                             {"name": "Đợt 1 (Đặt cọc)", "percentage": 25, "milestone": "signing", "status": "pending"},

@@ -42,9 +42,11 @@ async def build_bod_report(db: AsyncSession, period: str = "daily") -> dict:
             and_(Lead.created_at >= prev_start, Lead.created_at < start)
         )
     )).scalar() or 0
+    # Deal thắng đếm theo NGÀY TẠO DỰ ÁN từ lead (27/10/2026) — bản cũ lọc
+    # Lead.updated_at nên sửa ghi chú lead đã ký từ lâu cũng «tái xuất hiện».
     signed = (await db.execute(
-        select(func.count(Lead.id)).where(
-            and_(Lead.stage == "signed_design", Lead.updated_at >= start)
+        select(func.count(Project.id)).where(
+            and_(Project.lead_id.is_not(None), Project.created_at >= start)
         )
     )).scalar() or 0
     lost = (await db.execute(
@@ -87,7 +89,8 @@ async def build_bod_report(db: AsyncSession, period: str = "daily") -> dict:
     top_sales_rows = (await db.execute(
         select(User.full_name, func.count(Lead.id).label("cnt"))
         .join(Lead, Lead.assigned_to == User.id)
-        .where(and_(Lead.stage == "signed_design", Lead.updated_at >= start))
+        .join(Project, Project.lead_id == Lead.id)
+        .where(Project.created_at >= start)
         .group_by(User.id)
         .order_by(func.count(Lead.id).desc())
         .limit(3)
@@ -214,9 +217,11 @@ async def build_group_briefing(db: AsyncSession) -> str:
     new_leads = (await db.execute(
         select(func.count(Lead.id)).where(Lead.created_at >= start)
     )).scalar() or 0
+    # Deal thắng đếm theo NGÀY TẠO DỰ ÁN từ lead (27/10/2026) — bản cũ lọc
+    # Lead.updated_at nên sửa ghi chú lead đã ký từ lâu cũng «tái xuất hiện».
     signed = (await db.execute(
-        select(func.count(Lead.id)).where(
-            and_(Lead.stage == "signed_design", Lead.updated_at >= start)
+        select(func.count(Project.id)).where(
+            and_(Project.lead_id.is_not(None), Project.created_at >= start)
         )
     )).scalar() or 0
     active_projects = (await db.execute(

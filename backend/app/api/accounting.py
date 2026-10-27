@@ -218,6 +218,13 @@ async def list_payroll(
 
 # --- CRUD Endpoints ---
 
+async def _sau_doi_giao_dich(db: AsyncSession, txn: Transaction) -> None:
+    """Chi gắn dự án → tính lại Project.spent; P&L đọc giao dịch chi (27/10/2026)."""
+    from app.services.dong_bo_tai_chinh import tinh_lai_spent
+    await tinh_lai_spent(db, txn.project_id)
+    cache.clear_prefix("pl")
+
+
 @router.post("/transactions")
 async def create_transaction(
     data: TransactionCreate,
@@ -246,6 +253,7 @@ async def create_transaction(
     )
     db.add(txn)
     await db.flush()
+    await _sau_doi_giao_dich(db, txn)
     cache.clear_prefix("accounting")
     return {
         "id": txn.id, "code": txn.code, "type": txn.type,
@@ -289,6 +297,7 @@ async def update_transaction(
     for k, v in update_fields.items():
         setattr(txn, k, v)
     await db.flush()
+    await _sau_doi_giao_dich(db, txn)
     cache.clear_prefix("accounting")
     return {"id": txn.id, "code": txn.code, "status": txn.status, "amount": txn.amount}
 
@@ -310,6 +319,7 @@ async def delete_transaction(
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
     txn.status = "cancelled"
     await db.flush()
+    await _sau_doi_giao_dich(db, txn)
     cache.clear_prefix("accounting")
     return {"id": txn.id, "status": "cancelled"}
 
