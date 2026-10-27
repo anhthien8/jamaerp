@@ -394,3 +394,68 @@ async def portal_gui_danh_gia(token: str, project_id: str, data: DanhGiaIn, db: 
     from app.cache import cache
     cache.clear_prefix("cdt:")
     return {"ok": True, "id": r.id}
+
+
+# ── Vật tư: khách tự xem giá bán & đồng ý (27/10/2026, #13) ─────────────────
+
+class KhachVatTuIn(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+def _dong_cho_khach(d, ten_mau: dict) -> dict:
+    """Không bao giờ trả giá vốn / NCC / % áp dụng cho khách."""
+    cho_duyet = d.trang_thai in ("cho_khach_duyet_lai", "het_hang") or (
+        d.gia_ban is not None and d.trang_thai == "da_chot_gia" and not (
+            d.khach_dong_y_luc and (not d.chot_luc or d.khach_dong_y_luc >= d.chot_luc)))
+    return {
+        "id": d.id, "phong": d.phong, "hang_muc": d.hang_muc,
+        "ten": ten_mau.get(d.mau_id) or d.ma_tu_do,
+        "thay_the": ten_mau.get(d.mau_thay_the_id) or d.ma_thay_the, "ly_do_doi": d.ly_do_doi,
+        "so_luong": d.so_luong, "don_vi": d.don_vi, "gia_ban": d.gia_ban,
+        "thanh_tien": (d.gia_ban * d.so_luong) if d.gia_ban is not None else None,
+        "trang_thai": d.trang_thai, "cho_khach_duyet": cho_duyet,
+        "khach_dong_y_luc": d.khach_dong_y_luc.isoformat() if d.khach_dong_y_luc else None,
+    }
+
+
+async def _ten_mau(db: AsyncSession, ds) -> dict:
+    from app.models.vat_tu import MauVatTu
+    ids = {i for d in ds for i in (d.mau_id, d.mau_thay_the_id) if i}
+    if not ids:
+        return {}
+    return {m.id: " · ".join(x for x in (m.ma, m.ten, m.hang) if x)
+            for m in (await db.execute(select(MauVatTu).where(MauVatTu.id.in_(ids)))).scalars()}
+
+
+@router.get("/{token}/projects/{project_id}/vat-tu")
+async def portal_vat_tu(token: str, project_id: str, db: AsyncSession = Depends(get_db)):
+    from app.models.vat_tu import DongPhieuVatTu
+    customer = await _get_customer_by_token(token, db)
+    project = await db.get(Project, project_id)
+    if not project or not _customer_owns_project(project, customer):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    ds = (await db.execute(
+        select(DongPhieuVatTu).where(DongPhieuVatTu.project_id == project.id, DongPhieuVatTu.trang_thai != "huy")
+        .order_by(DongPhieuVatTu.phong, DongPhieuVatTu.thu_tu, DongPhieuVatTu.created_at)
+    )).scalars().all()
+    ten = await _ten_mau(db, ds)
+    return [_dong_cho_khach(d, ten) for d in ds]
+
+
+@router.post("/{token}/vat-tu/{dong_id}/dong-y")
+async def portal_vat_tu_dong_y(token: str, dong_id: str, data: KhachVatTuIn, db: AsyncSession = Depends(get_db)):
+    from app.models.vat_tu import DongPhieuVatTu
+    customer = await _get_customer_by_token(token, db)
+    d = await db.get(DongPhieuVatTu, dong_id)
+    project = await db.get(Project, d.project_id) if d else None
+    if not d or not project or not _customer_owns_project(project, customer):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    d.khach_dong_y_luc = datetime.now(timezone.utc).replace(tzinfo=None)
+    d.khach_ghi_chu = ((data.ghi_chu or "").strip() or None) and f"[Khách tự bấm] {data.ghi_chu.strip()}"
+    if d.trang_thai in ("cho_khach_duyet_lai", "het_hang") and (d.mau_thay_the_id or d.ma_thay_the):
+        d.mau_id, d.ma_tu_do = d.mau_thay_the_id, (None if d.mau_thay_the_id else d.ma_thay_the)
+        d.mau_thay_the_id = d.ma_thay_the = None
+        d.trang_thai = "hoi_ncc"
+    await db.commit()
+    await db.refresh(d)
+    return _dong_cho_khach(d, await _ten_mau(db, [d]))

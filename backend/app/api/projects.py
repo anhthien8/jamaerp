@@ -350,6 +350,27 @@ def dieu_kien_pham_vi_du_an(current_user: User):
     return or_(*dieu_kien)
 
 
+@router.get("/tasks/mine")
+async def viec_cua_toi(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """«Việc của tôi» (27/10/2026): mọi đầu việc chưa xong mình đảm nhận, kèm dự án, sắp theo hạn."""
+    from app.models.project import dieu_kien_task_cua_nguoi
+    rows = (await db.execute(
+        select(Task, Project.code, Project.name)
+        .join(Project, Project.id == Task.project_id)
+        .where(dieu_kien_task_cua_nguoi(current_user.id), Task.status.notin_(("done", "completed", "cancelled")))
+        .order_by(func.coalesce(Task.due_date, Task.sla_due_at).is_(None), func.coalesce(Task.due_date, Task.sla_due_at))
+        .limit(200)
+    )).all()
+    return [{
+        "id": t.id, "title": t.title, "status": t.status, "stage": t.stage,
+        "project_id": t.project_id, "project_code": code, "project_name": name,
+        "han": (t.due_date or t.sla_due_at).isoformat() if (t.due_date or t.sla_due_at) else None,
+    } for t, code, name in rows]
+
+
 @router.get("")
 async def list_projects(
     status: str | None = None,

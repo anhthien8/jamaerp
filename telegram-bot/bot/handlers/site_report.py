@@ -90,11 +90,9 @@ async def hien_du_an(message: types.Message, tg_id: int, project_code: str):
         f"• Đã hoàn thành: {done_tasks}",
         f"• Đang thực hiện: {in_progress}",
         f"• Còn lại: {tasks.get('remaining', 0)}",
-        "",
-        f"💰 <b>Ngân sách:</b>",
-        f"• Tổng: {budget_text}",
-        f"• Đã sử dụng: {spent_text}",
     ]
+    if project.get("total_value") is not None:
+        lines += ["", "💰 <b>Ngân sách:</b>", f"• Tổng: {budget_text}", f"• Đã sử dụng: {spent_text}"]
 
     # Team info
     pm_name = team.get("pm_name")
@@ -335,6 +333,19 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
         await state.clear()
         return
 
+    # Chọn đầu việc để gắn nhật ký (27/10/2026) — trước đây luôn rơi vào việc «đang làm» đầu tiên
+    if not data.get("da_chon_viec"):
+        info = await api.get_project(tg_id, project_code)
+        viec = (info or {}).get("open_tasks") or []
+        if len(viec) > 1:
+            await state.update_data(viec_mo=viec)
+            nut = [[types.InlineKeyboardButton(text=v["title"][:40], callback_data=f"bcv:{i}")]
+                   for i, v in enumerate(viec)]
+            nut.append([types.InlineKeyboardButton(text="Để hệ thống tự chọn", callback_data="bcv:-")])
+            await message.answer("📋 Báo cáo này cho đầu việc nào?",
+                                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=nut))
+            return
+
     await message.answer("🔄 Đang gửi báo cáo...")
 
     report_data = {
@@ -344,6 +355,7 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
         "reporter_tg_id": tg_id,
         "attachments": attachments,
         "message_link": data.get("message_link"),
+        "task_id": data.get("task_id"),
     }
 
     result = await api.create_site_report(tg_id, report_data)
@@ -408,3 +420,17 @@ def _format_value(value) -> str:
     elif v >= 1_000_000:
         return f"{v / 1_000_000:.0f} trieu"
     return f"{v:,.0f} VND"
+
+
+@router.callback_query(F.data.startswith("bcv:"))
+async def cb_chon_viec(callback: types.CallbackQuery, state: FSMContext):
+    if await state.get_state() != SiteReportState.collecting_photos.state:
+        await callback.answer("Không có báo cáo nào đang chờ gửi.", show_alert=True)
+        return
+    data = await state.get_data()
+    chon = callback.data.split(":", 1)[1]
+    viec = data.get("viec_mo") or []
+    task_id = viec[int(chon)]["id"] if chon.isdigit() and int(chon) < len(viec) else None
+    await state.update_data(da_chon_viec=True, task_id=task_id)
+    await callback.answer("Đã chọn")
+    await gui_bao_cao(callback.message, state, callback.from_user.id)

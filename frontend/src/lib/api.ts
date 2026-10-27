@@ -1382,6 +1382,10 @@ class ApiClient {
     });
   }
 
+  async viecCuaToi() {
+    return this.request<ViecCuaToi[]>('/projects/tasks/mine');
+  }
+
   async updateTaskStatus(taskId: string, status: string) {
     return this.request<ProjectTask>(`/projects/tasks/${taskId}/status`, {
       method: 'PUT',
@@ -3702,3 +3706,8 @@ export async function fetchAllPages<T>(
 
 // Export singleton instance
 export const api = new ApiClient(API_BASE);
+
+export interface ViecCuaToi {
+  id: string; title: string; status: string; stage: string;
+  project_id: string; project_code: string; project_name: string; han: string | null;
+}

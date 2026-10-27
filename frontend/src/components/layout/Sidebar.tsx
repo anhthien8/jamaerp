@@ -58,6 +58,7 @@ type NavItem = {
 
 const ALL_ITEMS: NavItem[] = [
   { href: '/', label: 'Tổng quan', icon: Icon.dashboard },
+  { href: '/viec-cua-toi', label: 'Việc của tôi', icon: Icon.attendance },
   { href: '/attendance', label: 'Chấm công', icon: Icon.attendance },
   { href: '/approvals', label: 'Phê duyệt', icon: Icon.approvals },
   { href: '/leads', label: 'Quy trình', icon: Icon.pipeline, perm: 'canViewLeads' },
@@ -104,7 +105,7 @@ const ALL_ITEMS: NavItem[] = [
 // khối chỉ còn 1 mục thì hiện thẳng mục đó (khỏi bấm 2 lần).
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/approvals', '/attendance', '/projects', '/kpi'] },
+  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/kpi'] },
   { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },

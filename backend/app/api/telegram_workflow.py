@@ -8,7 +8,7 @@ All endpoints are called by the Telegram Bot webhook handler.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
@@ -77,6 +77,8 @@ class SiteReportRequest(BaseModel):
     photos: list[str] = Field(default_factory=list)
     media_ids: list[str] = Field(default_factory=list, max_length=20)
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
+    # Đầu việc người báo cáo chọn trên bot (27/10/2026); trống → tự chọn việc của mình đang làm
+    task_id: str | None = None
     # File nặng (bản vẽ .skp, .dwg, video…) bot không tải được (giới hạn 20MB của
     # Bot API) → giữ nguyên trong nhóm, ERP lưu tên + link tin nhắn Telegram (24/10/2026)
     attachments: list["TepDinhKem"] = Field(default_factory=list, max_length=20)
@@ -224,6 +226,11 @@ async def quick_project_lookup(
         team["designer_name"] = users_map.get(project.designer_id)
         team["sales_name"] = users_map.get(project.sales_id)
 
+    # Giá trị HĐ/chi phí chỉ BGĐ, kế toán, PM/sale của dự án thấy (27/10/2026)
+    xem_tien = _current_user.role in ("admin", "accountant", "executive") or _current_user.id in (
+        project.pm_id, project.sales_id)
+    viec_mo = sorted([t for t in tasks if t.status not in ("done", "completed", "cancelled")],
+                     key=lambda t: (t.assigned_to != _current_user.id, t.status != "in_progress"))[:8]
     return {
         "project": {
             "id": project.id,
@@ -235,11 +242,12 @@ async def quick_project_lookup(
             "status": project.status,
             "stage": project.stage,
             "progress": project.progress,
-            "total_value": project.total_value,
-            "spent": project.spent,
+            "total_value": project.total_value if xem_tien else None,
+            "spent": project.spent if xem_tien else None,
             "start_date": project.start_date.isoformat() if project.start_date else None,
             "target_end_date": project.target_end_date.isoformat() if project.target_end_date else None,
         },
+        "open_tasks": [{"id": t.id, "title": t.title[:60]} for t in viec_mo],
         "tasks_summary": {
             "total": total_tasks,
             "done": done_tasks,
@@ -286,8 +294,13 @@ async def create_site_report(
             detail="Dự án chưa có đầu việc nào để ghi nhật ký",
         )
 
-    # Prefer an in_progress task
-    target_task = next((t for t in tasks if t.status == "in_progress"), tasks[0])
+    # Ưu tiên: việc người báo cáo chọn → việc của chính họ đang làm → việc đang làm → việc đầu
+    nguoi_bc = await _resolve_user_by_tg(data.reporter_tg_id, db)
+    target_task = (
+        next((t for t in tasks if data.task_id and t.id == data.task_id), None)
+        or next((t for t in tasks if t.status == "in_progress" and t.assigned_to == nguoi_bc.id), None)
+        or next((t for t in tasks if t.status == "in_progress"), tasks[0])
+    )
 
     anh = await _anh_cua_du_an(db, data.media_ids, project.id)
     full_content = data.content
@@ -396,6 +409,16 @@ async def create_material_request(
     )
     db.add(mat_request)
     await db.flush()
+    # Gộp vào Quy trình Vật tư (27/10/2026): /vatlieu cũng thành 1 dòng ở /vat-tu để Thu mua
+    # hỏi giá & chốt ở một chỗ, thay vì nằm riêng ở bảng yêu cầu cũ không ai xem
+    from app.api.vat_tu import _bao_thu_mua_dong_moi
+    from app.models.vat_tu import DongPhieuVatTu
+    dong = DongPhieuVatTu(project_id=project.id, phong="Công trình", ma_tu_do=data.material_name[:150],
+                          so_luong=data.quantity or 1, don_vi=(data.unit or "cái")[:20], trang_thai="khach_chon",
+                          ghi_chu=f"Từ Telegram /vatlieu — {requester.full_name}", created_by=requester.id)
+    db.add(dong)
+    await db.flush()
+    await _bao_thu_mua_dong_moi(db, project.id, requester, dong)
 
     # If a task_id was provided, log a TaskActivity on the linked task
     if data.task_id:
@@ -451,34 +474,30 @@ async def report_incident(
     reporter = await _resolve_user_by_tg(data.reporter_tg_id, db)
     anh = await _anh_cua_du_an(db, data.media_ids, project.id)
 
-    severity_label = {
-        "low": "Thap",
-        "medium": "Trung binh",
-        "high": "Cao",
-        "critical": "Khan cap",
-    }.get(data.severity, data.severity)
-
-    # Build the task
-    task_title = f"[{severity_label}] Su co: {data.description[:100]}"
-    task_description = (
-        f"Mo ta: {data.description}\n"
-        f"Muc do: {severity_label}\n"
-        f"Nguoi phat hien: {reporter.full_name} (TG ID: {data.reporter_tg_id})\n"
-        f"Thoi gian: {datetime.now(timezone.utc).isoformat()}"
-    )
-
+    severity_label = {"low": "Thấp", "medium": "Trung bình", "high": "Cao", "critical": "Khẩn cấp"}.get(
+        data.severity, data.severity)
+    # Hạn xử lý theo mức độ (27/10/2026): khẩn cấp 4 giờ, cao 1 ngày, TB 3 ngày, thấp 7 ngày
+    gio_han = {"critical": 4, "high": 24, "medium": 72, "low": 168}.get(data.severity, 72)
+    bay_gio = datetime.now(timezone.utc)
     task = Task(
         project_id=project.id,
-        title=task_title,
-        description=task_description,
+        title=f"[Sự cố · {severity_label}] {data.description[:100]}",
+        description=(f"Mô tả: {data.description}\nMức độ: {severity_label}\n"
+                     f"Người phát hiện: {reporter.full_name}\nHạn xử lý: {gio_han} giờ"),
         status="in_progress",
         stage=project.stage,
         department="design" if data.severity in ("high", "critical") else None,
-        assigned_to=project.designer_id if data.severity in ("high", "critical") else None,
         order=0,
+        due_date=(bay_gio + timedelta(hours=gio_han)).replace(tzinfo=None),
     )
     db.add(task)
     await db.flush()
+    # Giao người xử lý: PM dự án (+ thiết kế khi mức cao) → thông báo app + Web Push + Telegram
+    nguoi = [u for u in (project.pm_id, project.designer_id if data.severity in ("high", "critical") else None) if u]
+    if nguoi:
+        from app.services.task_assign import dat_nguoi_lam
+        await dat_nguoi_lam(db, task, nguoi, actor=reporter)
+    task.sla_due_at = task.due_date
 
     # Also log as activity for traceability
     activity = TaskActivity(
