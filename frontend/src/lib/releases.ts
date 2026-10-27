@@ -16,6 +16,25 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '27/10/2026',
+    title: 'Siết 17 chỗ hở về tiền, lương và dự án',
+    tag: 'MỚI',
+    news: [
+      'Hợp đồng: nút «Bỏ đã thu» khi ghi nhầm đợt thu; HĐ nháp mà khách đã trả tiền thì tự chuyển «Đã ký»; huỷ HĐ thì gỡ hoa hồng chưa duyệt và huỷ giao dịch thu, không ký lại được.',
+      'Duyệt đơn: đơn bị yêu cầu sửa có nút «Đã sửa, nộp lại».',
+      'Dự án: chuyển «Hoàn thành» khi còn việc chưa xong sẽ hiện danh sách và hỏi lại; chỉ admin mở lại được dự án đã hoàn thành.',
+    ],
+    fixes: [
+      'Thu một phần rồi thu đủ: số tiền đợt lấy lại theo % HĐ, hoa hồng tính đúng.',
+      'Giao dịch thu tự sinh từ HĐ không sửa/xoá ở Tài chính nữa (sửa ở trang Hợp đồng).',
+      'Chi lương bị chặn nếu có hoa hồng/thưởng duyệt sau khi lập bảng — lập lại bảng trước khi chi.',
+      'Không tự sửa dòng lương hay ngày công của chính mình; người duyệt đơn luôn khác người xin.',
+      'Chỉ admin đổi mật khẩu hoặc cho nghỉ việc một admin; không cho nghỉ admin cuối cùng.',
+      'Nhắc quá hạn bỏ qua việc đã hoàn thành và dự án đang tạm dừng; xoá dòng vật tư thì chi phí dự án tự trừ.',
+      'Trang tiến độ của khách: ẩn việc sự cố/bảo hành; chỉ nghiệm thu được giai đoạn đang làm hoặc đã qua.',
+    ],
+  },
+  {
+    date: '27/10/2026',
     title: 'Gỡ 30 điểm vướng quy trình: tiền, lương, hiện trường, vận hành, hợp đồng',
     tag: 'MỚI',
     news: [

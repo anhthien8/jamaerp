@@ -33,8 +33,10 @@ async def dong_bo_gia_tri_du_an(db: AsyncSession, project_id: str | None) -> Non
         select(func.coalesce(func.sum(Contract.total_value), 0))
         .where(Contract.project_id == project_id, Contract.status != "cancelled")
     )).scalar() or 0
+    co_hd = (await db.execute(select(func.count(Contract.id)).where(Contract.project_id == project_id))).scalar()
     p = await db.get(Project, project_id)
-    if p and tong > 0 and float(p.total_value or 0) != float(tong):
+    # Còn HĐ (kể cả đã huỷ hết → 0); dự án chưa có HĐ nào thì giữ giá trị nhập tay
+    if p and co_hd and float(p.total_value or 0) != float(tong):
         p.total_value = float(tong)
 
 

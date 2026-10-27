@@ -268,6 +268,8 @@ async def edit_attendance(
     current_user: User = Depends(get_current_user),
 ):
     record = await _get_record(db, record_id)
+    if record.user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Không tự sửa công của chính mình — nhờ quản lý/kế toán")
     await _require_team_scope(db, current_user, record.user_id)
     await _require_unlocked(db, record.work_date)
 

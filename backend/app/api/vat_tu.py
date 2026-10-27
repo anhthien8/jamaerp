@@ -510,7 +510,15 @@ async def xoa_dong(dong_id: str, user: User = Depends(get_current_user), db: Asy
         raise HTTPException(400, "Dòng đã chốt giá — chỉ Admin xoá được")
     for b in (await db.execute(select(BaoGiaDongVatTu).where(BaoGiaDongVatTu.dong_id == d.id))).scalars():
         await db.delete(b)
+    pid, ten, tt_cu = d.project_id, getattr(d, "ten", None), d.trang_thai
     await db.delete(d)
+    await db.flush()
+    # Audit 27/10: xoá dòng đã chốt mà chi phí dự án không giảm
+    from app.services.dong_bo_tai_chinh import tinh_lai_spent
+    await tinh_lai_spent(db, pid)
+    from app.services.audit import log_action
+    await log_action(db, actor=user, action="vat_tu.xoa_dong", entity_type="dong_vat_tu",
+                     entity_id=dong_id, before={"ten": ten, "trang_thai": tt_cu, "project_id": pid})
     await db.commit()
 
 

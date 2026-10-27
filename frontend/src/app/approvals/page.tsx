@@ -114,6 +114,17 @@ export default function ApprovalsPage() {
     } finally { setBusy(false); }
   };
 
+  const doResubmit = async (item: ApprovalItem) => {
+    setBusy(true);
+    try {
+      await api.resubmitRequest(item.id);
+      toast('Đã nộp lại — người duyệt được báo', 'success');
+      await load();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
+    } finally { setBusy(false); }
+  };
+
   if (loading || !user) return null;
 
   const isOverdue = (item: ApprovalItem) =>
@@ -164,6 +175,12 @@ export default function ApprovalsPage() {
                 <LineIcon name="xCircle" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Từ chối
               </button>
             </>
+          )}
+          {mode === 'mine' && item.status === 'changes_requested' && (
+            <button onClick={() => doResubmit(item)} disabled={busy}
+              className="px-3 py-1.5 rounded-lg text-white text-sm font-semibold disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
+              Đã sửa, nộp lại
+            </button>
           )}
           {mode === 'mine' && (item.status === 'pending' || item.status === 'changes_requested') && (
             <button onClick={() => doCancel(item)} disabled={busy}

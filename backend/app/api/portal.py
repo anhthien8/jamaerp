@@ -102,12 +102,15 @@ async def portal_project_detail(token: str, project_id: str, db: AsyncSession = 
     tasks_result = await db.execute(
         select(Task).where(Task.project_id == project.id).order_by(Task.order)
     )
-    tasks = tasks_result.scalars().all()
+    # Audit 27/10: sự cố/bảo hành là việc nội bộ — khách không thấy
+    tasks = [t for t in tasks_result.scalars().all()
+             if not (t.title or "").startswith(("[Sự cố", "[Bảo hành"))]
 
     task_status = {"done": 0, "in_progress": 0, "not_started": 0}
     for t in tasks:
-        if t.status in task_status:
-            task_status[t.status] += 1
+        st = "done" if t.status == "completed" else t.status
+        if st in task_status:
+            task_status[st] += 1
 
     STAGE_LABELS = {
         "design": "Thiết kế", "quotation": "Báo giá", "procurement": "Thu mua",
@@ -127,7 +130,7 @@ async def portal_project_detail(token: str, project_id: str, db: AsyncSession = 
             "warranty_months": project.warranty_months,
         },
         "tasks": [
-            {"id": t.id, "title": t.title, "status": t.status, "stage": t.stage}
+            {"id": t.id, "title": t.title, "status": "done" if t.status == "completed" else t.status, "stage": t.stage}
             for t in tasks
         ],
         "task_summary": task_status,
@@ -154,6 +157,10 @@ async def portal_accept_stage(
         raise HTTPException(status_code=403, detail="Không có quyền")
     if data.stage not in ACCEPTABLE_STAGES:
         raise HTTPException(status_code=400, detail="Giai đoạn không hợp lệ")
+    # Audit 27/10: chỉ nghiệm thu giai đoạn đang làm hoặc đã qua
+    hien_tai = project.stage if project.stage in ACCEPTABLE_STAGES else None
+    if hien_tai is None or ACCEPTABLE_STAGES.index(data.stage) > ACCEPTABLE_STAGES.index(hien_tai):
+        raise HTTPException(status_code=400, detail="Giai đoạn này chưa tới — chưa nghiệm thu được")
 
     acceptances = dict(project.stage_acceptances or {})
     if data.stage in acceptances:

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -194,14 +194,8 @@ async def create_bonus(
     await db.flush()
 
     # Chuỗi duyệt: kế toán còn lại (nếu khác người đề xuất) + admin
-    acct_result = await db.execute(
-        select(User).where(User.role == "accountant", User.is_active == True).limit(1)  # noqa: E712
-    )
-    accountant = acct_result.scalar_one_or_none()
-    admin_result = await db.execute(
-        select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
-    )
-    admin = admin_result.scalar_one_or_none()
+    accountant = await approval_engine.chon_nguoi_duyet(db, "accountant", current_user.id)
+    admin = await approval_engine.chon_nguoi_duyet(db, "admin", current_user.id)
 
     chain: list[str] = []
     if accountant and accountant.id != current_user.id:
@@ -341,6 +335,8 @@ async def update_row(
         raise HTTPException(status_code=404, detail="Dòng lương không tồn tại")
     if row.status != "draft":
         raise HTTPException(status_code=409, detail=f"Kỳ đã {row.status} — không thể sửa")
+    if row.user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Không tự sửa dòng lương của chính mình — nhờ người khác")
 
     user = await db.get(User, row.user_id)
     before = {"bonus": row.bonus, "allowance": row.allowance, "deductions": row.deductions}
@@ -383,10 +379,7 @@ async def submit(
     await db.flush()
 
     # Admin duyệt kỳ lương (1 cấp — kế toán đã là người lập)
-    admin_result = await db.execute(
-        select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
-    )
-    admin = admin_result.scalar_one_or_none()
+    admin = await approval_engine.chon_nguoi_duyet(db, "admin", current_user.id)
     if not admin:
         raise HTTPException(status_code=400, detail="Hệ thống chưa có admin để duyệt lương")
 
@@ -426,6 +419,26 @@ async def pay(
     if not rows:
         raise HTTPException(status_code=409, detail=f"Kỳ {period} chưa được admin duyệt (hoặc đã chi)")
 
+    # Audit 27/10: hoa hồng/thưởng duyệt SAU khi lập bảng không có trong lương —
+    # nếu đánh dấu paid luôn thì nhân viên mất tiền. Chặn, bắt lập lại bảng.
+    lech = []
+    for row in rows:
+        hh = (await db.execute(select(func.coalesce(func.sum(Commission.commission_amount), 0)).where(
+            Commission.user_id == row.user_id, Commission.period == period, Commission.status == "approved"
+        ))).scalar() or 0
+        th = (await db.execute(select(func.coalesce(func.sum(Bonus.amount), 0)).where(
+            Bonus.user_id == row.user_id, Bonus.period == period, Bonus.status == "approved"
+        ))).scalar() or 0
+        if round(hh) > round(row.commission_total or 0) + 1 or round(th) > round(row.bonus or 0) + 1:
+            u = await db.get(User, row.user_id)
+            lech.append(u.full_name if u else row.user_id)
+    if lech:
+        raise HTTPException(status_code=409, detail=(
+            "Có hoa hồng/thưởng được duyệt sau khi lập bảng lương ("
+            + ", ".join(lech[:5]) + ") — trả kỳ về nháp và lập lại bảng trước khi chi"
+        ))
+    user_ids = {r.user_id for r in rows}
+
     now = datetime.now(timezone.utc)
     for row in rows:
         row.status = "paid"
@@ -444,14 +457,16 @@ async def pay(
 
     # Hoa hồng của kỳ → paid
     comm_result = await db.execute(
-        select(Commission).where(Commission.period == period, Commission.status == "approved")
+        select(Commission).where(Commission.period == period, Commission.status == "approved",
+                                 Commission.user_id.in_(user_ids))
     )
     for commission in comm_result.scalars().all():
         commission.status = "paid"
 
     # Thưởng của kỳ → paid (GĐ B: vòng đời bonus khớp commission)
     bonus_result = await db.execute(
-        select(Bonus).where(Bonus.period == period, Bonus.status == "approved")
+        select(Bonus).where(Bonus.period == period, Bonus.status == "approved",
+                            Bonus.user_id.in_(user_ids))
     )
     for bonus in bonus_result.scalars().all():
         bonus.status = "paid"
@@ -567,14 +582,8 @@ async def create_advance(
     await db.flush()
 
     # Chuỗi duyệt: kế toán (+ admin nếu >5tr). Kế toán tự xin → admin duyệt.
-    acct_result = await db.execute(
-        select(User).where(User.role == "accountant", User.is_active == True).limit(1)  # noqa: E712
-    )
-    accountant = acct_result.scalar_one_or_none()
-    admin_result = await db.execute(
-        select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
-    )
-    admin = admin_result.scalar_one_or_none()
+    accountant = await approval_engine.chon_nguoi_duyet(db, "accountant", current_user.id)
+    admin = await approval_engine.chon_nguoi_duyet(db, "admin", current_user.id)
 
     chain: list[str] = []
     if accountant and accountant.id != current_user.id:

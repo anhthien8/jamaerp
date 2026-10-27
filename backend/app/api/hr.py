@@ -156,6 +156,17 @@ async def resign(
         raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Nhân viên đã bị vô hiệu hóa trước đó")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Không tự cho mình nghỉ việc được")
+    if user.role == "admin":
+        # Audit 27/10: kế toán từng cho nghỉ được admin
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Chỉ admin mới cho admin khác nghỉ việc")
+        con = (await db.execute(select(func.count(User.id)).where(
+            User.role == "admin", User.is_active == True, User.id != user.id  # noqa: E712
+        ))).scalar() or 0
+        if not con:
+            raise HTTPException(status_code=400, detail="Đây là admin cuối cùng — không cho nghỉ được")
 
     now = datetime.now(timezone.utc)
 

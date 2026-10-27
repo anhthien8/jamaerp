@@ -269,7 +269,9 @@ def _truy_van_task():
             selectinload(Task.assignees).selectinload(TaskAssignee.user),
             selectinload(Task.project),
         )
-        .where(Task.status != "done")
+        # Audit 27/10: «completed» cũng là xong; dự án tạm dừng/huỷ/xong thì thôi nhắc
+        .join(Project, Project.id == Task.project_id)
+        .where(Task.status.notin_(("done", "completed")), Project.status == "active")
     )
 
 

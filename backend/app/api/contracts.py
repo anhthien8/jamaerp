@@ -160,7 +160,17 @@ async def update_contract(
         raise HTTPException(status_code=404, detail="Hợp đồng không tồn tại")
 
     old_status = contract.status
-    for k, v in data.model_dump(exclude_unset=True).items():
+    moi = data.model_dump(exclude_unset=True)
+    st_moi = moi.get("status")
+    if st_moi and st_moi != old_status:
+        # Audit 27/10: HĐ đã nghiệm thu/huỷ mà đổi trạng thái lại → ký lại sinh hoa hồng lần 2
+        if old_status in ("completed", "cancelled"):
+            raise HTTPException(status_code=400, detail="Hợp đồng đã nghiệm thu hoặc đã huỷ — không đổi trạng thái được nữa")
+        if st_moi == "draft" and any(
+            d.get("status") in ("paid", "partial") for d in (contract.payment_terms or {}).get("installments", [])
+        ):
+            raise HTTPException(status_code=400, detail="Hợp đồng đã có đợt thu tiền — không quay về nháp được")
+    for k, v in moi.items():
         setattr(contract, k, v)
     contract.updated_at = datetime.now(timezone.utc)
 
@@ -174,6 +184,8 @@ async def update_contract(
             await hoa_hong.khi_ky_hop_dong(db, contract)
         elif new_status == "completed":
             await hoa_hong.khi_nghiem_thu(db, contract)
+        elif new_status == "cancelled":
+            await _thu_hoi_khi_huy(db, contract)
 
     await db.flush()
     # Giá trị HĐ đổi → dự án đổi theo (Hũ thưởng, Bảng KD đọc giá trị dự án)
@@ -181,6 +193,21 @@ async def update_contract(
     from app.cache import cache
     cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
+
+
+async def _thu_hoi_khi_huy(db: AsyncSession, contract: Contract) -> None:
+    """Huỷ HĐ (audit 27/10): gỡ hoa hồng chưa duyệt, huỷ giao dịch thu tự sinh.
+    Hoa hồng đã duyệt/đã trả giữ nguyên để kế toán xử lý tay (không tự đảo lương)."""
+    from app.models.payroll import Commission
+    from app.models.payroll import Transaction
+    for c in (await db.execute(select(Commission).where(
+        Commission.contract_id == contract.id, Commission.status.in_(("cho_moc", "pending"))
+    ))).scalars().all():
+        await db.delete(c)
+    for gd in (await db.execute(select(Transaction).where(
+        Transaction.code.like(f"THU-{contract.code}-D%")
+    ))).scalars().all():
+        gd.status = "cancelled"
 
 
 @router.put("/{contract_id}/payments/{installment_idx}")
@@ -210,8 +237,13 @@ async def update_payment(
         raise HTTPException(status_code=400, detail="Trạng thái đợt không hợp lệ")
     if data.status == "partial" and not data.amount:
         raise HTTPException(status_code=400, detail="Thu một phần cần nhập số tiền đã thu")
+    if contract.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Hợp đồng đã huỷ — không ghi thu được")
     da_thu_truoc = installments[installment_idx].get("status") == "paid"
     installments[installment_idx]["status"] = data.status
+    if data.status != "partial" and not data.amount:
+        # Thu nốt sau khi đã thu một phần / bỏ thu: bỏ số tạm cũ, tính lại theo % HĐ
+        installments[installment_idx].pop("amount", None)
     if data.paid_date:
         installments[installment_idx]["paid_date"] = str(data.paid_date)
     else:
@@ -232,6 +264,10 @@ async def update_payment(
 
     # Hoa hồng theo đợt khách trả (services/hoa_hong.py)
     from app.services import hoa_hong
+    if contract.status == "draft" and data.status in ("paid", "partial"):
+        # Khách đã trả tiền = HĐ đã ký (audit 27/10: HĐ nháp thu tiền không vào phải thu)
+        contract.status = "signed"
+        await hoa_hong.khi_ky_hop_dong(db, contract)
     if data.status == "paid":
         await hoa_hong.khi_thu_tien(db, contract, installment_idx)
     elif da_thu_truoc:

@@ -1107,6 +1107,9 @@ async def update_user(
     for k in allowed:
         if k in provided:
             setattr(user, k, provided[k])
+    if "password" in provided and data.password and user.role == "admin"             and current_user.role != "admin":
+        # Audit 27/10: kế toán (canManageUsers) đặt được mật khẩu admin = chiếm quyền
+        raise HTTPException(status_code=403, detail="Chỉ admin mới đổi mật khẩu của admin")
     if "password" in provided and data.password:
         user.password_hash = hash_password(data.password)
     user.updated_at = datetime.now(timezone.utc)

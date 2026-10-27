@@ -181,6 +181,7 @@ async def _chua_phan_cong_pic(db: AsyncSession, project: Project) -> bool:
 class ProjectStageUpdate(BaseModel):
     stage: str
     pause_reason: str | None = None
+    force: bool = False  # «Vẫn hoàn thành» dù còn việc mở
 
 class TaskCreate(BaseModel):
     title: str
@@ -785,6 +786,24 @@ async def update_project_stage(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
+
+    if project.status == "completed" and data.stage != "completed":
+        # Audit 27/10: mở lại dự án đã hoàn thành — chỉ admin, và về «đang chạy»
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Dự án đã hoàn thành — chỉ admin mở lại được")
+        project.status = "active"
+    if data.stage == "completed" and project.status != "completed" and not data.force:
+        # Audit 27/10: hoàn thành khi còn việc/sự cố mở → kích nghiệm thu + hoa hồng sớm
+        con_mo = (await db.execute(select(Task.title).where(
+            Task.project_id == project.id, Task.status.notin_(("done", "completed"))
+        ).limit(6))).scalars().all()
+        if con_mo:
+            raise HTTPException(status_code=409, detail={
+                "code": "con_viec_mo",
+                "message": "Dự án còn việc chưa xong: " + "; ".join(t[:60] for t in con_mo[:5])
+                           + (" …" if len(con_mo) > 5 else ""),
+                "tasks": list(con_mo[:5]),
+            })
 
     project.updated_at = datetime.now(timezone.utc)
     if data.stage == "paused":

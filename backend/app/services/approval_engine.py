@@ -60,6 +60,15 @@ class ApprovalError(Exception):
         super().__init__(detail)
 
 
+
+async def chon_nguoi_duyet(db: AsyncSession, role: str, tru_id: str | None = None) -> "User | None":
+    """Người duyệt theo vai, đang làm, KHÁC người đề xuất (audit 27/10: limit(1) có thể
+    trúng chính người xin → tự duyệt hoặc kẹt). Ổn định theo ngày tạo tài khoản."""
+    q = select(User).where(User.role == role, User.is_active == True)  # noqa: E712
+    if tru_id:
+        q = q.where(User.id != tru_id)
+    return (await db.execute(q.order_by(User.created_at).limit(1))).scalar_one_or_none()
+
 async def _notify_user(db: AsyncSession, user: User | None, title: str, body: str, link: str | None, ref_id: str) -> None:
     """Notify web + Telegram chat riêng (dedupe theo ref)."""
     if user is None:
@@ -361,10 +370,7 @@ async def escalate_overdue(db: AsyncSession) -> int:
 
         if overdue_hours >= 24 and request.escalated >= 1:
             # Quá 24h sau hạn → chuyển admin (nếu approver hiện tại chưa phải admin)
-            admin_result = await db.execute(
-                select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
-            )
-            admin = admin_result.scalar_one_or_none()
+            admin = await chon_nguoi_duyet(db, "admin", request.requester_id)
             if admin and request.current_approver_id != admin.id and request.requester_id != admin.id:
                 request.current_approver_id = admin.id
                 request.escalated += 1

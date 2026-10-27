@@ -1129,8 +1129,8 @@ class ApiClient {
     return this.request<ProjectKanban[]>('/projects/pipeline/kanban');
   }
 
-  async updateProjectStage(projectId: string, stage: string) {
-    return this.request<Project>(`/projects/${projectId}/stage`, { method: 'PUT', body: { stage } });
+  async updateProjectStage(projectId: string, stage: string, force = false) {
+    return this.request<Project>(`/projects/${projectId}/stage`, { method: 'PUT', body: force ? { stage, force } : { stage } });
   }
 
   async getTaskActivities(taskId: string) {
@@ -1549,6 +1549,10 @@ class ApiClient {
       body: Object.keys(body).length ? body : undefined,
     });
   }
+  /** Bỏ «đã thu» (ghi nhầm): đợt về chờ thu, giao dịch thu + hoa hồng chưa trả tự gỡ */
+  async boDaThu(contractId: string, installmentIdx: number) {
+    return this.request<Contract>(`/contracts/${contractId}/payments/${installmentIdx}`, { method: 'PUT', body: { status: 'pending' } });
+  }
   /** Sửa lịch thu: số đợt, %, hạn thu (tổng % = 100; đợt đã thu giữ nguyên trạng thái) */
   async updateLichThu(contractId: string, dot: Array<{ name: string; percentage: number; due_date?: string | null; milestone?: string }>) {
     return this.request<Contract>(`/contracts/${contractId}/lich-thu`, { method: 'PUT', body: { dot } });
@@ -1926,6 +1930,9 @@ class ApiClient {
   }
   async requestChanges(id: string, reason: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/request-changes`, { method: 'POST', body: { reason } });
+  }
+  async resubmitRequest(id: string) {
+    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/resubmit`, { method: 'POST' });
   }
   async cancelRequest(id: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/cancel`, { method: 'POST' });

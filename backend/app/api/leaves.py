@@ -105,10 +105,7 @@ async def _build_approver_chain(db: AsyncSession, requester: User, days: float) 
             if leader and leader.is_active:
                 leader_id = leader.id
 
-    admin_result = await db.execute(
-        select(User).where(User.role == "admin", User.is_active == True).limit(1)  # noqa: E712
-    )
-    admin = admin_result.scalar_one_or_none()
+    admin = await approval_engine.chon_nguoi_duyet(db, "admin", requester.id)
 
     if leader_id:
         chain.append(leader_id)

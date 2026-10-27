@@ -607,6 +607,23 @@ export default function ContractsPage() {
                             Đã thanh toán {inst.paid_date ? `(${new Date(inst.paid_date).toLocaleDateString('vi-VN')})` : ''}
                           </span>
                         )}
+                        {(inst.status === 'paid' || inst.status === 'partial') && canConfirmTT && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm('Bỏ «đã thu» đợt này? Giao dịch thu và hoa hồng chưa trả của đợt sẽ được gỡ.')) return;
+                              try {
+                                const updated = await api.boDaThu(selected.id, idx);
+                                setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+                                setSelected(updated);
+                                toast('Đã bỏ «đã thu»', 'success');
+                              } catch (e) { toast(e instanceof Error ? e.message : 'Không bỏ được', 'error'); }
+                            }}
+                            className="px-2.5 py-1 rounded-full text-xs text-[var(--text-muted)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)]"
+                          >
+                            Bỏ đã thu
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

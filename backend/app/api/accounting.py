@@ -278,6 +278,9 @@ async def update_transaction(
     txn = result.scalar_one_or_none()
     if not txn:
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
+    if (txn.code or "").startswith("THU-"):
+        # Audit 27/10: giao dịch tự sinh từ đợt thu HĐ — sửa/huỷ ở đây làm sổ lệch P&L
+        raise HTTPException(status_code=400, detail="Giao dịch tự sinh từ Hợp đồng — bỏ «đã thu» ở trang Hợp đồng")
 
     update_fields = data.model_dump(exclude_unset=True)
     # Model KHÔNG có cột transaction_date/user_id/contract_id — setattr thẳng chỉ
@@ -317,6 +320,9 @@ async def delete_transaction(
     txn = result.scalar_one_or_none()
     if not txn:
         raise HTTPException(status_code=404, detail="Giao dịch không tồn tại")
+    if (txn.code or "").startswith("THU-"):
+        # Audit 27/10: giao dịch tự sinh từ đợt thu HĐ — sửa/huỷ ở đây làm sổ lệch P&L
+        raise HTTPException(status_code=400, detail="Giao dịch tự sinh từ Hợp đồng — bỏ «đã thu» ở trang Hợp đồng")
     txn.status = "cancelled"
     await db.flush()
     await _sau_doi_giao_dich(db, txn)

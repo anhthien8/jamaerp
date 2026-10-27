@@ -482,7 +482,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm vào thẻ dự án → hiện cửa sổ chi tiết: tiến độ, tổng giá trị, đã chi, **Phân công bộ phận** (PM/Giám sát – Thiết kế – Báo giá/Thu mua – Kinh doanh), thông tin khách, ngân sách và cảnh báo khi chi vượt.",
           "Đổi giai đoạn bằng ô **«Giai đoạn:»** ở góc trên cửa sổ. Chọn **«Tạm dừng»** thì hệ thống hỏi lý do (VD: đang xin phép, khách đi du lịch...) — nhập rồi bấm **«Xác nhận tạm dừng»**. Dự án vẫn giữ giai đoạn đang làm: chọn lại giai đoạn là chạy tiếp đúng chỗ.",
-          "Chọn **«Hoàn thành»**: hệ thống tự ghi ngày bàn giao (nếu chưa có), tính hạn bảo hành và chuyển HĐ thi công đã ký sang nghiệm thu. Sự cố báo sau đó tự thành việc **Bảo hành** giao PM. Khách xác nhận nghiệm thu trên trang tiến độ thì hiện ở khối **«Khách đã nghiệm thu»**.",
+          "Chọn **«Hoàn thành»**: hệ thống tự ghi ngày bàn giao (nếu chưa có), tính hạn bảo hành và chuyển HĐ thi công đã ký sang nghiệm thu. Sự cố báo sau đó tự thành việc **Bảo hành** giao PM. Khách xác nhận nghiệm thu trên trang tiến độ thì hiện ở khối **«Khách đã nghiệm thu»**. Nếu dự án còn việc chưa xong, hệ thống liệt kê ra và hỏi **«Vẫn đánh dấu hoàn thành?»**. Dự án đã hoàn thành chỉ **admin** mở lại được.",
           "Kéo xuống mục **«Đầu việc»** — có thể xem gộp **«Theo giai đoạn»** hoặc **«Theo phòng ban»** (mỗi phòng thấy ngay phần việc của mình; phòng chưa tới lượt hiện mờ kèm chữ «Chờ giai đoạn trước»)."
         ]
       },
@@ -759,7 +759,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "warn",
-        "text": "Nút **Xác nhận TT** chỉ hiện với **Kế toán (Trưởng phòng Tài chính) và Giám đốc** (chốt 22/10 — Trưởng nhóm Kinh doanh không còn bấm được). Vai trò khác không thấy nút này — hệ thống cũng chặn ở máy chủ, có cố cũng không được. Xác nhận rồi thì đợt đó chuyển sang «Đã thanh toán», hãy chắc chắn tiền đã về tài khoản trước khi bấm."
+        "text": "Nút **Xác nhận TT** chỉ hiện với **Kế toán (Trưởng phòng Tài chính) và Giám đốc** (chốt 22/10 — Trưởng nhóm Kinh doanh không còn bấm được). Vai trò khác không thấy nút này — hệ thống cũng chặn ở máy chủ, có cố cũng không được. Xác nhận rồi thì đợt đó chuyển sang «Đã thanh toán», hãy chắc chắn tiền đã về tài khoản trước khi bấm. Lỡ bấm nhầm thì dùng nút **«Bỏ đã thu»** ở đợt đó — giao dịch thu và hoa hồng chưa trả của đợt tự gỡ (giao dịch thu tự sinh không sửa/xoá ở Tài chính). HĐ còn **Nháp** mà ghi thu tiền thì tự chuyển **Đã ký**. HĐ đã **Huỷ** thì không ghi thu và không ký lại được."
       }
     ]
   },

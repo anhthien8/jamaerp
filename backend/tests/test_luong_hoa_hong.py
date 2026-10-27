@@ -49,7 +49,8 @@ async def doi(db_session: AsyncSession) -> dict[str, User]:
 
 
 async def _du_an_va_hd(db: AsyncSession, doi: dict, *, kind: str | None = "thi_cong",
-                       khach_rieng: bool = False, title: str = "HĐ thi công nhà phố") -> Contract:
+                       khach_rieng: bool = False, title: str = "HĐ thi công nhà phố",
+                       status: str = "signed") -> Contract:
     p = Project(
         id=_uid(), code=f"JMH-{_uid()[:4]}", name="Nhà giả", client_name="Khách giả",
         stage="construction", status="active", total_value=1_000_000_000, spent=0, progress=0,
@@ -57,7 +58,7 @@ async def _du_an_va_hd(db: AsyncSession, doi: dict, *, kind: str | None = "thi_c
         pm_id=doi["gs"].id, khach_rieng=khach_rieng,
     )
     c = Contract(
-        id=_uid(), code=f"HD-{_uid()[:6]}", project_id=p.id, title=title, status="draft",
+        id=_uid(), code=f"HD-{_uid()[:6]}", project_id=p.id, title=title, status=status,
         total_value=1_000_000_000, contract_kind=kind,
         payment_terms={"installments": [
             {"name": "Đợt 1", "percentage": 25, "milestone": "signing", "status": "pending"},
@@ -185,7 +186,7 @@ class TestHoaHongThietKe:
 @pytest.mark.asyncio
 class TestHoaHongKyVaNghiemThu:
     async def test_ky_va_nghiem_thu(self, client, db_session, admin_user, doi):
-        c = await _du_an_va_hd(db_session, doi)
+        c = await _du_an_va_hd(db_session, doi, status="draft")
         r = await client.put(f"/api/v1/contracts/{c.id}", json={"status": "signed"}, headers=auth_header(admin_user))
         assert r.status_code == 200, r.text
         rows = await _hh(db_session, c.id)

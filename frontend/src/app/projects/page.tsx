@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { laTruongPhong } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages, mediaUrl } from '@/lib/api';
+import { api, ApiError, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages, mediaUrl } from '@/lib/api';
 import { nenAnh, blobThanhDataUrl } from '@/lib/anh';
 import AnhDuAn from '@/components/projects/AnhDuAn';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -570,14 +570,25 @@ function ProjectsPageInner() {
       setPauseReason('');
       return;
     }
-    try {
-      const updated = await api.updateProjectStage(selectedProject.id, newStage);
+    const doi = async (force: boolean) => {
+      const updated = await api.updateProjectStage(selectedProject.id, newStage, force);
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? updated : p));
       setSelectedProject(updated);
       refreshData();
       toast(`Đã chuyển dự án sang giai đoạn ${STAGE_LABELS[newStage]}`, 'success');
-    } catch {
-      toast('Lỗi khi cập nhật giai đoạn', 'error');
+    };
+    try {
+      await doi(false);
+    } catch (e) {
+      // Còn việc mở → hỏi «vẫn hoàn thành?» (audit 27/10)
+      if (e instanceof ApiError && e.status === 409 && e.data?.code === 'con_viec_mo') {
+        if (!confirm(`${e.message}
+
+Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa hồng)`)) return;
+        try { await doi(true); } catch (e2) { toast(e2 instanceof Error ? e2.message : 'Lỗi khi cập nhật giai đoạn', 'error'); }
+        return;
+      }
+      toast(e instanceof Error && e.message ? e.message : 'Lỗi khi cập nhật giai đoạn', 'error');
     }
   };
 
