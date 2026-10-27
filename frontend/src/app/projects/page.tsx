@@ -1177,7 +1177,7 @@ function ProjectsPageInner() {
 
             <div className="p-5 space-y-5">
               {/* Pause Reason — hiển thị khi dự án tạm dừng */}
-              {selectedProject.stage === 'paused' && (
+              {(selectedProject.stage === 'paused' || selectedProject.status === 'paused') && (
                 <div className="p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                   <p className="text-xs font-semibold text-amber-400 mb-1"><LineIcon name="pause" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Lý do tạm dừng:</p>
                   <p className="text-sm text-[var(--text-secondary)]">{(selectedProject as unknown as Record<string, string>).pause_reason || 'Không ghi rõ'}</p>
@@ -1291,6 +1291,24 @@ function ProjectsPageInner() {
                 <span className="flex items-center gap-2 text-[var(--text-primary)]"><LineIcon name="package" size={16} /> Phiếu vật tư của dự án</span>
                 <span className="text-[var(--text-muted)]">Mở →</span>
               </Link>
+
+              {/* Khách đã xác nhận nghiệm thu trên portal (27/10/2026) */}
+              {selectedProject.stage_acceptances && Object.keys(selectedProject.stage_acceptances).length > 0 && (
+                <div className="glass-card p-4">
+                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Khách đã nghiệm thu</h3>
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(selectedProject.stage_acceptances).map(([gd, nt]) => (
+                      <div key={gd} className="flex items-start gap-2">
+                        <LineIcon name="check" size={16} />
+                        <div className="min-w-0">
+                          <div className="text-[var(--text-primary)]">{STAGE_LABELS[gd] || gd} · {new Date(nt.at).toLocaleDateString('vi-VN')}</div>
+                          {nt.note && <div className="text-xs text-[var(--text-muted)]">{nt.note}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Bàn giao & bảo hành */}
               {selectedProject.handover_date && (

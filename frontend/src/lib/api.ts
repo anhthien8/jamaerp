@@ -1554,6 +1554,11 @@ class ApiClient {
     return this.request<Contract>(`/contracts/${contractId}/lich-thu`, { method: 'PUT', body: { dot } });
   }
 
+  /** Phụ lục phát sinh (+) / giảm trừ (−): HĐ con, giá trị dự án tự cộng */
+  async taoPhuLuc(contractId: string, data: { title: string; total_value: number; notes?: string }) {
+    return this.request<Contract>(`/contracts/${contractId}/phu-luc`, { method: 'POST', body: data });
+  }
+
   // === ERP: Quotations ===
   async getQuotations(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Quotation>>('/quotations', { params });
@@ -2997,6 +3002,8 @@ export interface Contract {
   title: string;
   /** thiet_ke | thi_cong — quyết định hoa hồng thiết kế (JD). Trống = đoán theo tiêu đề */
   contract_kind?: 'thiet_ke' | 'thi_cong' | null;
+  /** Phụ lục: id HĐ gốc */
+  parent_contract_id?: string | null;
   status: string; // draft | approved | sent | signed | completed | cancelled
   total_value?: number;
   payment_terms?: {

@@ -224,14 +224,11 @@ async def generate_portal_link(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Generate portal link for customer (admin/leader only)."""
-    if current_user.role not in ("admin", "leader"):
-        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này")
+    """Tạo (lại) link portal: admin, trưởng phòng/nhóm, hoặc sale/PM phụ trách dự án của khách.
 
-    result = await db.execute(select(Customer).where(Customer.id == customer_id))
-    customer = result.scalar_one_or_none()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+    Trước 27/10/2026 chốt role == "leader" — vai không tồn tại, nên chỉ admin bấm được.
+    """
+    customer = await _khach_portal_duoc_quan(db, customer_id, current_user)
 
     portal_token = str(uuid.uuid4())
     customer.portal_token = portal_token
@@ -242,6 +239,41 @@ async def generate_portal_link(
         "portal_token": portal_token,
         "portal_url": f"/portal/{portal_token}",
     }
+
+
+async def _khach_portal_duoc_quan(db: AsyncSession, customer_id: str, user: User) -> Customer:
+    from app.middleware.rbac import is_team_lead, la_truong_phong
+    from app.models.project import Project
+
+    customer = (await db.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+    if user.role in ("admin", "executive") or is_team_lead(user) or la_truong_phong(user):
+        return customer
+    phu_trach = (await db.execute(select(Project.id).where(
+        Project.customer_id == customer.id,
+        (Project.sales_id == user.id) | (Project.pm_id == user.id)).limit(1))).first()
+    if not phu_trach:
+        raise HTTPException(status_code=403, detail="Chỉ quản lý hoặc sale/PM phụ trách dự án của khách được quản lý link portal")
+    return customer
+
+
+class _PortalToggle(BaseModel):
+    enabled: bool
+
+
+@router.patch("/{customer_id}/portal")
+async def bat_tat_portal(
+    customer_id: str,
+    body: _PortalToggle,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tắt link portal (lộ link, khách cũ) / bật lại."""
+    customer = await _khach_portal_duoc_quan(db, customer_id, current_user)
+    customer.portal_enabled = body.enabled
+    await db.flush()
+    return {"portal_enabled": customer.portal_enabled, "portal_token": customer.portal_token}
 
 
 @router.put("/{customer_id}", response_model=CustomerResponse)

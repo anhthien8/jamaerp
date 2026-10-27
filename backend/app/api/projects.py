@@ -444,10 +444,11 @@ async def project_kanban(
 
     by_stage: dict[str, list] = {s: [] for s in stages}
     for p in all_projects:
-        if p.stage in by_stage:
+        cot = "paused" if p.status == "paused" else p.stage
+        if cot in by_stage:
             response = ProjectResponse.model_validate(p)
             response.stage_progress = progress_map.get(p.id)
-            by_stage[p.stage].append(_mask_project_response(response, current_user))
+            by_stage[cot].append(_mask_project_response(response, current_user))
 
     for stage in stages:
         kanban.append(ProjectKanbanStage(
@@ -785,18 +786,36 @@ async def update_project_stage(
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
 
-    project.stage = data.stage
     project.updated_at = datetime.now(timezone.utc)
-    if data.stage == "paused" and hasattr(data, 'pause_reason') and data.pause_reason:
-        project.pause_reason = data.pause_reason
+    if data.stage == "paused":
+        # Tạm dừng = trạng thái, GIỮ giai đoạn đang làm (27/10/2026) — trước đây ghi đè
+        # stage="paused" nên chạy lại không biết dự án dừng ở Thiết kế hay Thi công.
+        project.status = "paused"
+        if project.stage == "paused":
+            project.stage = "design"
+        project.pause_reason = getattr(data, "pause_reason", None) or project.pause_reason
         project.paused_at = datetime.now(timezone.utc)
-    elif data.stage != "paused":
+    else:
+        project.stage = data.stage
+        if project.status == "paused":
+            project.status = "active"
         project.pause_reason = None
         project.paused_at = None
 
     # ── Customer lifecycle: post-completion actions ────────────────────────
     if data.stage == "completed":
         project.status = "completed"
+        # Hoàn thành mà chưa ghi ngày bàn giao → lấy hôm nay, để kỳ bảo hành chạy
+        if project.handover_date is None:
+            project.handover_date = datetime.now(timezone.utc).replace(tzinfo=None)
+        # HĐ thi công đã ký → nghiệm thu (tính hoa hồng giám sát + phần còn lại)
+        from app.models.contract import Contract
+        from app.services import hoa_hong
+        for hd_tc in (await db.execute(select(Contract).where(
+                Contract.project_id == project.id, Contract.contract_kind == "thi_cong",
+                Contract.status.in_(("signed", "active"))))).scalars().all():
+            hd_tc.status = "completed"
+            await hoa_hong.khi_nghiem_thu(db, hd_tc)
         # Calculate warranty_end_date from handover_date + warranty_months
         if project.handover_date is not None:
             hd = project.handover_date
@@ -808,7 +827,7 @@ async def update_project_stage(
             user_id=current_user.id,
             type="system",
             title="Dự án đã hoàn thành",
-            body=f"Dự án {project.code} đã hoàn thành. Cần survey满意度 và nhắc bảo hành.",
+            body=f"Dự án {project.code} đã hoàn thành. Cần khảo sát mức hài lòng và nhắc bảo hành.",
             link=f"/projects",
             ref_id=project.id,
         )

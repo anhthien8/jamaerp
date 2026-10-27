@@ -79,6 +79,9 @@ class SiteReportRequest(BaseModel):
     reporter_tg_id: int = Field(..., description="Telegram user ID of the reporter")
     # Đầu việc người báo cáo chọn trên bot (27/10/2026); trống → tự chọn việc của mình đang làm
     task_id: str | None = None
+    # Báo cáo nội bộ (27/10/2026): không hiện cho khách trên portal. Bot gửi cờ hoặc
+    # người báo cáo mở đầu bằng «#noibo».
+    noi_bo: bool = False
     # File nặng (bản vẽ .skp, .dwg, video…) bot không tải được (giới hạn 20MB của
     # Bot API) → giữ nguyên trong nhóm, ERP lưu tên + link tin nhắn Telegram (24/10/2026)
     attachments: list["TepDinhKem"] = Field(default_factory=list, max_length=20)
@@ -304,6 +307,10 @@ async def create_site_report(
 
     anh = await _anh_cua_du_an(db, data.media_ids, project.id)
     full_content = data.content
+    noi_bo = data.noi_bo or full_content.lower().lstrip().startswith(("#noibo", "#nội bộ", "#noi_bo"))
+    if noi_bo:
+        for m in anh:
+            m.shared_with_customer = False
     if len(anh) > 1:
         full_content = f"{data.content}\n\n📷 {len(anh)} ảnh — xem ở mục Ảnh dự án"
 
@@ -322,7 +329,7 @@ async def create_site_report(
         user_id=reporter.id,
         content=full_content,
         media_url=url_media(anh[0]) if anh else None,
-        kind="tien_do",
+        kind="noi_bo" if noi_bo else "tien_do",
     )
     db.add(activity)
     await db.flush()
@@ -479,9 +486,12 @@ async def report_incident(
     # Hạn xử lý theo mức độ (27/10/2026): khẩn cấp 4 giờ, cao 1 ngày, TB 3 ngày, thấp 7 ngày
     gio_han = {"critical": 4, "high": 24, "medium": 72, "low": 168}.get(data.severity, 72)
     bay_gio = datetime.now(timezone.utc)
+    # Dự án đã bàn giao → sự cố là việc BẢO HÀNH (PM xử lý, ghi trong kỳ bảo hành)
+    bao_hanh = project.status == "completed" or project.stage == "completed"
+    nhan = "Bảo hành" if bao_hanh else "Sự cố"
     task = Task(
         project_id=project.id,
-        title=f"[Sự cố · {severity_label}] {data.description[:100]}",
+        title=f"[{nhan} · {severity_label}] {data.description[:100]}",
         description=(f"Mô tả: {data.description}\nMức độ: {severity_label}\n"
                      f"Người phát hiện: {reporter.full_name}\nHạn xử lý: {gio_han} giờ"),
         status="in_progress",

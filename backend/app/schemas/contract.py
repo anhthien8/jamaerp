@@ -48,6 +48,7 @@ class ContractResponse(BaseModel):
     start_date: date | None = None
     notes: str | None = None
     contract_kind: str | None = None
+    parent_contract_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -72,3 +73,10 @@ class DotThu(BaseModel):
 class LichThuUpdate(BaseModel):
     """Lịch thu tuỳ chỉnh (27/10/2026)."""
     dot: list[DotThu] = Field(min_length=1, max_length=12)
+
+
+class PhuLucCreate(BaseModel):
+    """Phụ lục phát sinh (giá trị dương) hoặc giảm trừ (âm)."""
+    title: str = Field(..., min_length=3, max_length=255)
+    total_value: float
+    notes: str | None = None

@@ -33,7 +33,8 @@ class QuotationUpdate(BaseModel):
     # bị nuốt im lặng dù toast báo thành công (QC 27/08).
     type: str | None = None
     project_id: str | None = None
-    status: str | None = None
+    lead_id: str | None = None
+    # status KHÔNG sửa qua PUT (27/10/2026): trước đây gửi status="approved" là tự duyệt, lách nút Duyệt.
     items: list[QuotationLineItem] | None = None
     total_amount: float | None = None
     tax_amount: float | None = None

@@ -603,21 +603,9 @@ async def change_stage(
 
     # Auto-convert to Customer & Project when signed_design is reached
     if data.new_stage == "signed_design":
-        # 1. Create/get Customer
-        cust_q = select(Customer).where((Customer.lead_id == lead.id) | (Customer.phone == lead.phone))
-        cust_res = await db.execute(cust_q)
-        customer = cust_res.scalar_one_or_none()
-        if not customer:
-            customer = Customer(
-                name=lead.name,
-                phone=lead.phone,
-                email=lead.email,
-                address=lead.address,
-                lead_id=lead.id,
-                type="individual",
-            )
-            db.add(customer)
-            await db.flush()
+        # 1. Create/get Customer (kèm link portal)
+        from app.services.khach_hang import tim_hoac_tao_khach
+        customer = await tim_hoac_tao_khach(db, lead)
 
         # 2. Create Project
         proj_q = select(Project).where(Project.lead_id == lead.id)
@@ -704,12 +692,23 @@ async def change_stage(
             existing_contract = contract_res.scalar_one_or_none()
             if not existing_contract:
                 contract_code = f"HD-{project.code}"
+                # Báo giá đã duyệt mới nhất của lead → gắn vào HĐ, giá trị HĐ lấy từ đó nếu chưa có
+                from app.models.quotation import Quotation
+                bg = (await db.execute(
+                    select(Quotation).where(Quotation.lead_id == lead.id, Quotation.status == "approved")
+                    .order_by(Quotation.updated_at.desc().nullslast(), Quotation.created_at.desc()).limit(1)
+                )).scalars().first()
+                if bg and not bg.project_id:
+                    bg.project_id = project.id
                 contract = Contract(
                     code=contract_code,
                     project_id=project.id,
+                    quotation_id=bg.id if bg else None,
+                    contract_kind="thiet_ke",
                     title=f"Hợp đồng thiết kế - {lead.name}",
                     status="draft",
-                    total_value=lead.design_contract_value or lead.estimated_budget or 0,
+                    total_value=lead.design_contract_value or (float(bg.total_amount or 0) if bg else 0)
+                    or lead.estimated_budget or 0,
                     payment_terms={
                         "installments": [
                             {"name": "Đợt 1 (Đặt cọc)", "percentage": 25, "milestone": "signing", "status": "pending"},

@@ -139,7 +139,7 @@ class TestPauseProject:
         proj = (await db_session.execute(
             __import__('sqlalchemy').select(Project).where(Project.id == project.id)
         )).scalar_one()
-        assert proj.stage == "paused"
+        assert proj.status == "paused"  # 27/10/2026: tạm dừng là trạng thái, giữ giai đoạn
         assert proj.pause_reason == "Chờ xin phép xây dựng"
 
 

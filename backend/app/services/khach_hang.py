@@ -246,3 +246,32 @@ def sinh_nhat_sap_toi(bd: date | None, hom_nay: date) -> int | None:
 
 __all__ = ["thong_ke_khach", "doc_cccd", "chuan_hoa_cccd", "nhac_sinh_nhat", "sinh_nhat_sap_toi",
            "CccdError", "sale_phu_trach"]
+
+
+async def tim_hoac_tao_khach(db: AsyncSession, lead: Lead) -> Customer:
+    """Khách của lead: gắn sẵn → theo SĐT đã chuẩn hoá → tạo mới (27/10/2026).
+
+    Trước đây so SĐT nguyên văn và `scalar_one_or_none` — 2 khách trùng số là nổ 500,
+    «+84…» với «0…» thành 2 khách.
+    """
+    import uuid
+
+    from app.services.so_dien_thoai import chuan_hoa_sdt
+
+    kh = (await db.execute(select(Customer).where(Customer.lead_id == lead.id).limit(1))).scalars().first()
+    so = chuan_hoa_sdt(lead.phone)
+    if not kh and len(so) >= 8:
+        for c in (await db.execute(select(Customer).where(Customer.phone.contains(so[-3:])))).scalars().all():
+            if chuan_hoa_sdt(c.phone) == so:
+                kh = c
+                break
+    if not kh:
+        kh = Customer(name=lead.name, phone=so or lead.phone, email=lead.email, address=lead.address,
+                      lead_id=lead.id, type="individual")
+        db.add(kh)
+    # Thắng deal → khách có sẵn link portal xem tiến độ (sale gửi qua Zalo)
+    if not kh.portal_token:
+        kh.portal_token = str(uuid.uuid4())
+        kh.portal_enabled = True
+    await db.flush()
+    return kh

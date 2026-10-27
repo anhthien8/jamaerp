@@ -12,7 +12,7 @@ from app.middleware.rbac import can_confirm_payment
 from app.middleware.permissions import quyen_hieu_luc
 from app.models.user import User
 from app.models.contract import Contract
-from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate, LichThuUpdate
+from app.schemas.contract import ContractCreate, ContractUpdate, ContractResponse, PaymentUpdate, LichThuUpdate, PhuLucCreate
 from app.services.dong_bo_tai_chinh import dong_bo_gia_tri_du_an, ghi_giao_dich_thu
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -110,6 +110,39 @@ async def create_contract(
     from app.cache import cache
     cache.clear_prefix("pl")  # P&L tính doanh thu theo đợt đã thu
     return ContractResponse.model_validate(contract)
+
+
+@router.post("/{contract_id}/phu-luc", response_model=ContractResponse)
+async def tao_phu_luc(
+    contract_id: str,
+    data: PhuLucCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Phụ lục phát sinh/giảm trừ: HĐ con, 1 đợt thu, giá trị dự án tự cộng (27/10/2026)."""
+    await _yeu_cau_quyen_hop_dong(current_user, db)
+    goc = await db.get(Contract, contract_id)
+    if not goc:
+        raise HTTPException(404, "Không tìm thấy hợp đồng")
+    if goc.parent_contract_id:
+        raise HTTPException(400, "Thêm phụ lục vào hợp đồng gốc, không vào phụ lục")
+    if goc.status == "cancelled":
+        raise HTTPException(400, "Hợp đồng đã huỷ")
+    so = (await db.execute(select(func.count()).select_from(Contract)
+                           .where(Contract.parent_contract_id == goc.id))).scalar() or 0
+    pl = Contract(
+        code=f"{goc.code}-PL{so + 1}"[:40], project_id=goc.project_id, title=data.title,
+        total_value=data.total_value, notes=data.notes, contract_kind=goc.contract_kind,
+        parent_contract_id=goc.id, status="draft",
+        payment_terms={"installments": [] if data.total_value <= 0 else [
+            {"name": "Thu phụ lục", "percentage": 100, "milestone": "signing", "status": "pending"}]},
+    )
+    db.add(pl)
+    await db.flush()
+    await dong_bo_gia_tri_du_an(db, goc.project_id)
+    from app.cache import cache
+    cache.clear_prefix("pl")
+    return ContractResponse.model_validate(pl)
 
 
 @router.put("/{contract_id}", response_model=ContractResponse)

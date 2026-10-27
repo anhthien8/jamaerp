@@ -182,6 +182,18 @@ export default function ContractsPage() {
     } catch (e) { toast(e instanceof Error ? e.message : 'Lưu lịch thu thất bại', 'error'); } finally { setLuuLich(false); }
   };
 
+  const themPhuLuc = async (goc: Contract) => {
+    const title = window.prompt('Nội dung phụ lục (VD: Phát sinh ốp đá phòng khách)');
+    if (!title || title.trim().length < 3) return;
+    const so = Number((window.prompt('Giá trị (đồng). Giảm trừ thì ghi số âm, VD -5000000') || '').replace(/[^\d-]/g, ''));
+    if (!so) { toast('Chưa nhập giá trị phụ lục', 'error'); return; }
+    try {
+      const pl = await api.taoPhuLuc(goc.id, { title: title.trim(), total_value: so });
+      setContracts(prev => [pl, ...prev]);
+      toast(`Đã tạo phụ lục ${pl.code} — giá trị dự án đã cập nhật`, 'success');
+    } catch (e) { toast(e instanceof Error ? e.message : 'Tạo phụ lục thất bại', 'error'); }
+  };
+
   const openPaymentModal = (contractId: string, idx: number) => {
     setPaymentModal({ contractId, idx });
     setThuMotPhan('');
@@ -499,6 +511,12 @@ export default function ContractsPage() {
               {/* Payment terms */}
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">Tiến độ thanh toán</h3>
+                {permissions.canCreateContracts && !selected.parent_contract_id && selected.status !== 'cancelled' && (
+                  <button onClick={() => themPhuLuc(selected)} className="text-xs px-3 py-1.5 rounded-full ml-auto mr-2"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                    + Phụ lục
+                  </button>
+                )}
                 {canConfirmTT && !lichThu && (
                   <button onClick={() => moLichThu(selected)} className="text-xs px-3 py-1.5 rounded-full"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>

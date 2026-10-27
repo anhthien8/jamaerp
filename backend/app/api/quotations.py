@@ -27,10 +27,21 @@ async def _yeu_cau_quyen_bao_gia(current_user: User, db: AsyncSession) -> None:
         raise HTTPException(status_code=403, detail="Không có quyền tạo/sửa báo giá")
 
 
+async def _ghi_nhat_ky_lead(db: AsyncSession, qt: Quotation, user: User, noi_dung: str) -> None:
+    """Báo giá gắn lead → 1 dòng trong nhật ký lead (sale thấy báo giá ngay trên lead)."""
+    if not qt.lead_id:
+        return
+    from app.models.lead import Activity
+
+    db.add(Activity(lead_id=qt.lead_id, user_id=user.id, type="note", content=noi_dung))
+
+
 @router.get("")
 async def list_quotations(
     type: str | None = None,
     status: str | None = None,
+    lead_id: str | None = None,
+    project_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
@@ -42,6 +53,10 @@ async def list_quotations(
         q = q.where(Quotation.type == type)
     if status:
         q = q.where(Quotation.status == status)
+    if lead_id:
+        q = q.where(Quotation.lead_id == lead_id)
+    if project_id:
+        q = q.where(Quotation.project_id == project_id)
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())
@@ -136,6 +151,7 @@ async def create_quotation(
     else:
         raise HTTPException(status_code=500, detail="Không sinh được mã báo giá, thử lưu lại lần nữa")
 
+    await _ghi_nhat_ky_lead(db, qt, current_user, f"Tạo báo giá {qt.code} — {float(total or 0):,.0f}đ")
     return QuotationResponse.model_validate(qt)
 
 
@@ -163,8 +179,12 @@ async def update_quotation(
             items_data = [item.model_dump() if hasattr(item, "model_dump") else item for item in items_value]
             qt.items = {"line_items": items_data}
 
+    tien_cu = (float(qt.total_amount or 0), qt.items)
     for k, v in update_data.items():
         setattr(qt, k, v)
+    # Bản đã duyệt mà đổi tiền/hạng mục → về nháp, phải duyệt lại
+    if qt.status == "approved" and (float(qt.total_amount or 0), qt.items) != tien_cu:
+        qt.status = "draft"
     qt.updated_at = datetime.now(timezone.utc)
     await db.flush()
     return QuotationResponse.model_validate(qt)
@@ -189,5 +209,6 @@ async def approve_quotation(
 
     qt.status = "approved"
     qt.updated_at = datetime.now(timezone.utc)
+    await _ghi_nhat_ky_lead(db, qt, current_user, f"Báo giá {qt.code} đã được duyệt — {float(qt.total_amount or 0):,.0f}đ")
     await db.flush()
     return QuotationResponse.model_validate(qt)
