@@ -1785,10 +1785,23 @@ class ApiClient {
   async attendanceToday() {
     return this.request<{ record: AttendanceRecord | null }>('/attendance/today');
   }
-  async myAttendance(period?: string) {
+  async myAttendance(period?: string, userId?: string) {
+    const params: Record<string, string> = {};
+    if (period) params.period = period;
+    if (userId) params.user_id = userId;
     return this.request<{ summary: AttendanceSummary; records: AttendanceRecord[] }>(
-      '/attendance/me', { params: period ? { period } : undefined }
+      '/attendance/me', { params: Object.keys(params).length ? params : undefined }
     );
+  }
+  /** Sửa ca quên chấm — bắt buộc lý do (quản lý team / admin) */
+  async editAttendance(recordId: string, body: { check_in?: string; check_out?: string; work_hours?: number; note: string }) {
+    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}`, { method: 'PATCH', body });
+  }
+  async ngayLe(nam?: number) {
+    return this.request<{ nam: number; mac_dinh: string[]; them: string[]; tat_ca: string[] }>('/attendance/ngay-le', { params: nam ? { nam: String(nam) } : undefined });
+  }
+  async luuNgayLe(ngay: string[]) {
+    return this.request<{ them: string[] }>('/attendance/ngay-le', { method: 'PUT', body: { ngay } });
   }
   async teamAttendance(period?: string, teamId?: string) {
     const params: Record<string, string> = {};
@@ -1908,6 +1921,9 @@ class ApiClient {
   // === HR Phase 1: Nghỉ phép ===
   async createLeave(data: { leave_type: string; start_date: string; end_date: string; half_day?: boolean; reason: string }) {
     return this.request<{ leave: LeaveItem; approval_id: string }>('/leaves', { method: 'POST', body: data });
+  }
+  async huyDonNghi(id: string) {
+    return this.request<{ leave: LeaveItem }>(`/leaves/${id}/huy`, { method: 'POST' });
   }
   async myLeaves() {
     return this.request<{ items: LeaveItem[] }>('/leaves/me');

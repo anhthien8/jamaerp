@@ -388,12 +388,45 @@ async def team_month_summary(db: AsyncSession, user_ids: list[str], period: str)
     return summaries
 
 
+# Lịch nghỉ lễ (27/10/2026): trước đây lễ không được tính công → lương tháng có lễ bị hụt.
+# Mặc định các ngày lễ dương lịch; Tết âm lịch/giỗ Tổ/nghỉ bù đổi theo năm → admin thêm ở Cài đặt.
+NGAY_LE_MAC_DINH = ("01-01", "04-30", "05-01", "09-02")
+
+
+async def ngay_le_trong_khoang(db: AsyncSession, tu: date, den: date) -> set[date]:
+    """Các ngày lễ (trừ Chủ nhật) trong [tu, den]. Cài đặt `ngay_le` = JSON ['2027-02-05', ...]."""
+    row = await db.get(SystemSetting, "ngay_le")
+    try:
+        cau_hinh = json.loads(row.value) if row and row.value else []
+    except ValueError:
+        cau_hinh = []
+    kq: set[date] = set()
+    for nam in range(tu.year, den.year + 1):
+        for md in NGAY_LE_MAC_DINH:
+            kq.add(date.fromisoformat(f"{nam}-{md}"))
+    for x in cau_hinh:
+        try:
+            kq.add(date.fromisoformat(str(x)[:10]))
+        except ValueError:
+            continue
+    return {d for d in kq if tu <= d <= den and d.weekday() != 6}
+
+
 async def month_summary(db: AsyncSession, user_id: str, period: str) -> dict:
     """Tổng hợp công tháng của 1 người: work_days, total_hours, ot_approved_hours."""
     records = await month_records(db, user_id, period)
     work_days = sum(1 for r in records if r.work_hours > 0)
     # Ngày đủ 8h = 1 công; ngày thiếu tính theo tỷ lệ
-    work_days_fraction = round(sum(min(r.work_hours / STANDARD_HOURS_PER_DAY, 1.0) for r in records), 2)
+    work_days_fraction = sum(min(r.work_hours / STANDARD_HOURS_PER_DAY, 1.0) for r in records)
+    # Ngày lễ không đi làm vẫn được 1 công (Bộ luật LĐ — nghỉ lễ hưởng nguyên lương)
+    nam, thang = int(period[:4]), int(period[5:7])
+    dau = date(nam, thang, 1)
+    cuoi = date(nam + (thang == 12), thang % 12 + 1, 1)
+    from datetime import timedelta as _td
+    da_lam = {r.work_date for r in records if r.work_hours > 0}
+    le = await ngay_le_trong_khoang(db, dau, cuoi - _td(days=1))
+    ngay_le_cong = sum(1 for d in le if d not in da_lam)
+    work_days_fraction = round(work_days_fraction + ngay_le_cong, 2)
     total_hours = round(sum(r.work_hours for r in records), 2)
     ot_hours = round(sum(r.ot_hours for r in records if r.ot_status == "approved"), 2)
     return {
@@ -404,4 +437,5 @@ async def month_summary(db: AsyncSession, user_id: str, period: str) -> dict:
         "total_hours": total_hours,
         "ot_approved_hours": ot_hours,
         "needs_review": sum(1 for r in records if r.needs_review),
+        "ngay_le": ngay_le_cong,
     }

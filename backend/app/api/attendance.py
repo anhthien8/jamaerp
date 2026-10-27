@@ -1,6 +1,7 @@
 """Attendance API — chấm công web, bảng công cá nhân/team, duyệt OT, sửa công,
 đối chiếu văn phòng (IP + GPS) và webhook máy chấm công."""
 
+import json
 import secrets
 from datetime import datetime, date, timezone
 
@@ -13,6 +14,7 @@ from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import is_team_lead
 from app.models.attendance import AttendanceRecord
+from app.models.notification import SystemSetting
 from app.models.user import User
 from app.services.attendance_service import (
     DEVICE_SETTINGS_KEY,
@@ -195,12 +197,18 @@ async def today_status(
 @router.get("/me")
 async def my_attendance(
     period: str = Query(default=None, pattern=r"^\d{4}-\d{2}$"),
+    user_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     period = period or period_of(vn_today())
-    records = await month_records(db, current_user.id, period)
-    summary = await month_summary(db, current_user.id, period)
+    # Quản lý xem công từng người để sửa ca quên chấm (27/10/2026)
+    uid = current_user.id
+    if user_id and user_id != current_user.id:
+        await _require_team_scope(db, current_user, user_id)
+        uid = user_id
+    records = await month_records(db, uid, period)
+    summary = await month_summary(db, uid, period)
     # Công chuẩn tháng — UI hiện «Ngày công X / 22 (không gồm OT)» (22/10/2026)
     summary = {**summary, "standard_days": STANDARD_DAYS_PER_MONTH}
     return {"summary": summary, "records": [_serialize(r) for r in records]}
@@ -399,6 +407,49 @@ def _mask_key(key: str | None) -> str | None:
     if not key:
         return None
     return f"{key[:6]}****{key[-4:]}" if len(key) > 12 else "****"
+
+
+class NgayLeBody(BaseModel):
+    ngay: list[date] = Field(default_factory=list, max_length=60)
+
+
+@router.get("/ngay-le")
+async def xem_ngay_le(
+    nam: int = Query(default=None, ge=2020, le=2100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lịch nghỉ lễ được tính công (mặc định lễ dương lịch + ngày admin thêm)."""
+    from app.services.attendance_service import NGAY_LE_MAC_DINH, ngay_le_trong_khoang
+    nam = nam or vn_today().year
+    row = await db.get(SystemSetting, "ngay_le")
+    try:
+        them = json.loads(row.value) if row and row.value else []
+    except ValueError:
+        them = []
+    tat_ca = await ngay_le_trong_khoang(db, date(nam, 1, 1), date(nam, 12, 31))
+    return {"nam": nam, "mac_dinh": [f"{nam}-{x}" for x in NGAY_LE_MAC_DINH],
+            "them": sorted(str(x) for x in them), "tat_ca": sorted(str(d) for d in tat_ca)}
+
+
+@router.put("/ngay-le")
+async def luu_ngay_le(
+    body: NgayLeBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in ("admin", "accountant"):
+        raise HTTPException(status_code=403, detail="Chỉ BGĐ/Kế toán sửa lịch nghỉ lễ")
+    value = json.dumps(sorted({d.isoformat() for d in body.ngay}))
+    row = await db.get(SystemSetting, "ngay_le")
+    if row:
+        row.value = value
+    else:
+        db.add(SystemSetting(key="ngay_le", value=value))
+    await db.flush()
+    await log_action(db, actor=current_user, action="attendance.ngay_le", entity_type="system_setting",
+                     entity_id="ngay_le", after={"ngay": json.loads(value)})
+    return {"them": json.loads(value)}
 
 
 @router.get("/office-config")

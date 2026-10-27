@@ -11,9 +11,9 @@ Mức giảm trừ + trần BHXH đọc từ SystemSetting (kế toán chỉnh k
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord  # noqa: F401 — dùng qua attendance_service
@@ -241,8 +241,15 @@ async def generate_period(db: AsyncSession, period: str) -> dict:
     await db.flush()
 
     settings = await get_payroll_settings(db)
+    # Người nghỉ việc giữa tháng vẫn phải có dòng lương cho những ngày đã làm (27/10/2026)
+    co_cong = select(AttendanceRecord.user_id).where(
+        AttendanceRecord.work_date >= date(int(period[:4]), int(period[5:7]), 1),
+        AttendanceRecord.work_date < date(int(period[:4]) + (period[5:7] == "12"), int(period[5:7]) % 12 + 1, 1),
+        AttendanceRecord.work_hours > 0,
+    )
     users = (await db.execute(
-        select(User).where(User.is_active == True).order_by(User.full_name)  # noqa: E712
+        select(User).where(or_(User.is_active == True, User.id.in_(co_cong)))  # noqa: E712
+        .order_by(User.full_name)
     )).scalars().all()
 
     created = 0

@@ -180,6 +180,55 @@ async def _on_leave_rejected(db: AsyncSession, request: ApprovalRequest) -> None
 
 
 approval_engine.register_side_effect("leave", _on_leave_approved)
+
+
+@router.post("/{leave_id}/huy")
+async def huy_don_nghi(
+    leave_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rút đơn nghỉ (27/10/2026): chủ đơn hoặc admin/trưởng phòng. Đơn đã duyệt → hoàn
+    số dư phép + gỡ bảng công ngày nghỉ. Kỳ lương đã khoá thì không rút được."""
+    leave = await db.get(LeaveRequest, leave_id)
+    if not leave:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn nghỉ")
+    if leave.user_id != current_user.id and current_user.role != "admin" and not la_truong_phong(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ người xin nghỉ hoặc quản lý mới rút được đơn")
+    if leave.status not in ("pending", "approved"):
+        raise HTTPException(status_code=400, detail="Đơn này đã kết thúc")
+    if await is_period_locked(db, period_of(leave.start_date)):
+        raise HTTPException(status_code=409, detail=f"Kỳ {period_of(leave.start_date)} đã khoá lương — không rút được")
+
+    if leave.status == "approved":
+        balance = await get_or_create_balance(db, leave.user_id, leave.start_date.year)
+        if leave.leave_type == "annual":
+            balance.annual_used = max(0.0, balance.annual_used - leave.days)
+        elif leave.leave_type == "sick":
+            balance.sick_used = max(0.0, balance.sick_used - leave.days)
+        else:
+            balance.unpaid_used = max(0.0, balance.unpaid_used - leave.days)
+        rows = (await db.execute(select(AttendanceRecord).where(
+            AttendanceRecord.user_id == leave.user_id, AttendanceRecord.source == "leave",
+            AttendanceRecord.work_date >= leave.start_date, AttendanceRecord.work_date <= leave.end_date,
+        ))).scalars().all()
+        for r in rows:
+            if r.check_in is None:
+                await db.delete(r)
+            else:
+                r.source, r.needs_review = "manual", True
+                r.note = ((r.note + " | ") if r.note else "") + "Đã rút đơn nghỉ — cần sửa công"
+    elif leave.approval_id:
+        apr = await db.get(ApprovalRequest, leave.approval_id)
+        if apr and apr.status == "pending":
+            apr.status = "cancelled"
+
+    leave.status = "cancelled"
+    leave.resolved_at = datetime.now(timezone.utc)
+    await db.flush()
+    await log_action(db, actor=current_user, action="leave.cancel", entity_type="leave",
+                     entity_id=leave.id, note="Rút đơn nghỉ")
+    return {"leave": _serialize(leave)}
 approval_engine.register_reject_effect("leave", _on_leave_rejected)
 
 
@@ -199,6 +248,10 @@ async def create_leave(
         raise HTTPException(status_code=400, detail="Nghỉ nửa ngày chỉ áp dụng cho 1 ngày")
 
     days = count_leave_days(body.start_date, body.end_date, body.half_day)
+    if not body.half_day:
+        # Ngày lễ đã được tính công — không trừ phép (27/10/2026)
+        from app.services.attendance_service import ngay_le_trong_khoang
+        days -= len(await ngay_le_trong_khoang(db, body.start_date, body.end_date))
     if days <= 0:
         raise HTTPException(status_code=400, detail="Khoảng nghỉ không có ngày làm việc nào (chỉ Chủ nhật)")
 

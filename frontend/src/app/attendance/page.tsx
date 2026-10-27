@@ -12,6 +12,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { monthLabelVN } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
+import { SuaCongNhanVien, LichNgayLe } from '@/components/attendance/SuaCong';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
 // Kỳ theo GIỜ VN — toISOString là UTC, sáng sớm ngày 1 (00:00-06:59 VN) sẽ lùi nhầm kỳ tháng trước
@@ -181,6 +182,7 @@ export default function AttendancePage() {
     leave_type: 'annual', start_date: '', end_date: '', half_day: false, reason: '',
   });
   const [showLeaveForm, setShowLeaveForm] = useState(false);
+  const [xemCong, setXemCong] = useState<{ id: string; ten: string } | null>(null);
 
   // Payslip state
   const [payslips, setPayslips] = useState<PayrollRow[]>([]);
@@ -515,7 +517,8 @@ export default function AttendancePage() {
                   </thead>
                   <tbody>
                     {teamRows.map(row => (
-                      <tr key={row.user_id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <tr key={row.user_id} className="border-t cursor-pointer hover:bg-white/5" style={{ borderColor: 'var(--border-subtle)' }}
+                        onClick={() => setXemCong({ id: row.user_id, ten: row.full_name })} title="Bấm để xem / sửa ca quên chấm">
                         <td className="px-4 py-2" style={{ color: 'var(--text-primary)' }}>{row.full_name}</td>
                         <td className="px-4 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{row.work_days_fraction}</td>
                         <td className="px-4 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{row.total_hours}h</td>
@@ -525,8 +528,11 @@ export default function AttendancePage() {
                     ))}
                   </tbody>
                 </table>
+                <div className="px-4 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>Bấm vào tên để sửa ca quên chấm (bắt buộc ghi lý do).</div>
               </div>
             )}
+            {xemCong && <SuaCongNhanVien userId={xemCong.id} ten={xemCong.ten} period={period} onClose={() => setXemCong(null)} onSaved={loadAttendance} />}
+            {user && ['admin', 'accountant'].includes(user.role) && <LichNgayLe />}
           </div>
         )}
 
@@ -618,11 +624,12 @@ export default function AttendancePage() {
                     <th className="text-right px-4 py-2.5">Số ngày</th>
                     <th className="text-left px-4 py-2.5">Trạng thái</th>
                     <th className="text-left px-4 py-2.5">Lý do</th>
+                    <th className="px-4 py-2.5"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {myLeaves.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-6 text-center" style={{ color: 'var(--text-muted)' }}>Chưa có đơn nghỉ phép nào</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-6 text-center" style={{ color: 'var(--text-muted)' }}>Chưa có đơn nghỉ phép nào</td></tr>
                   )}
                   {myLeaves.map(l => (
                     <tr key={l.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -632,6 +639,16 @@ export default function AttendancePage() {
                       <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-primary)' }}>{l.days}</td>
                       <td className="px-4 py-2.5" style={{ color: LEAVE_STATUS[l.status]?.color }}>{LEAVE_STATUS[l.status]?.label || l.status}</td>
                       <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>{l.reason}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        {(l.status === 'pending' || l.status === 'approved') && (
+                          <button className="text-xs px-3 py-1 rounded-full" style={{ border: '1px solid var(--border-subtle)', color: '#f87171' }}
+                            onClick={async () => {
+                              if (!confirm('Rút đơn nghỉ này? Đơn đã duyệt sẽ được hoàn lại ngày phép.')) return;
+                              try { await api.huyDonNghi(l.id); toast('Đã rút đơn nghỉ', 'success'); loadLeave(); loadAttendance(); }
+                              catch (e) { toast(e instanceof Error ? e.message : 'Không rút được', 'error'); }
+                            }}>Rút đơn</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
