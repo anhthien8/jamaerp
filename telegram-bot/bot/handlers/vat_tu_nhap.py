@@ -357,16 +357,23 @@ async def xem_truoc_phat_sinh(cho: types.Message, state: FSMContext, tg_id: int,
     hd_chon = hd[0]
     if len(hd) > 1:
         dong.append("\n📌 Dự án có nhiều hợp đồng — chọn hợp đồng để gắn phụ lục:")
+    elif hd_chon.get("cap_nhat"):
+        cn = hd_chon["cap_nhat"]
+        dong.append(f"\n🔄 Đã có phụ lục nháp <b>{cn['code']}</b> từ tệp trước ({_tien(abs(cn.get('total_value') or 0))}) — "
+                    "tệp này là bản <b>mới nhất</b> nên bot sẽ <b>cập nhật</b> phụ lục đó, không tạo thêm. "
+                    "Dòng vật tư Thu mua chưa xử lý cũng được làm lại theo tệp mới.")
     else:
         dong.append(f"\n📌 Phụ lục sẽ gắn vào hợp đồng <b>{hd_chon['code']}</b> (nháp, chưa ký).")
     await state.update_data(ps_items=items, ps_tieu_de=tieu_de[:255], ps_nguon=ten, ps_hd=hd_chon["id"])
     await state.set_state(PhatSinhState.cho_xac_nhan)
     if len(hd) > 1:
-        nut = [[types.InlineKeyboardButton(text=f"✅ Ghi vào {c['code']}"[:60], callback_data=f"ps:ghi:{i}")]
+        nut = [[types.InlineKeyboardButton(text=(f"🔄 Cập nhật {c['cap_nhat']['code']}" if c.get("cap_nhat") else f"✅ Ghi vào {c['code']}")[:60], callback_data=f"ps:ghi:{i}")]
                for i, c in enumerate(hd[:6])]
         await state.update_data(ps_ds_hd=[c["id"] for c in hd[:6]])
     else:
-        nut = [[types.InlineKeyboardButton(text="✅ Tạo phụ lục + phiếu vật tư", callback_data="ps:ghi:0")]]
+        nut = [[types.InlineKeyboardButton(
+            text="🔄 Cập nhật phụ lục + phiếu vật tư" if hd_chon.get("cap_nhat") else "✅ Tạo phụ lục + phiếu vật tư",
+            callback_data="ps:ghi:0")]]
         await state.update_data(ps_ds_hd=[hd_chon["id"]])
     nut.append([NUT_HUY])
     await cho.edit_text("\n".join(dong), reply_markup=types.InlineKeyboardMarkup(inline_keyboard=nut))
@@ -404,9 +411,14 @@ async def cb_ghi_phat_sinh(callback: types.CallbackQuery, state: FSMContext):
         pass
     pl = res.get("phu_luc") or {}
     await callback.message.answer(
-        f"✅ Đã tạo phụ lục nháp <b>{pl.get('code')}</b> · {_tien(abs(pl.get('total_value') or 0))}"
+        (f"🔄 Đã cập nhật phụ lục nháp <b>{pl.get('code')}</b>: {_tien(abs(res.get('gia_tri_cu') or 0))} → "
+         if res.get("cap_nhat") else f"✅ Đã tạo phụ lục nháp <b>{pl.get('code')}</b> · ")
+        + _tien(abs(pl.get("total_value") or 0))
         + (" (giảm trừ)" if (pl.get("total_value") or 0) < 0 else "") + "\n"
-        f"📦 Đã thêm <b>{res.get('tao_dong', 0)}</b> dòng vào phiếu vật tư dự án {data.get('ps_project_code')}.\n\n"
+        f"📦 Đã thêm <b>{res.get('tao_dong', 0)}</b> dòng vào phiếu vật tư dự án {data.get('ps_project_code')}"
+        + (f" (thay {res['xoa_dong_cu']} dòng của tệp trước)" if res.get("xoa_dong_cu") else "") + ".\n"
+        + (f"🔒 Giữ nguyên {res['giu_dong']} hạng mục Thu mua đã hỏi giá/chốt.\n" if res.get("giu_dong") else "")
+        + "\n"
         f"Bước tiếp:\n• Gửi khách xem; khách chốt thì mở {WEB_URL}/contracts, tìm <b>{pl.get('code')}</b> và chuyển sang Đã ký\n"
         f"• Thu mua hỏi giá NCC tại {WEB_URL}/vat-tu?project={data.get('ps_project_id')}"
     )

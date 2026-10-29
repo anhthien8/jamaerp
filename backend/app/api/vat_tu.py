@@ -858,6 +858,24 @@ async def _hd_goc(db: AsyncSession, project_id: str) -> list:
     )).scalars())
 
 
+DAU_PL_BOT = "[Phát sinh qua bot]"  # đầu ghi chú phụ lục bot tạo → tệp gửi lần sau CẬP NHẬT phụ lục này
+
+
+async def _pl_bot_nhap(db: AsyncSession, goc_id: str):
+    """Phụ lục bot tạo, còn NHÁP (khách chưa ký) — mới nhất. Ký rồi thì tệp sau tạo phụ lục mới."""
+    from app.models.contract import Contract
+    return (await db.execute(
+        select(Contract).where(Contract.parent_contract_id == goc_id, Contract.status == "draft",
+                               Contract.notes.like(f"{DAU_PL_BOT}%"))
+        .order_by(Contract.created_at.desc()).limit(1)
+    )).scalars().first()
+
+
+def _cua_pl(d: DongPhieuVatTu, code: str) -> bool:
+    g = d.ghi_chu or ""
+    return g == f"Phát sinh {code}" or g.startswith(f"Phát sinh {code} · ")
+
+
 def _so_luong_mua(it: PhatSinhItem | dict) -> float:
     g = it if isinstance(it, dict) else it.model_dump()
     kl, sl = g.get("kl"), g.get("sl")
@@ -890,7 +908,10 @@ async def bot_trich_phat_sinh(body: TrichBaoGiaIn, user: User = Depends(get_curr
         "items": kq["items"], "tong": tong, "tong_file": kq["tong_file"],
         "lech_tong": (kq["tong_file"] is not None and abs(kq["tong_file"] - tong) > 1000),
         "so_dong_mua": sum(1 for it in kq["items"] if (it["sl"] is None or it["sl"] > 0) and it["thanh_tien"] > 0),
-        "hop_dong": [{"id": c.id, "code": c.code, "title": c.title, "status": c.status} for c in hd],
+        "hop_dong": [{"id": c.id, "code": c.code, "title": c.title, "status": c.status,
+                      # có phụ lục nháp từ tệp trước → lần này CẬP NHẬT nó (tệp mới nhất là chuẩn)
+                      "cap_nhat": ({"code": pl.code, "total_value": pl.total_value} if pl else None)}
+                     for c in hd for pl in [await _pl_bot_nhap(db, c.id)]],
         "loai_tep": loai,
     }
 
@@ -914,8 +935,32 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
         so = " × ".join(f"{v:g}" for v in (it.kl, it.sl) if v is not None)
         dong_note.append(f"- {it.hang_muc}" + (f" ({so} {it.dvt or ''})".rstrip() if so else "")
                          + f": {it.thanh_tien:,.0f}đ".replace(",", "."))
-    notes = f"Nhập từ {nguon} bởi {user.full_name} (bot). Gửi khách tham khảo — khách chốt thì ký phụ lục.\n" + "\n".join(dong_note)
-    pl = await tao_phu_luc_cho(db, goc, body.tieu_de, tong, notes[:5000])
+    notes = (f"{DAU_PL_BOT} Nhập từ {nguon} bởi {user.full_name}. Gửi khách tham khảo — khách chốt thì ký phụ lục.\n"
+             + "\n".join(dong_note))
+    pl = await _pl_bot_nhap(db, goc.id)
+    cu = None
+    xoa, da_xu_ly = 0, set()
+    if pl:
+        # Tệp mới nhất = chuẩn: ghi đè phụ lục nháp + dòng vật tư Thu mua chưa đụng tới
+        from app.services.dong_bo_tai_chinh import dong_bo_gia_tri_du_an
+        cu = pl.total_value
+        pl.title, pl.total_value, pl.notes = body.tieu_de, tong, notes[:5000]
+        pl.payment_terms = {"installments": [] if tong <= 0 else [
+            {"name": "Thu phụ lục", "percentage": 100, "milestone": "signing", "status": "pending"}]}
+        for d in (await db.execute(select(DongPhieuVatTu).where(DongPhieuVatTu.project_id == body.project_id))).scalars():
+            if not _cua_pl(d, pl.code):
+                continue
+            if d.trang_thai == "khach_chon":
+                await db.delete(d)
+                xoa += 1
+            else:
+                da_xu_ly.add((d.hang_muc or "").strip().lower())  # Thu mua đã hỏi giá/chốt → giữ, không tạo lại
+        await db.flush()
+        await dong_bo_gia_tri_du_an(db, goc.project_id)
+        from app.cache import cache
+        cache.clear_prefix("pl")
+    else:
+        pl = await tao_phu_luc_cho(db, goc, body.tieu_de, tong, notes[:5000])
 
     thu_tu = (await db.execute(
         select(func.coalesce(func.max(DongPhieuVatTu.thu_tu), 0)).where(DongPhieuVatTu.project_id == body.project_id)
@@ -924,6 +969,8 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
     for it in body.items:
         if (it.sl is not None and it.sl <= 0) or it.thanh_tien <= 0:
             continue  # giảm trừ: CĐT cấp, không mua
+        if it.hang_muc.strip().lower() in da_xu_ly:
+            continue
         thu_tu += 1
         gia_khach = f"Giá báo khách {it.don_gia:,.0f}đ/{it.dvt or 'đv'}".replace(",", ".") if it.don_gia else ""
         ghi = " · ".join(x for x in (f"Phát sinh {pl.code}", it.kich_thuoc, it.ghi_chu, gia_khach) if x)
@@ -935,7 +982,8 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
         ))
         tao += 1
     await db.commit()
-    return {"phu_luc": {"id": pl.id, "code": pl.code, "total_value": tong}, "tao_dong": tao}
+    return {"phu_luc": {"id": pl.id, "code": pl.code, "total_value": tong}, "tao_dong": tao,
+            "cap_nhat": cu is not None, "gia_tri_cu": cu, "xoa_dong_cu": xoa, "giu_dong": len(da_xu_ly)}
 
 
 # ── Shopee Affiliate: giá thị trường, cần thương lượng, gợi ý NCC (26/10/2026) ──

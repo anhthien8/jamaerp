@@ -398,6 +398,7 @@ async def test_bot_phat_sinh_tao_phu_luc_va_dong_vat_tu(client: AsyncClient, adm
     db_session.add(hd)
     await db_session.commit()
     hd_id, du_an_id = hd.id, du_an.id
+    h = auth_header(admin_user)
 
     async def _tai(file_id):
         return b"x"
@@ -429,6 +430,34 @@ async def test_bot_phat_sinh_tao_phu_luc_va_dong_vat_tu(client: AsyncClient, adm
     assert pl.status == "draft" and pl.total_value == 7_700_000 and "Tủ bếp trên" in pl.notes
     d = (await db_session.execute(select(DongPhieuVatTu))).scalar_one()
     assert d.hang_muc == "Tủ bếp trên" and d.so_luong == 3.8 and d.trang_thai == "khach_chon" and d.phong == "Phát sinh"
+
+    # Tệp gửi lần sau = bản mới nhất → CẬP NHẬT phụ lục nháp đó, không tạo PL2.
+    # Dòng Thu mua đã hỏi giá thì giữ; dòng chưa đụng thì làm lại theo tệp mới.
+    d.trang_thai = "hoi_ncc"
+    await db_session.commit()
+    r = await client.post("/api/v1/vat-tu/bot/trich-phat-sinh", headers=h,
+                          json={"project_id": du_an_id, "file_id": "F", "file_name": "a.xlsx"})
+    assert r.json()["hop_dong"][0]["cap_nhat"]["code"] == "HD-VT1-PL1"
+    items2 = xem["items"] + [{"hang_muc": "Kệ tivi", "dvt": "cái", "kl": None, "sl": 2, "don_gia": 3_000_000,
+                              "thanh_tien": 6_000_000}]
+    r = await client.post("/api/v1/vat-tu/bot/ghi-phat-sinh", headers=h, json={
+        "project_id": du_an_id, "contract_id": hd_id, "tieu_de": "Phát sinh 8/10", "items": items2})
+    assert r.status_code == 201, r.text
+    kq = r.json()
+    assert kq["cap_nhat"] and kq["phu_luc"]["code"] == "HD-VT1-PL1" and kq["gia_tri_cu"] == 7_700_000
+    assert kq["tao_dong"] == 1 and kq["giu_dong"] == 1  # chỉ thêm Kệ tivi; Tủ bếp Thu mua đang hỏi giá → giữ
+    db_session.expire_all()
+    ds_pl = (await db_session.execute(select(Contract).where(Contract.parent_contract_id == hd_id))).scalars().all()
+    assert len(ds_pl) == 1 and ds_pl[0].total_value == 13_700_000 and ds_pl[0].title == "Phát sinh 8/10"
+    ten = sorted(x.hang_muc for x in (await db_session.execute(select(DongPhieuVatTu))).scalars())
+    assert ten == ["Kệ tivi", "Tủ bếp trên"]
+
+    # Khách đã ký PL1 → tệp sau là đợt phát sinh MỚI → PL2
+    ds_pl[0].status = "signed"
+    await db_session.commit()
+    r = await client.post("/api/v1/vat-tu/bot/ghi-phat-sinh", headers=h, json={
+        "project_id": du_an_id, "contract_id": hd_id, "tieu_de": "Phát sinh 20/10", "items": items2[:1]})
+    assert r.json()["phu_luc"]["code"] == "HD-VT1-PL2" and not r.json()["cap_nhat"]
 
 
 
