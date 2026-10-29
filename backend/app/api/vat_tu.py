@@ -895,7 +895,7 @@ async def bot_trich_phat_sinh(body: TrichBaoGiaIn, user: User = Depends(get_curr
         if loai == "image":
             kq = await tep.trich_tu_anh(data, body.mime, tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
         else:
-            kq = await tep.trich_tu_chu(chu, tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
+            kq = await tep.trich_tu_chu(tep.chi_sheet_phat_sinh(chu), tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
     except tep.TepError as e:
         raise HTTPException(e.status, str(e))
     tong = sum(it["thanh_tien"] for it in kq["items"])

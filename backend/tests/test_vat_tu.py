@@ -482,3 +482,15 @@ def test_la_bao_gia_khach():
     assert tep.la_bao_gia_khach("JAMA_BÁO_GIÁ_TỔNG_HỢP_CHỊ_LAN_8_10_2026.xlsx", "")
     assert tep.la_bao_gia_khach("x.xlsx", "A PHÁT SINH NGÀY 5/10 | Hạng mục | Thành tiền")
     assert not tep.la_bao_gia_khach("baogia_hiepphat.xlsx", "Mã SP | Tên hàng | ĐVT | Đơn giá")
+
+
+def test_chi_sheet_phat_sinh_va_don_gia_am():
+    from app.services.vat_tu_bao_gia_tep import chi_sheet_phat_sinh, chuan_hoa_phat_sinh
+    chu = "## Sheet: KÝ HĐ\nBẢNG BÁO GIÁ\nTủ bếp | 1 | 9000000\n## Sheet: PS 05.10.2026 Chốt\nBẢNG BÁO GIÁ PHÁT SINH\nGạch | 1\n"
+    r = chi_sheet_phat_sinh(chu)
+    assert "PS 05.10" in r and "KÝ HĐ" not in r and "Tủ bếp" not in r
+    assert chi_sheet_phat_sinh("## Sheet: A\nx") == "## Sheet: A\nx"  # 1 sheet → giữ nguyên
+    # Tệp ghi dấu âm ở ĐƠN GIÁ (SL dương) vẫn là giảm trừ
+    kq = chuan_hoa_phat_sinh({"items": [{"hang_muc": "Gia cố (ban đầu)", "kl": 8.6, "sl": 2, "don_gia": -950000},
+                                         {"hang_muc": "Gia cố (thực tế)", "kl": 9.8, "sl": 1, "don_gia": 950000}]})
+    assert [i["thanh_tien"] for i in kq["items"]] == [-16_340_000, 9_310_000]

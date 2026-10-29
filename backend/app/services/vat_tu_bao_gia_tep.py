@@ -330,7 +330,7 @@ _PROMPT_PHAT_SINH = (
     '"tieu_de": "tiêu đề đợt phát sinh, vd PHÁT SINH NGÀY 5/10/2026, không thì null", '
     '"tong_file": số tổng chi phí in trong tệp hoặc null, '
     '"items": [{"hang_muc": "tên hạng mục", "dvt": "md|m2|bộ|cái|... hoặc null", "kl": số hoặc null, '
-    '"sl": số (có thể ÂM nếu là giảm trừ) hoặc null, "don_gia": số VNĐ hoặc null, '
+    '"sl": số (có thể ÂM nếu là giảm trừ) hoặc null, "don_gia": số VNĐ (GIỮ dấu âm nếu tệp ghi âm) hoặc null, '
     '"thanh_tien": số VNĐ (âm nếu giảm trừ) hoặc null, "kich_thuoc": "DxSxC hoặc null", '
     '"ghi_chu": "ghi chú vật liệu + diễn giải dòng con, hoặc null"}]}\n'
     "Quy tắc: dòng con KHÔNG có đơn giá (vd «Tầng 1-lửng 3.80») là diễn giải của dòng trên — gộp vào ghi_chu "
@@ -374,7 +374,10 @@ def chuan_hoa_phat_sinh(data: Any) -> dict:
         kl, sl, dg = _so_am(it.get("kl")), _so_am(it.get("sl")), _so_am(it.get("don_gia"))
         tt_file = _so_am(it.get("thanh_tien"))
         if dg is not None and (kl is not None or sl is not None):
-            tt = round((kl if kl is not None else 1) * (sl if sl is not None else 1) * abs(dg))
+            # Giảm trừ: tệp ghi dấu âm ở SL HOẶC ở đơn giá HOẶC ở thành tiền → âm
+            am = any(x is not None and x < 0 for x in (sl, dg, tt_file))
+            tt = round(abs(kl if kl is not None else 1) * abs(sl if sl is not None else 1) * abs(dg))
+            tt = -tt if am else tt
         else:
             tt = tt_file
         if tt is None:
@@ -407,6 +410,16 @@ def ten_khop(ten_khach: str | None, *chuoi: str | None) -> bool | None:
     if not tu or not nguon.strip():
         return None
     return tu[-1] in nguon.split()
+
+
+def chi_sheet_phat_sinh(chu: str) -> str:
+    """Tệp tổng hợp (sheet KÝ HĐ + các sheet PS …) → chỉ giữ sheet phát sinh để AI không lấy nhầm HĐ gốc."""
+    phan = chu.split("## Sheet: ")
+    if len(phan) <= 2:
+        return chu
+    giu = [p for p in phan[1:]
+           if bo_dau(p.split("\n", 1)[0]).strip().startswith("ps") or "bao gia phat sinh" in bo_dau(p[:3000])]
+    return "".join("## Sheet: " + p for p in giu) if giu else chu
 
 
 def la_bao_gia_khach(filename: str | None, chu: str | None) -> bool:
