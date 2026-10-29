@@ -494,3 +494,40 @@ def test_chi_sheet_phat_sinh_va_don_gia_am():
     kq = chuan_hoa_phat_sinh({"items": [{"hang_muc": "Gia cố (ban đầu)", "kl": 8.6, "sl": 2, "don_gia": -950000},
                                          {"hang_muc": "Gia cố (thực tế)", "kl": 9.8, "sl": 1, "don_gia": 950000}]})
     assert [i["thanh_tien"] for i in kq["items"]] == [-16_340_000, 9_310_000]
+
+
+def test_chuan_link_sheet():
+    from app.services.vat_tu_bao_gia_tep import chuan_link_sheet
+    goc = "https://docs.google.com/spreadsheets/d/1h-SLuBLJm9FYpzg4LnJYc3dtbKlWfZdW"
+    assert chuan_link_sheet(goc + "/edit?gid=1269597517#gid=1269597517") == goc
+    assert chuan_link_sheet("https://drive.google.com/file/d/abc") is None
+
+
+@pytest.mark.asyncio
+async def test_bot_phat_sinh_tu_link_sheet_luu_vao_du_an(client: AsyncClient, admin_user, du_an, db_session, monkeypatch):
+    du_an_id = du_an.id
+    h = auth_header(admin_user)
+    goi = []
+
+    async def _sheet(url):
+        goi.append(url)
+        return b"x"
+
+    async def _trich(chu, prompt=None, chuan=None):
+        return chuan({"khach_hang": None, "items": [{"hang_muc": "Gạch", "kl": 2, "sl": 1, "don_gia": 100_000}]})
+    monkeypatch.setattr(tep, "tai_google_sheet", _sheet)
+    monkeypatch.setattr(tep, "trich_tu_chu", _trich)
+    monkeypatch.setattr(tep, "tep_sang_chu", lambda d, f, m: ("xlsx", "x"))
+    link = "https://docs.google.com/spreadsheets/d/1h-SLuBLJm9FYpzg4LnJYc3dtbKlWfZdW/edit?gid=1#gid=1"
+    r = await client.post("/api/v1/vat-tu/bot/trich-phat-sinh", headers=h,
+                          json={"project_id": du_an_id, "sheet_url": link})
+    assert r.status_code == 200, r.text
+    assert r.json()["tong"] == 200_000 and goi == [link]
+    db_session.expire_all()
+    from app.models.project import Project
+    p = await db_session.get(Project, du_an_id)
+    assert p.bao_gia_sheet_url == "https://docs.google.com/spreadsheets/d/1h-SLuBLJm9FYpzg4LnJYc3dtbKlWfZdW"
+
+    # Không gửi link cũng không gửi tệp → 400
+    r = await client.post("/api/v1/vat-tu/bot/trich-phat-sinh", headers=h, json={"project_id": du_an_id})
+    assert r.status_code == 400

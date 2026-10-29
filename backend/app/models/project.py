@@ -70,6 +70,8 @@ class Project(Base):
     # Công trình» (bot tự tạo lần đầu có ảnh) + thư mục con trên Drive công ty.
     telegram_topic_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Link Google Sheet báo giá gửi khách — bot ghi khi người dùng gửi link (30/10/2026)
+    bao_gia_sheet_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Timestamps
     start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

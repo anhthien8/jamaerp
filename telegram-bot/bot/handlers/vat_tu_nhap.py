@@ -1,7 +1,7 @@
 """Nhập dữ liệu Vật tư qua bot (25/10/2026) — chỉ bộ phận Thu mua.
 
     /nhapmau <link Google Sheet>  — nhập danh mục mẫu (thêm mẫu mới, không ghi đè)
-    /baogia [MÃ DỰ ÁN]            — gửi tệp báo giá NCC (Excel/CSV/PDF/ảnh)
+    /baogia [MÃ DỰ ÁN]            — gửi LINK Google Sheet báo giá (công khai) hoặc ảnh
                                     → bot đọc, khớp mã với phiếu dự án,
                                     hiện bản xem trước → bấm «Ghi» mới ghi.
 
@@ -23,6 +23,18 @@ from bot.keyboards import NUT_HUY, hien_ban_phim, nut_huy
 router = Router()
 
 _LINK_SHEET = re.compile(r"https?://docs\.google\.com/spreadsheets/\S+")
+
+
+HUONG_DAN_LINK = (
+    "🔗 Bot <b>không nhận tệp báo giá</b> nữa — hãy gửi <b>link Google Sheet</b> báo giá vào đây.\n"
+    "Nhớ bật chia sẻ công khai: <b>Chia sẻ → «Bất kỳ ai có đường liên kết» (Người xem)</b>.\n"
+    "Hệ thống tự đọc sheet và lưu link vào dự án trên CRM."
+)
+
+
+def _link_sheet(text: str | None) -> str | None:
+    m = _LINK_SHEET.search(text or "")
+    return m.group(0) if m else None
 
 
 class BaoGiaState(StatesGroup):
@@ -90,28 +102,37 @@ async def bat_dau_bao_gia(message: types.Message, state: FSMContext, project_cod
     await state.set_state(BaoGiaState.cho_tep)
     await message.answer(
         f"💰 <b>Nhập báo giá NCC cho dự án {p['code']}</b> — {p.get('name', '')}\n\n"
-        "Gửi <b>tệp báo giá</b> của nhà cung cấp: Excel (.xlsx), CSV, PDF hoặc ảnh chụp bảng giá.\n"
+        "Gửi <b>link Google Sheet</b> báo giá (đã bật chia sẻ «Bất kỳ ai có đường liên kết»), "
+        "hoặc ảnh chụp bảng giá NCC.\n"
         "Bot sẽ đọc, khớp mã với phiếu vật tư của dự án và hiện bản xem trước — "
-        "<b>chưa ghi gì</b> cho tới khi bạn bấm Ghi.\n\n"
-        "📑 Gửi <b>báo giá phát sinh JAMA gửi khách</b> cũng được — bot tự nhận ra và chuyển sang tạo phụ lục.",
+        "<b>chưa ghi gì</b> cho tới khi bạn bấm Ghi. Link được lưu vào dự án trên CRM.\n\n"
+        "📑 Link <b>báo giá phát sinh JAMA gửi khách</b> cũng được — bot tự nhận ra và chuyển sang tạo phụ lục.",
         reply_markup=nut_huy(),
     )
 
 
-@router.message(BaoGiaState.cho_tep, F.document | F.photo)
-async def nhan_tep_bao_gia(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    if message.document:
-        f = message.document
-        payload = {"file_id": f.file_id, "file_name": f.file_name, "mime": f.mime_type}
-        ten = f.file_name or "tệp"
-    else:
-        f = message.photo[-1]
-        payload = {"file_id": f.file_id, "file_name": "anh.jpg", "mime": "image/jpeg"}
-        ten = "ảnh"
-    if (f.file_size or 0) > 20 * 1024 * 1024:
-        await message.answer("⚠️ Tệp quá 20 MB — bot không tải được. Xuất lại bảng giá gọn hơn rồi gửi.", reply_markup=nut_huy())
+@router.message(BaoGiaState.cho_tep, F.document)
+async def tu_choi_tep(message: types.Message):
+    await message.answer(HUONG_DAN_LINK, reply_markup=nut_huy())
+
+
+@router.message(BaoGiaState.cho_tep, F.photo)
+async def nhan_anh_bao_gia(message: types.Message, state: FSMContext):
+    f = message.photo[-1]
+    await _xu_ly_bao_gia(message, state, {"file_id": f.file_id, "file_name": "anh.jpg", "mime": "image/jpeg"}, "ảnh")
+
+
+@router.message(BaoGiaState.cho_tep, F.text & ~F.text.startswith("/"))
+async def nhan_link_bao_gia(message: types.Message, state: FSMContext):
+    link = _link_sheet(message.text)
+    if not link:
+        await message.answer(HUONG_DAN_LINK, reply_markup=nut_huy())
         return
+    await _xu_ly_bao_gia(message, state, {"sheet_url": link}, "Google Sheet")
+
+
+async def _xu_ly_bao_gia(message: types.Message, state: FSMContext, payload: dict, ten: str):
+    data = await state.get_data()
     cho = await message.answer(f"⏳ Đang đọc {ten} và khớp mã với phiếu dự án {data.get('bg_project_code')}…")
     res = await api.vat_tu_trich_bao_gia(message.from_user.id, {"project_id": data["bg_project_id"], **payload})
     if not res or res.get("error"):
@@ -206,11 +227,6 @@ async def _xem_truoc_tao_dong(cho: types.Message, state: FSMContext, res: dict, 
     ]]))
 
 
-@router.message(BaoGiaState.cho_tep, F.text & ~F.text.startswith("/"))
-async def nhac_gui_tep(message: types.Message):
-    await message.answer("📎 Gửi tệp báo giá (Excel/CSV/PDF/ảnh) chứ không gõ chữ. Bấm Hủy để thoát.", reply_markup=nut_huy())
-
-
 @router.message(BaoGiaState.cho_xac_nhan, F.text & ~F.text.startswith("/"))
 async def doi_ten_ncc(message: types.Message, state: FSMContext):
     ten = message.text.strip()[:150]
@@ -292,7 +308,8 @@ async def bat_dau_phat_sinh(message: types.Message, state: FSMContext, project_c
     await state.set_state(PhatSinhState.cho_tep)
     await message.answer(
         f"📑 <b>Nhập phát sinh cho dự án {p['code']}</b> — {p.get('name', '')}\n\n"
-        "Gửi <b>tệp báo giá phát sinh</b> JAMA gửi khách (Excel, PDF hoặc ảnh chụp).\n"
+        "Gửi <b>link Google Sheet</b> báo giá phát sinh JAMA gửi khách (bật chia sẻ "
+        "«Bất kỳ ai có đường liên kết») hoặc ảnh chụp.\n"
         "Bot đọc rồi cho xem trước. Khi bạn bấm Ghi, bot sẽ:\n"
         "1️⃣ Tạo <b>phụ lục nháp</b> trên hợp đồng của khách (khách chốt thì ký phụ lục trên web)\n"
         "2️⃣ Thêm các hạng mục cần mua vào <b>phiếu vật tư</b> để Thu mua hỏi giá NCC\n"
@@ -301,22 +318,13 @@ async def bat_dau_phat_sinh(message: types.Message, state: FSMContext, project_c
     )
 
 
-@router.message(PhatSinhState.cho_tep, F.document | F.photo)
+@router.message(PhatSinhState.cho_tep, F.photo)
 async def nhan_tep_phat_sinh(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    if message.document:
-        f = message.document
-        payload = {"file_id": f.file_id, "file_name": f.file_name, "mime": f.mime_type}
-        ten = f.file_name or "tệp"
-    else:
-        f = message.photo[-1]
-        payload = {"file_id": f.file_id, "file_name": "anh.jpg", "mime": "image/jpeg"}
-        ten = "ảnh"
-    if (f.file_size or 0) > 20 * 1024 * 1024:
-        await message.answer("⚠️ Tệp quá 20 MB — bot không tải được.", reply_markup=nut_huy())
-        return
-    cho = await message.answer(f"⏳ Đang đọc {ten}…")
-    await xem_truoc_phat_sinh(cho, state, message.from_user.id, data["ps_project_id"], payload, ten)
+    f = message.photo[-1]
+    payload = {"file_id": f.file_id, "file_name": "anh.jpg", "mime": "image/jpeg"}
+    cho = await message.answer("⏳ Đang đọc ảnh…")
+    await xem_truoc_phat_sinh(cho, state, message.from_user.id, data["ps_project_id"], payload, "ảnh")
 
 
 async def xem_truoc_phat_sinh(cho: types.Message, state: FSMContext, tg_id: int, project_id: str,
@@ -380,9 +388,15 @@ async def xem_truoc_phat_sinh(cho: types.Message, state: FSMContext, tg_id: int,
 
 
 @router.message(PhatSinhState.cho_tep, F.text & ~F.text.startswith("/"))
-async def nhac_gui_tep_ps(message: types.Message):
-    await message.answer("📎 Gửi tệp báo giá phát sinh (Excel/PDF/ảnh) chứ không gõ chữ. Bấm Hủy để thoát.",
-                         reply_markup=nut_huy())
+async def nhan_link_phat_sinh(message: types.Message, state: FSMContext):
+    link = _link_sheet(message.text)
+    if not link:
+        await message.answer(HUONG_DAN_LINK, reply_markup=nut_huy())
+        return
+    data = await state.get_data()
+    cho = await message.answer("⏳ Đang tải Google Sheet và đọc các hạng mục…")
+    await xem_truoc_phat_sinh(cho, state, message.from_user.id, data["ps_project_id"], {"sheet_url": link},
+                              "Google Sheet")
 
 
 @router.callback_query(F.data.startswith("ps:ghi:"))
@@ -422,3 +436,8 @@ async def cb_ghi_phat_sinh(callback: types.CallbackQuery, state: FSMContext):
         f"Bước tiếp:\n• Gửi khách xem; khách chốt thì mở {WEB_URL}/contracts, tìm <b>{pl.get('code')}</b> và chuyển sang Đã ký\n"
         f"• Thu mua hỏi giá NCC tại {WEB_URL}/vat-tu?project={data.get('ps_project_id')}"
     )
+
+
+@router.message(PhatSinhState.cho_tep, F.document)
+async def tu_choi_tep_ps(message: types.Message):
+    await message.answer(HUONG_DAN_LINK, reply_markup=nut_huy())

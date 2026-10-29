@@ -59,6 +59,37 @@ async def tai_tep_telegram(file_id: str) -> bytes:
     return resp.content
 
 
+_SHEET_RE = re.compile(r"https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]{20,})")
+LOI_CHUA_CONG_KHAI = ("Link Google Sheet chưa mở công khai — vào Chia sẻ → «Bất kỳ ai có đường liên kết» "
+                      "(Người xem) rồi gửi lại link")
+
+
+def chuan_link_sheet(url: str | None) -> str | None:
+    """Link Google Sheet → dạng gọn https://docs.google.com/spreadsheets/d/<id>. Không phải sheet → None."""
+    m = _SHEET_RE.search((url or "").strip())
+    return f"https://docs.google.com/spreadsheets/d/{m.group(1)}" if m else None
+
+
+async def tai_google_sheet(url: str) -> bytes:
+    """Tải Google Sheet chia sẻ công khai về dạng .xlsx (cả các sheet). Sheet riêng tư → TepError."""
+    goc = chuan_link_sheet(url)
+    if not goc:
+        raise TepError("Đây không phải link Google Sheet (docs.google.com/spreadsheets/…)")
+    try:
+        async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+            resp = await client.get(f"{goc}/export?format=xlsx")
+    except httpx.HTTPError as exc:
+        raise TepError(f"Không tải được Google Sheet ({type(exc).__name__}) — thử lại sau", 502) from exc
+    # Sheet riêng tư: Google trả 401/403 hoặc chuyển sang trang đăng nhập (HTML)
+    if resp.status_code in (401, 403, 404) or "html" in resp.headers.get("content-type", ""):
+        raise TepError(LOI_CHUA_CONG_KHAI)
+    if resp.status_code >= 400:
+        raise TepError(f"Google Sheet trả lỗi {resp.status_code} — thử lại sau", 502)
+    if len(resp.content) > 60 * 1024 * 1024:
+        raise TepError("Google Sheet quá lớn (> 60 MB)")
+    return resp.content
+
+
 # ── Tệp → chữ ─────────────────────────────────────────────────────────────
 
 def _loai_tep(filename: str | None, mime: str | None) -> str:

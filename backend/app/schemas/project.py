@@ -86,6 +86,7 @@ class ProjectResponse(BaseModel):
     pause_reason: str | None = None
     paused_at: datetime | None = None
     stage_acceptances: dict | None = None
+    bao_gia_sheet_url: str | None = None
     created_at: datetime
     updated_at: datetime
     # Tiến độ đầu việc theo giai đoạn: {"design": {"done": 3, "total": 5}, ...}

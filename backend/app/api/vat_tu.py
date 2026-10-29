@@ -656,9 +656,26 @@ async def tong_quan(user: User = Depends(get_current_user), db: AsyncSession = D
 
 class TrichBaoGiaIn(BaseModel):
     project_id: str
-    file_id: str
+    file_id: str | None = None   # tệp gửi qua Telegram (ảnh chụp bảng giá)
+    sheet_url: str | None = None  # link Google Sheet chia sẻ công khai (30/10/2026: thay tệp)
     file_name: str | None = None
     mime: str | None = None
+
+
+async def _tai_nguon(body: TrichBaoGiaIn, proj: Project, db: AsyncSession) -> tuple[bytes, str | None, str | None]:
+    """Bytes báo giá từ link Google Sheet (lưu link vào dự án) hoặc tệp Telegram."""
+    from app.services import vat_tu_bao_gia_tep as tep
+
+    if body.sheet_url:
+        data = await tep.tai_google_sheet(body.sheet_url)
+        link = tep.chuan_link_sheet(body.sheet_url)
+        if proj.bao_gia_sheet_url != link:
+            proj.bao_gia_sheet_url = link
+            await db.commit()
+        return data, body.file_name or "google_sheet.xlsx", None
+    if not body.file_id:
+        raise tep.TepError("Gửi link Google Sheet báo giá")
+    return await tep.tai_tep_telegram(body.file_id), body.file_name, body.mime
 
 
 class BaoGiaBotItem(BaseModel):
@@ -717,8 +734,8 @@ async def bot_trich_bao_gia(body: TrichBaoGiaIn, user: User = Depends(yeu_cau_th
         raise HTTPException(404, "Project not found")
     dong = await _dong_cho_khop(db, proj.id)
     try:
-        data = await tep.tai_tep_telegram(body.file_id)
-        loai, chu = tep.tep_sang_chu(data, body.file_name, body.mime)
+        data, ten_tep, mime = await _tai_nguon(body, proj, db)
+        loai, chu = tep.tep_sang_chu(data, ten_tep, mime)
         if tep.la_bao_gia_khach(body.file_name, chu):
             # Báo giá JAMA gửi khách gửi nhầm vào luồng NCC → bot tự chuyển sang /phatsinh (30/10/2026)
             return {"la_bao_gia_khach": True, "project_code": proj.code}
@@ -890,8 +907,8 @@ async def bot_trich_phat_sinh(body: TrichBaoGiaIn, user: User = Depends(get_curr
 
     proj = await _quyen_phat_sinh(body.project_id, user, db)
     try:
-        data = await tep.tai_tep_telegram(body.file_id)
-        loai, chu = tep.tep_sang_chu(data, body.file_name, body.mime)
+        data, ten_tep, mime = await _tai_nguon(body, proj, db)
+        loai, chu = tep.tep_sang_chu(data, ten_tep, mime)
         if loai == "image":
             kq = await tep.trich_tu_anh(data, body.mime, tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
         else:

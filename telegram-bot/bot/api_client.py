@@ -562,7 +562,7 @@ class APIClient:
 
     async def vat_tu_trich_bao_gia(self, tg_user_id: int, data: dict) -> dict | None:
         """Tệp báo giá NCC → bản xem trước (AI đọc + khớp mã với phiếu dự án). Chưa ghi."""
-        return await self._post(tg_user_id, "/vat-tu/bot/trich-bao-gia", data, "Loi doc tep bao gia", timeout=120.0)
+        return await self._post(tg_user_id, "/vat-tu/bot/trich-bao-gia", data, "Loi doc tep bao gia", timeout=240.0)
 
     async def vat_tu_ghi_bao_gia(self, tg_user_id: int, items: list[dict], nguon: str | None,
                                  ncc_mst: str | None = None, ncc_dia_chi: str | None = None,
@@ -575,7 +575,7 @@ class APIClient:
 
     async def vat_tu_trich_phat_sinh(self, tg_user_id: int, data: dict) -> dict | None:
         """Tệp báo giá phát sinh gửi khách → bản xem trước. Chưa ghi."""
-        return await self._post(tg_user_id, "/vat-tu/bot/trich-phat-sinh", data, "Loi doc tep phat sinh", timeout=120.0)
+        return await self._post(tg_user_id, "/vat-tu/bot/trich-phat-sinh", data, "Loi doc tep phat sinh", timeout=240.0)
 
     async def vat_tu_ghi_phat_sinh(self, tg_user_id: int, data: dict) -> dict | None:
         return await self._post(tg_user_id, "/vat-tu/bot/ghi-phat-sinh", data, "Loi ghi phat sinh")
