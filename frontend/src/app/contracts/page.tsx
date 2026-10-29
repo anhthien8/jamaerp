@@ -107,10 +107,15 @@ export default function ContractsPage() {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  const load = useCallback(async () => {
+  const [timKiem, setTimKiem] = useState('');
+  const [tongSo, setTongSo] = useState(0);
+
+  const load = useCallback(async (search = '') => {
     try {
-      const data = extractItems(await api.getContracts());
+      const res = await api.getContracts({ page_size: '500', ...(search.trim() ? { search: search.trim() } : {}) });
+      const data = extractItems(res);
       setContracts(data);
+      setTongSo((res as { total?: number })?.total ?? data.length);
     } catch { toast('Không thể tải hợp đồng', 'error'); } finally {
       setLoadingData(false);
     }
@@ -123,7 +128,13 @@ export default function ContractsPage() {
     } catch { /* silent */ }
   }, []);
 
-  useEffect(() => { if (user) void Promise.resolve().then(() => { load(); loadProjects(); }); }, [user, load, loadProjects]);
+  useEffect(() => { if (user) void Promise.resolve().then(() => { loadProjects(); }); }, [user, loadProjects]);
+  // Tải lại khi gõ tìm kiếm (chờ 300ms sau phím cuối)
+  useEffect(() => {
+    if (!user) return;
+    const t = setTimeout(() => { load(timKiem); }, timKiem ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [user, load, timKiem]);
 
   if (loading || !user) return null;
 
@@ -269,7 +280,7 @@ export default function ContractsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">Hợp đồng</h1>
-            <p className="text-sm text-[var(--text-tertiary)] mt-1">{contracts.length} hợp đồng</p>
+            <p className="text-sm text-[var(--text-tertiary)] mt-1">{tongSo} hợp đồng{timKiem.trim() ? ` khớp «${timKiem.trim()}»` : ''}</p>
           </div>
           {permissions.canCreateContracts && (
             <button
@@ -297,6 +308,15 @@ export default function ContractsPage() {
         </div>
 
         {tab === 'mau' ? <ThuVienMau /> : (<>
+        {/* Tìm hợp đồng theo mã HĐ hoặc tên khách */}
+        <div className="relative">
+          <LineIcon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input value={timKiem} onChange={e => setTimKiem(e.target.value)}
+            placeholder="Tìm theo mã HĐ hoặc tên khách…"
+            className="w-full rounded-xl pl-9 pr-9 py-2.5 text-sm bg-[var(--surface-1)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--gold-400)]" />
+          {timKiem && <button onClick={() => setTimKiem('')} aria-label="Xóa tìm kiếm"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>}
+        </div>
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[

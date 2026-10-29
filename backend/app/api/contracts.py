@@ -33,17 +33,21 @@ async def _yeu_cau_quyen_hop_dong(nguoi: User, db: AsyncSession) -> None:
 async def list_contracts(
     status: str | None = None,
     project_id: str | None = None,
+    search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=500),
 ):
-    """List contracts."""
+    """List contracts. `search` lọc theo mã HĐ hoặc tiêu đề (tên khách)."""
     q = select(Contract).order_by(Contract.created_at.desc())
     if status:
         q = q.where(Contract.status == status)
     if project_id:
         q = q.where(Contract.project_id == project_id)
+    if search and search.strip():
+        kw = f"%{search.strip()}%"
+        q = q.where(Contract.code.ilike(kw) | Contract.title.ilike(kw))
 
     # Count total (before pagination)
     count_q = select(func.count()).select_from(q.subquery())
@@ -112,6 +116,26 @@ async def create_contract(
     return ContractResponse.model_validate(contract)
 
 
+async def tao_phu_luc_cho(db: AsyncSession, goc: Contract, title: str, total_value: float,
+                          notes: str | None) -> Contract:
+    """Tạo phụ lục nháp dưới HĐ gốc (dùng chung web + bot nhập phát sinh). Gọi sau khi đã kiểm quyền."""
+    so = (await db.execute(select(func.count()).select_from(Contract)
+                           .where(Contract.parent_contract_id == goc.id))).scalar() or 0
+    pl = Contract(
+        code=f"{goc.code}-PL{so + 1}"[:40], project_id=goc.project_id, title=title,
+        total_value=total_value, notes=notes, contract_kind=goc.contract_kind,
+        parent_contract_id=goc.id, status="draft",
+        payment_terms={"installments": [] if total_value <= 0 else [
+            {"name": "Thu phụ lục", "percentage": 100, "milestone": "signing", "status": "pending"}]},
+    )
+    db.add(pl)
+    await db.flush()
+    await dong_bo_gia_tri_du_an(db, goc.project_id)
+    from app.cache import cache
+    cache.clear_prefix("pl")
+    return pl
+
+
 @router.post("/{contract_id}/phu-luc", response_model=ContractResponse)
 async def tao_phu_luc(
     contract_id: str,
@@ -128,20 +152,7 @@ async def tao_phu_luc(
         raise HTTPException(400, "Thêm phụ lục vào hợp đồng gốc, không vào phụ lục")
     if goc.status == "cancelled":
         raise HTTPException(400, "Hợp đồng đã huỷ")
-    so = (await db.execute(select(func.count()).select_from(Contract)
-                           .where(Contract.parent_contract_id == goc.id))).scalar() or 0
-    pl = Contract(
-        code=f"{goc.code}-PL{so + 1}"[:40], project_id=goc.project_id, title=data.title,
-        total_value=data.total_value, notes=data.notes, contract_kind=goc.contract_kind,
-        parent_contract_id=goc.id, status="draft",
-        payment_terms={"installments": [] if data.total_value <= 0 else [
-            {"name": "Thu phụ lục", "percentage": 100, "milestone": "signing", "status": "pending"}]},
-    )
-    db.add(pl)
-    await db.flush()
-    await dong_bo_gia_tri_du_an(db, goc.project_id)
-    from app.cache import cache
-    cache.clear_prefix("pl")
+    pl = await tao_phu_luc_cho(db, goc, data.title, data.total_value, data.notes)
     return ContractResponse.model_validate(pl)
 
 

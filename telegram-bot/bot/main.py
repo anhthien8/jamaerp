@@ -149,6 +149,7 @@ LENH_GOI_Y = [
     ("dutoan", "Dự toán cải tạo"),
     ("lead", "Nhập lead mới"),
     ("baogia", "Thu mua: nhập báo giá NCC từ tệp"),
+    ("phatsinh", "Nhập báo giá phát sinh gửi khách → phụ lục + vật tư"),
     ("nhapmau", "Thu mua: nhập danh mục mẫu từ Google Sheet"),
     ("cancel", "Hủy thao tác đang làm"),
     ("id", "Xem Telegram ID / Chat ID"),

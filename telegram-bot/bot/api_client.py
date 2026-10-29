@@ -565,10 +565,20 @@ class APIClient:
         return await self._post(tg_user_id, "/vat-tu/bot/trich-bao-gia", data, "Loi doc tep bao gia", timeout=120.0)
 
     async def vat_tu_ghi_bao_gia(self, tg_user_id: int, items: list[dict], nguon: str | None,
-                                 ncc_mst: str | None = None, ncc_dia_chi: str | None = None) -> dict | None:
+                                 ncc_mst: str | None = None, ncc_dia_chi: str | None = None,
+                                 project_id: str | None = None, tao_dong: list[dict] | None = None) -> dict | None:
         return await self._post(tg_user_id, "/vat-tu/bot/ghi-bao-gia",
-                                {"items": items, "nguon": nguon, "ncc_mst": ncc_mst, "ncc_dia_chi": ncc_dia_chi},
+                                {"items": items, "nguon": nguon, "ncc_mst": ncc_mst, "ncc_dia_chi": ncc_dia_chi,
+                                 "project_id": project_id, "tao_dong": tao_dong or []},
                                 "Loi ghi bao gia")
+
+
+    async def vat_tu_trich_phat_sinh(self, tg_user_id: int, data: dict) -> dict | None:
+        """Tệp báo giá phát sinh gửi khách → bản xem trước. Chưa ghi."""
+        return await self._post(tg_user_id, "/vat-tu/bot/trich-phat-sinh", data, "Loi doc tep phat sinh", timeout=120.0)
+
+    async def vat_tu_ghi_phat_sinh(self, tg_user_id: int, data: dict) -> dict | None:
+        return await self._post(tg_user_id, "/vat-tu/bot/ghi-phat-sinh", data, "Loi ghi phat sinh")
 
 
 # Singleton

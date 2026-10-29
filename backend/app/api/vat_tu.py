@@ -669,8 +669,22 @@ class BaoGiaBotItem(BaseModel):
     ghi_chu: str | None = Field(default=None, max_length=300)
 
 
+class TaoDongBotItem(BaseModel):
+    """Dòng phiếu tạo mới từ tệp báo giá (dự án chưa có phiếu). Mẫu tra lại theo mã ở máy chủ."""
+    ma: str = Field(min_length=1, max_length=150)
+    phong: str | None = Field(default=None, max_length=100)
+    so_luong: float | None = Field(default=None, gt=0)
+    don_vi: str | None = Field(default=None, max_length=20)
+    ncc_ten: str = Field(min_length=1, max_length=150)
+    gia: float = Field(gt=0)
+    con_hang: bool = True
+    ghi_chu: str | None = Field(default=None, max_length=300)
+
+
 class GhiBaoGiaIn(BaseModel):
-    items: list[BaoGiaBotItem] = Field(min_length=1, max_length=200)
+    items: list[BaoGiaBotItem] = Field(default_factory=list, max_length=200)
+    project_id: str | None = None                                  # bắt buộc khi có tao_dong
+    tao_dong: list[TaoDongBotItem] = Field(default_factory=list, max_length=300)
     nguon: str | None = Field(default=None, max_length=200)  # «tệp baogia.xlsx»
     ncc_mst: str | None = Field(default=None, max_length=20)      # AI đọc được trong tệp
     ncc_dia_chi: str | None = Field(default=None, max_length=500)
@@ -702,29 +716,88 @@ async def bot_trich_bao_gia(body: TrichBaoGiaIn, user: User = Depends(yeu_cau_th
     if not proj:
         raise HTTPException(404, "Project not found")
     dong = await _dong_cho_khop(db, proj.id)
-    if not dong:
-        raise HTTPException(400, f"Dự án {proj.code} chưa có dòng vật tư nào — thêm phiếu chọn trên web trước")
     try:
         data = await tep.tai_tep_telegram(body.file_id)
         loai, chu = tep.tep_sang_chu(data, body.file_name, body.mime)
+        if tep.la_bao_gia_khach(body.file_name, chu):
+            # Báo giá JAMA gửi khách gửi nhầm vào luồng NCC → bot tự chuyển sang /phatsinh (30/10/2026)
+            return {"la_bao_gia_khach": True, "project_code": proj.code}
         kq = await tep.trich_tu_anh(data, body.mime) if loai == "image" else await tep.trich_tu_chu(chu)
     except tep.TepError as e:
         raise HTTPException(e.status, str(e))
-    khop, khong = tep.khop_ma(kq["items"], dong)
+    tao_moi: list[dict] = []
+    if dong:
+        khop, khong = tep.khop_ma(kq["items"], dong)
+    else:
+        # Dự án chưa có phiếu (29/10/2026): mọi mã có giá → đề xuất TẠO dòng phiếu mới.
+        # Mã có trong Danh mục mẫu thì gắn mẫu, không thì ghi mã tự do. Chưa ghi gì.
+        khop = []
+        khong = [it for it in kq["items"] if it.get("gia") is None]
+        mau = await _mau_theo_ma(db, [it["ma"] for it in kq["items"] if it.get("gia") is not None])
+        for it in kq["items"]:
+            if it.get("gia") is None:
+                continue
+            m = mau.get(tep.chuan_ma(it["ma"]))
+            tao_moi.append({**it, "ma": m.ma if m else it["ma"], "co_trong_danh_muc": bool(m),
+                            "phong": it.get("phong") or "Chung",
+                            "don_vi": it.get("don_vi") or (m.don_vi if m else "m2")})
     return {
         "project_code": proj.code, "project_name": proj.name, "ncc_ten": kq["ncc_ten"],
         "ncc_mst": kq.get("ncc_mst"), "ncc_dia_chi": kq.get("ncc_dia_chi"),
         "loai_tep": loai, "so_dong_phieu": len(dong), "so_doc_duoc": len(kq["items"]),
-        "khop": khop, "khong_khop": khong[:30],
+        "khop": khop, "khong_khop": khong[:30], "tao_moi": tao_moi,
     }
+
+
+async def _mau_theo_ma(db: AsyncSession, mas: list[str]) -> dict[str, MauVatTu]:
+    """Tra Danh mục mẫu theo mã đã chuẩn hoá («TM 76006» ≡ «tm-76006»)."""
+    from app.services.vat_tu_bao_gia_tep import chuan_ma
+    can = {chuan_ma(m) for m in mas if m}
+    if not can:
+        return {}
+    out: dict[str, MauVatTu] = {}
+    for m in (await db.execute(select(MauVatTu).where(MauVatTu.is_active.is_(True)))).scalars():
+        k = chuan_ma(m.ma)
+        if k in can and k not in out:
+            out[k] = m
+    return out
 
 
 @router.post("/bot/ghi-bao-gia", status_code=201)
 async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
     """Ghi hàng loạt báo giá đã được Thu mua xác nhận trên bot. Ghi chú ghi rõ nguồn tệp + người nhập."""
-    ghi, loi = 0, []
+    if not body.items and not body.tao_dong:
+        raise HTTPException(400, "Không có dòng nào để ghi")
+    ghi, loi, tao = 0, [], 0
     nguon = f"Nhập từ {body.nguon} bởi {user.full_name} (bot)" if body.nguon else f"Nhập qua bot bởi {user.full_name}"
     bo = BoNcc(db)
+    if body.tao_dong:
+        from app.services.vat_tu_bao_gia_tep import chuan_ma
+        if not body.project_id or not await db.get(Project, body.project_id):
+            raise HTTPException(404, "Project not found")
+        mau = await _mau_theo_ma(db, [t.ma for t in body.tao_dong])
+        thu_tu = (await db.execute(
+            select(func.coalesce(func.max(DongPhieuVatTu.thu_tu), 0)).where(DongPhieuVatTu.project_id == body.project_id)
+        )).scalar_one()
+        for t in body.tao_dong:
+            m = mau.get(chuan_ma(t.ma))
+            thu_tu += 1
+            d = DongPhieuVatTu(
+                project_id=body.project_id, created_by=user.id, thu_tu=thu_tu,
+                phong=(t.phong or "Chung").strip()[:100] or "Chung",
+                mau_id=m.id if m else None, ma_tu_do=None if m else t.ma.strip(),
+                so_luong=t.so_luong or 1, don_vi=(t.don_vi or (m.don_vi if m else "m2"))[:20],
+                ghi_chu=f"Tạo từ báo giá — {nguon}"[:500], trang_thai="hoi_ncc",
+            )
+            db.add(d)
+            await db.flush()
+            s = await bo.lay(t.ncc_ten, body.ncc_mst, body.ncc_dia_chi)
+            ghi_chu = f"{t.ghi_chu} · {nguon}" if t.ghi_chu else nguon
+            db.add(BaoGiaDongVatTu(dong_id=d.id, supplier_id=s.id if s else None,
+                                   ncc_ten=s.name if s else t.ncc_ten.strip(), gia=t.gia, con_hang=t.con_hang,
+                                   ghi_chu=ghi_chu[:500], created_by=user.id))
+            tao += 1
+            ghi += 1
     for it in body.items:
         d = await db.get(DongPhieuVatTu, it.dong_id)
         if not d:
@@ -739,7 +812,130 @@ async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mu
             d.trang_thai = "hoi_ncc"
         ghi += 1
     await db.commit()
-    return {"ghi": ghi, "loi": loi}
+    return {"ghi": ghi, "tao": tao, "loi": loi}
+
+
+# ── Bot nhập BÁO GIÁ PHÁT SINH gửi khách (30/10/2026) ─────────────────────
+# Tệp JAMA báo khách → (A) phụ lục NHÁP dưới HĐ gốc (khách chốt = ký trên web)
+# + (B) dòng phiếu vật tư cho hạng mục SL > 0 để Thu mua hỏi NCC. Giảm trừ
+# (SL âm, CĐT cấp) chỉ trừ tiền phụ lục, không sinh dòng mua.
+
+class PhatSinhItem(BaseModel):
+    hang_muc: str = Field(min_length=1, max_length=255)
+    dvt: str | None = Field(default=None, max_length=20)
+    kl: float | None = None
+    sl: float | None = None
+    don_gia: float | None = None
+    thanh_tien: float
+    kich_thuoc: str | None = Field(default=None, max_length=60)
+    ghi_chu: str | None = Field(default=None, max_length=300)
+
+
+class GhiPhatSinhIn(BaseModel):
+    project_id: str
+    contract_id: str
+    tieu_de: str = Field(min_length=3, max_length=255)
+    items: list[PhatSinhItem] = Field(min_length=1, max_length=200)
+    nguon: str | None = Field(default=None, max_length=200)
+
+
+async def _quyen_phat_sinh(project_id: str, user: User, db: AsyncSession) -> Project:
+    from app.api.contracts import _yeu_cau_quyen_hop_dong
+    await _yeu_cau_quyen_hop_dong(user, db)
+    proj = await db.get(Project, project_id)
+    if not proj:
+        raise HTTPException(404, "Project not found")
+    if not la_thu_mua(user):
+        await require_project_access(project_id, user, db)
+    return proj
+
+
+async def _hd_goc(db: AsyncSession, project_id: str) -> list:
+    from app.models.contract import Contract
+    return list((await db.execute(
+        select(Contract).where(Contract.project_id == project_id, Contract.parent_contract_id.is_(None),
+                               Contract.status != "cancelled").order_by(Contract.created_at)
+    )).scalars())
+
+
+def _so_luong_mua(it: PhatSinhItem | dict) -> float:
+    g = it if isinstance(it, dict) else it.model_dump()
+    kl, sl = g.get("kl"), g.get("sl")
+    return round((kl if kl and kl > 0 else 1) * (sl if sl and sl > 0 else 1), 3)
+
+
+@router.post("/bot/trich-phat-sinh")
+async def bot_trich_phat_sinh(body: TrichBaoGiaIn, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Đọc tệp báo giá phát sinh gửi khách → xem trước (tổng tự tính, đối chiếu tổng
+    trong tệp, tên khách có khớp dự án không, HĐ gốc để gắn phụ lục). CHƯA ghi gì."""
+    from app.services import vat_tu_bao_gia_tep as tep
+
+    proj = await _quyen_phat_sinh(body.project_id, user, db)
+    try:
+        data = await tep.tai_tep_telegram(body.file_id)
+        loai, chu = tep.tep_sang_chu(data, body.file_name, body.mime)
+        if loai == "image":
+            kq = await tep.trich_tu_anh(data, body.mime, tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
+        else:
+            kq = await tep.trich_tu_chu(chu, tep._PROMPT_PHAT_SINH, tep.chuan_hoa_phat_sinh)
+    except tep.TepError as e:
+        raise HTTPException(e.status, str(e))
+    tong = sum(it["thanh_tien"] for it in kq["items"])
+    hd = await _hd_goc(db, proj.id)
+    return {
+        "project_code": proj.code, "project_name": proj.name, "client_name": proj.client_name,
+        "khach_trong_tep": kq["khach_hang"], "tieu_de": kq["tieu_de"],
+        # None = không đủ chữ để so; False = tên tệp/khách trong tệp không giống khách dự án → bot cảnh báo
+        "khop_khach": tep.ten_khop(proj.client_name, body.file_name, kq["khach_hang"]),
+        "items": kq["items"], "tong": tong, "tong_file": kq["tong_file"],
+        "lech_tong": (kq["tong_file"] is not None and abs(kq["tong_file"] - tong) > 1000),
+        "so_dong_mua": sum(1 for it in kq["items"] if (it["sl"] is None or it["sl"] > 0) and it["thanh_tien"] > 0),
+        "hop_dong": [{"id": c.id, "code": c.code, "title": c.title, "status": c.status} for c in hd],
+        "loai_tep": loai,
+    }
+
+
+@router.post("/bot/ghi-phat-sinh", status_code=201)
+async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Ghi phát sinh đã xem trước: phụ lục nháp + dòng phiếu vật tư (trạng thái «Khách chọn»)."""
+    from app.api.contracts import tao_phu_luc_cho
+    from app.models.contract import Contract
+
+    await _quyen_phat_sinh(body.project_id, user, db)
+    goc = await db.get(Contract, body.contract_id)
+    if not goc or goc.project_id != body.project_id:
+        raise HTTPException(404, "Không tìm thấy hợp đồng của dự án này")
+    if goc.parent_contract_id or goc.status == "cancelled":
+        raise HTTPException(400, "Chọn hợp đồng gốc còn hiệu lực để gắn phụ lục")
+    tong = sum(it.thanh_tien for it in body.items)
+    nguon = f"tệp {body.nguon}" if body.nguon else "bot"
+    dong_note = []
+    for it in body.items:
+        so = " × ".join(f"{v:g}" for v in (it.kl, it.sl) if v is not None)
+        dong_note.append(f"- {it.hang_muc}" + (f" ({so} {it.dvt or ''})".rstrip() if so else "")
+                         + f": {it.thanh_tien:,.0f}đ".replace(",", "."))
+    notes = f"Nhập từ {nguon} bởi {user.full_name} (bot). Gửi khách tham khảo — khách chốt thì ký phụ lục.\n" + "\n".join(dong_note)
+    pl = await tao_phu_luc_cho(db, goc, body.tieu_de, tong, notes[:5000])
+
+    thu_tu = (await db.execute(
+        select(func.coalesce(func.max(DongPhieuVatTu.thu_tu), 0)).where(DongPhieuVatTu.project_id == body.project_id)
+    )).scalar_one()
+    tao = 0
+    for it in body.items:
+        if (it.sl is not None and it.sl <= 0) or it.thanh_tien <= 0:
+            continue  # giảm trừ: CĐT cấp, không mua
+        thu_tu += 1
+        gia_khach = f"Giá báo khách {it.don_gia:,.0f}đ/{it.dvt or 'đv'}".replace(",", ".") if it.don_gia else ""
+        ghi = " · ".join(x for x in (f"Phát sinh {pl.code}", it.kich_thuoc, it.ghi_chu, gia_khach) if x)
+        db.add(DongPhieuVatTu(
+            project_id=body.project_id, created_by=user.id, thu_tu=thu_tu,
+            phong="Phát sinh", hang_muc=it.hang_muc[:255], ma_tu_do=it.hang_muc[:150],
+            so_luong=_so_luong_mua(it), don_vi=(it.dvt or "cái")[:20],
+            ghi_chu=ghi[:500], trang_thai="khach_chon",
+        ))
+        tao += 1
+    await db.commit()
+    return {"phu_luc": {"id": pl.id, "code": pl.code, "total_value": tong}, "tao_dong": tao}
 
 
 # ── Shopee Affiliate: giá thị trường, cần thương lượng, gợi ý NCC (26/10/2026) ──

@@ -16,7 +16,7 @@ from bot.handlers.checkin_out import tan_ca_van_phong, vao_ca_van_phong, xin_vi_
 from bot.handlers.incident import IncidentState, bat_dau_su_co, gui_su_co
 from bot.handlers.material_request import hoi_vat_tu
 from bot.handlers.site_report import SiteReportState, bat_dau_bao_cao, gui_bao_cao, hien_du_an
-from bot.handlers.vat_tu_nhap import bat_dau_bao_gia
+from bot.handlers.vat_tu_nhap import bat_dau_bao_gia, bat_dau_phat_sinh
 from bot.keyboards import TEN_LENH, hien_ban_phim
 
 router = Router()
@@ -66,6 +66,8 @@ async def cb_pick(callback: types.CallbackQuery, state: FSMContext):
         await hoi_vat_tu(m, state, code)
     elif cmd == "baogia":
         await bat_dau_bao_gia(m, state, code, user.id)
+    elif cmd == "phatsinh":
+        await bat_dau_phat_sinh(m, state, code, user.id)
     elif cmd == "checkin":
         if code == "VP":
             await vao_ca_van_phong(m, state, user)
