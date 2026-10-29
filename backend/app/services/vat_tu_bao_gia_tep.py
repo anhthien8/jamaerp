@@ -27,7 +27,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 TOI_DA_BYTES = 20 * 1024 * 1024  # Bot API getFile chỉ cho tải ≤ 20 MB
-TOI_DA_CHU = 12000  # ký tự đưa vào prompt (báo giá NCC thường < 200 dòng)
+TOI_DA_CHU = 30000  # ký tự đưa vào prompt (báo giá tổng hợp gửi khách có thể dài)
 MODEL_VISION_MAC_DINH = "groq/qwen/qwen3.8-27b"
 
 
@@ -222,6 +222,17 @@ def _noi_dung_tra_ve(raw: Any) -> str:
         return raw["choices"][0]["message"]["content"]
 
 
+def _boc_json(s: str) -> str:
+    """Lấy khối JSON trong câu trả lời có thể kèm ```json … ``` hoặc lời dẫn."""
+    s = (s or "").strip()
+    vt = [i for i in (s.find("{"), s.find("[")) if i >= 0]
+    if not vt:
+        return s
+    dau = min(vt)
+    cuoi = max(s.rfind("}"), s.rfind("]"))
+    return s[dau:cuoi + 1] if cuoi > dau else s[dau:]
+
+
 async def trich_tu_chu(chu: str, prompt: str | None = None, chuan=None) -> dict:
     """Chữ (từ Excel/PDF/CSV) → {ncc_ten, items}. Lỗi AI → TepError 503."""
     from app.services.llm_config import llm_available, llm_complete
@@ -231,13 +242,17 @@ async def trich_tu_chu(chu: str, prompt: str | None = None, chuan=None) -> dict:
     chu = chu.strip()
     if not chu:
         raise TepError("Tệp không có nội dung để đọc")
+    tin = [{"role": "system", "content": prompt or _PROMPT},
+           {"role": "user", "content": f"Nội dung tệp báo giá:\n\n{chu[:TOI_DA_CHU]}"}]
     try:
-        raw = await llm_complete(
-            [{"role": "system", "content": prompt or _PROMPT},
-             {"role": "user", "content": f"Nội dung tệp báo giá:\n\n{chu[:TOI_DA_CHU]}"}],
-            temperature=0.0, max_tokens=4000, response_format={"type": "json_object"},
-        )
-        return (chuan or _chuan_hoa)(_noi_dung_tra_ve(raw))
+        try:
+            raw = await llm_complete(tin, temperature=0.0, max_tokens=8000, response_format={"type": "json_object"})
+            return (chuan or _chuan_hoa)(_noi_dung_tra_ve(raw))
+        except Exception as exc:  # noqa: BLE001
+            # Báo giá dài: chế độ JSON của Groq hay hỏng (json_validate_failed) → thử lại không ép JSON, tự bóc
+            logger.info("Trích báo giá: chế độ JSON lỗi (%s) → thử lại dạng chữ", exc)
+            raw = await llm_complete(tin, temperature=0.0, max_tokens=16000)
+            return (chuan or _chuan_hoa)(_boc_json(_noi_dung_tra_ve(raw)))
     except TepError:
         raise
     except Exception as exc:  # noqa: BLE001 — model/khóa/quota
