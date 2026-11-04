@@ -37,7 +37,9 @@ class Notification(Base):
     link: Mapped[str | None] = mapped_column(String(500), nullable=True)  # frontend route e.g. /leads?id=x
 
     # Reference for dedupe (e.g. lead_id / contract_id)
-    ref_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # 100 chứ không phải 36 (04/11/2026): nhiều chỗ ghép tiền tố + id, vd "offboard-<uuid>" = 45 ký tự
+    # — Postgres từ chối, cả thao tác cho nghỉ việc bị rollback. SQLite không kiểm độ dài nên test không bắt được.
+    ref_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
