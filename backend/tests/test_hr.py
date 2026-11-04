@@ -386,3 +386,28 @@ async def test_undo_resign_no_permission(client, salesperson, db_session):
 
 # Need this import for the activity check
 from sqlalchemy import select
+
+
+@pytest.mark.asyncio
+async def test_resign_ref_id_thong_bao_vua_cot(
+    client, admin_user, accountant_user, salesperson, teammate, leads, db_session
+):
+    """Lỗi 04/11/2026: thông báo kế toán dùng ref_id "offboard-<uuid>" (45 ký tự) trong khi
+    cột chỉ 36 → Postgres từ chối, cả thao tác nghỉ việc rollback. SQLite không kiểm độ
+    dài nên phải tự so với độ dài khai báo của cột."""
+    from sqlalchemy import select
+    from app.models.notification import Notification
+
+    resp = await client.post(
+        "/api/v1/hr/resign",
+        json={"user_id": salesperson.id, "transfer_leads_to": teammate.id},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+
+    gioi_han = Notification.__table__.c.ref_id.type.length
+    ref_ids = (await db_session.execute(
+        select(Notification.ref_id).where(Notification.type == "offboarding")
+    )).scalars().all()
+    assert ref_ids, "kế toán phải nhận thông báo chốt lương nghỉ việc"
+    assert all(len(r) <= gioi_han for r in ref_ids if r)
