@@ -425,3 +425,32 @@ async def undo_resign(
         "status": "restored",
         "message": f"Nhân viên {user.full_name} đã được khôi phục.",
     }
+
+
+# ---------------------------------------------------------------------------
+# 4. DELETE /hr/resigned/{user_id} — xoá người đã nghỉ khỏi danh sách nhân sự
+# ---------------------------------------------------------------------------
+
+@router.delete("/resigned/{user_id}")
+async def xoa_nhan_su_da_nghi(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ẩn hẳn người đã nghỉ khỏi màn Nhân sự (yêu cầu 10/11/2026).
+
+    Không xoá cứng: lead, đầu việc, hợp đồng, nhật ký cũ vẫn ghi tên người này.
+    Tài khoản đã khoá từ lúc cho nghỉ nên không đăng nhập lại được."""
+    _require_admin_or_leader(current_user)
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
+    if user.is_active or not user.resign_date:
+        raise HTTPException(status_code=400, detail="Chỉ xoá được nhân sự đã cho nghỉ việc")
+    user.archived_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    await db.flush()
+    await log_action(
+        db, actor=current_user, action="user.archive", entity_type="user", entity_id=user.id,
+        note=f"Xoá khỏi danh sách nhân sự: {user.full_name}",
+    )
+    return {"status": "archived", "message": f"Đã xoá {user.full_name} khỏi danh sách nhân sự."}

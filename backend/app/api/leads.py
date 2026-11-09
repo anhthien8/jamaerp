@@ -181,6 +181,10 @@ async def list_leads(
     priority: str | None = None,
     assigned_to: str | None = None,
     search: str | None = None,
+    # Lọc theo tháng khảo sát «YYYY-MM» (10/11/2026): giám sát số khảo sát của
+    # NVKD trong tháng. `khao_sat=chua` = lead chưa có ngày khảo sát.
+    thang_khao_sat: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    khao_sat: str | None = Query(None, pattern=r"^(co|chua)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
@@ -210,6 +214,15 @@ async def list_leads(
         q = q.where(Lead.priority == priority)
     if assigned_to:
         q = q.where(Lead.assigned_to == assigned_to)
+    if thang_khao_sat:
+        nam, thang = (int(x) for x in thang_khao_sat.split("-"))
+        dau = datetime(nam, thang, 1)
+        cuoi = datetime(nam + (thang == 12), thang % 12 + 1, 1)
+        q = q.where(Lead.survey_date >= dau, Lead.survey_date < cuoi)
+    if khao_sat == "co":
+        q = q.where(Lead.survey_date.is_not(None))
+    elif khao_sat == "chua":
+        q = q.where(Lead.survey_date.is_(None))
     if search:
         escaped = _escape_like(search)
         q = q.where(
@@ -399,6 +412,41 @@ async def team_workload(
 import csv
 import io
 from fastapi.responses import StreamingResponse
+
+
+@router.get("/khao-sat/thong-ke")
+async def thong_ke_khao_sat(
+    thang: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Số khách đã khảo sát trong tháng theo từng NVKD + bao nhiêu đã ký HĐ
+    thiết kế (10/11/2026) — giám sát hiệu quả chuyển đổi của kinh doanh.
+    Cùng phạm vi xem lead như danh sách (trưởng nhóm chỉ thấy nhóm mình…)."""
+    if not duoc_xem_lead(current_user):
+        return {"thang": thang, "tong": 0, "da_ky": 0, "ty_le": 0, "theo_nguoi": []}
+    nam, th = (int(x) for x in thang.split("-"))
+    dau = datetime(nam, th, 1)
+    cuoi = datetime(nam + (th == 12), th % 12 + 1, 1)
+    q = (
+        select(Lead.assigned_to, User.full_name, Lead.stage, func.count(Lead.id))
+        .outerjoin(User, Lead.assigned_to == User.id)
+        .where(Lead.survey_date >= dau, Lead.survey_date < cuoi)
+    )
+    q = _loc_pham_vi_lead(q, current_user).group_by(Lead.assigned_to, User.full_name, Lead.stage)
+    gom: dict[str | None, dict] = {}
+    for uid, ten, stage, n in (await db.execute(q)).all():
+        d = gom.setdefault(uid, {"user_id": uid, "ten": ten or "Chưa giao", "khao_sat": 0, "da_ky": 0})
+        d["khao_sat"] += n
+        if stage == "signed_design":
+            d["da_ky"] += n
+    ds = sorted(gom.values(), key=lambda d: (-d["khao_sat"], d["ten"]))
+    for d in ds:
+        d["ty_le"] = round(d["da_ky"] * 100 / d["khao_sat"], 1) if d["khao_sat"] else 0
+    tong = sum(d["khao_sat"] for d in ds)
+    da_ky = sum(d["da_ky"] for d in ds)
+    return {"thang": thang, "tong": tong, "da_ky": da_ky,
+            "ty_le": round(da_ky * 100 / tong, 1) if tong else 0, "theo_nguoi": ds}
 
 
 @router.get("/export")

@@ -259,3 +259,26 @@ async def test_tai_khoan_supervisor_cu_van_sua_duoc_thong_tin(client, admin_user
                          json={"full_name": "GS cũ đổi tên", "role": "supervisor"},
                          headers=auth_header(admin_user))
     assert r.status_code == 200, r.text
+
+
+@pytest.mark.asyncio
+async def test_tp_thu_mua_giao_duoc_viec_thu_mua(client, db_session, admin_user, bo_may):
+    """Báo lỗi 10/11/2026: TP Thu mua không giao việc cho nhân sự được — đầu việc
+    lưu bộ phận `procurement`, tài khoản lưu `PURCHASING`, so thẳng nên luôn 403."""
+    await _tao_vai_tro(client, admin_user, "du_toan", "Dự toán", "PURCHASING")
+    nv = await _tao_user(client, db_session, admin_user, "dt@test.com", "du_toan", "PURCHASING")
+    nv_id = nv.id
+    tp = bo_may["u"]["bg_tp"]
+    resp = await client.post(f"/api/v1/projects/{bo_may['pid']}/tasks",
+                             json={"title": "Hỏi giá NCC", "stage": "procurement"},
+                             headers=auth_header(admin_user))
+    tid = resp.json()["id"]
+    resp = await client.put(f"/api/v1/projects/{bo_may['pid']}/tasks/{tid}/assign",
+                            json={"assignee_ids": [nv_id]}, headers=auth_header(tp))
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["assignee_ids"] == [nv_id]
+    # Việc thi công không thuộc bộ phận Thu mua → vẫn chặn
+    tid_tc = await _tao_task(client, admin_user, bo_may["pid"])
+    resp = await client.put(f"/api/v1/projects/{bo_may['pid']}/tasks/{tid_tc}/assign",
+                            json={"assignee_ids": [nv_id]}, headers=auth_header(tp))
+    assert resp.status_code == 403, resp.text

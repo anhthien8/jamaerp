@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, TAG_COLORS, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
+import KhaoSatThang from '@/components/leads/KhaoSatThang';
 import { DATE_PRESETS, dayKey, formatDayKey, resolveDateRange, toDayKey } from '@/lib/date-filter';
 import { useToast } from '@/components/ui/Toast';
 import CreateLeadModal from '@/components/ui/CreateLeadModal';
@@ -71,6 +72,8 @@ const DATE_FIELDS: Record<string, { label: string; short: string; pick: (l: Lead
   created_at: { label: 'Ngày thêm mới', short: 'Thêm mới', pick: l => l.created_at },
   updated_at: { label: 'Ngày cập nhật', short: 'Cập nhật', pick: l => l.updated_at },
   last_contacted_at: { label: 'Ngày liên hệ cuối', short: 'Liên hệ cuối', pick: l => l.last_contacted_at },
+  // 10/11/2026: lọc khách đã khảo sát trong tháng theo NVKD (kèm ô «Phụ trách»)
+  survey_date: { label: 'Ngày khảo sát', short: 'Khảo sát', pick: l => l.survey_date ?? undefined },
 };
 type SortKey = 'newest' | 'updated' | 'budget' | 'ai_score' | 'deal_value';
 
@@ -323,6 +326,25 @@ function LeadsContent() {
   // Ô chọn lý do mất lead trong thẻ chi tiết — bật sẵn khi user kéo vào cột "Mất".
   const [lostPickerOpen, setLostPickerOpen] = useState(false);
   const lostPickerRef = useRef<HTMLDivElement | null>(null);
+  // Ngày khảo sát (10/11/2026) — sửa ngay trong khung chi tiết lead.
+  const [savingSurvey, setSavingSurvey] = useState(false);
+  const handleSurveyDate = async (value: string) => {
+    if (!selectedLead || savingSurvey) return;
+    const leadId = selectedLead.id;
+    setSavingSurvey(true);
+    try {
+      const updated = await api.updateLead(leadId, { survey_date: value || null });
+      const applyPatch = (l: Lead): Lead => ({ ...l, survey_date: updated.survey_date ?? null });
+      setSelectedLead(prev => (prev && prev.id === leadId ? applyPatch(prev) : prev));
+      setLeads(prev => prev.map(l => (l.id === leadId ? applyPatch(l) : l)));
+      toast(value ? 'Đã lưu ngày khảo sát' : 'Đã xoá ngày khảo sát', 'success');
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không lưu được ngày khảo sát'}`, 'error');
+    } finally {
+      setSavingSurvey(false);
+    }
+  };
+
   // ── Bulk stage: đổi giai đoạn hàng loạt (POST /leads/bulk/stage) ──
   // Backend chặn signed_design (side-effect sinh KH+Dự án phải chạy từng lead)
   // và bắt lý do khi vào «Mất» — FE lặp lại 2 luật đó cho chọn trước khi gọi.
@@ -1021,6 +1043,9 @@ function LeadsContent() {
           )}
         </div>
 
+        {/* Chọn mốc «Ngày khảo sát» → hiện bảng khảo sát/chuyển đổi theo NVKD */}
+        {dateField === 'survey_date' && <KhaoSatThang />}
+
         {/* Loading */}
         {loadingLeads ? (
           <div className="flex items-center justify-center py-20 text-[var(--text-muted)]">
@@ -1685,6 +1710,19 @@ function LeadsContent() {
                     <p className="text-xs text-[var(--text-muted)]">Giá trị hợp đồng</p>
                     <p className="text-sm font-bold mt-1 text-[#10B981]">{formatDealValue(selectedLead.deal_value)}</p>
                   </div>
+                </div>
+                {/* Ngày khảo sát — nền cho báo cáo khảo sát/chuyển đổi của NVKD */}
+                <div className="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                  <label htmlFor="ngay-khao-sat" className="text-xs text-[var(--text-muted)]">Ngày khảo sát</label>
+                  <input
+                    id="ngay-khao-sat"
+                    type="date"
+                    disabled={savingSurvey}
+                    value={selectedLead.survey_date ? toDayKey(selectedLead.survey_date) || '' : ''}
+                    onChange={e => void handleSurveyDate(e.target.value)}
+                    className="text-sm px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-primary)] border border-[var(--border-subtle)] outline-none"
+                  />
+                  {!selectedLead.survey_date && <span className="text-xs text-[var(--text-muted)]">Chưa khảo sát</span>}
                 </div>
                 {/* New Lark CRM fields grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">

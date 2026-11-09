@@ -1007,6 +1007,16 @@ class ApiClient {
    * changeStage(). Backend nay trả 422 nếu gửi field lạ; kiểu dữ liệu dưới đây
    * chặn sớm ngay từ lúc biên dịch.
    */
+  /** Khảo sát trong tháng theo NVKD — GET /leads/khao-sat/thong-ke (10/11/2026). */
+  async getThongKeKhaoSat(thang: string) {
+    return this.request<ThongKeKhaoSat>('/leads/khao-sat/thong-ke', { params: { thang } });
+  }
+
+  /** Xoá người đã nghỉ khỏi danh sách nhân sự (ẩn, giữ lịch sử) — 10/11/2026. */
+  async xoaNhanSuDaNghi(userId: string) {
+    return this.request<{ status: string; message: string }>(`/hr/resigned/${userId}`, { method: 'DELETE' });
+  }
+
   async updateLead(id: string, data: Omit<Partial<Lead>, 'stage' | 'lost_reason'>) {
     return this.request<Lead>(`/leads/${id}`, { method: 'PUT', body: data });
   }
@@ -2438,7 +2448,7 @@ export interface Lead {
   area_sqm?: number;
   estimated_budget?: number;
   contact_status?: string;
-  survey_date?: string;
+  survey_date?: string | null;
   survey_photos?: string[];
   stage: string;
   priority: string;
@@ -3728,4 +3738,12 @@ export const api = new ApiClient(API_BASE);
 export interface ViecCuaToi {
   id: string; title: string; status: string; stage: string;
   project_id: string; project_code: string; project_name: string; han: string | null;
+}
+
+export interface ThongKeKhaoSat {
+  thang: string;
+  tong: number;
+  da_ky: number;
+  ty_le: number;
+  theo_nguoi: { user_id: string | null; ten: string; khao_sat: number; da_ky: number; ty_le: number }[];
 }

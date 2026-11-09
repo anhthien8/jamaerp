@@ -90,7 +90,8 @@ async def list_users(
     if not (perms.get("canViewHR") or perms.get("canManageUsers")):
         raise HTTPException(status_code=403, detail="Không có quyền xem danh sách nhân viên")
 
-    q = select(User).order_by(User.full_name)
+    # Người đã nghỉ và đã bị «Xoá khỏi danh sách» thì không hiện nữa (10/11/2026)
+    q = select(User).where(User.archived_at.is_(None)).order_by(User.full_name)
     # Phạm vi danh sách nhân sự — cùng thước đo 3 tầng với lead/dự án (22/09):
     # trưởng phòng xem cả BỘ PHẬN mình, trưởng nhóm xem NHÓM mình, còn lại chỉ
     # mình. Trước đây trưởng phòng bị bó theo đội y như trưởng nhóm, và ngược

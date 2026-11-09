@@ -171,6 +171,19 @@ export default function HRPage() {
     }
   };
 
+  // Xoá người đã nghỉ khỏi danh sách (10/11/2026) — ẩn hẳn, giữ lịch sử dữ liệu.
+  const handleXoaDaNghi = async (u: User) => {
+    if (!window.confirm(`Xoá ${u.full_name} khỏi danh sách nhân sự?
+Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return;
+    try {
+      const result = await api.xoaNhanSuDaNghi(u.id);
+      toast(result.message || `Đã xoá ${u.full_name} khỏi danh sách`, 'success');
+      await load();
+    } catch (e) {
+      toast(`Lỗi: ${e instanceof Error ? e.message : 'Không xoá được'}`, 'error');
+    }
+  };
+
   const closeResignModal = () => {
     setResignTarget(null);
     setResignPreview(null);
@@ -397,6 +410,15 @@ export default function HRPage() {
                         </button>
                       ) : null
                     )}
+                    {permissions?.canManageUsers && !u.is_active && u.resign_date && (
+                      <button
+                        onClick={() => handleXoaDaNghi(u)}
+                        className="text-[10px] px-2 py-0.5 rounded text-red-400 border border-red-500/40 hover:bg-red-500/15 transition-colors"
+                        title="Xoá người đã nghỉ khỏi danh sách nhân sự (giữ lịch sử lead, đầu việc)"
+                      >
+                        Xoá
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -472,6 +494,15 @@ export default function HRPage() {
                               Kích hoạt
                             </button>
                           ) : null
+                        )}
+                        {permissions?.canManageUsers && !u.is_active && u.resign_date && (
+                          <button
+                            onClick={() => handleXoaDaNghi(u)}
+                            className="text-[10px] px-2 py-0.5 rounded text-red-400 border border-red-500/40 hover:bg-red-500/15 transition-colors"
+                            title="Xoá người đã nghỉ khỏi danh sách nhân sự (giữ lịch sử lead, đầu việc)"
+                          >
+                            Xoá
+                          </button>
                         )}
                       </div>
                     </td>

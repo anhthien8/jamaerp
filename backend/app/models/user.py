@@ -67,6 +67,9 @@ class User(Base):
     # Resignation tracking
     resign_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     resigned_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Đã xoá khỏi danh sách nhân sự (10/11/2026) — chỉ người ĐÃ NGHỈ. Không xoá
+    # cứng vì lead/đầu việc/nhật ký cũ còn trỏ tới; chỉ ẩn khỏi màn Nhân sự.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Per-user permission overrides (JSON string of {permission: boolean} overrides)
     # Custom overrides take precedence over role defaults

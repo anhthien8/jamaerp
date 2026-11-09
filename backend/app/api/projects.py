@@ -945,7 +945,12 @@ async def _kiem_quyen_sua_task(
     project = await db.get(Project, task.project_id)
     if project is not None and la_pic_du_an(nguoi, project):
         return
-    dept_task = (task.department or "").upper()
+    # Đầu việc lưu bộ phận theo GIAI ĐOẠN (procurement/quotation/construction…),
+    # tài khoản lưu bộ phận CÔNG TY (PURCHASING/OPS…). So thẳng hai chuỗi làm
+    # TP Thu mua & TP Giám sát luôn bị 403 khi giao việc (báo lỗi 10/11/2026).
+    from app.services.task_sla import PHONG_CONG_TY_THEO_PHONG_VIEC
+    phong_viec = (task.department or task_department_for_stage(task.stage) or "").lower()
+    dept_task = PHONG_CONG_TY_THEO_PHONG_VIEC.get(phong_viec, phong_viec.upper())
     dept_minh = (nguoi.department or "").upper()
     if (la_truong_phong(nguoi) or la_truong_nhom(nguoi)) and dept_task in ("", dept_minh):
         return

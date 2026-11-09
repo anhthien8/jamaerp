@@ -1,11 +1,21 @@
 """Pydantic schemas for leads & activities."""
 
 from decimal import Decimal
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, field_validator
+from datetime import datetime, timedelta, timezone
+
+
+def _ngay_naive_vn(v: datetime | None) -> datetime | None:
+    """Cột DateTime naive (giờ VN) — mốc có múi giờ thì đổi về giờ VN rồi bỏ tz,
+    tránh Postgres từ chối / lệch ngày khi lọc theo tháng."""
+    if v is not None and v.tzinfo is not None:
+        v = v.astimezone(timezone(timedelta(hours=7))).replace(tzinfo=None)
+    return v
 
 
 class LeadCreate(BaseModel):
+    _ngay_ks = field_validator("survey_date", check_fields=False)(_ngay_naive_vn)
+
     name: str
     phone: str
     email: str | None = None
@@ -36,6 +46,8 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
+    _ngay_ks = field_validator("survey_date", check_fields=False)(_ngay_naive_vn)
+
     name: str | None = None
     phone: str | None = None
     email: str | None = None
