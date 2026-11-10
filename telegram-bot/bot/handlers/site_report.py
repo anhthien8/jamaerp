@@ -13,7 +13,7 @@ from bot.keyboards import hien_ban_phim, nut_gui_anh, nut_huy
 router = Router()
 
 # Trang web ERP (bot dựng link «Xem trong ERP»)
-WEB_URL = os.getenv("WEB_URL", "https://frontend-jet-two-86.vercel.app").rstrip("/")
+WEB_URL = os.getenv("WEB_URL", "https://crm.jamahome.vn").rstrip("/")
 
 
 class SiteReportState(StatesGroup):
