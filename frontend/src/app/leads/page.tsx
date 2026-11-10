@@ -2244,7 +2244,7 @@ function LeadsContent() {
           <div className="absolute inset-0 bg-black/70" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }} />
           <div className="relative w-full max-w-md rounded-2xl p-5 glass-card">
             <h3 id="signed-confirm-title" className="text-base font-bold text-white"><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Xác nhận deal đã thắng</h3>
-            <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Đã ký — thiết kế» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «{STAGE_CONFIG.signed_design.label}» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
             <label className="block mt-3 text-xs text-[var(--text-secondary)]">Giá trị hợp đồng đã ký (đ) — dùng cho doanh số, thưởng, P&amp;L
               <MoneyInput valueDong={signedValue} onChangeDong={setSignedValue} placeholder="VD: 120.000.000" className="mt-1 w-full" />
             </label>

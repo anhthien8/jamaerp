@@ -467,7 +467,8 @@ export default function PLPage() {
     }
   };
 
-  const SortIcon = ({ field }: { field: string }) => (
+  // Hàm render, không phải component lồng trong render (React coi mỗi lần là component mới)
+  const sortIcon = (field: string) => (
     <span className="ml-1 inline-block text-[10px]" style={{ opacity: sortBy === field ? 1 : 0.3 }}>
       {sortBy === field ? (sortAsc ? '▲' : '▼') : '▲▼'}
     </span>
@@ -836,20 +837,20 @@ export default function PLPage() {
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('revenue')}
                       >
-                        Doanh thu <SortIcon field="revenue" />
+                        Doanh thu {sortIcon('revenue')}
                       </th>
                       <th className="text-right p-3 text-xs text-[var(--text-muted)]">Chi phí</th>
                       <th
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('profit')}
                       >
-                        Lợi nhuận <SortIcon field="profit" />
+                        Lợi nhuận {sortIcon('profit')}
                       </th>
                       <th
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('margin')}
                       >
-                        Biên LN <SortIcon field="margin" />
+                        Biên LN {sortIcon('margin')}
                       </th>
                     </tr>
                   </thead>

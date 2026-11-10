@@ -155,6 +155,21 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
   );
 }
 
+// GPS để đối chiếu bán kính văn phòng. Chốt 22/10/2026: vào ca văn phòng phải
+// trong 20 m (backend chặn; bộ phận hiện trường & mạng văn phòng được miễn) —
+// nên xin vị trí CHÍNH XÁC và mới (20 m không chịu được vị trí cũ 2 phút).
+function layGPS(): Promise<{ latitude?: number; longitude?: number }> {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve({});
+    const timer = setTimeout(() => resolve({}), 9000);
+    navigator.geolocation.getCurrentPosition(
+      pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
+      () => { clearTimeout(timer); resolve({}); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+    );
+  });
+}
+
 export default function AttendancePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -276,20 +291,6 @@ export default function AttendancePage() {
 
   const isNetworkError = (e: unknown) =>
     e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
-
-  // GPS để đối chiếu bán kính văn phòng. Chốt 22/10/2026: vào ca văn phòng phải
-  // trong 20 m (backend chặn; bộ phận hiện trường & mạng văn phòng được miễn) —
-  // nên xin vị trí CHÍNH XÁC và mới (20 m không chịu được vị trí cũ 2 phút).
-  const layGPS = (): Promise<{ latitude?: number; longitude?: number }> =>
-    new Promise(resolve => {
-      if (!navigator.geolocation) return resolve({});
-      const timer = setTimeout(() => resolve({}), 9000);
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
-        () => { clearTimeout(timer); resolve({}); },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
-      );
-    });
 
   const doCheckin = async () => {
     setBusy(true);
