@@ -11,6 +11,9 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
+# Job chỉ curl ra ngoài, không cần quyền gì trên repo
+permissions: {}
+
 jobs:
   ping:
     runs-on: ubuntu-latest

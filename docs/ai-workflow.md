@@ -38,7 +38,7 @@ JAMA HOME sử dụng mô hình **Hybrid AI** — kết hợp giữa quy tắc c
 │                              ▼                 ▼                     │
 │                     ┌──────────────┐  ┌────────────────┐            │
 │                     │  RULE-BASED  │  │  LLM (Groq)    │            │
-│                     │  Engine      │  │  claude-opus-4.8.3-70B  │            │
+│                     │  Engine      │  │  gpt-oss-120b   │            │
 │                     │              │  │  + litellm      │            │
 │                     │  ✓ Regex     │  │  ✓ NLP parse    │            │
 │                     │  ✓ Keywords  │  │  ✓ Context      │            │
@@ -62,7 +62,7 @@ JAMA HOME sử dụng mô hình **Hybrid AI** — kết hợp giữa quy tắc c
 | Thành phần | Mô tả | Khi nào dùng |
 |---|---|---|
 | **Rule-based Engine** | Regex extraction, keyword matching, scoring weights | Luôn chạy — đảm bảo hệ thống không bao giờ crash |
-| **LLM Engine** | Groq API (`claude-opus-4.8.3-70B`),通过 `litellm` router | Thử gọi LLM trước — nếu fail → tự động fallback về rule-based |
+| **LLM Engine** | Groq API (`groq/openai/gpt-oss-120b`) qua `litellm`, có chuỗi model dự phòng | Thử gọi LLM trước — nếu fail → tự động fallback về rule-based |
 | **Fallback** | Regex fallback khi LLM không khả dụng | LLM timeout, rate limit, hoặc lỗi network |
 
 ### 1.2 Ba AI Capabilities hiện tại
@@ -99,7 +99,7 @@ JAMA HOME sử dụng mô hình **Hybrid AI** — kết hợp giữa quy tắc c
 ```python
 # backend/app/config.py
 LLM_PROVIDER: str = "groq"           # groq / nhà cung cấp dịch vụ AI / openrouter
-LLM_MODEL: str = "groq/claude-opus-4.8-3.3-70b-versatile"  # Model ID
+LLM_MODEL: str = "groq/openai/gpt-oss-120b"  # Model ID (xem backend/app/config.py)
 LLM_API_KEY: str = ""                # Groq API key (từ .env)
 LLM_FALLBACK_RULES: bool = True     # Luôn bật rule-based fallback
 ```
@@ -1335,9 +1335,6 @@ DATABASE_URL=sqlite+aiosqlite:///./jama.db
 
 # ─── Telegram Bot ───────────────────────────────────
 TELEGRAM_BOT_TOKEN=7000000000:XXXXXXXXXXXXXXXXXXXXX
-TELEGRAM_ADMIN_CHAT_ID=-1001234567890
-TELEGRAM_LEADER_CHAT_ID=-1001234567891
-TELEGRAM_SALES_CHAT_ID=-1001234567892
 
 # ─── n8n ────────────────────────────────────────────
 N8N_WEBHOOK_URL=http://localhost:5678/webhook
@@ -1346,7 +1343,7 @@ N8N_API_KEY=n8n_xxxxxxxxxxxxxxxx
 # ─── Auth ───────────────────────────────────────────
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=720
 ```
 
 ### 4.5 File Structure

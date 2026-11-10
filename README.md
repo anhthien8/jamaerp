@@ -4,7 +4,7 @@
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green?logo=fastapi)
-![SQLite](https://img.shields.io/badge/SQLite-3-blue?logo=sqlite)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue?logo=postgresql)
 ![Python](https://img.shields.io/badge/Python-3.11+-yellow?logo=python)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38bdf8?logo=tailwindcss)
@@ -33,7 +33,7 @@
 |-----------|----------|
 | **Frontend** | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
 | **Backend** | FastAPI (Python 3.11+) + SQLAlchemy 2.0 (async) |
-| **Database** | SQLite (file-based, zero-config) |
+| **Database** | PostgreSQL (production, Railway) · SQLite (chạy thử ở máy) |
 | **AI Agents** | Lead Intake Agent, Sales Co-Pilot, Lead Scoring, Task Coordinator, Insight Agent |
 | **Authentication** | JWT + Role-Based Access Control (RBAC) |
 | **Telegram Bot** | aiogram 3.x (tích hợp CRM) |
@@ -68,8 +68,8 @@ Tải repo về, sau đó **double-click** file `start.cmd`:
 
 ```bash
 # Clone
-git clone https://github.com/anhthien8/jama-crm.git
-cd jama-crm
+git clone https://github.com/anhthien8/jamaerp.git
+cd jamaerp
 
 # Double-click start.cmd
 ```
@@ -78,8 +78,8 @@ cd jama-crm
 
 ```bash
 # Clone
-git clone https://github.com/anhthien8/jama-crm.git
-cd jama-crm
+git clone https://github.com/anhthien8/jamaerp.git
+cd jamaerp
 
 # ── Backend ──
 cd backend
@@ -100,7 +100,7 @@ npm run dev
 | 🔧 **API Docs (Swagger)** | [http://localhost:8000/docs](http://localhost:8000/docs) |
 | 📡 **API Docs (ReDoc)** | [http://localhost:8000/redoc](http://localhost:8000/redoc) |
 
-> **Lưu ý:** Database SQLite sẽ được tự động tạo và seed dữ liệu demo khi khởi động lần đầu.
+> **Lưu ý:** Khi chạy ở máy không cấu hình `DATABASE_URL`, database SQLite (`backend/jama.db`) sẽ được tự động tạo và seed dữ liệu demo khi khởi động lần đầu.
 
 ---
 
@@ -114,8 +114,8 @@ Thông tin đăng nhập xem trong `backend/app/seed.py` khi chạy môi trườ
 ## 📂 Cấu trúc dự án
 
 ```
-jama-crm/
-├── backend/                  # FastAPI + SQLite
+jamaerp/
+├── backend/                  # FastAPI + SQLAlchemy (PostgreSQL / SQLite)
 │   ├── app/
 │   │   ├── agents/           # AI agents (Lead Intake, Sales Co-Pilot, etc.)
 │   │   ├── api/              # API routes (leads, projects, accounting...)
@@ -125,7 +125,7 @@ jama-crm/
 │   │   ├── main.py           # FastAPI app entrypoint
 │   │   └── seed.py           # Auto-seed demo data (users, leads, projects)
 │   ├── requirements.txt      # Python dependencies
-│   └── jama_crm.db          # SQLite database (auto-created)
+│   └── jama.db              # SQLite khi chạy ở máy (auto-created)
 ├── frontend/                 # Next.js 16 + TypeScript
 │   ├── src/
 │   │   ├── app/              # 12 page routes (leads, projects, accounting...)
