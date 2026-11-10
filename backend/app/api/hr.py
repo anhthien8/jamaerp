@@ -276,10 +276,13 @@ async def resign(
             transferred_projects += 1
 
     # --- Gỡ đăng ký Web Push: máy của người nghỉ không nhận thông báo nữa ---
+    # Savepoint: trên Postgres một câu lệnh lỗi làm hỏng cả giao dịch — nuốt lỗi
+    # mà không có savepoint thì mọi bước sau (tắt tài khoản…) đều fail theo.
     try:
         from sqlalchemy import delete as _del
         from app.models.push_subscription import PushSubscription
-        await db.execute(_del(PushSubscription).where(PushSubscription.user_id == user.id))
+        async with db.begin_nested():
+            await db.execute(_del(PushSubscription).where(PushSubscription.user_id == user.id))
     except Exception:
         pass
 

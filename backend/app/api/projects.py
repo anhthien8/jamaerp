@@ -486,6 +486,9 @@ async def projects_by_department(
     designer / pm / purchasing.
     """
     dept_stages = [s for s, d in STAGE_DEPARTMENTS.items() if d == dept]
+    # Task.department lưu mã thường theo task_department_for_stage ("design", "procurement"…),
+    # không phải mã phòng viết hoa — so trực tiếp với `dept` thì không task nào khớp.
+    task_depts = {task_department_for_stage(s) for s in dept_stages} - {None}
     urgent, warning = await _priority_thresholds(db)
 
     q = (
@@ -504,7 +507,7 @@ async def projects_by_department(
             .where(
                 Task.project_id.in_([p.id for p in projects]),
                 Task.status != "done",
-                (Task.department == dept) | (Task.department.is_(None) & Task.stage.in_(dept_stages)),
+                Task.department.in_(task_depts) | (Task.department.is_(None) & Task.stage.in_(dept_stages)),
             )
             .group_by(Task.project_id)
         )

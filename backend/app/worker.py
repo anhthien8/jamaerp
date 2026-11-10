@@ -447,11 +447,10 @@ async def process_lead_scoring() -> dict[str, Any]:
 
         scored = 0
         async with async_session() as session:
-            # Query leads that haven't been scored yet or were updated recently
+            # Chỉ lead chưa chấm. Trước đây lấy cả ai_score == 0 → lead bị chấm đúng 0 điểm
+            # bị gửi lại LLM mỗi giờ, đốt token vô ích.
             result = await session.execute(
-                select(Lead).where(
-                    (Lead.ai_score.is_(None)) | (Lead.ai_score == 0)
-                ).limit(20)
+                select(Lead).where(Lead.ai_score.is_(None)).limit(20)
             )
             leads = result.scalars().all()
 
