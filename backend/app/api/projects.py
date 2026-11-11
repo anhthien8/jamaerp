@@ -27,12 +27,13 @@ from app.schemas.project import (
 )
 from pydantic import BaseModel, model_validator
 
-_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
+from app.middleware.rbac import duoc_xem_sdt_day_du
+
 
 
 def _mask_phone(phone: str | None, current_user=None) -> str | None:
     """Mask phone for non-privileged roles: show first 3 digits + '***'."""
-    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+    if not phone or not current_user or duoc_xem_sdt_day_du(current_user):
         return phone
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 
@@ -464,9 +465,12 @@ async def project_kanban(
 
 # ── Dự án đang đến phòng bạn (spec 07 A3) ────────────────────────────────────
 
+# Khớp task_sla.PHONG_CONG_TY_THEO_PHONG_VIEC và DEPT_TO_USER_DEPT ở frontend: báo giá do
+# phòng Dự toán–Thu mua làm, thi công/nghiệm thu do đội Giám sát (OPS). Trước 11/11/2026 bảng
+# này xếp báo giá vào Thiết kế. Giữ mã "PM" ở tham số API cho tương thích, nghĩa là đội OPS.
 STAGE_DEPARTMENTS = {
     "design": "DESIGN",
-    "quotation": "DESIGN",
+    "quotation": "PURCHASING",
     "procurement": "PURCHASING",
     "construction": "PM",
     "acceptance": "PM",

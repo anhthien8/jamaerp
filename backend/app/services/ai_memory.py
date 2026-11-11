@@ -73,18 +73,20 @@ async def tim_ban_cu(
     if ttl_gio <= 0:
         return None
     try:
-        rows = (
-            await db.execute(
-                select(AiRun)
-                .where(
-                    AiRun.agent == agent,
-                    AiRun.input_hash == input_hash,
-                    AiRun.source == SOURCE_LLM,
+        # Savepoint: lỗi ở đây không được làm hỏng giao dịch của nơi gọi (Postgres)
+        async with db.begin_nested():
+            rows = (
+                await db.execute(
+                    select(AiRun)
+                    .where(
+                        AiRun.agent == agent,
+                        AiRun.input_hash == input_hash,
+                        AiRun.source == SOURCE_LLM,
+                    )
+                    .order_by(AiRun.created_at.desc())
+                    .limit(1)
                 )
-                .order_by(AiRun.created_at.desc())
-                .limit(1)
-            )
-        ).scalars().all()
+            ).scalars().all()
     except Exception as exc:  # bảng chưa migrate, DB chập chờn…
         logger.warning("Không tra được bộ nhớ AI (%s): %s", agent, exc)
         return None
@@ -110,18 +112,20 @@ async def nho_lai(
 ) -> list[AiRun]:
     """N lần chạy gần nhất trong phạm vi này, mới nhất trước."""
     try:
-        rows = (
-            await db.execute(
-                select(AiRun)
-                .where(
-                    AiRun.agent == agent,
-                    AiRun.scope_type == scope_type,
-                    AiRun.scope_id == scope_id,
+        # Savepoint: như trên
+        async with db.begin_nested():
+            rows = (
+                await db.execute(
+                    select(AiRun)
+                    .where(
+                        AiRun.agent == agent,
+                        AiRun.scope_type == scope_type,
+                        AiRun.scope_id == scope_id,
+                    )
+                    .order_by(AiRun.created_at.desc())
+                    .limit(max(1, min(limit, 50)))
                 )
-                .order_by(AiRun.created_at.desc())
-                .limit(max(1, min(limit, 50)))
-            )
-        ).scalars().all()
+            ).scalars().all()
         return list(rows)
     except Exception as exc:
         logger.warning("Không đọc được bộ nhớ AI (%s/%s): %s", agent, scope_id, exc)
@@ -151,8 +155,10 @@ async def ghi_lai(
             model_used=(model_used or None),
             created_at=datetime.now(timezone.utc),
         )
-        db.add(ban)
-        await db.flush()
+        # Savepoint: như trên
+        async with db.begin_nested():
+            db.add(ban)
+            await db.flush()
         if commit:
             await db.commit()
         return ban

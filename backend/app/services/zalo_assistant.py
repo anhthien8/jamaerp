@@ -32,7 +32,7 @@ from app.models.zalo import ZaloDigest, ZaloGroup, ZaloMessage, ZaloSignal, Zalo
 logger = logging.getLogger(__name__)
 
 VN_TZ = timezone(timedelta(hours=7))
-BOD_ROLES = ("admin", "executive")
+from app.middleware.rbac import VAI_TRO_BGD as BOD_ROLES  # noqa: E402
 
 # Tín hiệu báo gấp cho người phụ trách + trưởng phòng; nhóm sau báo thêm BGĐ
 LOAI_BAO_GAP = {"lead_candidate", "quote_request", "deal_risk", "unanswered"}

@@ -459,6 +459,8 @@ async def process_lead_scoring() -> dict[str, Any]:
                     await score_lead_agent(str(lead.id), session)
                     scored += 1
                 except Exception as e:
+                    # Rollback: trên Postgres lỗi SQL làm hỏng phiên — không rollback thì mọi lead sau đều fail
+                    await session.rollback()
                     logger.warning("Failed to score lead %s: %s", lead.id, e)
 
         logger.info("Lead scoring batch finished: %d leads scored.", scored)

@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.lead import Lead, Activity
+from app.models.lead import ACTIVE_LEAD_STAGES, Lead, Activity
 from app.models.contract import Contract
 from app.models.project import Project
 from app.models.user import User
@@ -22,7 +22,6 @@ from app.services.telegram_notify import send_telegram
 logger = logging.getLogger(__name__)
 
 # Stages đang chăm sóc — cần nhắc follow-up
-ACTIVE_LEAD_STAGES = ("new", "interested", "survey_scheduled", "potential")
 
 
 # ---------------------------------------------------------------------------

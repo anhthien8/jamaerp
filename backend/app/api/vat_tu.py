@@ -411,7 +411,7 @@ async def _bao_thu_mua_dong_moi(db: AsyncSession, project_id: str, user: User, d
     ds = {getattr(proj, "purchasing_id", None)} - {None}
     if not ds:
         ds = set((await db.execute(select(User.id).where(
-            User.department == "PURCHASING", User.is_active == True  # noqa: E712
+            User.department.in_(PHONG_THU_MUA), User.is_active == True  # noqa: E712
         ))).scalars())
     ds.discard(user.id)
     han = f" · cần trước {d.can_ngay.strftime('%d/%m')}" if d.can_ngay else ""
