@@ -45,7 +45,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
     { href: '/attendance', icon: 'clock', title: 'Vào ca — nhanh nhất là Telegram', points: [
       'Cách chính: nhắn /checkin cho bot Telegram (công trường: /checkin [Mã dự án] kèm GPS)',
       'Lần đầu phải liên kết Telegram: Cài đặt → nhắn /id cho bot → dán số vào → Lưu → /start',
-      'Nút "✅ Vào ca" trên web dùng khi đang ngồi máy tính',
+      'Nút "Vào ca" trên web dùng khi đang ngồi máy tính',
       'Công của bạn tự tính vào bảng lương — quên tan ca hệ thống tự đóng 8h',
     ]},
     { href: '/leads', icon: 'refresh', title: 'Quy trình ERP — nơi bạn sống cả ngày', points: [
@@ -53,19 +53,19 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Data do CSKH/trưởng nhóm giao cho bạn TỰ xuất hiện ở đây — không cần ai nhắn tay',
       'Sau MỖI cuộc gọi/gặp: mở thẻ khách → ghi chú lại nội dung',
       'Khách đồng ý bước tiếp → đổi giai đoạn ngay trên thẻ',
-      '⚠️ "Deal đã thắng" tạo NGAY Khách hàng + Dự án + Hợp đồng và KHÔNG lùi được — chỉ chọn khi khách đã ký thật',
+      '"Deal đã thắng" tạo NGAY Khách hàng + Dự án + Hợp đồng và KHÔNG lùi được — chỉ chọn khi khách đã ký thật',
       'Lưu ý: khách bỏ bê 7 ngày sẽ bị hệ thống thu hồi giao người khác',
     ]},
     { href: '/quote-tool', icon: 'money', title: 'Khách hỏi giá? Trả lời trong 30 giây', points: [
       'Nhập diện tích + loại nhà → 3 phương án giá ngay',
-      'Bấm "📋 Copy text gửi Zalo" → dán thẳng vào Zalo cho khách',
+      'Bấm "Copy text gửi Zalo" → dán thẳng vào Zalo cho khách',
     ]},
     { href: '/projects', icon: 'crane', title: 'Khách ký xong — theo dõi dự án', points: [
       'Khách ký HĐ thiết kế → hệ thống TỰ tạo dự án + 19 đầu việc, bạn không nhập lại gì',
       'Thanh 5 khối trên thẻ dự án = dự án đang ở phòng nào',
     ]},
     { href: '/attendance', icon: 'gift', title: 'Cuối ngày & quyền lợi của bạn', points: [
-      'Bấm "🏁 Tan ca" trước khi về — quá 8h tự tính tăng ca chờ duyệt',
+      'Bấm "Tan ca" trước khi về — quá 8h tự ghi nhận tăng ca (tính điểm chuyên cần)',
       'Tab "Nghỉ phép": xin nghỉ tại đây, leader duyệt trong 24h',
       'Tab "Phiếu lương": xem lương của chính bạn các kỳ đã chi',
     ]},
@@ -87,7 +87,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Danh sách chỉ hiện người trong phạm vi của bạn',
     ]},
     { href: '/attendance', icon: 'clock', title: 'Bảng công + OT của team', points: [
-      'Bảng công team ở cuối trang; ca có ⚠️ là quên tan ca — cần bạn xác nhận',
+      'Bảng công team ở cuối trang; ca có dấu cảnh báo là quên tan ca — cần bạn xác nhận',
       'Duyệt/từ chối tăng ca ngay tại khối "OT chờ duyệt"',
     ]},
     { href: '/kpi', icon: 'trendUp', title: 'KPI & kèm cặp', points: [
@@ -97,17 +97,17 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
   ],
   supervisor: [
     { href: '/', icon: 'sun', title: 'Tổng quan Giám sát', points: [
-      'Khối "🏗️ Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
+      'Khối "Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
       'Vai trò Giám sát bao gồm cả Thiết kế, Thu mua và Dự án',
     ]},
     { href: '/projects', icon: 'crane', title: 'Điều phối & thi công dự án — trang chính', points: [
-      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; badge 🔴/🟠 = độ gấp',
+      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; nhãn đỏ/cam = độ gấp',
       'Mở dự án → chuyển "Theo phòng ban" để thấy việc từng khối (Thiết kế/Thu mua/Thi công)',
       'Làm xong việc nào đổi trạng thái việc đó — thanh tiến độ tự chạy',
       'Upload bản vẽ/3D/ảnh vào từng đầu việc (ghi chú + đính kèm)',
     ]},
     { href: '/inventory', icon: 'package', title: 'Kho vật tư', points: [
-      'Cảnh báo 🔴 = tồn thấp; duyệt yêu cầu vật tư (hoặc ngay trên Telegram)',
+      'Cảnh báo đỏ = tồn thấp; duyệt yêu cầu vật tư (hoặc ngay trên Telegram)',
     ]},
     { href: '/quotations', icon: 'clipboard', title: 'Báo giá', points: [
       'Bóc tách vật tư xong → tạo báo giá tại đây, đính kèm file',
@@ -115,7 +115,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
     { href: '/attendance', icon: 'clock', title: 'Công & hiện trường', points: [
       'Tại công trường: Telegram /checkin [Mã] kèm GPS; /baocao gửi ảnh tiến độ',
       'Vào ca/Tan ca, nghỉ phép, phiếu lương đều ở trang này',
-      'Nắng chói khó đọc? Bật "☀️ NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
+      'Nắng chói khó đọc? Bật "NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
     ]},
   ],
   accountant: [
@@ -130,7 +130,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Tạm ứng lương nhân viên chờ bạn duyệt ở đây (>5 triệu cần thêm sếp)',
     ]},
     { href: '/attendance', icon: 'receipt', title: 'Chốt công cuối tháng', points: [
-      'Mùng 1 hệ thống nhắc: rà ca ⚠️ quên tan ca trước khi tính lương',
+      'Mùng 1 hệ thống nhắc: rà các ca quên tan ca trước khi tính lương',
     ]},
     { href: '/hr', icon: 'users', title: 'Nhân sự & bảng lương', points: [
       'Xử lý nghỉ việc (hệ thống tự bàn giao lead) — TẠO tài khoản mới là việc của admin',
@@ -213,15 +213,15 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
   ],
   quan_ly_du_an: [
     { href: '/', icon: 'sun', title: 'Tổng quan dự án', points: [
-      'Khối "🏗️ Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
+      'Khối "Dự án đang đến phòng bạn": ưu tiên quá hạn → cận hạn → HĐ lớn',
     ]},
     { href: '/projects', icon: 'crane', title: 'Điều phối dự án — trang chính của bạn', points: [
-      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; badge 🔴/🟠 = độ gấp',
+      'Thẻ dự án có thanh 5 khối = đang ở giai đoạn nào; nhãn đỏ/cam = độ gấp',
       'Mở dự án → "Theo phòng ban" để thấy việc từng khối (Thiết kế/Thu mua/Thi công)',
       'Giao việc, đổi trạng thái, upload tài liệu ngay trên từng đầu việc',
     ]},
     { href: '/inventory', icon: 'package', title: 'Kho vật tư', points: [
-      'Cảnh báo 🔴 = tồn thấp; duyệt yêu cầu vật tư của công trường',
+      'Cảnh báo đỏ = tồn thấp; duyệt yêu cầu vật tư của công trường',
     ]},
     { href: '/quotations', icon: 'clipboard', title: 'Báo giá thi công', points: [
       'Bóc tách vật tư xong → tạo báo giá, đính kèm file',
@@ -231,7 +231,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
     ]},
     { href: '/attendance', icon: 'clock', title: 'Công & quyền lợi', points: [
       'Vào ca/Tan ca, nghỉ phép, phiếu lương — công trường dùng Telegram /checkin [Mã] kèm GPS',
-      'Nắng chói khó đọc? Bật "☀️ NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
+      'Nắng chói khó đọc? Bật "NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
     ]},
   ],
   thiet_ke: [
@@ -264,7 +264,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
     { href: '/attendance', icon: 'pin', title: 'Chấm công hiện trường', points: [
       'Tại công trường: Telegram /checkin [Mã dự án] kèm GPS — không cần mở web',
       'Nghỉ phép, phiếu lương cũng xem tại trang này',
-      'Nắng chói khó đọc? Bật "☀️ NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
+      'Nắng chói khó đọc? Bật "NGOÀI TRỜI" ở đáy menu — giao diện sáng cho công trường',
     ]},
   ],
   thu_mua: [
@@ -272,7 +272,7 @@ const ROLE_TOURS: Record<string, TourStep[]> = {
       'Việc thu mua đang chờ + cảnh báo tồn kho hiện ngay trang đầu',
     ]},
     { href: '/inventory', icon: 'package', title: 'Kho vật tư — trang chính của bạn', points: [
-      'Cảnh báo 🔴 = tồn thấp cần nhập; nhập kho ghi tại đây để tồn đúng',
+      'Cảnh báo đỏ = tồn thấp cần nhập; nhập kho ghi tại đây để tồn đúng',
       'Duyệt yêu cầu vật tư từ công trường',
     ]},
     { href: '/suppliers', icon: 'building', title: 'Nhà cung cấp & so giá', points: [

@@ -192,3 +192,12 @@ async def test_by_department_dem_viec_co_phong_ban_chu_thuong(client, admin_user
     assert r.status_code == 200, r.text
     dong = next(d for d in r.json()["items"] if d["id"] == project.id)
     assert dong["pending_tasks"] == 2  # 3 việc, 1 việc đã xong
+
+
+@pytest.mark.asyncio
+async def test_list_projects_tim_theo_tu_khoa(client, admin_user, project):
+    """Ô tìm kiếm nhanh lọc ở server theo mã / tên / tên khách (11/11/2026)."""
+    for tu, co in [("JMH-TEST", True), ("alpha", True), ("Nguyen Van A", True), ("khong-co-gi", False)]:
+        r = await client.get("/api/v1/projects", params={"search": tu}, headers=auth_header(admin_user))
+        assert r.status_code == 200, r.text
+        assert (project.id in [p["id"] for p in r.json()["items"]]) is co, tu

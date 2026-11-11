@@ -381,6 +381,7 @@ async def list_projects(
     current_user: User = Depends(require_project_access),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    search: str | None = Query(None, max_length=100),
 ):
     """List projects — mặc định sắp theo ưu tiên nguồn lực (spec 07B)."""
     if sort == "priority":
@@ -390,6 +391,11 @@ async def list_projects(
         q = select(Project).order_by(Project.created_at.desc())
     if status:
         q = q.where(Project.status == status)
+    if search and search.strip():
+        # Ô tìm kiếm nhanh (11/11/2026): lọc ở server thay vì tải mọi dự án về trình duyệt
+        tu = "%" + search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        q = q.where(Project.code.ilike(tu, escape="\\") | Project.name.ilike(tu, escape="\\")
+                    | Project.client_name.ilike(tu, escape="\\"))
 
     # ── Phạm vi theo bộ phận (05/09/2026) ────────────────────────────────
     # Trước đây endpoint này KHÔNG lọc gì: mọi tài khoản thấy toàn bộ dự án.

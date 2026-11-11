@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, fetchAllPages } from '@/lib/api';
+import { api } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 
 interface SearchItem {
@@ -63,42 +63,46 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // Fetch live data when modal opens
+  // Tìm ở server theo từ khoá (11/11/2026): trước đây mỗi lần mở là tải TOÀN BỘ lead + dự án
+  // về trình duyệt rồi lọc — chậm dần theo dữ liệu. Giờ gõ xong 300 ms mới hỏi, mỗi loại 8 kết quả.
   useEffect(() => {
-    if (!isOpen) return;
-    setLoading(true);
-    // Ô tìm kiếm nhanh lọc phía trình duyệt, nên phải nạp ĐỦ danh sách. Trước 12/08/2026
-    // chỉ lấy 100 lead + 100 dự án đầu: quá mốc đó là gõ đúng tên vẫn ra "Không tìm thấy".
-    Promise.all([
-      fetchAllPages(p => api.getLeads(p)).catch(() => []),
-      fetchAllPages(p => api.getProjects(p)).catch(() => []),
-    ]).then(([leads, projects]) => {
-      const items: SearchItem[] = [
-        ...(leads as unknown as Array<Record<string, unknown>>).map(l => ({
-          id: String(l.id), type: 'lead' as const,
-          title: String(l.name || ''),
-          subtitle: `${l.phone || ''} · ${l.source || ''} · ${l.stage || ''}`,
-          icon: 'user', href: '/leads',
-        })),
-        ...(projects as unknown as Array<Record<string, unknown>>).map(p => ({
-          id: String(p.id), type: 'project' as const,
-          title: `${p.code || ''} — ${p.name || ''}`,
-          subtitle: `${p.client_name || ''} · ${p.progress ?? 0}%`,
-          icon: 'crane', href: '/projects',
-        })),
-      ];
-      setLiveItems(items);
-      setLoading(false);
-    });
-  }, [isOpen]);
+    const tu = query.trim();
+    if (!isOpen || tu.length < 2) return;
+    let huy = false;
+    const timer = setTimeout(() => {
+      setLoading(true);
+      Promise.all([
+        api.getLeads({ search: tu, page_size: '8' }).then(r => r.items).catch(() => []),
+        api.getProjects({ search: tu, page_size: '8' }).then(r => r.items).catch(() => []),
+      ]).then(([leads, projects]) => {
+        if (huy) return;
+        setLiveItems([
+          ...(leads as unknown as Array<Record<string, unknown>>).map(l => ({
+            id: String(l.id), type: 'lead' as const,
+            title: String(l.name || ''),
+            subtitle: `${l.phone || ''} · ${l.source || ''} · ${l.stage || ''}`,
+            icon: 'user', href: '/leads',
+          })),
+          ...(projects as unknown as Array<Record<string, unknown>>).map(p => ({
+            id: String(p.id), type: 'project' as const,
+            title: `${p.code || ''} — ${p.name || ''}`,
+            subtitle: `${p.client_name || ''} · ${p.progress ?? 0}%`,
+            icon: 'crane', href: '/projects',
+          })),
+        ]);
+        setLoading(false);
+      });
+    }, 300);
+    return () => { huy = true; clearTimeout(timer); };
+  }, [isOpen, query]);
 
-  const allItems = [...liveItems, ...QUICK_ACTIONS];
-  const results = query.length > 0
-    ? allItems.filter(item =>
-        fuzzyMatch(item.title, query) ||
-        fuzzyMatch(item.subtitle, query)
-      )
-    : QUICK_ACTIONS;
+  // Lead/dự án đã được server lọc (khớp cả địa chỉ) — chỉ lọc thêm các hành động nhanh
+  const results = useMemo(() => (query.length > 0
+    ? [
+        ...(query.trim().length >= 2 ? liveItems : []),
+        ...QUICK_ACTIONS.filter(item => fuzzyMatch(item.title, query) || fuzzyMatch(item.subtitle, query)),
+      ]
+    : QUICK_ACTIONS), [query, liveItems]);
 
   useEffect(() => {
     if (isOpen) {
@@ -165,7 +169,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         <div className="max-h-[50vh] overflow-y-auto py-2">
           {results.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-[var(--text-muted)]">Không tìm thấy kết quả cho &quot;{query}&quot;</p>
+              <p className="text-sm text-[var(--text-muted)]">{loading ? 'Đang tìm…' : <>Không tìm thấy kết quả cho &quot;{query}&quot;</>}</p>
             </div>
           ) : (
             <>
