@@ -1,4 +1,4 @@
-# 🏠 JAMA HOME CRM
+# 🏠 JAMA HOME ERP
 
 ### ERP + CRM cho công ty thiết kế nội thất
 
@@ -15,7 +15,7 @@
 
 ## 📋 Giới thiệu
 
-**JAMA HOME CRM** là hệ thống ERP/CRM toàn diện với AI Agent, được thiết kế đặc biệt cho **công ty thiết kế nội thất JAMA HOME**. Hệ thống tích hợp quản lý leads, dự án, kế toán, kho vật tư, nhân sự và hợp đồng — tất cả trong một giao diện dark theme chuyên nghiệp.
+**JAMA HOME ERP** là hệ thống ERP/CRM toàn diện với AI Agent, được thiết kế đặc biệt cho **công ty thiết kế nội thất JAMA HOME**. Hệ thống tích hợp quản lý leads, dự án, kế toán, kho vật tư, nhân sự và hợp đồng — tất cả trong một giao diện dark theme chuyên nghiệp.
 
 ### 🎯 Điểm nổi bật
 
@@ -146,7 +146,7 @@ jamaerp/
 
 ## 🤖 AI Workflow
 
-JAMA HOME CRM tích hợp **5 AI Agents** hoạt động tự động:
+JAMA HOME ERP tích hợp **5 AI Agents** hoạt động tự động:
 
 | Agent | Chức năng |
 |-------|----------|
@@ -229,4 +229,4 @@ MIT License — xem chi tiết tại [LICENSE](LICENSE).
 
 ---
 
-**JAMA HOME CRM** © 2025 — Thiết kế & phát triển bởi [anhthien8](https://github.com/anhthien8)
+**JAMA HOME ERP** © 2025 — Thiết kế & phát triển bởi [anhthien8](https://github.com/anhthien8)

@@ -1,4 +1,4 @@
-# Deployment Architecture — JAMA HOME CRM
+# Deployment Architecture — JAMA HOME ERP
 
 ## Infrastructure Overview
 

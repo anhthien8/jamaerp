@@ -1,5 +1,8 @@
 # Module: Finance & Accounting (Tài chính & Kế toán)
 
+> Kế hoạch chi tiết module: [`docs/FINANCE_MODULE_PLAN.md`](../../FINANCE_MODULE_PLAN.md). Khi hai nơi lệch nhau, tin code và bản kia.
+
+
 ## Overview
 
 The Finance & Accounting module manages all financial transactions, commission structures, profit & loss reporting, fixed/variable cost tracking, and payroll-related accounting. It provides the Accountant role with tools to manage company finances and generate financial reports.

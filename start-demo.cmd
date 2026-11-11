@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul 2>&1
-title JAMA HOME CRM - Demo Launcher
+title JAMA HOME ERP - Demo Launcher
 
 echo.
 echo  =============================================
-echo    JAMA HOME CRM - Khoi dong che do Demo
+echo    JAMA HOME ERP - Khoi dong che do Demo
 echo  =============================================
 echo.
 
