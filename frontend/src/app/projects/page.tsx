@@ -347,7 +347,7 @@ function ProjectsPageInner() {
   }, [viewMode, fetchKanbanData, fetchProjects]);
 
   useEffect(() => {
-    if (user) refreshData();
+    if (user) void Promise.resolve().then(() => refreshData());
   }, [user, refreshData]);
 
   // Kanban trên mobile: khi cột đầu ('Thiết kế') trống, người dùng tưởng không có dự án.

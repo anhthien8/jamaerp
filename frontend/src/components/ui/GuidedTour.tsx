@@ -335,8 +335,10 @@ export default function GuidedTour() {
   useEffect(() => {
     if (localStorage.getItem(tourActiveKey(role)) === '1') {
       const saved = parseInt(localStorage.getItem(tourStepKey(role)) || '0', 10);
-      setStep(Number.isFinite(saved) && saved >= 0 && saved < steps.length ? saved : 0);
-      setActive(true);
+      void Promise.resolve().then(() => {
+        setStep(Number.isFinite(saved) && saved >= 0 && saved < steps.length ? saved : 0);
+        setActive(true);
+      });
     }
   }, [role, steps.length]);
 

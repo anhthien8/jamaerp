@@ -696,7 +696,7 @@ function LeadsContent() {
   // bản ghi trên prod) để nhặt các giá trị cũ; để trong JSX là tính lại mỗi render.
   const danhSachKhuVuc = useMemo(() => tuyChonKhuVuc(leads.map(l => l.region)), [leads]);
 
-  const loadAssignableUsers = useCallback(async () => {
+  const loadAssignableUsers = async () => {
     if (usersLoaded.current) return;
     setLoadingUsers(true);
     try {
@@ -707,7 +707,7 @@ function LeadsContent() {
     } finally {
       setLoadingUsers(false);
     }
-  }, [toast]);
+  };
 
   const openAssign = () => {
     setAssignOpen(true);

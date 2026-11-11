@@ -40,7 +40,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
     }
   }, [projectId]);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => { void Promise.resolve().then(() => load(1)); }, [load]);
 
   const upload = async (files: File[]) => {
     // Nén từng ảnh rồi gửi MỘT lượt → nhóm Kho ảnh nhận album thay vì N tin.

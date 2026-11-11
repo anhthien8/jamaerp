@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api } from '@/lib/api';
+import { api, PnLProject } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
@@ -160,7 +160,7 @@ export default function PLPage() {
     try {
       try {
         const p = await api.getPnLProjects();
-        const normalizedProjects: ProjectPL[] = (p || []).map((item: any) => ({
+        const normalizedProjects: ProjectPL[] = (p || []).map((item: PnLProject & { contract_value?: number | string }) => ({
           project_id: item.project_id || '',
           project_code: item.project_code || '',
           project_name: item.project_name || '',

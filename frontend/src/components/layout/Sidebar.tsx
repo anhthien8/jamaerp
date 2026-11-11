@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem('jama_theme');
     if (saved === 'outdoor') {
-      setOutdoorTheme(true);
+      void Promise.resolve().then(() => setOutdoorTheme(true));
       document.documentElement.setAttribute('data-theme', 'outdoor');
     }
   }, []);

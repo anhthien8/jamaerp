@@ -24,6 +24,9 @@ const TYPE_LABELS: Record<string, string> = {
   company: 'Doanh nghiệp',
 };
 
+// Chi tiết KH sau khi tạo link portal có thêm portal_token (API Customer chưa khai báo)
+type CustomerWithPortal = Customer & { portal_token?: string };
+
 type CustomerForm = {
   name: string;
   phone: string;
@@ -145,12 +148,14 @@ export default function CustomersPage() {
 
   // Fetch customer detail with projects when selected
   useEffect(() => {
-    if (!selected) { setCustomerDetail(null); return; }
-    setLoadingDetail(true);
-    api.getCustomer(selected.id)
-      .then(d => setCustomerDetail(d as Customer))
-      .catch(() => setCustomerDetail(selected))
-      .finally(() => setLoadingDetail(false));
+    void Promise.resolve().then(() => {
+      if (!selected) { setCustomerDetail(null); return; }
+      setLoadingDetail(true);
+      api.getCustomer(selected.id)
+        .then(d => setCustomerDetail(d as Customer))
+        .catch(() => setCustomerDetail(selected))
+        .finally(() => setLoadingDetail(false));
+    });
   }, [selected]);
 
   const load = useCallback(async () => {
@@ -445,13 +450,13 @@ export default function CustomersPage() {
                   )}
                 </h3>
                 <div className="mb-4">
-                  {(customerDetail as any)?.portal_token ? (
+                  {(customerDetail as CustomerWithPortal | null)?.portal_token ? (
                     <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(201,169,110,0.05)', border: '1px solid rgba(201,169,110,0.2)' }}>
                       <span className="text-xs text-[var(--text-muted)] truncate flex-1">
-                        Portal: {window.location.origin}/portal/{(customerDetail as any).portal_token}
+                        Portal: {window.location.origin}/portal/{(customerDetail as CustomerWithPortal).portal_token}
                       </span>
                       <button onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/portal/${(customerDetail as any).portal_token}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/portal/${(customerDetail as CustomerWithPortal).portal_token}`);
                         toast('Đã copy link portal', 'success');
                       }} className="text-[10px] font-bold text-[#C9A96E] hover:underline">Copy</button>
                     </div>
@@ -463,9 +468,9 @@ export default function CustomersPage() {
                         const token = res.portal_token;
                         if (!token) throw new Error('Không nhận được token từ máy chủ');
                         toast('Đã tạo link portal thành công', 'success');
-                        setCustomerDetail(prev => ({ ...prev, portal_token: token } as any));
-                      } catch (e: any) {
-                        toast(`Lỗi tạo link: ${e.message}`, 'error');
+                        setCustomerDetail(prev => ({ ...prev, portal_token: token } as CustomerWithPortal));
+                      } catch (e) {
+                        toast(`Lỗi tạo link: ${e instanceof Error ? e.message : String(e)}`, 'error');
                       }
                     }} className="w-full text-center text-xs py-2 rounded-lg bg-[#C9A96E]/10 text-[#C9A96E] hover:bg-[#C9A96E]/20 transition-all">
                       Tạo link portal

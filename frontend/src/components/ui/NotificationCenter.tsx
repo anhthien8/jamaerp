@@ -224,7 +224,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
 
   // Load read IDs on mount
   useEffect(() => {
-    setReadIdsState(getReadIds());
+    void Promise.resolve().then(() => setReadIdsState(getReadIds()));
   }, []);
 
   const notifications = useMemo(() => {

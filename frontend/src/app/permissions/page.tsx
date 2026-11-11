@@ -121,7 +121,7 @@ export default function PermissionsPage() {
 
   useEffect(() => {
     if (user?.role === 'admin') {
-      loadPermissions();
+      void Promise.resolve().then(() => loadPermissions());
     }
   }, [user, loadPermissions]);
 

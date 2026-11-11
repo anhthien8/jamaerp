@@ -75,8 +75,8 @@ export default function FinancePage() {
       }
       try {
         const pResult = await api.getProjects();
-        const pItems = Array.isArray(pResult) ? pResult : (pResult as any).items || [];
-        setProjectsList(pItems.map((p: any) => ({ id: p.id, name: p.name })));
+        const pItems: Array<{ id: string; name: string }> = Array.isArray(pResult) ? pResult : pResult.items || [];
+        setProjectsList(pItems.map(p => ({ id: p.id, name: p.name })));
       } catch {}
     } finally {
       setLoadingData(false);
@@ -87,7 +87,7 @@ export default function FinancePage() {
 
   // Không có quyền bậc lương thì tab mặc định rơi về Chi phí cố định
   useEffect(() => {
-    if (user && !canViewSalary && tab === 'salary-grades') setTab('fixed-costs');
+    if (user && !canViewSalary && tab === 'salary-grades') void Promise.resolve().then(() => setTab('fixed-costs'));
   }, [user, canViewSalary, tab]);
 
   if (loading) return <Sidebar><div className="p-6"><div className="skeleton h-8 w-64 rounded-xl" /></div></Sidebar>;

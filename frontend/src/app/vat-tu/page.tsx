@@ -55,7 +55,8 @@ function ChonDuAn({ duAns, value, onChange }: { duAns: Project[]; value: string;
   const [q, setQ] = useState('');
   const [mo, setMo] = useState(false);
   const chon = duAns.find(p => p.id === value);
-  const moc = Date.now() - 7 * 86400_000;
+  // Mốc "7 ngày gần nhất" chốt 1 lần khi mở ô chọn (Date.now() không được gọi lúc render)
+  const [moc] = useState(() => Date.now() - 7 * 86400_000);
   const { ganDay, conLai } = useMemo(() => {
     const k = boDau(q.trim());
     const loc = duAns.filter(p => !k || boDau(`${p.code} ${p.name}`).includes(k));
@@ -372,7 +373,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
     try { setPhieu(pid ? await api.vatTuPhieu(pid) : null); } catch (e) { bao('loi', loi(e, 'Không tải được phiếu')); setPhieu(null); }
     finally { setLoading(false); }
   }, [pid, bao]);
-  useEffect(() => { tai(); }, [tai]);
+  useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const them = async () => {
     if (!form.mau_id && !form.ma_tu_do.trim()) { bao('loi', 'Chọn mẫu hoặc gõ mã'); return; }
@@ -503,7 +504,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
     try { setItems((await api.vatTuCanHoiGia()).items); } catch (e) { bao('loi', loi(e, 'Không tải được')); }
     finally { setLoading(false); }
   }, [bao]);
-  useEffect(() => { tai(); }, [tai]);
+  useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const themBaoGia = async (id: string) => {
     if (!bg.ncc_ten.trim() || !bg.gia) { bao('loi', 'Cần tên NCC và giá'); return; }
@@ -678,7 +679,7 @@ function ChonShopee({ mau, onDong, onXong, bao }: { mau: MauVatTu; onDong: () =>
     catch (e) { setLoiTim(loi(e, 'Không tìm được trên Shopee')); setDs([]); }
     finally { setDang(false); }
   }, [mau.id]);
-  useEffect(() => { tim(); }, [tim]);
+  useEffect(() => { void Promise.resolve().then(() => tim()); }, [tim]);
 
   const chon = async (sp: ShopeeSanPham) => {
     try { onXong(await api.vatTuChonShopee(mau.id, { item_id: sp.item_id, ten: sp.ten, gia: sp.gia, link_aff: sp.link_aff })); }

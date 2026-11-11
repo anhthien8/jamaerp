@@ -298,7 +298,7 @@ function ZaloSection() {
     } catch { /* demo/chưa cấu hình */ }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   // Poll khi đang chờ quét QR (5s) để bắt QR ingest service đẩy về
   useEffect(() => {

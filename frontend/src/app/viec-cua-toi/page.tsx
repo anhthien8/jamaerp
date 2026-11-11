@@ -25,7 +25,7 @@ export default function ViecCuaToiPage() {
   const tai = useCallback(async () => {
     try { setDs(await api.viecCuaToi()); } catch (e) { toast(e instanceof Error ? e.message : 'Không tải được', 'error'); setDs([]); }
   }, [toast]);
-  useEffect(() => { tai(); }, [tai]);
+  useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const doi = async (t: ViecCuaToi, status: string) => {
     try { await api.updateTaskStatus(t.id, status); toast(status === 'done' ? 'Đã xong việc' : 'Đã bắt đầu', 'success'); tai(); }

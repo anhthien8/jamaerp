@@ -67,7 +67,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
     } catch { setPayroll(null); }
   }, [period]);
 
-  useEffect(() => { void loadPayroll(); }, [loadPayroll]);
+  useEffect(() => { void Promise.resolve().then(loadPayroll); }, [loadPayroll]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -249,9 +249,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!user) return;
-    if (tab === 'attendance') void loadAttendance();
-    if (tab === 'leave') void loadLeave();
-    if (tab === 'payslip') void loadPayslips();
+    void Promise.resolve().then(() => {
+      if (tab === 'attendance') void loadAttendance();
+      if (tab === 'leave') void loadLeave();
+      if (tab === 'payslip') void loadPayslips();
+    });
   }, [user, tab, loadAttendance, loadLeave, loadPayslips]);
 
   // Offline-queue (spec 08 §1.1): 4G rớt giữa chừng — lưu lại, tự gửi khi có mạng.
@@ -284,7 +286,7 @@ export default function AttendancePage() {
   }, [toast, loadAttendance]);
 
   useEffect(() => {
-    void flushQueue(); // thử gửi lại khi mở trang
+    void Promise.resolve().then(() => flushQueue()); // thử gửi lại khi mở trang
     window.addEventListener('online', flushQueue);
     return () => window.removeEventListener('online', flushQueue);
   }, [flushQueue]);

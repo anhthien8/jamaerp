@@ -53,7 +53,7 @@ export default function FeedbackPage() {
     }
   }, [page, statusFilter, categoryFilter, toast]);
 
-  useEffect(() => { loadFeedback(); }, [loadFeedback]);
+  useEffect(() => { void Promise.resolve().then(() => loadFeedback()); }, [loadFeedback]);
 
   const updateFeedback = async (id: string, status?: string, adminReply?: string) => {
     const body: { status?: string; admin_reply?: string } = {};
