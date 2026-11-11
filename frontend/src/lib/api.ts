@@ -1094,14 +1094,7 @@ class ApiClient {
     });
   }
 
-  // Pipeline
-  async getPipelineStats() {
-    return this.request<PipelineStats>('/leads/pipeline/stats');
-  }
 
-  async getPipelineKanban() {
-    return this.request<PipelineKanban[]>('/leads/pipeline/kanban');
-  }
 
   // Projects
   async getProjects(params?: Record<string, string>) {
@@ -1159,30 +1152,6 @@ class ApiClient {
   // `/media/{id}/{sig}.jpg` đã ký nên <img> mở được không cần header.
 
   /** Tải 1 ảnh lên Kho ảnh. Multipart nên không đi qua request() (header JSON). */
-  async uploadMedia(file: Blob, opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
-    }
-    const fd = new FormData();
-    fd.append('file', file, 'anh.jpg');
-    fd.append('project_id', opts.projectId);
-    if (opts.kind) fd.append('kind', opts.kind);
-    if (opts.caption) fd.append('caption', opts.caption);
-    const t = this.getToken();
-    const res = await fetch(`${this.baseUrl}/media/upload`, {
-      method: 'POST',
-      headers: t ? { Authorization: `Bearer ${t}` } : {},
-      body: fd,
-    });
-    const tokenMoi = res.headers.get('X-Phien-Moi');
-    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ detail: 'Tải ảnh thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/media/upload');
-      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
-    }
-    return res.json() as Promise<MediaFile & { deduped: boolean }>;
-  }
 
   /** Nhiều ảnh một lượt → nhóm Kho ảnh Telegram nhận thành MỘT album thay vì N tin. */
   async uploadMediaBatch(files: Blob[], opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
@@ -1406,14 +1375,6 @@ class ApiClient {
       body: { status },
     });
   }
-  async assignTask(projectId: string, taskId: string, userId: string) {
-    // KHÔNG gửi status: bản cũ gửi kèm `status: 'not_started'` nên thêm người vào
-    // một đầu việc «Đang làm» là tụt trạng thái về «Chưa bắt đầu».
-    return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/assign`, {
-      method: 'PUT',
-      body: { assignee_ids: [userId] },
-    });
-  }
 
   /** Đặt lại TOÀN BỘ nhóm đảm nhận. Mảng rỗng = gỡ hết người. */
   async setTaskAssignees(projectId: string, taskId: string, userIds: string[]) {
@@ -1477,22 +1438,10 @@ class ApiClient {
     return this.request<SalesDashboard>(`/dashboard/sales${duoi}${them}`);
   }
 
-  async getSalesTargets() {
-    return this.request<SalesTargets>('/dashboard/sales/muc-tieu');
-  }
-
   async saveSalesTargets(payload: SalesTargets) {
     return this.request<SalesTargets>('/dashboard/sales/muc-tieu', {
       method: 'PUT',
       body: JSON.stringify(payload),
-    });
-  }
-
-  // AI
-  async parseLead(text: string) {
-    return this.request<LeadParseResult>('/ai/parse-lead', {
-      method: 'POST',
-      body: { text },
     });
   }
 
@@ -1541,9 +1490,6 @@ class ApiClient {
   async getContracts(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Contract>>('/contracts', { params });
   }
-  async getContract(id: string) {
-    return this.request<Contract>(`/contracts/${id}`);
-  }
   async createContract(data: Partial<Contract>) {
     return this.request<Contract>('/contracts', { method: 'POST', body: data });
   }
@@ -1577,9 +1523,6 @@ class ApiClient {
   async getQuotations(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Quotation>>('/quotations', { params });
   }
-  async getQuotation(id: string) {
-    return this.request<Quotation>(`/quotations/${id}`);
-  }
   async createQuotation(data: Partial<Quotation>) {
     return this.request<Quotation>('/quotations', { method: 'POST', body: data });
   }
@@ -1594,34 +1537,16 @@ class ApiClient {
   async getMaterials(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Material>>('/inventory', { params });
   }
-  async getMaterial(id: string) {
-    return this.request<Material>(`/inventory/${id}`);
-  }
-  async createMaterial(data: Partial<Material>) {
-    return this.request<Material>('/inventory', { method: 'POST', body: data });
-  }
-  async updateMaterial(id: string, data: Partial<Material>) {
-    return this.request<Material>(`/inventory/${id}`, { method: 'PUT', body: data });
-  }
-  async adjustStock(id: string, delta: number, reason?: string) {
-    return this.request<Material>(`/inventory/${id}/adjust-stock`, { method: 'POST', body: { quantity: delta, reason } });
-  }
   async useMaterial(data: { material_id: string; project_id: string; quantity: number; note?: string }) {
     return this.request<unknown>('/inventory/use', { method: 'POST', body: { ...data, notes: data.note, note: undefined } });
   }
   async getLowStock() {
     return this.request<Material[]>('/inventory/low-stock');
   }
-  async getMaterialUsages(materialId: string) {
-    return this.request<MaterialUsage[]>(`/inventory/${materialId}/usages`);
-  }
 
   // === ERP: Suppliers & Price Board ===
   async getSuppliers(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Supplier>>('/suppliers', { params });
-  }
-  async getSupplier(id: string) {
-    return this.request<Supplier>(`/suppliers/${id}`);
   }
   async createSupplier(data: Partial<Supplier>) {
     return this.request<Supplier>('/suppliers', { method: 'POST', body: data });
@@ -1676,13 +1601,6 @@ class ApiClient {
         price_trend: 'stable' as const,
       })),
     };
-  }
-  async getPriceHistory(materialName: string) {
-    // Backend: GET /suppliers/price-history/{material_name:path} — tên vật tư nằm trên
-    // đường dẫn, không phải query. Gọi sai kiểu cũ luôn ra 404.
-    return this.request<{ material_name: string; history: Array<{ supplier_name: string; unit_price: number; quote_date: string }> }>(
-      `/suppliers/price-history/${encodeURIComponent(materialName)}`
-    );
   }
 
   // === ERP: Users (HR) ===
@@ -1841,12 +1759,6 @@ class ApiClient {
   async pendingOT() {
     return this.request<{ items: (AttendanceRecord & { full_name: string })[] }>('/attendance/ot/pending');
   }
-  async approveOT(recordId: string) {
-    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-approve`, { method: 'POST' });
-  }
-  async rejectOT(recordId: string) {
-    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-reject`, { method: 'POST' });
-  }
 
   // === Chấm công văn phòng + máy chấm công (09/09) ===
   async getOfficeConfig() {
@@ -1938,9 +1850,6 @@ class ApiClient {
   async rejectRequest(id: string, reason: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/reject`, { method: 'POST', body: { reason } });
   }
-  async requestChanges(id: string, reason: string) {
-    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/request-changes`, { method: 'POST', body: { reason } });
-  }
   async resubmitRequest(id: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/resubmit`, { method: 'POST' });
   }
@@ -1960,11 +1869,6 @@ class ApiClient {
   }
   async myLeaveBalance(year?: number) {
     return this.request<LeaveBalanceInfo>('/leaves/balance/me', { params: year ? { year: String(year) } : undefined });
-  }
-  async leaveCalendar(month: string, teamId?: string) {
-    const params: Record<string, string> = { month };
-    if (teamId) params.team_id = teamId;
-    return this.request<{ month: string; items: (LeaveItem & { full_name: string })[] }>('/leaves/calendar', { params });
   }
 
   // === HR Phase 1: Lương ===
@@ -1990,17 +1894,6 @@ class ApiClient {
     return this.request<{ period: string; paid_rows: number; sent: number; manual_delivery: string[] }>(
       `/payroll/${period}/pay`, { method: 'POST' }
     );
-  }
-  async payrollUpdateRow(rowId: string, data: { bonus?: number; allowance?: number; deductions?: number; notes?: string }) {
-    return this.request<{ row: PayrollRow }>(`/payroll/rows/${rowId}`, { method: 'PATCH', body: data });
-  }
-  async createAdvance(data: { amount: number; reason: string }) {
-    return this.request<{ advance: { id: string; amount: number; status: string }; approval_id: string }>(
-      '/payroll/advance', { method: 'POST', body: data }
-    );
-  }
-  async myAdvances() {
-    return this.request<{ items: { id: string; amount: number; reason: string; status: string; period_deducted: string | null; created_at: string }[] }>('/payroll/advances/me');
   }
 
   // === Tự đổi/đặt lại mật khẩu ===
@@ -2086,15 +1979,8 @@ class ApiClient {
     return this.request<{ hien: false } | ({ hien: true; ky: string; quy: string } & CdtDong)>(`/che-do-thuong/nguoi/${userId}`, { params: ky ? { ky } : undefined });
   }
 
-  // === ERP: P&L (C-level only) ===
-  async getPnLSummary() {
-    return this.request<PnLSummary>('/pl/summary');
-  }
   async getPnLProjects() {
     return this.request<PnLProject[]>('/pl/projects');
-  }
-  async getPnLProject(projectId: string) {
-    return this.request<PnLProjectDetail>(`/pl/projects/${projectId}`);
   }
 
   // Finance Module
@@ -2105,24 +1991,12 @@ class ApiClient {
   async updateCommissionStatus(id: string, status: string) {
     return this.request<{ id: string; status: string }>(`/accounting/commissions/${id}`, { method: 'PUT', body: { status } });
   }
-  async createSalaryGrade(data: Partial<SalaryGrade>) { return this.request<SalaryGrade>('/salary-grades', { method: 'POST', body: data }); }
-  async updateSalaryGrade(id: string, data: Partial<SalaryGrade>) { return this.request<SalaryGrade>(`/salary-grades/${id}`, { method: 'PUT', body: data }); }
-  async deleteSalaryGrade(id: string) { return this.request<unknown>(`/salary-grades/${id}`, { method: 'DELETE' }); }
 
   async getFixedCosts(month?: string) { return this.request<FixedCost[]>('/fixed-costs', { params: month ? { month } : undefined }); }
-  async createFixedCost(data: Partial<FixedCost>) { return this.request<FixedCost>('/fixed-costs', { method: 'POST', body: data }); }
-  async updateFixedCost(id: string, data: Partial<FixedCost>) { return this.request<FixedCost>(`/fixed-costs/${id}`, { method: 'PUT', body: data }); }
-  async deleteFixedCost(id: string) { return this.request<unknown>(`/fixed-costs/${id}`, { method: 'DELETE' }); }
 
   async getVariableCosts(month?: string) { return this.request<VariableCost[]>('/variable-costs', { params: month ? { month } : undefined }); }
-  async createVariableCost(data: Partial<VariableCost>) { return this.request<VariableCost>('/variable-costs', { method: 'POST', body: data }); }
-  async updateVariableCost(id: string, data: Partial<VariableCost>) { return this.request<VariableCost>(`/variable-costs/${id}`, { method: 'PUT', body: data }); }
-  async deleteVariableCost(id: string) { return this.request<unknown>(`/variable-costs/${id}`, { method: 'DELETE' }); }
 
   async getCommissionStructures() { return this.request<CommissionStructure[]>('/commission-structures'); }
-  async createCommissionStructure(data: Partial<CommissionStructure>) { return this.request<CommissionStructure>('/commission-structures', { method: 'POST', body: data }); }
-  async updateCommissionStructure(id: string, data: Partial<CommissionStructure>) { return this.request<CommissionStructure>(`/commission-structures/${id}`, { method: 'PUT', body: data }); }
-  async deleteCommissionStructure(id: string) { return this.request<unknown>(`/commission-structures/${id}`, { method: 'DELETE' }); }
 
   // === Notifications ===
   async getNotifications(unreadOnly = false) {
@@ -2289,11 +2163,6 @@ class ApiClient {
   }
   async sendBodReport(period: 'daily' | 'weekly' | 'monthly') {
     return this.request<Record<string, unknown>>(`/automation/run/bod-report/${period}`, { method: 'POST' });
-  }
-  async previewBodReport(period: 'daily' | 'weekly' | 'monthly') {
-    return this.request<{ period: string; text: string; metrics: Record<string, number> }>(
-      `/automation/bod-report/${period}/preview`
-    );
   }
   async sendGroupBriefing() {
     return this.request<{ status: string; reason?: string }>('/automation/run/group-briefing', { method: 'POST' });
