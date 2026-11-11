@@ -185,7 +185,6 @@ export function loadCustomRoles(): Promise<boolean> {
 
 async function _taiCustomRoles(): Promise<boolean> {
   try {
-    if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return false;
     const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
     if (!token) return false;
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -228,18 +227,6 @@ let _roleOverrides: Partial<Record<UserRole, Partial<RolePermissions>>> = {};
 /** Load role-level permission overrides from backend (admin only). */
 export async function loadRolePermissions(): Promise<void> {
   try {
-    // Demo mode: load from localStorage
-    if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') {
-      const overrides: Partial<Record<UserRole, Partial<RolePermissions>>> = {};
-      for (const role of ['admin', 'executive', 'leader', 'data_entry', 'accountant', 'supervisor'] as UserRole[]) {
-        const stored = localStorage.getItem(`jama_role_perms_${role}`);
-        if (stored) {
-          try { overrides[role] = JSON.parse(stored); } catch {}
-        }
-      }
-      if (Object.keys(overrides).length > 0) _roleOverrides = overrides;
-      return;
-    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
     if (!token) return;
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -265,7 +252,7 @@ export async function loadRolePermissions(): Promise<void> {
 /** Kết quả tải quyền của mình — bên gọi cần phân biệt LỖI TẠM với "không có gì để tải". */
 export type MyPermissionsResult =
   | { status: 'ok'; permissions: RolePermissions } // backend trả quyền — bản chốt
-  | { status: 'skip' }                             // demo / chưa có token — dùng bản cục bộ
+  | { status: 'skip' }                             // chưa có token — dùng bản cục bộ
   | { status: 'unauthorized' }                     // 401 — phiên hỏng, lời gọi data kế tiếp sẽ bắt đăng nhập lại
   | { status: 'error' };                           // 500/CORS/mất mạng/timeout — KHÔNG được coi là đã chốt
 
@@ -274,7 +261,6 @@ export type MyPermissionsResult =
 const PERMS_TIMEOUT_MS = 8000;
 
 async function fetchMyPermissionsOnce(): Promise<MyPermissionsResult> {
-  if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') return { status: 'skip' };
   const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
   if (!token) return { status: 'skip' };
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -319,12 +305,6 @@ export async function fetchMyPermissions(): Promise<MyPermissionsResult> {
 
 /** Save role-level permission overrides for a specific role. */
 export async function saveRolePermissions(role: UserRole, permissions: Record<string, boolean>): Promise<void> {
-  // Demo mode: save to localStorage
-  if (typeof window !== 'undefined' && localStorage.getItem('jama_demo') === 'true') {
-    localStorage.setItem(`jama_role_perms_${role}`, JSON.stringify(permissions));
-    _roleOverrides[role] = permissions as Partial<RolePermissions>;
-    return;
-  }
   const token = typeof window !== 'undefined' ? localStorage.getItem('jama_token') : null;
   if (!token) throw new Error('Not authenticated');
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';

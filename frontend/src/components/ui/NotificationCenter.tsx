@@ -159,11 +159,6 @@ const SERVER_ACTION_TYPES = new Set([
   'task_assigned', 'task_overdue', 'task_sla_breach', 'task_escalated',
 ]);
 
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('jama_demo') === 'true';
-}
-
 export default function NotificationCenter({ leads: leadsProp, projects: projectsProp, onCountChange }: NotificationCenterProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -187,9 +182,8 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     }
   }, [leadsProp]);
 
-  // Work mode: fetch real notifications from backend (poll every 60s)
+  // Lấy thông báo thật từ backend (poll mỗi 60s)
   useEffect(() => {
-    if (isDemoMode()) return;
     let cancelled = false;
 
     const fetchServer = () => {
@@ -262,7 +256,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     setReadIdsState(allIds);
     setReadIds(allIds);
     // Also mark server notifications read
-    if (!isDemoMode() && serverNotifs.some(n => !n.read)) {
+    if (serverNotifs.some(n => !n.read)) {
       setServerNotifs(prev => prev.map(n => ({ ...n, read: true })));
       import('@/lib/api').then(({ api }) => api.markAllNotificationsRead().catch((e) => console.warn('NotificationCenter: đánh dấu tất cả đã đọc thất bại', e)));
     }
@@ -280,7 +274,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
       });
     }
     // Server notification: mark read on backend
-    if (notifId?.startsWith('srv-') && !isDemoMode()) {
+    if (notifId?.startsWith('srv-')) {
       const serverId = notifId.slice(4);
       setServerNotifs(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
       import('@/lib/api').then(({ api }) => api.markNotificationRead(serverId).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e)));

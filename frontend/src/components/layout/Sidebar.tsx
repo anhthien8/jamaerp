@@ -12,7 +12,7 @@ import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
-import { SHOW_DEMO_MODE, SHOW_SALES_DASHBOARD } from '@/lib/features';
+import { SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 import JamaLoader from '@/components/ui/JamaLoader';
@@ -138,7 +138,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isDemo, mode, setMode, effectivePermissions } = useAuth();
+  const { user, logout, effectivePermissions } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [outdoorTheme, setOutdoorTheme] = useState(false);
@@ -362,29 +362,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Nút gạt Tập luyện ↔ Làm việc — ẩn hẳn khi Chế độ Tập luyện đã nghỉ (12/08/2026).
-          Trước đây nút vẫn hiện dù cờ đã tắt, bấm vào là rơi sang dữ liệu mẫu. */}
-      {SHOW_DEMO_MODE && (
-      <div className="px-3 mb-3">
-        <button
-          onClick={() => setMode(mode === 'demo' ? 'work' : 'demo')}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[0.6875rem] font-semibold transition-all duration-200 cursor-pointer select-none"
-          style={{
-            background: mode === 'demo' ? 'rgba(251,191,36,0.1)' : 'rgba(74,222,128,0.08)',
-            border: `1px solid ${mode === 'demo' ? 'rgba(251,191,36,0.25)' : 'rgba(74,222,128,0.2)'}`,
-            color: mode === 'demo' ? '#FBBF24' : '#4ADE80',
-          }}
-          title={mode === 'demo' ? 'Chuyển sang Chế độ Làm việc' : 'Chuyển sang Chế độ Tập luyện'}
-        >
-          <span className="text-sm">{mode === 'demo' ? '\u{1F3AF}' : '\u{1F4BC}'}</span>
-          <span>{mode === 'demo' ? 'TẬP LUYỆN' : 'LÀM VIỆC'}</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      </div>
-      )}
-
       {/* User — bấm vào để mở menu tài khoản (Hồ sơ 360° của tôi, Cài đặt, Đăng xuất) */}
       <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
         <div data-account-menu className="relative">
@@ -501,31 +478,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
       >
         {/* Mode Banner */}
-        {mode === 'demo' ? (
-          <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
-            <div className="flex items-center gap-2">
-              <LineIcon name="target" size={16} color="#FBBF24" />
-              <span className="text-xs font-semibold" style={{ color: '#FBBF24' }}>CHẾ ĐỘ TẬP LUYỆN</span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu mẫu, dùng để demo cho nhân sự</span>
-            </div>
-            <button onClick={() => setMode('work')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium">
-              Chuyển sang Làm việc →
-            </button>
+        <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
           </div>
-        ) : (
-          <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
-            </div>
-            {SHOW_DEMO_MODE && (
-              <button onClick={() => setMode('demo')} className="text-[10px] px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors font-medium">
-                ← Demo
-              </button>
-            )}
-          </div>
-        )}
+        </div>
         {children}
         {dangChuyen && (
           <div
