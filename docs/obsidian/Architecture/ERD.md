@@ -1,4 +1,4 @@
-# Entity Relationship Diagram — JAMA HOME CRM
+# Entity Relationship Diagram — JAMA HOME ERP
 
 ## Complete ERD
 

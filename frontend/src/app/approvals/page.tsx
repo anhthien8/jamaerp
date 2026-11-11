@@ -73,7 +73,7 @@ export default function ApprovalsPage() {
     }
   }, [toast]);
 
-  useEffect(() => { if (user) void load(); }, [user, load]);
+  useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
   const doApprove = async (item: ApprovalItem) => {
     setBusy(true);

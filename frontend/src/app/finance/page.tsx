@@ -8,14 +8,13 @@ import { api, SalaryGrade, FixedCost, VariableCost, CommissionStructure } from '
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { useToast } from '@/components/ui/Toast';
-import { DEMO_SALARY_GRADES, DEMO_FIXED_COSTS, DEMO_VARIABLE_COSTS, DEMO_COMMISSION_STRUCTURES as DEMO_COMMISSIONS } from '@/lib/demo-data';
 import { labelOf, COMMISSION_TYPE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
 
 type Tab = 'salary-grades' | 'fixed-costs' | 'variable-costs' | 'commissions';
 
 export default function FinancePage() {
-  const { user, loading, isDemo } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('salary-grades');
@@ -53,49 +52,42 @@ export default function FinancePage() {
   const loadData = useCallback(async () => {
     setLoadingData(true);
     try {
-      if (isDemo) {
-        setSalaryGrades(DEMO_SALARY_GRADES);
-        setFixedCosts(DEMO_FIXED_COSTS);
-        setVariableCosts(DEMO_VARIABLE_COSTS);
-        setCommissions(DEMO_COMMISSIONS);
-      } else {
-        try {
-          const [sg, fc, vc, cs] = await Promise.all([
-            canViewSalary ? api.getSalaryGrades() : Promise.resolve([] as SalaryGrade[]),
-            api.getFixedCosts(selectedMonth),
-            api.getVariableCosts(selectedMonth),
-            api.getCommissionStructures(),
-          ]);
-          setSalaryGrades(sg);
-          setFixedCosts(fc);
-          setVariableCosts(vc);
-          setCommissions(cs);
-          setLoadError('');
-        } catch {
-          // TUYỆT ĐỐI không rơi về MOCK ở chế độ Làm việc — người dùng sẽ nhìn
-          // số bịa tưởng là thật (audit 13/08). Hiện lỗi rõ ràng, bảng để trống.
-          setSalaryGrades([]);
-          setFixedCosts([]);
-          setVariableCosts([]);
-          setCommissions([]);
-          setLoadError('Không tải được số liệu tài chính từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
-        }
-        try {
-          const pResult = await api.getProjects();
-          const pItems = Array.isArray(pResult) ? pResult : (pResult as any).items || [];
-          setProjectsList(pItems.map((p: any) => ({ id: p.id, name: p.name })));
-        } catch {}
+      try {
+        const [sg, fc, vc, cs] = await Promise.all([
+          canViewSalary ? api.getSalaryGrades() : Promise.resolve([] as SalaryGrade[]),
+          api.getFixedCosts(selectedMonth),
+          api.getVariableCosts(selectedMonth),
+          api.getCommissionStructures(),
+        ]);
+        setSalaryGrades(sg);
+        setFixedCosts(fc);
+        setVariableCosts(vc);
+        setCommissions(cs);
+        setLoadError('');
+      } catch {
+        // TUYỆT ĐỐI không rơi về số mẫu — người dùng sẽ nhìn
+        // số bịa tưởng là thật (audit 13/08). Hiện lỗi rõ ràng, bảng để trống.
+        setSalaryGrades([]);
+        setFixedCosts([]);
+        setVariableCosts([]);
+        setCommissions([]);
+        setLoadError('Không tải được số liệu tài chính từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
       }
+      try {
+        const pResult = await api.getProjects();
+        const pItems: Array<{ id: string; name: string }> = Array.isArray(pResult) ? pResult : pResult.items || [];
+        setProjectsList(pItems.map(p => ({ id: p.id, name: p.name })));
+      } catch {}
     } finally {
       setLoadingData(false);
     }
-  }, [isDemo, selectedMonth, canViewSalary]);
+  }, [selectedMonth, canViewSalary]);
 
   useEffect(() => { if (user) void Promise.resolve().then(loadData); }, [user, loadData]);
 
   // Không có quyền bậc lương thì tab mặc định rơi về Chi phí cố định
   useEffect(() => {
-    if (user && !canViewSalary && tab === 'salary-grades') setTab('fixed-costs');
+    if (user && !canViewSalary && tab === 'salary-grades') void Promise.resolve().then(() => setTab('fixed-costs'));
   }, [user, canViewSalary, tab]);
 
   if (loading) return <Sidebar><div className="p-6"><div className="skeleton h-8 w-64 rounded-xl" /></div></Sidebar>;
@@ -122,7 +114,6 @@ export default function FinancePage() {
             <h1 className="text-2xl font-bold">Tài chính — Lương &amp; Hoa hồng</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">Quản lý lương, chi phí, hoa hồng</p>
           </div>
-          {isDemo && <span className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}><LineIcon name="target" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />TẬP LUYỆN</span>}
         </div>
 
         {loadError && (

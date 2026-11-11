@@ -1,4 +1,8 @@
-# 🚀 JAMA CRM Deployment Guide
+# JAMA HOME ERP — Triển khai trên VPS (cách CŨ, không còn dùng)
+
+> **Lưu ý (11/11/2026):** production hiện chạy **Railway** (backend, bot Telegram, Zalo listener,
+> PostgreSQL) và **Vercel** (frontend). Hướng dẫn VPS + nginx + certbot dưới đây chỉ giữ để tham khảo
+> khi cần tự host; không dùng cho deploy hằng ngày.
 
 ## Quick Start (1 Command)
 
@@ -21,7 +25,7 @@ sudo bash setup.sh your-domain.com your-email@gmail.com
 |------|--------|
 | 1 | Updates system & installs packages |
 | 2 | Installs Docker & Docker Compose |
-| 3 | Clones JAMA CRM repository |
+| 3 | Clones JAMA HOME ERP repository |
 | 4 | Configures environment (.env) |
 | 5 | Sets up Nginx reverse proxy |
 | 6 | Configures SSL with Let's Encrypt |
@@ -88,7 +92,7 @@ docker compose -f docker-compose.prod.yml logs
 # Stop nginx/apache if installed
 sudo systemctl stop nginx
 sudo systemctl stop apache2
-# Then restart JAMA CRM
+# Then restart JAMA HOME ERP
 ./restart.sh
 ```
 

@@ -3,13 +3,13 @@
 > **Status**: Production  
 > **Last Updated**: 2026-07-16  
 > **Owner**: Product Team  
-> **System**: JAMA HOME CRM v2.0
+> **System**: JAMA HOME ERP v2.0
 
 ---
 
 ## 1. Executive Summary
 
-JAMA HOME CRM is a full-stack, multi-channel business management platform built for Vietnamese construction and interior design companies. It manages the entire business lifecycle from lead acquisition through project delivery, with integrated HR, payroll, inventory, financial reporting, and field operations -- all accessible through both a web dashboard and a Telegram bot optimized for on-site workers.
+JAMA HOME ERP is a full-stack, multi-channel business management platform built for Vietnamese construction and interior design companies. It manages the entire business lifecycle from lead acquisition through project delivery, with integrated HR, payroll, inventory, financial reporting, and field operations -- all accessible through both a web dashboard and a Telegram bot optimized for on-site workers.
 
 **Key design principles:**
 - **Telegram-first for field staff** -- sales and site workers operate primarily through Telegram; the web interface serves as the deep-work tool for office roles

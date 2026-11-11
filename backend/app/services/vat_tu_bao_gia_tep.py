@@ -13,6 +13,7 @@ không đoán.
 from __future__ import annotations
 
 import base64
+import hashlib
 import csv
 import io
 import json
@@ -275,15 +276,25 @@ async def trich_tu_chu(chu: str, prompt: str | None = None, chuan=None) -> dict:
         raise TepError("Tệp không có nội dung để đọc")
     tin = [{"role": "system", "content": prompt or _PROMPT},
            {"role": "user", "content": f"Nội dung tệp báo giá:\n\n{chu[:TOI_DA_CHU]}"}]
+    # Cùng tệp gửi lại (bot gửi lại, bấm đọc lại) thì dùng kết quả cũ — không gọi AI lần nữa
+    from app.cache import cache
+    khoa = "bgtep:" + hashlib.sha256((tin[0]["content"] + "\0" + tin[1]["content"]).encode()).hexdigest()
+    da_doc = cache.get(khoa)
+    if da_doc is not None:
+        return (chuan or _chuan_hoa)(da_doc)
     try:
         try:
             raw = await llm_complete(tin, temperature=0.0, max_tokens=8000, response_format={"type": "json_object"})
-            return (chuan or _chuan_hoa)(_noi_dung_tra_ve(raw))
+            noi_dung = _noi_dung_tra_ve(raw)
+            ket_qua = (chuan or _chuan_hoa)(noi_dung)
         except Exception as exc:  # noqa: BLE001
             # Báo giá dài: chế độ JSON của Groq hay hỏng (json_validate_failed) → thử lại không ép JSON, tự bóc
             logger.info("Trích báo giá: chế độ JSON lỗi (%s) → thử lại dạng chữ", exc)
             raw = await llm_complete(tin, temperature=0.0, max_tokens=16000)
-            return (chuan or _chuan_hoa)(_boc_json(_noi_dung_tra_ve(raw)))
+            noi_dung = _boc_json(_noi_dung_tra_ve(raw))
+            ket_qua = (chuan or _chuan_hoa)(noi_dung)
+        cache.set(khoa, noi_dung, ttl=24 * 3600)
+        return ket_qua
     except TepError:
         raise
     except Exception as exc:  # noqa: BLE001 — model/khóa/quota

@@ -37,7 +37,7 @@ Fan-out 10 agent song song (hoặc tuần tự nếu subagent không khả dụn
 
 ```
 Prompt khuôn cho mỗi agent:
-"Bạn là QA đóng vai role <X> của JAMA CRM. Server: <URL>, đăng nhập <email>/<pass>
+"Bạn là QA đóng vai role <X> của JAMA HOME ERP. Server: <URL>, đăng nhập <email>/<pass>
 (docs/QUICK_REFERENCE.md). Version đang kiểm: <changelog trích từ Nhật ký>.
 Chạy checklist trong docs/specs/06-qa-per-role-process.md §2 dòng role <X>
 qua API (httpx) hoặc browser. Với MỖI mục: PASS/FAIL + bằng chứng
@@ -78,4 +78,4 @@ Sau khi báo cáo xong: link vào entry changelog trong Obsidian Nhật ký (`QA
 1. Tạo thư mục `docs/qa/` + file template trên.
 2. Viết `backend/tests/test_rbac_matrix.py` — parametrize 8 role × bảng endpoint chính (allow/deny theo ma trận §2) để L3 negative chạy tự động vĩnh viễn (~60 case, nhanh).
 3. Chạy pass QA đầu tiên cho version 15/07 (HR Phase 1) làm mẫu → `docs/qa/QA-2026-07-15.md`.
-4. Ghi quy trình này thành note Obsidian `QA theo Role.md` link vào MOC [[JAMA CRM]].
+4. Ghi quy trình này thành note Obsidian `QA theo Role.md` link vào MOC [[JAMA HOME ERP]].

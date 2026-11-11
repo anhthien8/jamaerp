@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
-import { DEMO_MATERIALS } from '@/lib/demo-data';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { labelOf, MATERIAL_CATEGORY_LABELS } from '@/lib/labels';
@@ -22,7 +21,7 @@ function fmtNum(n?: number) {
 }
 
 export default function InventoryPage() {
-  const { user, loading, isDemo } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -138,14 +137,6 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     // Bấm «Thử lại» phải quay về màn Đang tải — không để bảng cũ/trống lộ ra khi đang gọi lại API
     setLoadingData(true);
-    // In demo mode, use local demo data directly
-    if (isDemo) {
-      setMaterials(DEMO_MATERIALS);
-      setLowStock(DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock));
-      setPageInfo({ page: 1, total_pages: 1, total: DEMO_MATERIALS.length });
-      setLoadingData(false);
-      return;
-    }
     try {
       // Không truyền page_size thì backend mặc định 50 — kho quá 50 vật tư là phần sau
       // biến mất không dấu vết. Xin trần tối đa (le=200) và cảnh báo khi vẫn thiếu.
@@ -165,7 +156,7 @@ export default function InventoryPage() {
         setPageInfo({ page: 1, total_pages: 1, total: mats.length });
       }
     } catch {
-      // TUYỆT ĐỐI không rơi về DEMO_MATERIALS ở chế độ Làm việc — thu mua sẽ
+      // TUYỆT ĐỐI không rơi về số mẫu — thu mua sẽ
       // nhìn tồn kho bịa tưởng là thật (audit 13/08). Hiện lỗi, bảng để trống.
       setError('Không thể tải dữ liệu kho. Vui lòng thử lại.');
       setMaterials([]);
@@ -174,7 +165,7 @@ export default function InventoryPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [isDemo, toast]);
+  }, [toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 

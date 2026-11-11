@@ -27,12 +27,13 @@ from app.schemas.project import (
 )
 from pydantic import BaseModel, model_validator
 
-_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
+from app.middleware.rbac import duoc_xem_sdt_day_du
+
 
 
 def _mask_phone(phone: str | None, current_user=None) -> str | None:
     """Mask phone for non-privileged roles: show first 3 digits + '***'."""
-    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+    if not phone or not current_user or duoc_xem_sdt_day_du(current_user):
         return phone
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 
@@ -380,6 +381,7 @@ async def list_projects(
     current_user: User = Depends(require_project_access),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    search: str | None = Query(None, max_length=100),
 ):
     """List projects — mặc định sắp theo ưu tiên nguồn lực (spec 07B)."""
     if sort == "priority":
@@ -389,6 +391,11 @@ async def list_projects(
         q = select(Project).order_by(Project.created_at.desc())
     if status:
         q = q.where(Project.status == status)
+    if search and search.strip():
+        # Ô tìm kiếm nhanh (11/11/2026): lọc ở server thay vì tải mọi dự án về trình duyệt
+        tu = "%" + search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        q = q.where(Project.code.ilike(tu, escape="\\") | Project.name.ilike(tu, escape="\\")
+                    | Project.client_name.ilike(tu, escape="\\"))
 
     # ── Phạm vi theo bộ phận (05/09/2026) ────────────────────────────────
     # Trước đây endpoint này KHÔNG lọc gì: mọi tài khoản thấy toàn bộ dự án.
@@ -464,9 +471,12 @@ async def project_kanban(
 
 # ── Dự án đang đến phòng bạn (spec 07 A3) ────────────────────────────────────
 
+# Khớp task_sla.PHONG_CONG_TY_THEO_PHONG_VIEC và DEPT_TO_USER_DEPT ở frontend: báo giá do
+# phòng Dự toán–Thu mua làm, thi công/nghiệm thu do đội Giám sát (OPS). Trước 11/11/2026 bảng
+# này xếp báo giá vào Thiết kế. Giữ mã "PM" ở tham số API cho tương thích, nghĩa là đội OPS.
 STAGE_DEPARTMENTS = {
     "design": "DESIGN",
-    "quotation": "DESIGN",
+    "quotation": "PURCHASING",
     "procurement": "PURCHASING",
     "construction": "PM",
     "acceptance": "PM",
@@ -486,6 +496,9 @@ async def projects_by_department(
     designer / pm / purchasing.
     """
     dept_stages = [s for s, d in STAGE_DEPARTMENTS.items() if d == dept]
+    # Task.department lưu mã thường theo task_department_for_stage ("design", "procurement"…),
+    # không phải mã phòng viết hoa — so trực tiếp với `dept` thì không task nào khớp.
+    task_depts = {task_department_for_stage(s) for s in dept_stages} - {None}
     urgent, warning = await _priority_thresholds(db)
 
     q = (
@@ -504,7 +517,7 @@ async def projects_by_department(
             .where(
                 Task.project_id.in_([p.id for p in projects]),
                 Task.status != "done",
-                (Task.department == dept) | (Task.department.is_(None) & Task.stage.in_(dept_stages)),
+                Task.department.in_(task_depts) | (Task.department.is_(None) & Task.stage.in_(dept_stages)),
             )
             .group_by(Task.project_id)
         )

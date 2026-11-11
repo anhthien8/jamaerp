@@ -90,8 +90,8 @@ export const LEAD_STAGE_LABELS: Record<string, string> = {
   survey_scheduled: 'Đã gửi báo giá',
   potential: 'Đang đàm phán',
   signed_design: 'Deal đã thắng',
-  lost: 'Đã mất',
-  dormant: 'Tạm ngưng',
+  lost: 'Mất',
+  dormant: 'Ngủ đông',
 };
 
 /** Tra nhãn Việt; key lạ trả nguyên văn (không crash, không hiện undefined). */

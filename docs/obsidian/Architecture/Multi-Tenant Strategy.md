@@ -1,14 +1,14 @@
-# JAMA HOME CRM -- Multi-Tenant / Whitelabel Architecture Strategy
+# JAMA HOME ERP -- Multi-Tenant / Whitelabel Architecture Strategy
 
 > Status: DESIGN DRAFT
 > Created: 2026-07-16
-> Related: [[JAMA CRM Deployment]]
+> Related: [[JAMA HOME ERP Deployment]]
 
 ---
 
 ## 1. Current State Summary
 
-The JAMA HOME CRM is a **single-tenant monolith** deployed on Railway (backend) + Vercel (frontend):
+The JAMA HOME ERP is a **single-tenant monolith** deployed on Railway (backend) + Vercel (frontend):
 
 | Component | Stack | Hosting |
 |-----------|-------|---------|

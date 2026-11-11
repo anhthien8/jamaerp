@@ -74,46 +74,18 @@ export default function PortalPage() {
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-  // Token 'demo' — dữ liệu mẫu để đào tạo nội bộ (Chế độ Tập luyện), không gọi API
-  const isDemoToken = token === 'demo';
-
   useEffect(() => {
     if (!token) return;
-    if (isDemoToken) {
-      setCustomer({ name: 'Chị Mai (khách mẫu)', phone: '0901234567', email: 'mai.nguyen@gmail.com' });
-      setProjects([{
-        id: 'demo', code: 'PRJ-2026-001', name: 'Nhà phố Q7 - Chị Mai',
-        status: 'active', stage: 'construction', progress: 75, total_value: 500_000_000,
-        created_at: '2026-05-11T00:00:00Z',
-      }]);
-      setLoading(false);
-      return;
-    }
     fetch(`${API}/portal/${token}`)
       .then(r => { if (!r.ok) throw new Error('Link không hợp lệ'); return r.json(); })
       .then(data => { setCustomer(data.customer); setProjects(data.projects || []); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [token, API, isDemoToken]);
+  }, [token, API]);
 
   const loadProjectDetail = async (project: ProjectData) => {
     setSelectedProject(project);
     setLoadingDetail(true);
-    if (isDemoToken) {
-      setTasks([
-        { id: 't1', title: 'Thiết kế 3D phòng khách', status: 'done', stage: 'design' },
-        { id: 't2', title: 'Thi công trần thạch cao', status: 'done', stage: 'construction' },
-        { id: 't3', title: 'Lắp đặt tủ bếp', status: 'in_progress', stage: 'construction' },
-        { id: 't4', title: 'Sơn hoàn thiện', status: 'not_started', stage: 'construction' },
-      ]);
-      setActivities([
-        { id: 'a1', content: 'Hoàn thành lắp khung tủ bếp, mai lắp cánh + phụ kiện.', user_name: 'Đội thi công', created_at: '2026-07-18T09:00:00Z' },
-        { id: 'a2', content: 'Trần thạch cao nghiệm thu nội bộ đạt — chuẩn bị sơn.', user_name: 'Giám sát công trình', created_at: '2026-07-16T15:30:00Z' },
-      ]);
-      setAcceptances({ design: { at: '2026-06-15T09:00:00Z', by: 'Chị Mai' } });
-      setLoadingDetail(false);
-      return;
-    }
     try {
       const [projRes, actRes, mediaRes] = await Promise.all([
         fetch(`${API}/portal/${token}/projects/${project.id}`),
@@ -138,11 +110,6 @@ export default function PortalPage() {
 
   const acceptStage = async (stage: string) => {
     if (!selectedProject) return;
-    if (isDemoToken) {
-      setAcceptances(prev => ({ ...prev, [stage]: { at: new Date().toISOString(), note: acceptNote.trim(), by: 'Chị Mai (khách mẫu)' } }));
-      setAcceptNote('');
-      return;
-    }
     setAccepting(true);
     setAcceptError('');
     try {
@@ -275,8 +242,8 @@ export default function PortalPage() {
                   )}
                 </div>
                 {/* Khách chấm sao theo mốc (Chế độ thưởng 23/10/2026) — tự ẩn khi tắt/chưa có mốc mở */}
-                {!isDemoToken && <DanhGiaKhach api={API} token={token} projectId={selectedProject.id} />}
-                {!isDemoToken && <VatTuKhach api={API} token={token} projectId={selectedProject.id} />}
+                <DanhGiaKhach api={API} token={token} projectId={selectedProject.id} />
+                <VatTuKhach api={API} token={token} projectId={selectedProject.id} />
                 {photoDays.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <h3 className="text-xs font-semibold mb-3" style={{ color: '#9BA7B4' }}><LineIcon name="camera" size={14} color="#C9A96E" className="inline-block align-[-2px] mr-1.5" />Nhật ký công trình</h3>

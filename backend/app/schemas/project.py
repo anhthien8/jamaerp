@@ -96,13 +96,13 @@ class ProjectResponse(BaseModel):
     display_status: str | None = None
 
     _STAGE_LABELS = {
-        "design": "Thiet ke",
-        "quotation": "Bao gia",
-        "procurement": "Thu mau",
-        "construction": "Thi cong",
-        "acceptance": "Nghiem thu",
-        "completed": "Hoan thanh",
-        "paused": "Tam dung",
+        "design": "Thiết kế",
+        "quotation": "Báo giá",
+        "procurement": "Thu mua",
+        "construction": "Thi công",
+        "acceptance": "Nghiệm thu",
+        "completed": "Hoàn thành",
+        "paused": "Tạm dừng",
     }
 
     @model_validator(mode="after")
@@ -110,9 +110,9 @@ class ProjectResponse(BaseModel):
         stage = getattr(self, "stage", None)
         status = getattr(self, "status", None)
         if stage == "paused" or status == "paused":
-            self.display_status = "Tam dung"
+            self.display_status = "Tạm dừng"
         elif stage == "completed" or status == "completed":
-            self.display_status = "Hoan thanh"
+            self.display_status = "Hoàn thành"
         else:
             self.display_status = self._STAGE_LABELS.get(stage, stage)
         return self

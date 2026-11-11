@@ -37,6 +37,18 @@ def is_sales_coordinator(user: User) -> bool:
     )
 
 
+# Ban giám đốc — trước 11/11/2026 lặp ở bod_report, zalo_assistant, api/automation.
+VAI_TRO_BGD: tuple[str, ...] = ("admin", "executive")
+
+# Được xem SĐT khách đầy đủ: admin, sale (data_entry), trưởng nhóm KD, điều phối KD.
+# Trước 11/11/2026 bộ này lặp ở projects.py và customers.py, thiếu sale_leader + điều phối KD.
+_VAI_TRO_XEM_SDT = {"admin", "leader", "data_entry", SALE_LEADER_ROLE}
+
+
+def duoc_xem_sdt_day_du(user: User | None) -> bool:
+    return bool(user) and (user.role in _VAI_TRO_XEM_SDT or is_sales_coordinator(user))
+
+
 def can_assign_leads(user: User) -> bool:
     """Ai được phân chia data lead: admin, trưởng nhóm, hoặc điều phối KD (CSKH)."""
     return user.role == "admin" or is_team_lead(user) or is_sales_coordinator(user)

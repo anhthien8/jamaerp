@@ -69,7 +69,7 @@ export default function SuppliersPage() {
     setLoading(false);
   }, [search, categoryFilter]);
 
-  useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
+  useEffect(() => { void Promise.resolve().then(() => loadSuppliers()); }, [loadSuppliers]);
 
   const loadQuotes = async (supplierId: string) => {
     setQuotesLoading(true);

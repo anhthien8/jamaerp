@@ -10,7 +10,7 @@ import { startGuidedTour } from '@/components/ui/GuidedTour';
 import { useToast } from '@/components/ui/Toast';
 import BatThongBaoMay from '@/components/BatThongBaoMay';
 import LineIcon from '@/components/ui/LineIcon';
-import Avatar, { DoiAnhDaiDien } from '@/components/ui/Avatar';
+import { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
 import { useRoleLabels, deptLabel } from '@/lib/nhan-su';
 import { RELEASES } from '@/lib/releases';
@@ -61,7 +61,6 @@ function ChangePasswordSection() {
 /** Khóa AI cá nhân (13/08/2026): không bắt buộc — hệ thống đã có khóa Groq chung.
  *  User thêm khóa riêng thì AI ưu tiên dùng khóa của họ trước (đỡ đốt quota chung). */
 function MyAIKeySection() {
-  const { isDemo } = useAuth();
   const [keySet, setKeySet] = useState(false);
   const [masked, setMasked] = useState('');
   const [newKey, setNewKey] = useState('');
@@ -75,10 +74,6 @@ function MyAIKeySection() {
   }, []);
 
   const save = async (value: string) => {
-    if (isDemo) {
-      setMessage({ text: '⚠️ Đang ở Chế độ Tập luyện — khóa lưu ở đây không có tác dụng thật. Chuyển sang Làm việc rồi lưu lại nhé.', ok: false });
-      return;
-    }
     setBusy(true);
     setMessage(null);
     try {
@@ -207,19 +202,12 @@ function ShopeeSection() {
 
 /** Tự liên kết Telegram: chat với bot → gõ /id → dán số vào đây (spec HR Phase 1). */
 function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialTgId: number | null }) {
-  const { isDemo } = useAuth();
   const [tgId, setTgId] = useState<string>(initialTgId ? String(initialTgId) : '');
   const [linked, setLinked] = useState<number | null>(initialTgId);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const save = async () => {
-    // Chế độ Tập luyện lưu vào dữ liệu mẫu → bot THẬT không biết → nhân viên tưởng
-    // liên kết xong mà Telegram vẫn báo "chưa liên kết ERP" (feedback beta 22/07)
-    if (isDemo) {
-      setMessage({ text: '⚠️ Đang ở Chế độ Tập luyện — liên kết ở đây không có tác dụng thật. Bấm "Chuyển sang Làm việc" (banner đầu trang), đăng nhập tài khoản thật rồi liên kết lại nhé.', ok: false });
-      return;
-    }
     const raw = tgId.trim();
     const parsed = raw === '' ? null : Number(raw);
     if (raw !== '' && (!Number.isInteger(parsed) || (parsed as number) <= 0)) {
@@ -310,7 +298,7 @@ function ZaloSection() {
     } catch { /* demo/chưa cấu hình */ }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   // Poll khi đang chờ quét QR (5s) để bắt QR ingest service đẩy về
   useEffect(() => {
@@ -1574,7 +1562,7 @@ function TaskSlaSection() {
 }
 
 export default function SettingsPage() {
-  const { user, loading, isDemo, capNhatUser } = useAuth();
+  const { user, loading, capNhatUser } = useAuth();
   const roleOf = useRoleLabels();
   const { toast } = useToast();
   const router = useRouter();
@@ -1610,22 +1598,18 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="user" />Thông tin cá nhân</h2>
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  {isDemo ? (
-                    <Avatar name={user.full_name} url={user.avatar_url} className="w-16 h-16 rounded-2xl text-2xl" style={{ background: 'linear-gradient(135deg, #C9A96E, #1A535C)' }} />
-                  ) : (
-                    <DoiAnhDaiDien
-                      userId={user.id}
-                      name={user.full_name}
-                      url={user.avatar_url}
-                      className="w-16 h-16 rounded-2xl text-2xl"
-                      style={{ background: 'linear-gradient(135deg, #C9A96E, #1A535C)' }}
-                      choGo
-                      onDoi={(url) => {
-                        capNhatUser({ avatar_url: url });
-                        toast(url ? 'Đã cập nhật ảnh đại diện' : 'Đã gỡ ảnh đại diện', 'success');
-                      }}
-                    />
-                  )}
+                  <DoiAnhDaiDien
+                    userId={user.id}
+                    name={user.full_name}
+                    url={user.avatar_url}
+                    className="w-16 h-16 rounded-2xl text-2xl"
+                    style={{ background: 'linear-gradient(135deg, #C9A96E, #1A535C)' }}
+                    choGo
+                    onDoi={(url) => {
+                      capNhatUser({ avatar_url: url });
+                      toast(url ? 'Đã cập nhật ảnh đại diện' : 'Đã gỡ ảnh đại diện', 'success');
+                    }}
+                  />
                   <div>
                     <p className="font-semibold text-lg">{user.full_name}</p>
                     <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
@@ -1637,7 +1621,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <ChangePasswordSection />
-            {!isDemo && <BatThongBaoMay />}
+            <BatThongBaoMay />
             <TelegramLinkSection userId={user.id} initialTgId={user.telegram_user_id ?? null} />
             <MyAIKeySection />
           </div>

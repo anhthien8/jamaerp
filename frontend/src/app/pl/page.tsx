@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api } from '@/lib/api';
-import { DEMO_PNL_SUMMARY } from '@/lib/demo-data';
+import { api, PnLProject } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, UserRole } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
@@ -41,208 +40,6 @@ interface CompanyPLSummary {
 }
 
 type FilterType = 'all' | 'month' | 'quarter' | 'year' | 'custom';
-
-// ── 25 Mock Projects ───────────────────────────────────────
-const MOCK_PROJECT_PL_RAW: ProjectPL[] = [
-  // ── Premium (5 dự án lớn) ──
-  {
-    project_id: 'proj-001', project_code: 'JMH-0601',
-    project_name: 'Biệt thự An Lạc - Long An',
-    revenue: 25_800_000_000, costs: 20_100_000_000, profit: 5_700_000_000, margin: 22.1,
-    status: 'in_progress', start_date: '2026-01-10',
-    cost_breakdown: { materials: 12_600_000_000, transactions: 5_200_000_000, commissions: 2_300_000_000 },
-  },
-  {
-    project_id: 'proj-002', project_code: 'JMH-0608',
-    project_name: 'Villa Thảo Điền - Quận 2',
-    revenue: 28_500_000_000, costs: 22_800_000_000, profit: 5_700_000_000, margin: 20.0,
-    status: 'in_progress', start_date: '2026-02-05',
-    cost_breakdown: { materials: 14_200_000_000, transactions: 5_900_000_000, commissions: 2_700_000_000 },
-  },
-  {
-    project_id: 'proj-003', project_code: 'JMH-0593',
-    project_name: 'Penthouse Sky Garden - Quận 7',
-    revenue: 22_300_000_000, costs: 17_400_000_000, profit: 4_900_000_000, margin: 22.0,
-    status: 'completed', start_date: '2026-01-20',
-    cost_breakdown: { materials: 10_800_000_000, transactions: 4_500_000_000, commissions: 2_100_000_000 },
-  },
-  {
-    project_id: 'proj-004', project_code: 'JMH-0612',
-    project_name: 'Biệt thự Phú Mỹ Hưng - Quận 7',
-    revenue: 20_500_000_000, costs: 16_400_000_000, profit: 4_100_000_000, margin: 20.0,
-    status: 'in_progress', start_date: '2026-03-15',
-    cost_breakdown: { materials: 10_200_000_000, transactions: 4_200_000_000, commissions: 2_000_000_000 },
-  },
-  {
-    project_id: 'proj-005', project_code: 'JMH-0618',
-    project_name: 'Villa Riviera - Quận 2',
-    revenue: 24_200_000_000, costs: 18_700_000_000, profit: 5_500_000_000, margin: 22.7,
-    status: 'in_progress', start_date: '2026-04-01',
-    cost_breakdown: { materials: 11_600_000_000, transactions: 4_900_000_000, commissions: 2_200_000_000 },
-  },
-  // ── Medium (8 dự án trung bình) ──
-  {
-    project_id: 'proj-006', project_code: 'JMH-0587',
-    project_name: 'Nhà phố Sunrise - Quận 7',
-    revenue: 15_500_000_000, costs: 12_400_000_000, profit: 3_100_000_000, margin: 20.0,
-    status: 'in_progress', start_date: '2026-02-15',
-    cost_breakdown: { materials: 7_700_000_000, transactions: 3_200_000_000, commissions: 1_500_000_000 },
-  },
-  {
-    project_id: 'proj-007', project_code: 'JMH-0595',
-    project_name: 'Căn hộ Penthouse - Thủ Đức',
-    revenue: 12_200_000_000, costs: 9_500_000_000, profit: 2_700_000_000, margin: 22.1,
-    status: 'completed', start_date: '2026-03-05',
-    cost_breakdown: { materials: 5_900_000_000, transactions: 2_500_000_000, commissions: 1_100_000_000 },
-  },
-  {
-    project_id: 'proj-008', project_code: 'JMH-0610',
-    project_name: 'Villa The Manor - Bình Chánh',
-    revenue: 11_800_000_000, costs: 9_400_000_000, profit: 2_400_000_000, margin: 20.3,
-    status: 'in_progress', start_date: '2026-04-10',
-    cost_breakdown: { materials: 5_800_000_000, transactions: 2_400_000_000, commissions: 1_200_000_000 },
-  },
-  {
-    project_id: 'proj-009', project_code: 'JMH-0622',
-    project_name: 'Nhà phố Lakeview - Quận 9',
-    revenue: 9_500_000_000, costs: 7_600_000_000, profit: 1_900_000_000, margin: 20.0,
-    status: 'in_progress', start_date: '2026-05-01',
-    cost_breakdown: { materials: 4_700_000_000, transactions: 2_000_000_000, commissions: 900_000_000 },
-  },
-  {
-    project_id: 'proj-010', project_code: 'JMH-0578',
-    project_name: 'Căn hộ Vinhomes Central Park',
-    revenue: 14_200_000_000, costs: 11_400_000_000, profit: 2_800_000_000, margin: 19.7,
-    status: 'completed', start_date: '2026-01-05',
-    cost_breakdown: { materials: 7_100_000_000, transactions: 2_900_000_000, commissions: 1_400_000_000 },
-  },
-  {
-    project_id: 'proj-011', project_code: 'JMH-0603',
-    project_name: 'Duplex Masteri Thảo Điền',
-    revenue: 8_800_000_000, costs: 7_000_000_000, profit: 1_800_000_000, margin: 20.5,
-    status: 'in_progress', start_date: '2026-03-20',
-    cost_breakdown: { materials: 4_300_000_000, transactions: 1_800_000_000, commissions: 900_000_000 },
-  },
-  {
-    project_id: 'proj-012', project_code: 'JMH-0585',
-    project_name: 'Nhà phố Mega Village - Quận 9',
-    revenue: 7_500_000_000, costs: 6_000_000_000, profit: 1_500_000_000, margin: 20.0,
-    status: 'completed', start_date: '2026-02-01',
-    cost_breakdown: { materials: 3_700_000_000, transactions: 1_500_000_000, commissions: 800_000_000 },
-  },
-  {
-    project_id: 'proj-013', project_code: 'JMH-0625',
-    project_name: 'Căn hộ Diamond Island - Quận 2',
-    revenue: 10_800_000_000, costs: 8_600_000_000, profit: 2_200_000_000, margin: 20.4,
-    status: 'in_progress', start_date: '2026-05-15',
-    cost_breakdown: { materials: 5_300_000_000, transactions: 2_200_000_000, commissions: 1_100_000_000 },
-  },
-  // ── Small (10 dự án nhỏ) ──
-  {
-    project_id: 'proj-014', project_code: 'JMH-0575',
-    project_name: 'Căn hộ The Sun Avenue - Quận 2',
-    revenue: 5_500_000_000, costs: 4_400_000_000, profit: 1_100_000_000, margin: 20.0,
-    status: 'completed', start_date: '2026-01-15',
-    cost_breakdown: { materials: 2_700_000_000, transactions: 1_100_000_000, commissions: 600_000_000 },
-  },
-  {
-    project_id: 'proj-015', project_code: 'JMH-0582',
-    project_name: 'Studio Gateway Thảo Điền',
-    revenue: 3_200_000_000, costs: 2_600_000_000, profit: 600_000_000, margin: 18.8,
-    status: 'completed', start_date: '2026-02-20',
-    cost_breakdown: { materials: 1_600_000_000, transactions: 650_000_000, commissions: 350_000_000 },
-  },
-  {
-    project_id: 'proj-016', project_code: 'JMH-0598',
-    project_name: 'Căn hộ Saigon Pearl - Bình Thạnh',
-    revenue: 4_800_000_000, costs: 3_800_000_000, profit: 1_000_000_000, margin: 20.8,
-    status: 'in_progress', start_date: '2026-03-10',
-    cost_breakdown: { materials: 2_300_000_000, transactions: 1_000_000_000, commissions: 500_000_000 },
-  },
-  {
-    project_id: 'proj-017', project_code: 'JMH-0614',
-    project_name: 'Nhà phố Bình Thạnh - Chị Hương',
-    revenue: 4_500_000_000, costs: 3_600_000_000, profit: 900_000_000, margin: 20.0,
-    status: 'completed', start_date: '2026-04-15',
-    cost_breakdown: { materials: 2_200_000_000, transactions: 900_000_000, commissions: 500_000_000 },
-  },
-  {
-    project_id: 'proj-018', project_code: 'JMH-0628',
-    project_name: 'Văn phòng Quận 1 - Interior',
-    revenue: 3_800_000_000, costs: 3_000_000_000, profit: 800_000_000, margin: 21.1,
-    status: 'in_progress', start_date: '2026-05-20',
-    cost_breakdown: { materials: 1_800_000_000, transactions: 800_000_000, commissions: 400_000_000 },
-  },
-  {
-    project_id: 'proj-019', project_code: 'JMH-0632',
-    project_name: 'Căn hộ Estella Heights - Quận 2',
-    revenue: 6_200_000_000, costs: 5_000_000_000, profit: 1_200_000_000, margin: 19.4,
-    status: 'in_progress', start_date: '2026-06-01',
-    cost_breakdown: { materials: 3_100_000_000, transactions: 1_300_000_000, commissions: 600_000_000 },
-  },
-  {
-    project_id: 'proj-020', project_code: 'JMH-0572',
-    project_name: 'Sửa chữa VP Tân Bình',
-    revenue: 2_500_000_000, costs: 2_000_000_000, profit: 500_000_000, margin: 20.0,
-    status: 'completed', start_date: '2026-01-25',
-    cost_breakdown: { materials: 1_200_000_000, transactions: 500_000_000, commissions: 300_000_000 },
-  },
-  {
-    project_id: 'proj-021', project_code: 'JMH-0635',
-    project_name: 'Căn hộ Midtown Phú Mỹ Hưng',
-    revenue: 4_800_000_000, costs: 3_800_000_000, profit: 1_000_000_000, margin: 20.8,
-    status: 'in_progress', start_date: '2026-06-15',
-    cost_breakdown: { materials: 2_300_000_000, transactions: 1_000_000_000, commissions: 500_000_000 },
-  },
-  {
-    project_id: 'proj-022', project_code: 'JMH-0640',
-    project_name: 'Nhà phố Gò Vấp - Chị Lan',
-    revenue: 3_500_000_000, costs: 2_800_000_000, profit: 700_000_000, margin: 20.0,
-    status: 'in_progress', start_date: '2026-07-01',
-    cost_breakdown: { materials: 1_700_000_000, transactions: 700_000_000, commissions: 400_000_000 },
-  },
-  {
-    project_id: 'proj-023', project_code: 'JMH-0616',
-    project_name: 'Căn hộ Masteri An Phú',
-    revenue: 5_200_000_000, costs: 4_200_000_000, profit: 1_000_000_000, margin: 19.2,
-    status: 'in_progress', start_date: '2026-04-20',
-    cost_breakdown: { materials: 2_600_000_000, transactions: 1_100_000_000, commissions: 500_000_000 },
-  },
-  // ── At Risk / Loss (2 dự án lỗ) ──
-  {
-    project_id: 'proj-024', project_code: 'JMH-0615',
-    project_name: 'Shophouse Bến Thành - Quận 1',
-    revenue: 6_500_000_000, costs: 6_900_000_000, profit: -400_000_000, margin: -6.2,
-    status: 'at_risk', start_date: '2026-03-25',
-    cost_breakdown: { materials: 4_300_000_000, transactions: 1_800_000_000, commissions: 800_000_000 },
-  },
-  {
-    project_id: 'proj-025', project_code: 'JMH-0630',
-    project_name: 'Căn hộ Quận 8 - Renovation',
-    revenue: 2_800_000_000, costs: 3_200_000_000, profit: -400_000_000, margin: -14.3,
-    status: 'at_risk', start_date: '2026-05-10',
-    cost_breakdown: { materials: 2_000_000_000, transactions: 800_000_000, commissions: 400_000_000 },
-  },
-];
-
-// Đồng bộ "câu chuyện số" demo toàn app (nguồn duy nhất: DEMO_PNL_SUMMARY trong lib/demo-data.ts —
-// YTD 687,4 tỷ ≈ 98 tỷ/tháng, khớp dashboard CEO). Danh sách RAW ở trên chỉ giữ cấu trúc + tỷ lệ
-// cost_breakdown; số tiền được thay bằng số chuẩn theo project_id để /pl không lệch trang chủ.
-const PL_TARGETS = new Map(DEMO_PNL_SUMMARY.revenue_by_project.map(p => [p.project_id, p]));
-const MOCK_PROJECT_PL: ProjectPL[] = MOCK_PROJECT_PL_RAW.map(p => {
-  const t = PL_TARGETS.get(p.project_id);
-  if (!t) return p;
-  const rawCost = (p as any).costs || (p as any).cost || 0;
-  const tCost = (t as any).costs || (t as any).cost || 0;
-  const k = rawCost > 0 ? tCost / rawCost : 1;
-  const materials = Math.round((p.cost_breakdown?.materials || 0) * k / 10_000_000) * 10_000_000;
-  const commissions = Math.round((p.cost_breakdown?.commissions || 0) * k / 10_000_000) * 10_000_000;
-  return {
-    ...p,
-    revenue: t.revenue, costs: t.cost, profit: t.profit, margin: t.margin_pct,
-    cost_breakdown: p.cost_breakdown ? { materials, commissions, transactions: t.cost - materials - commissions } : p.cost_breakdown,
-  };
-});
 
 // ── Helper: compute summary from a list of projects ────────
 function computeSummary(items: ProjectPL[]): CompanyPLSummary {
@@ -321,7 +118,7 @@ function PLSkeleton() {
 
 // ── Main Page ──────────────────────────────────────────────
 export default function PLPage() {
-  const { user, loading, isDemo } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [allProjects, setAllProjects] = useState<ProjectPL[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -356,45 +153,41 @@ export default function PLPage() {
   useEffect(() => {
     if (!user) return;
     api.getReceivables().then(setReceivables).catch(() => setReceivables(null));
-  }, [user, isDemo]);
+  }, [user]);
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
-      if (isDemo) {
-        setAllProjects(MOCK_PROJECT_PL);
-      } else {
-        try {
-          const p = await api.getPnLProjects();
-          const normalizedProjects: ProjectPL[] = (p || []).map((item: any) => ({
-            project_id: item.project_id || '',
-            project_code: item.project_code || '',
-            project_name: item.project_name || '',
-            revenue: item.revenue || 0,
-            // Backend trả `total_cost` (schemas/pl.py) — đọc `costs` sẽ luôn 0 → biên LN 100% giả
-            costs: item.total_cost ?? item.costs ?? 0,
-            profit: item.profit || 0,
-            margin: item.margin_pct || item.margin || 0,
-            status: item.status || 'active',
-            // Không bịa ngày 01/01 — để rỗng thì bộ lọc kỳ giữ lại dự án (nhánh isNaN)
-            start_date: item.start_date || '',
-            contract_value: Number(item.contract_value) || 0,
-          }));
-          setAllProjects(normalizedProjects);
-          setPlError('');
-        } catch {
-          // TUYỆT ĐỐI không rơi về MOCK ở chế độ Làm việc — kế toán sẽ nhìn số bịa
-          // tưởng là thật (audit 22/07). Hiện lỗi rõ ràng, danh sách để trống.
-          setAllProjects([]);
-          setPlError('Không tải được số liệu P&L từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
-        }
+      try {
+        const p = await api.getPnLProjects();
+        const normalizedProjects: ProjectPL[] = (p || []).map((item: PnLProject & { contract_value?: number | string }) => ({
+          project_id: item.project_id || '',
+          project_code: item.project_code || '',
+          project_name: item.project_name || '',
+          revenue: item.revenue || 0,
+          // Backend trả `total_cost` (schemas/pl.py) — đọc `costs` sẽ luôn 0 → biên LN 100% giả
+          costs: item.total_cost ?? item.costs ?? 0,
+          profit: item.profit || 0,
+          margin: item.margin_pct || item.margin || 0,
+          status: item.status || 'active',
+          // Không bịa ngày 01/01 — để rỗng thì bộ lọc kỳ giữ lại dự án (nhánh isNaN)
+          start_date: item.start_date || '',
+          contract_value: Number(item.contract_value) || 0,
+        }));
+        setAllProjects(normalizedProjects);
+        setPlError('');
+      } catch {
+        // TUYỆT ĐỐI không rơi về số mẫu — kế toán sẽ nhìn số bịa
+        // tưởng là thật (audit 22/07). Hiện lỗi rõ ràng, danh sách để trống.
+        setAllProjects([]);
+        setPlError('Không tải được số liệu P&L từ máy chủ. Vui lòng tải lại trang hoặc báo kỹ thuật.');
       }
     } catch (e) {
       console.warn('P&L API error:', e);
     } finally {
       setLoadingData(false);
     }
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
     if (user) void Promise.resolve().then(fetchData);
@@ -467,7 +260,8 @@ export default function PLPage() {
     }
   };
 
-  const SortIcon = ({ field }: { field: string }) => (
+  // Hàm render, không phải component lồng trong render (React coi mỗi lần là component mới)
+  const sortIcon = (field: string) => (
     <span className="ml-1 inline-block text-[10px]" style={{ opacity: sortBy === field ? 1 : 0.3 }}>
       {sortBy === field ? (sortAsc ? '▲' : '▼') : '▲▼'}
     </span>
@@ -529,11 +323,6 @@ export default function PLPage() {
               Phân tích lợi nhuận theo dự án và toàn công ty
             </p>
           </div>
-          {isDemo && (
-            <div className="px-3 py-1.5 rounded-lg text-center" style={{ background: 'var(--warning-bg)', border: '1px solid rgba(251,191,36,0.2)' }}>
-              <span className="text-[0.6875rem] font-semibold" style={{ color: 'var(--warning)' }}>TẬP LUYỆN</span>
-            </div>
-          )}
         </div>
 
         {plError && (
@@ -836,20 +625,20 @@ export default function PLPage() {
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('revenue')}
                       >
-                        Doanh thu <SortIcon field="revenue" />
+                        Doanh thu {sortIcon('revenue')}
                       </th>
                       <th className="text-right p-3 text-xs text-[var(--text-muted)]">Chi phí</th>
                       <th
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('profit')}
                       >
-                        Lợi nhuận <SortIcon field="profit" />
+                        Lợi nhuận {sortIcon('profit')}
                       </th>
                       <th
                         className="text-right p-3 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
                         onClick={() => toggleSort('margin')}
                       >
-                        Biên LN <SortIcon field="margin" />
+                        Biên LN {sortIcon('margin')}
                       </th>
                     </tr>
                   </thead>
