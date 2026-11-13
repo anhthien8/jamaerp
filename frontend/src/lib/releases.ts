@@ -15,6 +15,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '14/11/2026',
+    title: 'Làm việc ngay trên tin Telegram: nút bấm + hẹn tiếp',
+    tag: 'MỚI',
+    news: [
+      'Mọi tin nhắc việc của bot có nút «Mở ERP»: bấm là mở thẳng đúng khách, dự án hoặc việc đó trên điện thoại.',
+    ],
+    fixes: [
+      'Nhắc việc không còn «im» khi bạn chưa mở thông báo cũ: việc chưa xong thì mỗi sáng nhắc một lần (HĐLĐ sắp hết hạn: mỗi tuần; bảo hành: mỗi mốc một lần).',
+    ],
+    test: [
+      'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',
+    ],
+  },
+  {
     date: '13/11/2026',
     title: 'Giữ đăng nhập 7 ngày + đăng xuất các thiết bị khác',
     tag: 'MỚI',

@@ -109,6 +109,26 @@ class TestFollowupReminders:
         )).scalar()
         assert count == 1
 
+    async def test_nhac_lai_du_thong_bao_cu_chua_doc(self, db_session, sales_user):
+        """R00: thông báo cũ CHƯA ĐỌC nhưng đã quá khung chống trùng → vẫn nhắc lần 2
+        (trước đây người không mở app chỉ được nhắc đúng một lần)."""
+        lead = _make_lead(sales_user.id, days_since_contact=5)
+        db_session.add(lead)
+        db_session.add(Notification(
+            user_id=sales_user.id, type="followup_reminder", title="Nhắc hôm qua", body="",
+            ref_id=lead.id, read=False, created_at=_days_ago(1),
+        ))
+        await db_session.commit()
+
+        result = await run_followup_reminders(db_session)
+        await db_session.commit()
+
+        assert result["reminded"] == 1
+        count = (await db_session.execute(
+            select(func.count(Notification.id)).where(Notification.user_id == sales_user.id)
+        )).scalar()
+        assert count == 2
+
     async def test_unassigned_lead_skipped(self, db_session, sales_user):
         lead = _make_lead(sales_user.id, days_since_contact=5)
         lead.assigned_to = None

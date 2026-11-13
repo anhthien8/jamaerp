@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '25/10/2026';
+export const GUIDE_UPDATED = '14/11/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -1480,6 +1480,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "tip",
         "text": "**Không nhận được tin bot?** Admin vào **Tài khoản** → thẻ **«Chưa nhận được tin bot»** xem ai đang bị Telegram từ chối (chưa bấm Start, đã chặn bot, ID sai) và ai chưa gán Telegram. Người đó mở bot bấm **Start** là lần gửi sau tự rời danh sách. Nhóm công ty lên supergroup thì app tự đổi ID nhóm, không cần cấu hình lại."
+      },
+      {
+        "type": "tip",
+        "text": "**Nút «Mở ERP» trên mọi tin nhắc việc:** bấm là mở thẳng đúng khách, dự án hoặc việc đó trên điện thoại, khỏi tìm. Việc chưa xong thì bot nhắc lại mỗi sáng **kể cả khi bạn chưa mở thông báo cũ** (HĐLĐ sắp hết hạn nhắc mỗi tuần, bảo hành nhắc mỗi mốc một lần)."
       },
       {
         "type": "h3",

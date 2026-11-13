@@ -17,7 +17,7 @@ from app.models.contract import Contract
 from app.models.project import Project
 from app.models.user import User
 from app.models.notification import Notification, SystemSetting, DEFAULT_AUTOMATION_SETTINGS
-from app.services.telegram_notify import send_telegram
+from app.services.telegram_notify import ban_phim, send_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,13 @@ def _int_setting(settings: dict[str, str], key: str, default: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Notification helper (with dedupe on unread same type+ref)
+# Notification helper (chống trùng theo khung giờ cùng loại + ref)
 # ---------------------------------------------------------------------------
+
+# Job hằng ngày chạy ~07:00; redeploy trong ngày chạy lại job → 20 giờ đủ chặn tin trùng
+# trong ngày mà sáng hôm sau vẫn nhắc tiếp.
+NHAC_LAI_SAU_GIO = 20.0
+
 
 async def _notify(
     db: AsyncSession,
@@ -64,8 +69,16 @@ async def _notify(
     link: str | None = None,
     ref_id: str | None = None,
     telegram: bool = True,
+    nut: list[list[dict]] | None = None,
+    nhac_lai_sau_gio: float = NHAC_LAI_SAU_GIO,
 ) -> bool:
-    """Create in-app notification (dedupe unread) + optional Telegram push."""
+    """Thông báo trong app + đẩy Telegram (kèm nút).
+
+    Chống trùng (R00, 14/11/2026): cùng người + loại + ref đã gửi trong `nhac_lai_sau_gio`
+    giờ thì bỏ qua — KHÔNG còn xét «đã đọc chưa». Trước đây người không mở app chỉ được
+    nhắc đúng một lần, người chăm đọc lại bị nhắc mỗi sáng; giờ ai cũng theo một nhịp.
+    Tin Telegram có các hàng nút `nut` + nút «Mở ERP» trỏ thẳng `link`.
+    """
     if user is None:
         return False
 
@@ -74,14 +87,14 @@ async def _notify(
     if len(title) > 255:
         title = title[:254] + "…"
 
-    # Dedupe: skip if an unread notification of same type+ref exists
     if ref_id:
+        moc = datetime.now(timezone.utc) - timedelta(hours=nhac_lai_sau_gio)
         existing = await db.execute(
             select(func.count(Notification.id)).where(
                 Notification.user_id == user.id,
                 Notification.type == type_,
                 Notification.ref_id == ref_id,
-                Notification.read == False,  # noqa: E712
+                Notification.created_at >= moc,
             )
         )
         if (existing.scalar() or 0) > 0:
@@ -95,7 +108,9 @@ async def _notify(
     await db.flush()
 
     if telegram and user.telegram_user_id:
-        await send_telegram(user.telegram_user_id, f"<b>{title}</b>\n{body}")
+        await send_telegram(
+            user.telegram_user_id, f"<b>{title}</b>\n{body}", reply_markup=ban_phim(nut, link),
+        )
     return True
 
 
@@ -370,7 +385,7 @@ async def run_warranty_reminders(db: AsyncSession) -> dict:
     """Nhắc sales/PM chăm sóc khách trước khi hết hạn bảo hành.
 
     warranty_end = handover_date + warranty_months. Nhắc ở mốc còn 30 ngày và
-    7 ngày (dedupe qua _notify unread cùng type+ref). Cơ hội bán gói bảo trì.
+    7 ngày (mỗi mốc 1 lần — ref có tên mốc). Cơ hội bán gói bảo trì.
     """
     now = datetime.now(timezone.utc)
     result = await db.execute(
@@ -403,6 +418,7 @@ async def run_warranty_reminders(db: AsyncSession) -> dict:
             if await _notify(
                 db, u, "warranty_reminder", title, body,
                 link=f"/projects?id={p.id}", ref_id=f"{p.id}:{milestone}",
+                nhac_lai_sau_gio=24 * 31,  # mỗi mốc 30/7 ngày chỉ nhắc 1 lần
             ):
                 notified += 1
 

@@ -79,8 +79,45 @@ async def _ghi_loi(chat_id: int, ly_do: str | None) -> None:
         logger.debug("Không ghi được trạng thái gửi Telegram: %s", exc)
 
 
-async def send_telegram(chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
-    """Send a Telegram message. Returns True on success, False otherwise."""
+_ERP_MAC_DINH = "https://crm.jamahome.vn"
+
+
+def erp_url(link: str | None) -> str | None:
+    """Link ERP tuyệt đối cho nút «Mở ERP». Telegram từ chối nút trỏ localhost/http,
+    nên máy dev (FRONTEND_URL=localhost) vẫn trỏ về ERP thật."""
+    if not link:
+        return None
+    if link.startswith("https://"):
+        return link
+    if link.startswith("http://"):
+        return None
+    base = (get_settings().FRONTEND_URL or "").rstrip("/")
+    if not base.startswith("https://") or "localhost" in base or "127.0.0.1" in base:
+        base = _ERP_MAC_DINH
+    return f"{base}/{link.lstrip('/')}"
+
+
+def ban_phim(nut: list[list[dict]] | None = None, link: str | None = None) -> dict | None:
+    """InlineKeyboardMarkup: các hàng nút `nut` + hàng «Mở ERP» cuối cùng (khi có link)."""
+    hang = [list(h) for h in (nut or []) if h]
+    url = erp_url(link)
+    if url:
+        hang.append([{"text": "Mở ERP", "url": url}])
+    return {"inline_keyboard": hang} if hang else None
+
+
+def _loi_do_nut(desc: str) -> bool:
+    d = (desc or "").lower()
+    return any(k in d for k in ("button", "markup", "keyboard"))
+
+
+async def send_telegram(
+    chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: dict | None = None,
+) -> bool:
+    """Gửi 1 tin Telegram (kèm nút bấm `reply_markup` nếu có). True khi gửi được.
+
+    Nút bị Telegram từ chối (URL/callback sai) thì gửi lại KHÔNG nút — tin vẫn phải tới.
+    """
     settings = get_settings()
     token = settings.TELEGRAM_BOT_TOKEN
     if not token or not chat_id:
@@ -89,11 +126,11 @@ async def send_telegram(chat_id: int, text: str, parse_mode: str = "HTML") -> bo
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            for _ in range(2):  # lần 2 chỉ khi nhóm vừa đổi sang supergroup
-                resp = await client.post(
-                    _TELEGRAM_API.format(token=token),
-                    json={"chat_id": chat_id, "text": text, "parse_mode": parse_mode},
-                )
+            for _ in range(3):  # gửi lại khi nhóm vừa lên supergroup / nút bị từ chối
+                payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+                if reply_markup:
+                    payload["reply_markup"] = reply_markup
+                resp = await client.post(_TELEGRAM_API.format(token=token), json=payload)
                 if resp.status_code == 200:
                     if int(chat_id) > 0:
                         await _ghi_loi(chat_id, None)
@@ -106,6 +143,10 @@ async def send_telegram(chat_id: int, text: str, parse_mode: str = "HTML") -> bo
                 if moi and int(moi) != int(chat_id):
                     await _doi_id_nhom(int(chat_id), int(moi))
                     chat_id = int(moi)
+                    continue
+                if reply_markup and resp.status_code == 400 and _loi_do_nut(body.get("description") or ""):
+                    logger.warning("Telegram từ chối nút: %s — gửi lại không nút", body.get("description"))
+                    reply_markup = None
                     continue
                 break
             desc = body.get("description") or resp.text[:200]

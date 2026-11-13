@@ -773,8 +773,8 @@ async def process_attendance_auto_close() -> dict[str, Any]:
 async def process_contract_expiry_notify() -> dict[str, Any]:
     """08:00 VN hàng ngày — nhắc admin/kế toán HĐLĐ sắp hết hạn trong 30 ngày.
 
-    _notify tự dedupe theo (type, ref_id) chưa đọc — mỗi hợp đồng chỉ nhắc lại
-    sau khi người nhận đã đọc thông báo cũ, không spam mỗi sáng.
+    Mỗi hợp đồng nhắc lại mỗi tuần (`nhac_lai_sau_gio`), không spam mỗi sáng
+    (14/11/2026: _notify chống trùng theo khung giờ, không còn theo «chưa đọc»).
     """
     logger.info("Starting contract expiry notification...")
     try:
@@ -826,6 +826,7 @@ async def process_contract_expiry_notify() -> dict[str, Any]:
                             ),
                             link=f"/hr/nhan-vien?id={employee.id}",
                             ref_id=f"contract-{employee.id}-{profile.contract_end_date}",
+                            nhac_lai_sau_gio=24 * 7 - 4,  # ~1 tuần/lần, trừ hao giờ chạy lệch
                         )
                         notified += 1 if ok else 0
             await session.commit()
