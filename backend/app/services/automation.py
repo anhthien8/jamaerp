@@ -70,6 +70,11 @@ async def _notify(
     if user is None:
         return False
 
+    # Cột title là String(255): Postgres báo lỗi khi dài hơn (SQLite thì không),
+    # kéo cả thao tác giao việc đổ theo. Cắt cho vừa.
+    if len(title) > 255:
+        title = title[:254] + "…"
+
     # Dedupe: skip if an unread notification of same type+ref exists
     if ref_id:
         existing = await db.execute(

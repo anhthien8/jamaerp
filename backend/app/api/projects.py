@@ -604,6 +604,44 @@ async def _thong_bao_du_an_moi(db: AsyncSession, project: Project, nguoi_tao: Us
         ))
 
 
+# Cột PIC của dự án → tên vai để ghi vào thông báo.
+NHAN_PIC: dict[str, str] = {
+    "pm_id": "Giám sát",
+    "designer_id": "Thiết kế",
+    "sales_id": "Kinh doanh",
+    "purchasing_id": "Báo giá – Thu mua",
+}
+
+
+async def _thong_bao_gan_pic(
+    db: AsyncSession, project: Project, pic_cu: dict[str, str | None], actor: User
+) -> int:
+    """Gắn / đổi PIC dự án → báo cho người vừa được gắn (chuông + Telegram + push).
+
+    Trước 13/11/2026 đường này im lặng: quản lý gắn nhân viên vào dự án xong,
+    nhân viên không hề hay biết.
+    """
+    from app.services.automation import _notify
+
+    dem = 0
+    for cot, vai in NHAN_PIC.items():
+        moi = getattr(project, cot, None)
+        if not moi or moi == pic_cu.get(cot) or moi == actor.id:
+            continue
+        nguoi = await db.get(User, moi)
+        if nguoi is None or not nguoi.is_active:
+            continue
+        if await _notify(
+            db, nguoi, "project_assigned",
+            f"Bạn được gắn phụ trách {vai}: {project.name}",
+            f"{project.code} — {project.client_name or ''}\nNgười gắn: {actor.full_name}",
+            link=f"/projects?id={project.id}",
+            ref_id=f"pic-{cot}-{project.id}",
+        ):
+            dem += 1
+    return dem
+
+
 @router.put("/{project_id}", response_model=ProjectResponse)
 async def update_project(
     project_id: str,
@@ -631,12 +669,16 @@ async def update_project(
                 detail="Chỉ Trưởng phòng Kinh doanh hoặc Ban Giám đốc được đánh dấu «Khách riêng của sale».",
             )
 
+    pic_cu = {cot: getattr(project, cot, None) for cot in NHAN_PIC}
+
     for k, v in data.model_dump(exclude_unset=True).items():
         if k == "khach_rieng" and v is None:
             continue
         setattr(project, k, v)
     project.updated_at = datetime.now(timezone.utc)
     await db.flush()
+
+    await _thong_bao_gan_pic(db, project, pic_cu, current_user)
 
     # Invalidate caches if stage or status was changed
     update_fields = data.model_dump(exclude_unset=True)

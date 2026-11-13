@@ -245,7 +245,7 @@ async def list_leads(
     q = q.outerjoin(act_count_sq, Lead.id == act_count_sq.c.lead_id)
     q = q.add_columns(act_count_sq.c.activity_count)
 
-    q = q.order_by(Lead.updated_at.desc())
+    q = q.order_by(Lead.updated_at.desc(), Lead.id)
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     rows = result.all()

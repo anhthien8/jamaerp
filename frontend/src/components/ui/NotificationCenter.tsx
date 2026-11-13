@@ -147,6 +147,7 @@ const SERVER_NOTIF_ICONS: Record<string, string> = {
   system: 'bell',
   // Đầu việc dự án (13/10/2026)
   task_assigned: 'user',
+  project_assigned: 'user',
   task_overdue: 'alarm',
   task_sla_breach: 'alert',
   task_escalated: 'megaphone',
@@ -156,7 +157,7 @@ const SERVER_NOTIF_ICONS: Record<string, string> = {
 // không trộn vào «Gần đây» rồi trôi mất.
 const SERVER_ACTION_TYPES = new Set([
   'followup_reminder', 'lead_recalled', 'payment_reminder',
-  'task_assigned', 'task_overdue', 'task_sla_breach', 'task_escalated',
+  'task_assigned', 'project_assigned', 'task_overdue', 'task_sla_breach', 'task_escalated',
 ]);
 
 function isDemoMode(): boolean {
@@ -240,13 +241,20 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     const merged = [...serverNotifs, ...generated];
     merged.sort((a, b) => {
       if (a.group !== b.group) return a.group === 'action_required' ? -1 : 1;
+      // Thông báo THẬT (được giao việc, nhắc hạn…) luôn nằm trên các dòng app tự
+      // sinh («Lead quá hạn», «Tiến độ thấp») — trước 13/11 chúng trộn lẫn nhau.
+      const aThat = a.id.startsWith('srv-'), bThat = b.id.startsWith('srv-');
+      if (aThat !== bThat) return aThat ? -1 : 1;
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
     return merged;
   }, [leads, projects, readIds, serverNotifs]);
 
+  // Số trên chuông chỉ đếm thông báo THẬT gửi cho mình. Trước 13/11 nó cộng cả
+  // mọi lead chưa liên hệ ≥3 ngày nên lúc nào cũng «99+» — được giao việc mới
+  // cũng không ai nhận ra. Bản demo không có máy chủ nên vẫn đếm dòng tự sinh.
   const unreadCount = useMemo(
-    () => notifications.filter(n => !n.read).length,
+    () => notifications.filter(n => !n.read && (isDemoMode() || n.id.startsWith('srv-'))).length,
     [notifications],
   );
 

@@ -3729,7 +3729,16 @@ export async function fetchAllPages<T>(
     const next = await fetchPage({ ...params, page: String(p), page_size: String(pageSize) });
     items.push(...extractItems(next));
   }
-  return items;
+  // Dữ liệu đổi giữa hai lần gọi trang (ai đó vừa sửa 1 dòng) → dòng trượt sang
+  // trang sau và bị tải 2 lần — kanban Lead của TP Kinh doanh hiện thẻ trùng (13/11).
+  const daCo = new Set<unknown>();
+  return items.filter(it => {
+    const id = (it as { id?: unknown }).id;
+    if (id == null) return true;
+    if (daCo.has(id)) return false;
+    daCo.add(id);
+    return true;
+  });
 }
 
 // Export singleton instance
