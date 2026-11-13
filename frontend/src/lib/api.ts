@@ -40,16 +40,34 @@ const ENDPOINT_CONG_KHAI = ['/auth/login', '/auth/telegram', '/auth/forgot-passw
 let daXuLyHetPhien = false;
 
 /**
+ * Token trong máy đã được thay bằng một token KHÁC (không phải bị xoá) kể từ lúc gửi request.
+ *
+ * Xảy ra khi máy này vừa nhận token mới qua X-Phien-Moi (gia hạn hằng ngày, đổi mật khẩu,
+ * «Đăng xuất các thiết bị khác») trong lúc một request cũ — vd thông báo tự tải mỗi 60
+ * giây — còn đang bay bằng token trước đó. Backend cắt phiên theo mốc thời gian nên
+ * request cũ trả 401, nhưng máy này vẫn đăng nhập hợp lệ bằng token mới.
+ */
+function tokenDaDuocThay(tokenDaGui: string | null | undefined): boolean {
+  if (typeof window === 'undefined' || !tokenDaGui) return false;
+  const hienTai = localStorage.getItem('jama_token');
+  return !!hienTai && hienTai !== tokenDaGui;
+}
+
+/**
  * Token hết hạn hoặc không hợp lệ (401) → xóa phiên chết, đưa về trang đăng nhập.
  *
  * Trước đây 401 chỉ bị ném ra như một lỗi thường: vỏ ứng dụng vẫn dựng lại từ
  * localStorage (còn tên, còn menu) trong khi mọi lời gọi đều hỏng, nên người dùng
  * chỉ thấy "Không thể tải dữ liệu. Vui lòng thử lại." ở mọi trang và bấm "Thử lại"
  * cũng vô ích vì vẫn gửi đúng cái token đã chết đó.
+ *
+ * `tokenDaGui` là token đã kèm theo request bị 401: nếu trong máy đã có token khác thì
+ * 401 đó thuộc về token cũ — giữ nguyên phiên mới, không đá người dùng ra.
  */
-function xuLyHetPhien(endpoint: string) {
+function xuLyHetPhien(endpoint: string, tokenDaGui?: string | null) {
   if (typeof window === 'undefined') return;
   if (ENDPOINT_CONG_KHAI.some(p => endpoint.startsWith(p))) return;
+  if (tokenDaDuocThay(tokenDaGui)) return;
   if (daXuLyHetPhien) return;
   daXuLyHetPhien = true;
   localStorage.removeItem('jama_token');
@@ -100,14 +118,29 @@ class ApiClient {
       url += `?${searchParams.toString()}`;
     }
 
-    const res = await fetch(url, {
+    const guiDi = (t: string | null) => fetch(url, {
       method,
-      headers: this.headers(token),
+      headers: this.headers(t ?? undefined),
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    // Phiên trượt (13/08/2026): token qua nửa đời (12h → còn < 6h) thì backend kèm
-    // token mới trong header X-Phien-Moi — lưu đè để phiên tự dài ra theo giờ làm.
+    let tokenDaGui = token || this.getToken();
+    let res = await guiDi(tokenDaGui);
+
+    // 401 vì token cũ vừa bị thay trong lúc request đang bay (gia hạn, đổi mật khẩu,
+    // «Đăng xuất các thiết bị khác») → gửi lại đúng 1 lần bằng token mới. An toàn vì
+    // 401 của phiên bị chặn ở get_current_user, trước khi handler kịp ghi gì. Endpoint
+    // công khai (đăng nhập…) thì 401 là sai mật khẩu → không gửi lại.
+    if (
+      res.status === 401 && !token && tokenDaDuocThay(tokenDaGui)
+      && !ENDPOINT_CONG_KHAI.some(p => endpoint.startsWith(p))
+    ) {
+      tokenDaGui = this.getToken();
+      res = await guiDi(tokenDaGui);
+    }
+
+    // Phiên trượt (13/08/2026, nới 13/11/2026): token đã dùng quá 24 tiếng (đời 7 ngày)
+    // thì backend kèm token mới trong header X-Phien-Moi — lưu đè để phiên tự dài ra.
     // Chỉ lưu khi đang dùng token phiên (không phải token truyền tay qua options).
     const tokenMoi = res.headers.get('X-Phien-Moi');
     if (tokenMoi && !token && typeof window !== 'undefined') {
@@ -116,7 +149,7 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-      if (res.status === 401) xuLyHetPhien(endpoint);
+      if (res.status === 401) xuLyHetPhien(endpoint, tokenDaGui);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
 
@@ -322,7 +355,7 @@ class ApiClient {
     if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Tải ảnh thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/media/upload-batch');
+      if (res.status === 401) xuLyHetPhien('/media/upload-batch', t);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
     return res.json() as Promise<{ items: (MediaFile & { deduped: boolean })[]; deduped_count: number }>;
@@ -347,7 +380,7 @@ class ApiClient {
     if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Tải mẫu lên thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/contract-templates');
+      if (res.status === 401) xuLyHetPhien('/contract-templates', t);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
     return res.json() as Promise<{ items: ContractTemplate[]; created: number; replaced: number }>;
@@ -362,7 +395,7 @@ class ApiClient {
       headers: t ? { Authorization: `Bearer ${t}` } : {},
     });
     if (!res.ok) {
-      if (res.status === 401) xuLyHetPhien('/contract-templates');
+      if (res.status === 401) xuLyHetPhien('/contract-templates', t);
       throw new ApiError(`HTTP ${res.status}`, res.status);
     }
     const url = URL.createObjectURL(await res.blob());
@@ -392,7 +425,7 @@ class ApiClient {
     if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Tải tệp lên thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/contracts');
+      if (res.status === 401) xuLyHetPhien('/contracts', t);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
     return res.json() as Promise<{ items: ContractFile[] }>;
@@ -407,7 +440,7 @@ class ApiClient {
     });
     if (!res.ok) {
       tab?.close();
-      if (res.status === 401) xuLyHetPhien('/contracts');
+      if (res.status === 401) xuLyHetPhien('/contracts', t);
       throw new ApiError(`HTTP ${res.status}`, res.status);
     }
     const url = URL.createObjectURL(new Blob([await res.blob()], { type: f.mime }));
@@ -442,7 +475,7 @@ class ApiClient {
     if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Nhập file thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/hr/employees/import-excel');
+      if (res.status === 401) xuLyHetPhien('/hr/employees/import-excel', t);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
     return res.json() as Promise<KetQuaNhapNhanSu>;
@@ -488,7 +521,7 @@ class ApiClient {
     if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Tải file thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/media/task-file');
+      if (res.status === 401) xuLyHetPhien('/media/task-file', t);
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
     return res.json() as Promise<ProjectTask>;
