@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import HuDoanhSo from '@/components/dashboard/HuDoanhSo';
 import PheuQuyTrinh from '@/components/dashboard/PheuQuyTrinh';
+import AiTienHoaTom from '@/components/dashboard/AiTienHoaTom';
 import { api, AccountingSummary, DashboardData, Project } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
@@ -433,6 +434,9 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* AI Tiến Hoá 13/11/2026 — chỉ admin, khớp _chi_quan_tri() backend */}
+        {user.role === 'admin' && <AiTienHoaTom />}
 
         {/* Spec 07 A3 — Dự án đang đến phòng bạn (designer/pm/purchasing) */}
         {ROLE_DEPT[user.role] && deptProjects.length > 0 && (

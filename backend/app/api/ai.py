@@ -21,7 +21,7 @@ from app.models.ai_memory import (
 )
 from app.models.user import User
 from app.models.lead import Lead
-from app.services import ai_memory
+from app.services import ai_memory, ai_tien_hoa
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -213,5 +213,49 @@ async def ghi_nhan_ket_qua(
         note=note.strip() if isinstance(note, str) and note.strip() else None,
     )
     return tom_luoc_ban_ghi(ban)
+
+
+# ---------------------------------------------------------------------------
+# AI Tiến Hoá (13/11/2026) — chỉ quản trị
+# ---------------------------------------------------------------------------
+# Khoá cứng ở admin như Bảng điều khiển Kinh doanh: màn này gom phản hồi của mọi sale
+# và đổi được cách Co-Pilot gợi ý cho cả công ty.
+
+def _chi_quan_tri(user: User) -> None:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ tài khoản quản trị xem được AI Tiến Hoá")
+
+
+@router.get("/tien-hoa")
+async def ai_tien_hoa_bang(
+    so_tuan: int = Query(12, ge=4, le=26),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Số liệu AI Tiến Hoá + danh sách bài học chờ duyệt / đang áp dụng."""
+    _chi_quan_tri(current_user)
+    return await ai_tien_hoa.bang_theo_doi(db, so_tuan=so_tuan)
+
+
+@router.post("/tien-hoa/bai-hoc")
+async def ai_tien_hoa_quyet_bai_hoc(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Duyệt / bỏ qua / gỡ một bài học. Body: {code, huong, quyet_dinh: duyet|tu_choi|go}."""
+    _chi_quan_tri(current_user)
+    try:
+        ban = await ai_tien_hoa.quyet_dinh_bai_hoc(
+            db, current_user,
+            code=str(data.get("code") or ""),
+            huong=data.get("huong"),
+            quyet_dinh=str(data.get("quyet_dinh") or ""),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    # Commit trước khi trả: giao diện tải lại bảng ngay sau POST, commit của get_db chạy sau response
+    await db.commit()
+    return {"ok": True, "bai_hoc": ban}
 
 

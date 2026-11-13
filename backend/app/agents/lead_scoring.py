@@ -275,6 +275,7 @@ async def score_lead_agent(lead_id: str, db: AsyncSession) -> dict:
         if "score" in cu:
             lead.ai_score = float(cu["score"])
             lead.ai_notes = json.dumps(cu, ensure_ascii=False)
+            await ai_memory.ghi_dung_lai(db, ban_cu)
             await db.commit()
             logger.info("Lead %s dùng lại điểm %s từ bộ nhớ (%s)", lead_id, cu["score"], ban_cu.id)
             return cu

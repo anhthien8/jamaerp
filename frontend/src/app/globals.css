@@ -143,6 +143,13 @@
   --stage-lost: #F87171;
   --stage-dormant: #627D98;
 
+  /* Màu chuỗi biểu đồ (AI Tiến Hoá 13/11/2026) — đã chạy bộ kiểm bảng màu dataviz
+     trên nền #111318: đủ dải sáng, đủ độ bão hoà, tách được với người mù màu.
+     Chỉ dùng cho nét/cột/chấm, chữ luôn ăn màu chữ. */
+  --viz-1: #3987E5;
+  --viz-2: #D95926;
+  --viz-grid: rgba(255, 255, 255, 0.07);
+
   /* Transitions */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -204,6 +211,11 @@
   --stage-signed: #855F2D;
   --stage-lost: #B5533C;
   --stage-dormant: #8A8375;
+
+  /* Màu chuỗi biểu đồ — bậc riêng cho nền sáng #FFFFFF, đã qua bộ kiểm bảng màu */
+  --viz-1: #2A78D6;
+  --viz-2: #EB6834;
+  --viz-grid: rgba(74, 62, 40, 0.12);
 }
 
 [data-theme='outdoor'] body {

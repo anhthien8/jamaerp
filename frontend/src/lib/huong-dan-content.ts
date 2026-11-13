@@ -696,6 +696,58 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ]
   },
   {
+    "id": "ai-tien-hoa",
+    "icon": "brain",
+    "title": "«AI Tiến Hoá» — xem AI học được gì và duyệt bài học",
+    "roles": [
+      "Admin"
+    ],
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Chỉ **admin** thấy. Trên **Tổng quan** có khối **«AI Tiến Hoá · 12 tuần»**; bấm **«Xem chi tiết»** hoặc vào menu **Kinh doanh → AI Tiến Hoá** để mở trang đầy đủ. Số liệu lấy từ việc sale bấm **«Đã làm»** hay **«Bỏ qua»** trên gợi ý của Co-Pilot."
+      },
+      {
+        "type": "table",
+        "header": [
+          "Con số",
+          "Nghĩa là"
+        ],
+        "rows": [
+          [
+            "Sale làm theo gợi ý",
+            "Trong các gợi ý đã có phản hồi, bao nhiêu % được làm theo. Số lớn là 4 tuần gần nhất, kèm chênh lệch so với 4 tuần trước"
+          ],
+          [
+            "Dùng lại bộ nhớ",
+            "Bao nhiêu lần AI lấy lại kết quả cũ thay vì gọi model — càng cao càng đỡ tốn lượt gọi"
+          ],
+          [
+            "Do LLM trả lời",
+            "Phần do model AI trả lời; phần còn lại do bộ luật có sẵn (khi AI tắt hoặc model lỗi)"
+          ],
+          [
+            "Loại gợi ý hay bị bỏ qua",
+            "Từng loại (gọi điện, gửi báo giá, hẹn khảo sát…) được làm theo hay bị bỏ qua bao nhiêu lần"
+          ]
+        ]
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Khi một loại gợi ý có từ **5 phản hồi** trở lên và bị bỏ qua **≥ 60%** (hoặc được làm theo **≥ 70%**), AI rút ra một **bài học**: hạ loại đó xuống (hoặc đưa lên trước).",
+          "Bài học hiện ở mục **«Bài học AI rút ra»** với trạng thái **Chờ duyệt**. Bấm **«Duyệt áp dụng»** hoặc **«Bỏ qua»**.",
+          "Đã duyệt thì Co-Pilot xếp lại gợi ý theo bài học và nhắc model AI làm theo. Muốn quay lại như cũ, bấm **«Gỡ bài học»**.",
+          "Nếu số liệu mới nghiêng ngược với bài học đang áp dụng, thẻ hiện cảnh báo và nút **«Đổi sang …»** để bạn quyết."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Không duyệt thì **không có gì thay đổi** — AI chỉ đề xuất. Chọn kỳ 4 / 8 / 12 / 26 tuần ở góc phải; bấm **«Bảng»** cạnh biểu đồ để xem số liệu dạng bảng."
+      }
+    ]
+  },
+  {
     "id": "hop-dong",
     "icon": "wallet",
     "title": "Hợp đồng «Hợp đồng»",

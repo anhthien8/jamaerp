@@ -23,7 +23,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_memory import (
@@ -101,6 +101,21 @@ async def tim_ban_cu(
     if datetime.now(timezone.utc) - tao_luc > timedelta(hours=ttl_gio):
         return None
     return ban
+
+
+async def ghi_dung_lai(db: AsyncSession, ban: AiRun, commit: bool = False) -> None:
+    """Đếm +1 lần trả lời từ bộ nhớ (AI Tiến Hoá đo tỷ lệ này). Lỗi thì bỏ qua."""
+    try:
+        async with db.begin_nested():
+            await db.execute(
+                update(AiRun)
+                .where(AiRun.id == ban.id)
+                .values(so_lan_dung_lai=func.coalesce(AiRun.so_lan_dung_lai, 0) + 1)
+            )
+        if commit:
+            await db.commit()
+    except Exception as exc:
+        logger.debug("Không đếm được lần dùng lại %s: %s", ban.id, exc)
 
 
 async def nho_lai(

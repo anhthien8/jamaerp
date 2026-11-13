@@ -40,6 +40,7 @@ const Icon = {
   approvals: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
   kpi: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /><line x1="4" y1="20" x2="20" y2="20" /></svg>,
   zalo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>,
+  aiTienHoa: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4.5a3.5 3.5 0 0 0-6.8 1.2A3.5 3.5 0 0 0 4 12a3.5 3.5 0 0 0 1.2 6.3A3.5 3.5 0 0 0 12 19.5" /><path d="M12 4.5a3.5 3.5 0 0 1 6.8 1.2A3.5 3.5 0 0 1 20 12a3.5 3.5 0 0 1-1.2 6.3A3.5 3.5 0 0 1 12 19.5" /><path d="M12 4.5v15" /></svg>,
   salesDashboard: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 12l4-4" /><path d="M12 2v2" /><path d="M22 12h-2" /><path d="M4 12H2" /></svg>,
 };
 
@@ -82,6 +83,8 @@ const ALL_ITEMS: NavItem[] = [
   ...(SHOW_SALES_DASHBOARD
     ? [{ href: '/sale-dashboard', label: 'Bảng KD', icon: Icon.salesDashboard, roles: VAI_TRO_SALE_DASHBOARD }]
     : []),
+  // AI Tiến Hoá 13/11/2026 — khớp _chi_quan_tri() backend (api/ai.py): chỉ admin
+  { href: '/ai-tien-hoa', label: 'AI Tiến Hoá', icon: Icon.aiTienHoa, roles: ['admin'] },
   // Trợ lý Zalo — BGĐ + trưởng phòng; khớp pham_vi_zalo() backend (zalo_assistant.py)
   { href: '/tro-ly-zalo', label: 'Trợ lý Zalo', icon: Icon.zalo, check: duocXemTroLyZalo },
   { href: '/pl', label: 'P&L', icon: Icon.pnl, perm: 'canViewPnL' },
@@ -106,7 +109,7 @@ const ALL_ITEMS: NavItem[] = [
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
   { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/kpi'] },
-  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
+  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/ai-tien-hoa', '/tro-ly-zalo'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
