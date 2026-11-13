@@ -831,6 +831,29 @@ async def list_telegram_contacts(
     return out
 
 
+@router.get("/telegram-khong-nhan")
+async def telegram_khong_nhan(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nhân viên đang không nhận được tin bot (13/11/2026): đã gán Telegram nhưng lần gửi gần
+    nhất bị từ chối (chưa bấm Start, chặn bot, ID sai) + người chưa gán Telegram."""
+    from app.services.telegram_notify import ds_loi_gui
+
+    if not (await quyen_hieu_luc(current_user, db)).get("canManageUsers"):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    loi = await ds_loi_gui(db)
+    users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.full_name))).scalars().all()
+    bi_tu_choi = [
+        {"id": u.id, "full_name": u.full_name, "department": u.department,
+         "telegram_user_id": u.telegram_user_id, **loi[str(u.telegram_user_id)]}
+        for u in users if u.telegram_user_id and str(u.telegram_user_id) in loi
+    ]
+    chua_gan = [{"id": u.id, "full_name": u.full_name, "department": u.department}
+                for u in users if not u.telegram_user_id]
+    return {"bi_tu_choi": bi_tu_choi, "chua_gan": chua_gan}
+
+
 class LinkTelegramBody(BaseModel):
     tg_user_id: int
 

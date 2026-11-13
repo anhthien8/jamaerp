@@ -137,6 +137,12 @@ def _ung_vien_theo_luat(lead: Lead, activities: list[Activity], so_ngay_im_lang:
                 "vào [ngày]. Thời gian khoảng 30-45 phút ạ."
             ),
         },
+        "surveyed": {
+            "code": "proposal",
+            "action": "Gửi báo giá sau khảo sát",
+            "reason": "Đã khảo sát xong, cần gửi báo giá sớm khi khách còn nhớ",
+            "message_template": None,
+        },
         "survey_scheduled": {
             "code": "meeting",
             "action": "Xác nhận lịch khảo sát và chuẩn bị hồ sơ",

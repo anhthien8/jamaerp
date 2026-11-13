@@ -29,6 +29,7 @@ async def cmd_briefing(message: types.Message):
         stage_labels = {
             "new": "🆕 Mới",
             "interested": "💡 Có nhu cầu",
+            "surveyed": "📐 Đã khảo sát",
             "survey_scheduled": "📅 Hẹn khảo sát",
             "potential": "⭐ Tiềm năng",
         }

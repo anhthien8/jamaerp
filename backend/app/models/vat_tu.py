@@ -32,8 +32,10 @@ TRANG_THAI_DONG = (
     "het_hang",              # NCC báo hết → kèm mẫu thay thế
     "cho_khach_duyet_lai",   # đã có mẫu thay, chờ khách đồng ý
     "da_chot_gia",           # Thu mua chốt giá vốn + giá bán
+    "cho_duyet_dat",         # đơn vượt báo giá/ngân sách — chờ Leader Thu mua duyệt (13/11)
     "da_dat",                # đã đặt hàng
-    "da_giao",               # đã giao công trình
+    "giao_thieu",            # Giám sát xác nhận hàng về THIẾU — chờ giao bù
+    "da_giao",               # Giám sát xác nhận hàng về đủ
     "huy",
 )
 NHAN_TRANG_THAI = {
@@ -42,10 +44,17 @@ NHAN_TRANG_THAI = {
     "het_hang": "Hết hàng — đề xuất thay",
     "cho_khach_duyet_lai": "Chờ khách duyệt lại",
     "da_chot_gia": "Đã chốt giá",
+    "cho_duyet_dat": "Chờ Leader Thu mua duyệt",
     "da_dat": "Đã đặt hàng",
+    "giao_thieu": "Giao thiếu",
     "da_giao": "Đã giao",
     "huy": "Huỷ",
 }
+# Giá khung (giá vốn gần nhất / giá đã chốt) quá số ngày này = «giá cũ», phải hỏi
+# lại NCC trước khi đặt (chốt 13/11/2026: trung bình 60 ngày).
+SO_NGAY_GIA_CU = 60
+# Giám sát phải chụp tối thiểu ngần này ảnh hiện trường mới xác nhận được hàng về.
+SO_ANH_NHAN_HANG_TOI_THIEU = 2
 
 
 class MauVatTu(Base):
@@ -144,6 +153,24 @@ class DongPhieuVatTu(Base):
     khach_ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
     ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
     can_ngay: Mapped[date | None] = mapped_column(Date, nullable=True)  # công trình cần hàng trước ngày
+    # ── Đặt hàng – duyệt – nhận hàng (13/11/2026) ──
+    # Đơn đặt đối chiếu với báo giá: khối lượng ≤ so_luong, đơn giá ≤ gia_von đã chốt,
+    # không đội ngân sách dự án → tự qua; vượt bất kỳ mức nào → Leader Thu mua duyệt.
+    sl_dat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gia_dat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dat_boi: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    dat_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ly_do_vuot: Mapped[str | None] = mapped_column(Text, nullable=True)       # máy ghi: vượt gì, bao nhiêu
+    duyet_dat_boi: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    duyet_dat_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    tu_choi_dat_ly_do: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Nhận hàng tại công trình: Giám sát xác nhận đủ/thiếu kèm ≥2 ảnh hiện trường.
+    nhan_ket_qua: Mapped[str | None] = mapped_column(String(10), nullable=True)  # du | thieu
+    sl_nhan: Mapped[float | None] = mapped_column(Float, nullable=True)
+    nhan_boi: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    nhan_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    nhan_ghi_chu: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nhan_anh_ids: Mapped[str | None] = mapped_column(Text, nullable=True)        # JSON list id media_files
     thu_tu: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)

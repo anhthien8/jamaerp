@@ -10,7 +10,7 @@ from app.database import Base
 
 
 # Stage values — 6 active stages + 2 end states
-LEAD_STAGES = ["new", "interested", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
+LEAD_STAGES = ["new", "interested", "surveyed", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
 
 # Ba mức ngân sách trên form thêm lead (chủ dự án chốt 22/09/2026). Lưu KHÓA
 # chứ không lưu nhãn — đổi cách gọi trên giao diện thì khỏi migration dữ liệu.
@@ -121,10 +121,11 @@ class Lead(Base):
 # Nới theo thực tế sales (feedback beta 22/07): khách có thể chốt tắt/quay lùi bước,
 # máy trạng thái 1-bước-tiến cũ khiến kéo thả/đổi trạng thái bị chặn 400 khó hiểu.
 # Chỉ giữ 1 khóa: signed_design là TERMINAL (đã tự sinh Khách hàng + Dự án, không lùi).
-_OPEN_STAGES = ["new", "interested", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
+_OPEN_STAGES = ["new", "interested", "surveyed", "survey_scheduled", "potential", "signed_design", "lost", "dormant"]
 VALID_STAGE_TRANSITIONS: dict[str, list[str]] = {
     "new": [s for s in _OPEN_STAGES if s != "new"],
     "interested": [s for s in _OPEN_STAGES if s != "interested"],
+    "surveyed": [s for s in _OPEN_STAGES if s != "surveyed"],
     "survey_scheduled": [s for s in _OPEN_STAGES if s != "survey_scheduled"],
     "potential": [s for s in _OPEN_STAGES if s != "potential"],
     "signed_design": [],

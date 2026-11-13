@@ -117,6 +117,9 @@ export default function UsersPage() {
   // Telegram chưa gán (Đợt 3, 23/10): bot ghi nhận người nhắn trong nhóm/riêng,
   // admin chọn nhân viên (sẵn gợi ý theo tên) rồi bấm Gán — khỏi bắt NV tự dán /id.
   const [tgContacts, setTgContacts] = useState<TelegramContact[]>([]);
+  // Ai đang không nhận được tin bot (13/11/2026)
+  const [tgKhongNhan, setTgKhongNhan] = useState<Awaited<ReturnType<typeof api.telegramKhongNhan>> | null>(null);
+  const [moChuaGan, setMoChuaGan] = useState(false);
   const [tgChon, setTgChon] = useState<Record<number, string>>({});
   const [tgDangGan, setTgDangGan] = useState<number | null>(null);
   const pageSize = 20;
@@ -197,6 +200,7 @@ export default function UsersPage() {
       setTgContacts(ds || []);
       setTgChon(Object.fromEntries((ds || []).map(c => [c.tg_user_id, c.suggested_user_id || ''])));
     }).catch(() => setTgContacts([]));
+    api.telegramKhongNhan().then(setTgKhongNhan).catch(() => setTgKhongNhan(null));
   }, [canManageTeams]);
   useEffect(() => { if (user && permsReady) loadTgContacts(); }, [user, permsReady, loadTgContacts]);
 
@@ -494,6 +498,33 @@ export default function UsersPage() {
             </button>
           )}
         </div>
+
+        {canManageTeams && tgKhongNhan && (tgKhongNhan.bi_tu_choi.length > 0 || tgKhongNhan.chua_gan.length > 0) && (
+          <div className="mb-4 rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">Chưa nhận được tin bot ({tgKhongNhan.bi_tu_choi.length})</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5 mb-3">Telegram đã từ chối tin gần nhất gửi cho những người này — nhờ họ mở bot JAMA và bấm Start (hoặc bỏ chặn). Gửi được lại thì tự rời danh sách. Chuông trong app vẫn nhận bình thường.</p>
+            {tgKhongNhan.bi_tu_choi.length > 0 && (
+              <div className="space-y-1.5">
+                {tgKhongNhan.bi_tu_choi.map(u => (
+                  <div key={u.id} className="flex items-center gap-2 rounded-xl p-2.5 bg-[var(--surface-2)]">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">{u.full_name}</p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">{u.ly_do} · {truocDay(u.luc)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {tgKhongNhan.chua_gan.length > 0 && (
+              <button onClick={() => setMoChuaGan(v => !v)} className="mt-3 text-xs text-[var(--gold-400)]">
+                {moChuaGan ? 'Ẩn' : 'Xem'} {tgKhongNhan.chua_gan.length} người chưa gán Telegram
+              </button>
+            )}
+            {moChuaGan && (
+              <p className="mt-2 text-xs text-[var(--text-secondary)] leading-relaxed">{tgKhongNhan.chua_gan.map(u => u.full_name).join(' · ')}</p>
+            )}
+          </div>
+        )}
 
         {canManageTeams && tgContacts.length > 0 && (
           <div className="mb-4 rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-1)' }}>

@@ -16,7 +16,7 @@ from app.models.payroll import Transaction
 from app.models.project import Project
 
 # Dòng vật tư đã cam kết tiền với NCC
-TRANG_THAI_TON_TIEN = ("da_dat", "da_giao")
+TRANG_THAI_TON_TIEN = ("da_dat", "giao_thieu", "da_giao")
 # Đợt có tiền về: thu đủ hoặc thu một phần
 TRANG_THAI_CO_TIEN = ("paid", "partial")
 
@@ -74,7 +74,10 @@ async def chi_phi_vat_tu(db: AsyncSession, project_id: str | None = None) -> dic
 
     q = (
         select(DongPhieuVatTu.project_id,
-               func.coalesce(func.sum(DongPhieuVatTu.gia_von * DongPhieuVatTu.so_luong), 0))
+               # Đơn đặt thật (13/11) ưu tiên; dòng cũ chưa có thì lấy giá chốt × SL phiếu
+               func.coalesce(func.sum(
+                   func.coalesce(DongPhieuVatTu.gia_dat, DongPhieuVatTu.gia_von)
+                   * func.coalesce(DongPhieuVatTu.sl_dat, DongPhieuVatTu.so_luong)), 0))
         .where(DongPhieuVatTu.trang_thai.in_(TRANG_THAI_TON_TIEN), DongPhieuVatTu.gia_von.is_not(None))
         .group_by(DongPhieuVatTu.project_id)
     )

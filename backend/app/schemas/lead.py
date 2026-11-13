@@ -130,6 +130,10 @@ class LeadResponse(BaseModel):
 class LeadStageChange(BaseModel):
     new_stage: str
     design_contract_value: float | None = None
+    # Pop-up «Deal đã thắng» (13/11): đồng bộ thẳng sang dự án tự sinh.
+    project_name: str | None = None
+    project_budget: float | None = None  # ngân sách dự án → projects.budget_total
+    design_signed_date: datetime | None = None  # ngày ký HĐ thiết kế
     note: str | None = None
     # BẮT BUỘC khi new_stage="lost" (endpoint chặn 400 nếu trống) — mọi đường
     # chuyển giai đoạn đi qua đây, kể cả chuyển sang Mất.

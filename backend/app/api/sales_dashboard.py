@@ -161,7 +161,8 @@ NHAN_CHAT_LUONG: dict[str, str] = {
 # Nên quy mỗi lead về một ĐỘ SÂU 0–7 = bước xa nhất chứng minh được, rồi
 # bước i = số lead có độ sâu ≥ i. Phễu vì thế luôn thu hẹp dần.
 THU_TU_STAGE: dict[str, int] = {
-    "new": 0, "interested": 1, "survey_scheduled": 2, "potential": 3, "signed_design": 4,
+    "new": 0, "interested": 1, "surveyed": 2, "survey_scheduled": 3, "potential": 4,
+    "signed_design": 5,
 }
 
 BUOC_PHEU: list[tuple[str, str]] = [
@@ -200,11 +201,11 @@ def do_sau_pheu(l: dict) -> int:
 # Xác suất thắng theo bước — dùng cho dự báo có trọng số. Chốt theo tỷ lệ
 # chuyển bước thực tế của phòng KD; sửa ở đây là đổi cả màn hình.
 XAC_SUAT_STAGE: dict[str, float] = {
-    "new": 0.05, "interested": 0.15, "survey_scheduled": 0.35,
+    "new": 0.05, "interested": 0.15, "surveyed": 0.25, "survey_scheduled": 0.35,
     "potential": 0.60, "signed_design": 1.0,
 }
 
-STAGE_DANG_MO = ["new", "interested", "survey_scheduled", "potential"]
+STAGE_DANG_MO = ["new", "interested", "surveyed", "survey_scheduled", "potential"]
 
 
 def gia_tri_lead(l: dict) -> float:

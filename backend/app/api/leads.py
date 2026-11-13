@@ -46,6 +46,7 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 STAGE_LABELS = {
     "new": "Tiếp nhận mới",
     "interested": "Đang tư vấn",
+    "surveyed": "Đã khảo sát",  # thêm 13/11/2026 theo góp ý team KD
     # PHẢI khớp STAGE_CONFIG của frontend (lib/utils.ts) — nhãn này đi vào lịch sử
     # hoạt động, trước 29/08 backend ghi tên KHÁC hẳn tên trên bảng kanban.
     "survey_scheduled": "Đã gửi báo giá",
@@ -303,7 +304,7 @@ async def pipeline_kanban(
     current_user: User = Depends(get_current_user),
 ):
     """Kanban board data — leads grouped by stage."""
-    stages = ["new", "interested", "survey_scheduled", "potential", "signed_design"]
+    stages = ["new", "interested", "surveyed", "survey_scheduled", "potential", "signed_design"]
     kanban = []
 
     for stage in stages:
@@ -357,7 +358,7 @@ async def team_workload(
     # Overdue = active leads not contacted in >7 days (or never contacted)
     from datetime import timedelta
     overdue_threshold = datetime.now(timezone.utc) - timedelta(days=7)
-    active_stages = ["new", "interested", "survey_scheduled", "potential"]
+    active_stages = ["new", "interested", "surveyed", "survey_scheduled", "potential"]
 
     # Base query: group by assigned_to
     q = (
@@ -659,6 +660,8 @@ async def change_stage(
         proj_q = select(Project).where(Project.lead_id == lead.id)
         proj_res = await db.execute(proj_q)
         project = proj_res.scalar_one_or_none()
+        # Ngày ký HĐ thiết kế từ pop-up — cột DateTime naive (Postgres), bỏ tzinfo.
+        ngay_ky = data.design_signed_date.replace(tzinfo=None) if data.design_signed_date else None
         if not project:
             # Dùng chung hàm sinh mã với nút «Tạo dự án mới» (22/09) để hai
             # đường tạo dự án không lệch định dạng mã.
@@ -666,7 +669,7 @@ async def change_stage(
 
             project = Project(
                 code=code,
-                name=f"Dự án {lead.name}",
+                name=(data.project_name or "").strip()[:255] or f"Dự án {lead.name}",
                 lead_id=lead.id,
                 customer_id=customer.id,
                 client_name=lead.name,
@@ -678,6 +681,8 @@ async def change_stage(
                 status="active",
                 stage="design",
                 sales_id=lead.assigned_to,
+                budget_total=data.project_budget or None,
+                start_date=ngay_ky,
             )
             db.add(project)
             await db.flush()
@@ -755,6 +760,7 @@ async def change_stage(
                     contract_kind="thiet_ke",
                     title=f"Hợp đồng thiết kế - {lead.name}",
                     status="draft",
+                    signed_date=ngay_ky.date() if ngay_ky else None,
                     total_value=lead.design_contract_value or (float(bg.total_amount or 0) if bg else 0)
                     or lead.estimated_budget or 0,
                     payment_terms={

@@ -15,6 +15,31 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '13/11/2026',
+    title: 'Đặt – duyệt – nhận hàng vật tư, cột Đã khảo sát, Việc của tôi 4 ô',
+    tag: 'MỚI',
+    news: [
+      'Vật tư: tab «Đặt & nhận hàng». Đặt trong báo giá tự duyệt; vượt khối lượng, đơn giá hoặc ngân sách thì Leader Thu mua duyệt/từ chối kèm lý do.',
+      'Nhận hàng: Giám sát chụp tối thiểu 2 ảnh hiện trường rồi mới xác nhận Đủ/Thiếu; thiếu thì ghi chú và giao bù sau. Thu mua chỉ xem.',
+      'Giá khung NCC quá 60 ngày hiện nhãn «giá cũ» để hỏi lại NCC.',
+      'Quy trình lead: thêm cột «Đã khảo sát» giữa Đang tư vấn và Đã gửi báo giá.',
+      'Kéo lead vào «Deal đã thắng» bật khung điền tên dự án, giá trị HĐ thiết kế, ngân sách dự án, ngày ký — tự chép sang Dự án và Hợp đồng.',
+      'Việc của tôi: 4 ô đếm Đến hạn hôm nay / Đã quá hạn / Đang chờ duyệt / Việc đang mở, bấm để lọc.',
+      'Tài khoản: thẻ «Chưa nhận được tin bot» liệt kê ai chưa bấm Start, đã chặn bot hoặc chưa gán Telegram.',
+    ],
+    fixes: [
+      'Thẻ lead không còn bị nhân đôi trên bảng Quy trình.',
+      'Gắn PIC dự án giờ báo cho nhân viên được gắn.',
+      'Nhóm Telegram lên supergroup: app tự đổi sang ID mới, tin nhóm không rớt nữa.',
+    ],
+    test: [
+      'Thu mua đặt vượt khối lượng báo giá → Leader Thu mua thấy ở «Việc của tôi» và duyệt được.',
+      'Giám sát mở «Đặt & nhận hàng», chụp 2 ảnh rồi bấm Đủ/Thiếu.',
+      'Kéo một lead thử sang «Deal đã thắng», điền khung, kiểm tra Dự án + Hợp đồng nhận đúng số.',
+      'Mở «Việc của tôi», bấm từng ô đếm.',
+    ],
+  },
+  {
     date: '27/10/2026',
     title: 'Siết 17 chỗ hở về tiền, lương và dự án',
     tag: 'MỚI',

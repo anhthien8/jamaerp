@@ -17,11 +17,11 @@ import { compressImage } from '@/lib/nhan-su';
 // Bỏ dấu + thường hoá để tìm dự án không cần gõ dấu
 const boDau = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-type Tab = 'danh-muc' | 'can-hoi-gia' | 'thuong-luong' | 'du-an' | 'cai-gia';
+type Tab = 'danh-muc' | 'can-hoi-gia' | 'thuong-luong' | 'du-an' | 'dat-nhan' | 'cai-gia';
 
 const MAU_TRANG_THAI: Record<string, string> = {
   khach_chon: '#F59E0B', hoi_ncc: '#3B82F6', het_hang: '#EF4444', cho_khach_duyet_lai: '#A78BFA',
-  da_chot_gia: '#10B981', da_dat: '#06B6D4', da_giao: '#9CA3AF', huy: '#6B7280',
+  da_chot_gia: '#10B981', cho_duyet_dat: '#F97316', da_dat: '#06B6D4', giao_thieu: '#EF4444', da_giao: '#9CA3AF', huy: '#6B7280',
 };
 
 const inp = 'w-full rounded-xl px-3 py-2 text-base sm:text-sm bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--gold-400)]';
@@ -108,7 +108,7 @@ function VatTuNoiDung() {
   const laAdmin = user?.role === 'admin';
   const [tongQuan, setTongQuan] = useState<VatTuTongQuan | null>(null);
   const [tabChon, setTab] = useState<Tab | null>(null);
-  const tab: Tab = tabChon ?? (projectParam ? 'du-an' : 'danh-muc');
+  const tab: Tab = tabChon ?? (sp.get('tab') === 'dat-nhan' ? 'dat-nhan' : projectParam ? 'du-an' : 'danh-muc');
   const [thongBao, setThongBao] = useState<{ loai: 'ok' | 'loi'; text: string } | null>(null);
   const bao = (loai: 'ok' | 'loi', text: string) => { setThongBao({ loai, text }); setTimeout(() => setThongBao(null), 4000); };
 
@@ -116,6 +116,11 @@ function VatTuNoiDung() {
 
   const thayGiaVon = !!tongQuan?.thay_gia_von;
   const laThuMua = !!tongQuan?.la_thu_mua;
+  const qDatNhan: QuyenDatNhan = {
+    laThuMua, laLeader: !!tongQuan?.la_leader_thu_mua, laGiamSat: !!tongQuan?.la_giam_sat,
+    thayGiaVon, soAnh: tongQuan?.so_anh_toi_thieu ?? 2,
+  };
+  const soDatNhan = tongQuan ? (tongQuan.theo_trang_thai.cho_duyet_dat || 0) + (tongQuan.theo_trang_thai.da_dat || 0) + (tongQuan.theo_trang_thai.giao_thieu || 0) : 0;
   const choHoi = tongQuan ? (tongQuan.theo_trang_thai.khach_chon || 0) + (tongQuan.theo_trang_thai.hoi_ncc || 0) + (tongQuan.theo_trang_thai.het_hang || 0) + (tongQuan.theo_trang_thai.cho_khach_duyet_lai || 0) : 0;
 
   const tabs: { id: Tab; nhan: string; icon: string; so?: number; an?: boolean }[] = [
@@ -123,6 +128,7 @@ function VatTuNoiDung() {
     { id: 'danh-muc', nhan: 'Danh mục mẫu', icon: 'package', so: tongQuan?.so_mau },
     { id: 'can-hoi-gia', nhan: 'Cần hỏi giá', icon: 'receipt', so: choHoi, an: !thayGiaVon },
     { id: 'thuong-luong', nhan: 'Cần thương lượng', icon: 'handshake', an: !thayGiaVon },
+    { id: 'dat-nhan', nhan: 'Đặt & nhận hàng', icon: 'truck', so: soDatNhan },
     { id: 'cai-gia', nhan: '% lãi theo nhóm', icon: 'percent', an: !laAdmin },
   ];
 
@@ -149,7 +155,8 @@ function VatTuNoiDung() {
           ))}
         </div>
 
-        {tab === 'du-an' && <PhieuDuAn key={projectParam || ''} projectId={projectParam} thayGiaVon={thayGiaVon} laThuMua={laThuMua} laAdmin={laAdmin} bao={bao} />}
+        {tab === 'du-an' && <PhieuDuAn key={projectParam || ''} projectId={projectParam} thayGiaVon={thayGiaVon} laAdmin={laAdmin} q={qDatNhan} userId={user?.id} bao={bao} />}
+        {tab === 'dat-nhan' && <DatNhanTab q={qDatNhan} bao={bao} />}
         {tab === 'danh-muc' && <DanhMuc thayGiaVon={thayGiaVon} laThuMua={laThuMua} bao={bao} />}
         {tab === 'can-hoi-gia' && thayGiaVon && <CanHoiGia laThuMua={laThuMua} bao={bao} />}
         {tab === 'thuong-luong' && thayGiaVon && <CanThuongLuongTab />}
@@ -306,7 +313,8 @@ function DanhMuc({ thayGiaVon, laThuMua, bao }: { thayGiaVon: boolean; laThuMua:
                 <div className="text-xs text-[var(--text-muted)] truncate">{[m.hang, m.be_mat].filter(Boolean).join(' · ') || m.nhom}</div>
                 <div className="text-xs text-[var(--text-secondary)]">{m.nhom}{m.tinh_trang ? ` · ${m.tinh_trang}` : ''}</div>
                 {thayGiaVon && (m.gia_von_gan_nhat || m.gia_tham_khao) && (
-                  <div className="text-xs text-[var(--gold-400)] mt-0.5">Vốn {tien(m.gia_von_gan_nhat || m.gia_tham_khao || 0)}{m.ncc_gan_nhat_ten ? ` · ${m.ncc_gan_nhat_ten}` : ''}</div>
+                  <div className="text-xs text-[var(--gold-400)] mt-0.5">Vốn {tien(m.gia_von_gan_nhat || m.gia_tham_khao || 0)}{m.ncc_gan_nhat_ten ? ` · ${m.ncc_gan_nhat_ten}` : ''}
+                    {m.gia_cu && <span className="ml-1 rounded-full bg-amber-500/15 text-amber-300 px-1.5" title="Giá khung quá 60 ngày — hỏi lại NCC trước khi đặt">giá cũ</span>}</div>
                 )}
                 <GiaShopee m={m} />
                 {laThuMua && (
@@ -356,7 +364,7 @@ function ChonMau({ onChon, placeholder = 'Gõ mã hoặc hãng…' }: { onChon: 
 }
 
 // ───────────────────────── Phiếu dự án ─────────────────────────
-function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectId: string | null; thayGiaVon: boolean; laThuMua: boolean; laAdmin: boolean; bao: (l: 'ok' | 'loi', t: string) => void }) {
+function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { projectId: string | null; thayGiaVon: boolean; laAdmin: boolean; q: QuyenDatNhan; userId?: string; bao: (l: 'ok' | 'loi', t: string) => void }) {
   const [duAns, setDuAns] = useState<Project[]>([]);
   const [pid, setPid] = useState(projectId || '');
   const [phieu, setPhieu] = useState<PhieuVatTu | null>(null);
@@ -385,9 +393,6 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
     if (!confirm(`Xoá dòng ${d.ma || d.ma_tu_do}?`)) return;
     try { await api.vatTuXoaDong(d.id); tai(); } catch (e) { bao('loi', loi(e, 'Không xoá được')); }
   };
-  const doiTrangThai = async (d: DongVatTu, tt: string) => {
-    try { await api.vatTuSuaDong(d.id, { trang_thai: tt as DongVatTu['trang_thai'] }); tai(); } catch (e) { bao('loi', loi(e, 'Không đổi được')); }
-  };
   const guiDongY = async () => {
     if (!dongY) return;
     try { await api.vatTuKhachDongY(dongY.id, dongY.ghi_chu); bao('ok', 'Đã ghi khách đồng ý'); setDongY(null); tai(); } catch (e) { bao('loi', loi(e, 'Không ghi được')); }
@@ -400,6 +405,8 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
   }, [phieu]);
   const dsPhong = useMemo(() => Array.from(new Set(['Chung', 'Phòng khách', 'Bếp', 'Phòng ngủ 1', 'Phòng ngủ 2', 'WC 1', 'WC 2', 'Ban công', 'Sân', ...theoPhong.map(([p]) => p)])), [theoPhong]);
   const duAn = duAns.find(p => p.id === pid);
+  // Giám sát phụ trách dự án (pm) cũng nhận hàng được dù không thuộc bộ phận Giám sát
+  const qDuAn: QuyenDatNhan = { ...q, laGiamSat: q.laGiamSat || (!!userId && duAn?.pm_id === userId) };
 
   return (
     <div className="space-y-3">
@@ -461,6 +468,8 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
                       {d.khach_dong_y_luc && <div className="text-xs text-emerald-400">Khách đồng ý {new Date(d.khach_dong_y_luc).toLocaleDateString('vi-VN')}{d.khach_ghi_chu ? ` — ${d.khach_ghi_chu}` : ''}</div>}
                       {d.can_ngay && <div className="text-xs text-amber-300">Cần trước {new Date(d.can_ngay).toLocaleDateString('vi-VN')}</div>}
                       {d.ghi_chu && <div className="text-xs text-[var(--text-muted)]">{d.ghi_chu}</div>}
+                      <ThongTinDatNhan d={d} />
+                      <HanhDongDatNhan d={d} q={qDuAn} xong={() => tai()} bao={bao} />
                       {dongY?.id === d.id && (
                         <div className="flex gap-2 pt-1">
                           <input className={inp} autoFocus placeholder="Ghi chú (khách nói gì, qua kênh nào)" value={dongY.ghi_chu} onChange={e => setDongY({ ...dongY, ghi_chu: e.target.value })} />
@@ -472,9 +481,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
                       {!d.khach_dong_y_luc && ['khach_chon', 'het_hang', 'cho_khach_duyet_lai'].includes(d.trang_thai) && dongY?.id !== d.id && (
                         <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} onClick={() => setDongY({ id: d.id, ghi_chu: '' })}><LineIcon name="tick" size={12} /> Khách đã đồng ý</button>
                       )}
-                      {laThuMua && d.trang_thai === 'da_chot_gia' && <button className={`${btn} text-xs`} onClick={() => doiTrangThai(d, 'da_dat')}><LineIcon name="receipt" size={12} /> Đã đặt</button>}
-                      {laThuMua && d.trang_thai === 'da_dat' && <button className={`${btn} text-xs`} onClick={() => doiTrangThai(d, 'da_giao')}><LineIcon name="truck" size={12} /> Đã giao</button>}
-                      {(laAdmin || !['da_chot_gia', 'da_dat', 'da_giao'].includes(d.trang_thai)) && (
+                      {(laAdmin || !['da_chot_gia', 'cho_duyet_dat', 'da_dat', 'giao_thieu', 'da_giao'].includes(d.trang_thai)) && (
                         <button className="text-[var(--text-muted)] hover:text-red-400 p-1" title="Xoá" onClick={() => xoa(d)}><LineIcon name="trash" size={14} /></button>
                       )}
                     </div>
@@ -485,6 +492,214 @@ function PhieuDuAn({ projectId, thayGiaVon, laThuMua, laAdmin, bao }: { projectI
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+// ───────── Đặt hàng – Leader Thu mua duyệt – Giám sát nhận hàng (13/11/2026) ─────────
+// Luật: mọi đơn đối chiếu khối lượng + đơn giá báo giá; trong báo giá tự qua, vượt bất kỳ
+// mức nào (kể cả đội ngân sách dự án) → Leader Thu mua duyệt. Hàng về: Giám sát xác nhận
+// đủ/thiếu kèm tối thiểu 2 ảnh hiện trường (server kiểm lại). Thu mua chỉ xem.
+type QuyenDatNhan = { laThuMua: boolean; laLeader: boolean; laGiamSat: boolean; thayGiaVon: boolean; soAnh: number };
+
+const ngayGio = (s?: string | null) => (s ? new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+
+async function anhSangBlob(f: File): Promise<Blob> {
+  const nen = await compressImage(f).catch(() => null);
+  if (!nen) return f;
+  return (await fetch(`data:${nen.mime};base64,${nen.base64}`)).blob();
+}
+
+/** Thông tin đặt/nhận của một dòng: ai đặt, vượt gì, bị từ chối vì sao, nhận đủ/thiếu + ảnh. */
+function ThongTinDatNhan({ d }: { d: DongVatTu }) {
+  return (
+    <>
+      {d.gia_cu && <div className="text-xs rounded-lg bg-amber-500/10 text-amber-300 px-2 py-1 flex items-start gap-1"><LineIcon name="hourglass" size={12} /> Giá cũ — chốt đã quá 60 ngày, hỏi lại NCC và chốt lại trước khi đặt.</div>}
+      {d.tu_choi_dat_ly_do && d.trang_thai === 'da_chot_gia' && <div className="text-xs rounded-lg bg-red-500/10 text-red-300 px-2 py-1 flex items-start gap-1"><LineIcon name="x" size={12} /> Leader từ chối đơn trước: {d.tu_choi_dat_ly_do}</div>}
+      {d.dat_luc && ['cho_duyet_dat', 'da_dat', 'giao_thieu', 'da_giao'].includes(d.trang_thai) && (
+        <div className="text-xs text-[var(--text-secondary)]">
+          Đặt {d.sl_dat ?? d.so_luong} {d.don_vi}{d.gia_dat != null ? ` × ${tien(d.gia_dat)}` : ''} · {d.dat_boi_ten || '—'} · {ngayGio(d.dat_luc)}
+          {d.duyet_dat_boi_ten && <span className="text-emerald-400"> · {d.duyet_dat_boi_ten} duyệt</span>}
+        </div>
+      )}
+      {d.ly_do_vuot && d.trang_thai === 'cho_duyet_dat' && <div className="text-xs rounded-lg bg-orange-500/10 text-orange-300 px-2 py-1 flex items-start gap-1"><LineIcon name="alert" size={12} /> Vượt báo giá: {d.ly_do_vuot}</div>}
+      {d.nhan_luc && (
+        <div className={`text-xs ${d.nhan_ket_qua === 'thieu' ? 'text-red-300' : 'text-emerald-400'}`}>
+          {d.nhan_ket_qua === 'thieu' ? `Giao thiếu${d.sl_nhan != null ? ` (nhận ${d.sl_nhan}/${d.sl_dat ?? d.so_luong} ${d.don_vi})` : ''}` : 'Hàng về đủ'} · {d.nhan_boi_ten || '—'} · {ngayGio(d.nhan_luc)}{d.nhan_ghi_chu ? ` — ${d.nhan_ghi_chu}` : ''}
+        </div>
+      )}
+      {!!d.nhan_anh?.length && (
+        <div className="flex gap-1.5 flex-wrap">
+          {d.nhan_anh.map(a => (
+            <a key={a.id} href={mediaUrl(a.url)} target="_blank" rel="noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={mediaUrl(a.url)} alt="Ảnh nhận hàng" className="w-12 h-12 rounded-lg object-cover" loading="lazy" />
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Nút + ô nhập cho bước đặt/duyệt/nhận của một dòng. Trả null khi người xem không có việc gì ở dòng này. */
+function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; xong: (d: DongVatTu) => void; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const [mo, setMo] = useState<'dat' | 'tu_choi' | 'nhan' | null>(null);
+  const [sl, setSl] = useState(String(d.so_luong));
+  const [gia, setGia] = useState(d.gia_von != null ? String(d.gia_von) : '');
+  const [lyDo, setLyDo] = useState('');
+  const [ketQua, setKetQua] = useState<'du' | 'thieu'>('du');
+  const [slNhan, setSlNhan] = useState('');
+  const [ghiChu, setGhiChu] = useState('');
+  const [anh, setAnh] = useState<File[]>([]);
+  const [dangGui, setDangGui] = useState(false);
+  const xem = useMemo(() => anh.map(f => URL.createObjectURL(f)), [anh]);
+  useEffect(() => () => xem.forEach(u => URL.revokeObjectURL(u)), [xem]);
+
+  const chay = async (fn: () => Promise<DongVatTu>, ok: string) => {
+    setDangGui(true);
+    try { const moi = await fn(); bao('ok', ok); setMo(null); setAnh([]); xong(moi); }
+    catch (e) { bao('loi', loi(e, 'Không ghi được')); }
+    finally { setDangGui(false); }
+  };
+
+  const slSo = Number(sl.replace(',', '.')) || 0;
+  const giaSo = Number(gia.replace(/\D/g, '')) || 0;
+  const vuotTruoc = [
+    slSo > d.so_luong ? `khối lượng ${slSo} > báo giá ${d.so_luong}` : '',
+    q.thayGiaVon && d.gia_von != null && giaSo > d.gia_von ? `đơn giá ${tien(giaSo)} > ${tien(d.gia_von)}` : '',
+  ].filter(Boolean);
+
+  const datHang = () => chay(() => api.vatTuDatHang(d.id, {
+    so_luong: slSo && slSo !== d.so_luong ? slSo : null,
+    don_gia: q.thayGiaVon && giaSo && giaSo !== d.gia_von ? giaSo : null,
+  }), 'Đã gửi đơn đặt hàng');
+
+  const nhanHang = () => chay(async () => {
+    const blobs = await Promise.all(anh.map(anhSangBlob));
+    const up = await api.uploadMediaBatch(blobs, { projectId: d.project_id, kind: 'vat_tu', caption: `Nhận hàng ${d.ma || d.ma_tu_do || ''} · ${d.phong}` });
+    return api.vatTuNhanHang(d.id, {
+      ket_qua: ketQua, so_luong_nhan: ketQua === 'thieu' && slNhan ? Number(slNhan.replace(',', '.')) : null,
+      ghi_chu: ghiChu.trim(), anh_ids: up.items.map(x => x.id),
+    });
+  }, ketQua === 'du' ? 'Đã xác nhận hàng về đủ' : 'Đã báo hàng về thiếu');
+
+  const nutDat = q.laThuMua && d.trang_thai === 'da_chot_gia';
+  const nutDuyet = q.laLeader && d.trang_thai === 'cho_duyet_dat';
+  const nutNhan = q.laGiamSat && ['da_dat', 'giao_thieu'].includes(d.trang_thai);
+  if (!nutDat && !nutDuyet && !nutNhan) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {nutDat && mo !== 'dat' && <button className={`${btn} text-xs`} disabled={!!d.gia_cu} title={d.gia_cu ? 'Giá cũ — chốt lại giá trước' : ''} onClick={() => setMo('dat')}><LineIcon name="receipt" size={12} /> Đặt hàng</button>}
+        {nutDuyet && mo !== 'tu_choi' && <>
+          <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} disabled={dangGui} onClick={() => chay(() => api.vatTuDuyetDat(d.id, true), 'Đã duyệt đơn')}><LineIcon name="tick" size={12} /> Duyệt đơn</button>
+          <button className={`${btn} text-xs text-red-300 border-red-500/40`} onClick={() => setMo('tu_choi')}><LineIcon name="x" size={12} /> Từ chối</button>
+        </>}
+        {nutNhan && mo !== 'nhan' && <button className={`${btn} text-xs text-[var(--gold-400)] border-[var(--gold-400)]/50`} onClick={() => setMo('nhan')}><LineIcon name="truck" size={12} /> {d.trang_thai === 'giao_thieu' ? 'Nhận bù hàng' : 'Nhận hàng'}</button>}
+      </div>
+
+      {mo === 'dat' && (
+        <div className="rounded-xl bg-[var(--surface-2)] p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-[var(--text-muted)]">Khối lượng ({d.don_vi}) — báo giá {d.so_luong}
+              <input className={inp} inputMode="decimal" value={sl} onChange={e => setSl(e.target.value)} /></label>
+            {q.thayGiaVon && d.gia_von != null && (
+              <label className="text-xs text-[var(--text-muted)]">Đơn giá — đã chốt {tien(d.gia_von)}
+                <input className={inp} inputMode="numeric" value={gia} onChange={e => setGia(e.target.value)} /></label>
+            )}
+          </div>
+          <div className={`text-xs ${vuotTruoc.length ? 'text-orange-300' : 'text-emerald-400'}`}>
+            {vuotTruoc.length ? `Vượt báo giá (${vuotTruoc.join(', ')}) → gửi Leader Thu mua duyệt.` : 'Nằm trong báo giá → đặt luôn (nếu không đội ngân sách dự án).'}
+          </div>
+          <div className="flex gap-2"><button className={btnGold} disabled={dangGui || slSo <= 0} onClick={datHang}>{dangGui ? 'Đang gửi…' : 'Xác nhận đặt'}</button><button className={btnGhost} onClick={() => setMo(null)}>Huỷ</button></div>
+        </div>
+      )}
+
+      {mo === 'tu_choi' && (
+        <div className="rounded-xl bg-[var(--surface-2)] p-3 space-y-2">
+          <input className={inp} autoFocus placeholder="Lý do từ chối (Thu mua sửa theo đó)" value={lyDo} onChange={e => setLyDo(e.target.value)} />
+          <div className="flex gap-2"><button className={btnGold} disabled={dangGui || !lyDo.trim()} onClick={() => chay(() => api.vatTuDuyetDat(d.id, false, lyDo.trim()), 'Đã trả đơn về Thu mua')}>Gửi từ chối</button><button className={btnGhost} onClick={() => setMo(null)}>Huỷ</button></div>
+        </div>
+      )}
+
+      {mo === 'nhan' && (
+        <div className="rounded-xl bg-[var(--surface-2)] p-3 space-y-2">
+          <div className="flex gap-2">
+            {(['du', 'thieu'] as const).map(k => (
+              <button key={k} className={`${btn} text-xs ${ketQua === k ? (k === 'du' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/50' : 'bg-red-500/15 text-red-300 border-red-500/50') : 'text-[var(--text-secondary)] border-[var(--border-subtle)]'}`} onClick={() => setKetQua(k)}>
+                {k === 'du' ? 'Đủ hàng' : 'Thiếu hàng'}
+              </button>
+            ))}
+          </div>
+          {ketQua === 'thieu' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input className={inp} inputMode="decimal" placeholder={`Nhận được bao nhiêu ${d.don_vi}`} value={slNhan} onChange={e => setSlNhan(e.target.value)} />
+              <input className={`${inp} sm:col-span-2`} placeholder="Thiếu gì, bao nhiêu (bắt buộc)" value={ghiChu} onChange={e => setGhiChu(e.target.value)} />
+            </div>
+          )}
+          {ketQua === 'du' && <input className={inp} placeholder="Ghi chú (không bắt buộc)" value={ghiChu} onChange={e => setGhiChu(e.target.value)} />}
+          <label className={`${btnGhost} text-xs cursor-pointer w-fit`}>
+            <LineIcon name="camera" size={12} /> Chụp / chọn ảnh hiện trường
+            <input type="file" accept="image/*" capture="environment" multiple className="hidden"
+              onChange={e => { const fs = Array.from(e.target.files || []); setAnh(a => [...a, ...fs].slice(0, 10)); e.target.value = ''; }} />
+          </label>
+          {xem.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {xem.map((u, i) => (
+                <div key={u} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                  <button className="absolute -top-1 -right-1 rounded-full bg-black/70 p-0.5" aria-label="Bỏ ảnh" onClick={() => setAnh(a => a.filter((_, j) => j !== i))}><LineIcon name="x" size={10} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={`text-xs ${anh.length >= q.soAnh ? 'text-emerald-400' : 'text-amber-300'}`}>{anh.length}/{q.soAnh} ảnh tối thiểu — ảnh vào Kho ảnh dự án.</div>
+          <div className="flex gap-2">
+            <button className={btnGold} disabled={dangGui || anh.length < q.soAnh || (ketQua === 'thieu' && !ghiChu.trim())} onClick={nhanHang}>{dangGui ? 'Đang tải ảnh…' : 'Xác nhận'}</button>
+            <button className={btnGhost} onClick={() => { setMo(null); setAnh([]); }}>Huỷ</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Hai hàng chờ: đơn vượt chờ Leader duyệt · hàng đã đặt chờ Giám sát nhận. */
+function DatNhanTab({ q, bao }: { q: QuyenDatNhan; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const [data, setData] = useState<{ cho_duyet: DongVatTu[]; cho_nhan: DongVatTu[] } | null>(null);
+  const tai = useCallback(() => { api.vatTuViecDatNhan().then(setData).catch(e => { bao('loi', loi(e, 'Không tải được')); setData({ cho_duyet: [], cho_nhan: [] }); }); }, [bao]);
+  useEffect(() => { tai(); }, [tai]);
+  if (!data) return <div className="text-sm text-[var(--text-muted)] p-4">Đang tải…</div>;
+  const khoi = (tieuDe: string, ds: DongVatTu[], rong: string, qq: QuyenDatNhan) => (
+    <div className="glass-card overflow-hidden">
+      <div className="px-4 py-2 text-sm font-semibold text-[var(--text-primary)] bg-[var(--surface-2)] border-b border-[var(--border-subtle)]">{tieuDe} <span className="text-[var(--text-muted)] font-normal">· {ds.length}</span></div>
+      {ds.length === 0 && <div className="p-4 text-sm text-[var(--text-muted)]">{rong}</div>}
+      <div className="divide-y divide-[var(--border-subtle)]">
+        {ds.map(d => (
+          <div key={d.id} className="p-3 flex gap-3">
+            <AnhMau url={d.anh_url} size={44} />
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-[var(--text-primary)]">{d.ma || d.ma_tu_do}</span>
+                <NhanTrangThai d={d} />
+                <Link href={`/vat-tu?project=${d.project_id}`} className="text-xs text-[var(--gold-400)] hover:underline">{d.project_code} · {d.project_name}</Link>
+              </div>
+              <div className="text-xs text-[var(--text-secondary)]">{d.phong}{d.hang_muc ? ` · ${d.hang_muc}` : ''} · báo giá {d.so_luong} {d.don_vi}</div>
+              <ThongTinDatNhan d={d} />
+              <HanhDongDatNhan d={d} q={qq} xong={tai} bao={bao} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="space-y-3">
+      {(q.laLeader || data.cho_duyet.length > 0) && khoi('Đơn vượt báo giá chờ Leader Thu mua duyệt', data.cho_duyet, 'Không có đơn nào chờ duyệt.', { ...q, laGiamSat: false })}
+      {khoi('Hàng đã đặt, chờ Giám sát nhận tại công trình', data.cho_nhan, 'Không có hàng nào đang chờ nhận.', { ...q, laLeader: false, laThuMua: false })}
     </div>
   );
 }

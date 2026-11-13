@@ -87,6 +87,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export const LEAD_STAGE_LABELS: Record<string, string> = {
   new: 'Tiếp nhận mới',
   interested: 'Đang tư vấn',
+  surveyed: 'Đã khảo sát',
   survey_scheduled: 'Đã gửi báo giá',
   potential: 'Đang đàm phán',
   signed_design: 'Deal đã thắng',

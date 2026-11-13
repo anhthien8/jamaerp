@@ -13,6 +13,7 @@ router = Router()
 STAGE_LABELS = {
     "new": "Mới tiếp nhận",
     "interested": "Có nhu cầu",
+    "surveyed": "Đã khảo sát",
     "survey_scheduled": "Đã hẹn khảo sát",
     "potential": "KH tiềm năng",
     "signed_design": "Ký thiết kế",

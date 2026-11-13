@@ -5,6 +5,7 @@
 export const STAGE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   new: { label: 'Tiếp nhận mới', color: 'var(--stage-new)', icon: 'sparkle' },
   interested: { label: 'Đang tư vấn', color: 'var(--stage-interested)', icon: 'bulb' },
+  surveyed: { label: 'Đã khảo sát', color: 'var(--stage-surveyed)', icon: 'check' },
   // Đổi tên 05/09/2026 theo quy trình thật của team KD (key giữ nguyên — đổi key
   // là phải migrate toàn bộ lead + máy trạng thái, không đáng).
   survey_scheduled: { label: 'Đã gửi báo giá', color: 'var(--stage-survey)', icon: 'send' },

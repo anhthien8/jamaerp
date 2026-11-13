@@ -136,6 +136,7 @@
   /* Stage pipeline colors */
   --stage-new: #60A5FA;
   --stage-interested: #A78BFA;
+  --stage-surveyed: #2DD4BF;
   --stage-survey: #FBBF24;
   --stage-potential: #34D399;
   --stage-signed: #C9A96E;
@@ -197,6 +198,7 @@
      vẫn đủ tách bậc. Theme tối giữ bộ rực mặc định. */
   --stage-new: #94897A;
   --stage-interested: #A07A42;
+  --stage-surveyed: #5F8F86;
   --stage-survey: #C79A4C;
   --stage-potential: #7E845A;
   --stage-signed: #855F2D;

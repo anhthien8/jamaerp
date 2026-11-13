@@ -159,7 +159,7 @@ async function resolveDemo<T>(endpoint: string, params?: Record<string, string>,
   if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
   if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) {
     // Tính động từ DEMO_LEADS (không dùng snapshot tĩnh) để lead mới tạo / kéo cột hiển thị ngay
-    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['survey_scheduled', 'Đã gửi báo giá'], ['potential', 'Đang đàm phán'], ['signed_design', 'Deal đã thắng']];
+    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['surveyed', 'Đã khảo sát'], ['survey_scheduled', 'Đã gửi báo giá'], ['potential', 'Đang đàm phán'], ['signed_design', 'Deal đã thắng']];
     return defs.map(([stage, stage_label]) => {
       const leads = d.DEMO_LEADS.filter(l => l.stage === stage);
       return { stage, stage_label, leads, count: leads.length };
@@ -1026,12 +1026,15 @@ class ApiClient {
    * Đừng đổi stage qua updateLead(): PUT /leads/{id} không nhận stage/lost_reason
    * và Pydantic bỏ qua field lạ, nên nó trả 200 mà lead nằm y nguyên chỗ cũ.
    */
-  async changeStage(id: string, newStage: string, opts?: { designContractValue?: number; note?: string; lostReason?: string }) {
+  async changeStage(id: string, newStage: string, opts?: { designContractValue?: number; note?: string; lostReason?: string; projectName?: string; projectBudget?: number; designSignedDate?: string }) {
     return this.request<Lead>(`/leads/${id}/stage`, {
       method: 'PUT',
       body: {
         new_stage: newStage,
         design_contract_value: opts?.designContractValue,
+        project_name: opts?.projectName,
+        project_budget: opts?.projectBudget,
+        design_signed_date: opts?.designSignedDate,
         note: opts?.note,
         lost_reason: opts?.lostReason,
       },
@@ -1732,6 +1735,13 @@ class ApiClient {
     );
   }
   /** Người Telegram bot đã gặp (nhóm/riêng) chưa gán tài khoản, kèm gợi ý nhân viên khớp tên — cần «Quản lý Users» */
+  /** Ai đang không nhận được tin bot (13/11/2026): bị Telegram từ chối + chưa gán Telegram */
+  async telegramKhongNhan() {
+    return this.request<{
+      bi_tu_choi: { id: string; full_name: string; department: string | null; telegram_user_id: number; ly_do: string; luc: string }[];
+      chua_gan: { id: string; full_name: string; department: string | null }[];
+    }>('/users/telegram-khong-nhan');
+  }
   async getTelegramContacts() {
     return this.request<TelegramContact[]>('/users/telegram-contacts', { params: { unlinked: 'true' } });
   }
@@ -2200,6 +2210,20 @@ class ApiClient {
   async vatTuKhachDongY(id: string, ghiChu?: string) {
     return this.request<DongVatTu>(`/vat-tu/dong/${id}/khach-dong-y`, { method: 'POST', body: { ghi_chu: ghiChu || null } });
   }
+  /** Thu mua đặt hàng: trong báo giá → «Đã đặt», vượt khối lượng/đơn giá/ngân sách → chờ Leader duyệt (13/11/2026). */
+  async vatTuDatHang(id: string, body: { so_luong?: number | null; don_gia?: number | null }) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${id}/dat-hang`, { method: 'POST', body });
+  }
+  async vatTuDuyetDat(id: string, dongY: boolean, lyDo?: string) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${id}/duyet-dat`, { method: 'POST', body: { dong_y: dongY, ly_do: lyDo || null } });
+  }
+  /** Giám sát xác nhận hàng về đủ/thiếu — anh_ids lấy từ uploadMediaBatch, tối thiểu 2 ảnh. */
+  async vatTuNhanHang(id: string, body: { ket_qua: 'du' | 'thieu'; so_luong_nhan?: number | null; ghi_chu?: string; anh_ids: string[] }) {
+    return this.request<DongVatTu>(`/vat-tu/dong/${id}/nhan-hang`, { method: 'POST', body });
+  }
+  async vatTuViecDatNhan() {
+    return this.request<{ cho_duyet: DongVatTu[]; cho_nhan: DongVatTu[]; la_leader_thu_mua: boolean; so_anh_toi_thieu: number; nhan_cua_toi?: string[] }>('/vat-tu/viec-dat-nhan');
+  }
   async vatTuCanHoiGia(trangThai?: string) {
     return this.request<{ items: DongVatTu[] }>('/vat-tu/can-hoi-gia', { params: trangThai ? { trang_thai: trangThai } : undefined });
   }
@@ -2494,6 +2518,8 @@ export interface MauVatTu {
   // chỉ có khi được xem giá vốn
   gia_tham_khao?: number | null; gia_von_gan_nhat?: number | null; gia_von_cap_nhat_luc?: string | null;
   ncc_gan_nhat_ten?: string | null; gia_ban_co_dinh?: number | null;
+  /** Giá khung quá 60 ngày chưa hỏi lại NCC */
+  gia_cu?: boolean;
   // giá thị trường Shopee (mọi vai thấy) — 26/10/2026
   shopee_item_id?: string | null; shopee_ten?: string | null; link_shopee_aff?: string | null;
   gia_shopee?: number | null; gia_shopee_luc?: string | null;
@@ -2516,7 +2542,7 @@ export interface BaoGiaVatTu {
   ngay_giao?: string | null; ghi_chu?: string | null; duoc_chon: boolean; created_at?: string;
   cao_hon_shopee?: boolean;
 }
-export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_khach_duyet_lai' | 'da_chot_gia' | 'da_dat' | 'da_giao' | 'huy';
+export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_khach_duyet_lai' | 'da_chot_gia' | 'cho_duyet_dat' | 'da_dat' | 'giao_thieu' | 'da_giao' | 'huy';
 export interface DongVatTu {
   id: string; project_id: string; phong: string; hang_muc?: string | null; mau_id?: string | null;
   ma?: string | null; hang?: string | null; nhom?: string | null; anh_url?: string | null; ma_tu_do?: string | null;
@@ -2527,7 +2553,13 @@ export interface DongVatTu {
   created_at?: string; updated_at?: string; so_bao_gia: number;
   gia_shopee?: number | null; link_shopee_aff?: string | null;
   project_code?: string; project_name?: string; client_name?: string;
+  // Đặt hàng – duyệt – nhận hàng (13/11/2026)
+  sl_dat?: number | null; dat_luc?: string | null; dat_boi_ten?: string | null; ly_do_vuot?: string | null;
+  duyet_dat_luc?: string | null; duyet_dat_boi_ten?: string | null; tu_choi_dat_ly_do?: string | null;
+  nhan_ket_qua?: 'du' | 'thieu' | null; sl_nhan?: number | null; nhan_luc?: string | null; nhan_boi_ten?: string | null;
+  nhan_ghi_chu?: string | null; nhan_anh?: { id: string; url: string }[];
   // chỉ có khi được xem giá vốn
+  gia_dat?: number | null; gia_cu?: boolean;
   gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
   lai?: number | null; bao_gia?: BaoGiaVatTu[]; gia_von_gan_nhat?: number | null; gia_tham_khao?: number | null;
 }
@@ -2536,6 +2568,7 @@ export interface PhieuVatTu {
 }
 export interface VatTuTongQuan {
   so_mau: number; theo_trang_thai: Record<string, number>; thay_gia_von: boolean; la_thu_mua: boolean;
+  la_leader_thu_mua?: boolean; la_giam_sat?: boolean; so_anh_toi_thieu?: number; so_ngay_gia_cu?: number;
 }
 
 export interface Project {

@@ -22,7 +22,7 @@ from app.services.telegram_notify import send_telegram
 logger = logging.getLogger(__name__)
 
 # Stages đang chăm sóc — cần nhắc follow-up
-ACTIVE_LEAD_STAGES = ("new", "interested", "survey_scheduled", "potential")
+ACTIVE_LEAD_STAGES = ("new", "interested", "surveyed", "survey_scheduled", "potential")
 
 
 # ---------------------------------------------------------------------------

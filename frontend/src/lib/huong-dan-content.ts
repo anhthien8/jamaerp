@@ -248,6 +248,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             "Đã liên hệ, đang trao đổi nhu cầu"
           ],
           [
+            "Đã khảo sát",
+            "Đã ra công trình khảo sát (ghi ngày khảo sát) — sẵn sàng lên báo giá"
+          ],
+          [
             "📤 Đã gửi báo giá",
             "Đã gửi báo giá cho khách"
           ],
@@ -359,6 +363,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "**Dự án** mới trong menu «Dự án» (mã dạng PRJ-2026-xxxx) kèm sẵn **19 đầu việc mẫu**: từ 2D Concept, 3D Render… đến thi công, bàn giao, bảo hành.",
           "**Hợp đồng** trong menu «Hợp đồng» (mã dạng HD-PRJ-…) để theo dõi thu tiền."
         ]
+      },
+      {
+        "type": "p",
+        "text": "**Từ 13/11/2026:** thả thẻ vào cột này sẽ bật một khung nhỏ để điền **Tên dự án, Giá trị HĐ thiết kế, Giá trị ngân sách dự án, Ngày ký thiết kế**. Các số này chép thẳng sang Dự án và Hợp đồng vừa tạo — khỏi phải mở dự án nhập lại. Bấm Huỷ thì thẻ ở nguyên cột cũ."
       },
       {
         "type": "p",
@@ -864,7 +872,15 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "Nhập từng báo giá NCC: tên NCC, giá vốn, còn hàng không, ngày giao. Báo giá **rẻ nhất tự lên đầu**.",
         "Bấm **«Chốt giá này»** → app tính giá bán theo % lãi nhóm (hoặc giá cố định nếu cao hơn), ghi «giá gần nhất» về mẫu để lần sau tham khảo, và báo cho Thiết kế / Kinh doanh / PM của dự án.",
         "Hết hàng: bấm **«Hết hàng / đề xuất thay»**, chọn mã thay và lý do → dòng chuyển sang chờ khách duyệt lại.",
-        "Sau chốt: bấm **Đã đặt** → **Đã giao** theo tiến độ."
+        "Sau chốt: sang tab **«Đặt & nhận hàng»** để đặt hàng (xem mục bên dưới)."
+      ] },
+      { "type": "h3", "text": "Đặt hàng – duyệt – nhận hàng (từ 13/11/2026)" },
+      { "type": "steps", "items": [
+        "Thu mua bấm **Đặt hàng** ở dòng đã chốt giá, nhập số lượng đặt và đơn giá thực tế.",
+        "Đặt **trong** khối lượng, đơn giá và ngân sách của báo giá → **tự duyệt**, đi đặt luôn.",
+        "Vượt **bất kỳ** mức nào (khối lượng, đơn giá hoặc ngân sách) → đơn chờ **Leader Thu mua** duyệt hoặc từ chối kèm lý do. Đơn chờ duyệt hiện ở «Việc của tôi» của Leader.",
+        "Hàng về công trình: **Giám sát** chụp **tối thiểu 2 ảnh hiện trường** rồi mới bấm được **Đủ** hoặc **Thiếu**. Thiếu thì bắt buộc ghi chú; phần thiếu giao bù sau và Giám sát xác nhận tiếp. Thu mua chỉ xem.",
+        "Giá khung NCC quá **60 ngày** hiện nhãn **«giá cũ»** — hỏi lại NCC trước khi đặt."
       ] },
       { "type": "h3", "text": "Giá Shopee, «Cần thương lượng» và gợi ý NCC (từ 26/10/2026)" },
       { "type": "list", "items": [
@@ -1410,6 +1426,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "**Ngại dán số?** Chỉ cần nhắn `/start` cho bot hoặc nhắn một câu trong nhóm công ty có bot. Bot tự ghi nhận bạn, Admin vào **Tài khoản** → thẻ **«Telegram chưa gán»** chọn đúng tên bạn (hệ thống gợi ý sẵn theo tên) rồi bấm **Gán** là xong."
       },
       {
+        "type": "tip",
+        "text": "**Không nhận được tin bot?** Admin vào **Tài khoản** → thẻ **«Chưa nhận được tin bot»** xem ai đang bị Telegram từ chối (chưa bấm Start, đã chặn bot, ID sai) và ai chưa gán Telegram. Người đó mở bot bấm **Start** là lần gửi sau tự rời danh sách. Nhóm công ty lên supergroup thì app tự đổi ID nhóm, không cần cấu hình lại."
+      },
+      {
         "type": "h3",
         "text": "Gõ /help để bot tự hướng dẫn"
       },
@@ -1703,12 +1723,16 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "**Data khách về** — CSKH nhập khách mới vào menu **«Quy trình»** (hoặc dán tin nhắn Zalo cho bot bằng lệnh `/lead`).",
           "**Chia khách** — CSKH chia data về Trưởng nhóm Kinh doanh, trưởng nhóm chia tiếp cho từng Sale trong nhóm mình.",
-          "**Sale tư vấn** — kéo thẻ khách qua các cột: **Tiếp nhận mới → Đang tư vấn → Đã gửi báo giá → Đang đàm phán**. Cần ra giá nhanh cho khách thì dùng menu **«Báo giá tức thì»**.",
-          "**Deal thắng** — kéo thẻ vào cột **«Deal đã thắng»**: hệ thống TỰ tạo Khách hàng + Dự án (kèm 19 đầu việc chuẩn) + Hợp đồng. Thẻ đã thắng không kéo lùi lại được, nên chắc chắn rồi hãy kéo.",
+          "**Sale tư vấn** — kéo thẻ khách qua các cột: **Tiếp nhận mới → Đang tư vấn → Đã khảo sát → Đã gửi báo giá → Đang đàm phán**. Cần ra giá nhanh cho khách thì dùng menu **«Báo giá tức thì»**.",
+          "**Deal thắng** — kéo thẻ vào cột **«Deal đã thắng»** rồi điền khung tên dự án, giá trị HĐ thiết kế, ngân sách, ngày ký: hệ thống TỰ tạo Khách hàng + Dự án (kèm 19 đầu việc chuẩn) + Hợp đồng. Thẻ đã thắng không kéo lùi lại được, nên chắc chắn rồi hãy kéo.",
           "**Dự án chạy** — 19 đầu việc chia sẵn theo phòng ban: Thiết kế → Báo giá → Thu mua → Thi công → Nghiệm thu, bàn giao. Mỗi bộ phận có người phụ trách (PIC) được gán ngay trong dự án; ai xong việc nấy thì đổi trạng thái đầu việc.",
           "**Thu tiền từng đợt** — hợp đồng mặc định 4 đợt: Đặt cọc → Nghiệm thu thô → Nghiệm thu nội thất → Bàn giao. Tiền về tài khoản rồi thì bấm **«Xác nhận TT»** trong trang Hợp đồng — chỉ Kế toán, Giám đốc, Trưởng nhóm bấm được nút này.",
           "**Chốt sổ** — số thu/chi tự chảy vào trang **Kế toán** và **P&L**: sếp nhìn thấy lãi/lỗ của từng dự án mà không ai phải cộng tay."
         ]
+      },
+      {
+        "type": "tip",
+        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình."
       },
       {
         "type": "tip",

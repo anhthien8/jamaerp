@@ -178,6 +178,12 @@ async def _tg(method: str, data: dict, files: dict | None = None) -> dict:
         body = resp.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise MediaError(f"Không kết nối được Telegram ({type(exc).__name__})", 502) from exc
+    moi = (body.get("parameters") or {}).get("migrate_to_chat_id")
+    if not body.get("ok") and moi and data.get("chat_id") and str(moi) != str(data["chat_id"]):
+        # Nhóm Kho ảnh vừa lên supergroup (13/11/2026): đổi ID trong cấu hình rồi gửi lại một lần
+        from app.services.telegram_notify import _doi_id_nhom
+        await _doi_id_nhom(int(data["chat_id"]), int(moi))
+        return await _tg(method, {**data, "chat_id": str(moi)}, files)
     if not body.get("ok"):
         raise MediaError(f"Telegram từ chối: {body.get('description', 'không rõ lý do')}", 502)
     kq = body.get("result")

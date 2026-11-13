@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 STAGE_WEIGHTS = {
     "new": 0.10,
     "interested": 0.25,
+    "surveyed": 0.35,
     "survey_scheduled": 0.50,
     "potential": 0.75,
     "signed_design": 1.0,
@@ -33,7 +34,7 @@ DEFAULT_EFFORT_WEIGHT = 0.30
 DEFAULT_OUTCOME_WEIGHT = 0.50
 DEFAULT_QUALITY_WEIGHT = 0.20
 
-ACTIVE_LEAD_STAGES = ("new", "interested", "survey_scheduled", "potential")
+ACTIVE_LEAD_STAGES = ("new", "interested", "surveyed", "survey_scheduled", "potential")
 
 SALES_ROLES = ("data_entry", "leader")
 
@@ -151,7 +152,7 @@ async def compute_kpi(db: AsyncSession, user_id: str, period: str) -> dict:
     converted_q = await db.execute(
         select(func.count(Lead.id)).where(
             Lead.assigned_to == user_id,
-            Lead.stage.in_(["interested", "survey_scheduled", "potential", "signed_design"]),
+            Lead.stage.in_(["interested", "surveyed", "survey_scheduled", "potential", "signed_design"]),
             Lead.created_at >= start,
             Lead.created_at < end,
         )

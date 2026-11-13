@@ -39,18 +39,19 @@ const ACTIVITY_ICONS: Record<string, string> = {
 // mỗi mục tự có ngày giờ + tên người nhập; render ở khối riêng, tách khỏi timeline
 // chung để đánh giá chất lượng không bị trôi lẫn giữa hàng chục cuộc gọi.
 const CSKH_TYPE = 'cskh';
-const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'];
+const STAGES = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design'];
 // Cột hiển thị trên bảng kanban. KHÁC STAGES vì "Mất" phải có mặt để kiểm soát lead rơi,
 // nhưng không được nằm trong STAGES: chuyển sang "Mất" bắt buộc kèm lý do, mà các nút
 // "Chuyển giai đoạn" trong thẻ chi tiết lại bắn thẳng handleStageChange không lý do.
 const BOARD_STAGES = [...STAGES, 'lost'];
-const ALL_STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
+const ALL_STAGES = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
 // Ngưỡng «Quá hạn» THEO GIAI ĐOẠN (tính từ last_contacted_at hoặc updated_at).
 // Ngưỡng phẳng 3 ngày cũ gắn cờ cho ~73% lead — cờ mọc khắp nơi thì hết ý nghĩa cảnh báo.
 // signed_design/lost/dormant không có trong map = không bao giờ gắn cờ.
 const OVERDUE_DAYS_BY_STAGE: Record<string, number> = {
   new: 3,
   interested: 7,
+  surveyed: 5,
   survey_scheduled: 7,
   potential: 14,
 };
@@ -642,6 +643,9 @@ function LeadsContent() {
   const [signedConfirmOpen, setSignedConfirmOpen] = useState(false);
   const [signedTarget, setSignedTarget] = useState<Lead | null>(null);
   const [signedValue, setSignedValue] = useState('');
+  const [signedName, setSignedName] = useState('');
+  const [signedBudget, setSignedBudget] = useState('');
+  const [signedDate, setSignedDate] = useState('');
 
   const handleStageChange = async (lead: Lead, newStage: string, reasonOverride?: string) => {
     if (newStage === 'lost' && !reasonOverride) {
@@ -653,6 +657,9 @@ function LeadsContent() {
     if (newStage === 'signed_design' && lead.stage !== 'signed_design') {
       setSignedTarget(lead);
       setSignedValue(lead.design_contract_value ? String(lead.design_contract_value) : '');
+      setSignedName(`Dự án ${lead.name}`);
+      setSignedBudget(lead.estimated_budget ? String(lead.estimated_budget) : '');
+      setSignedDate(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
       setSignedConfirmOpen(true);
       return;
     }
@@ -662,7 +669,7 @@ function LeadsContent() {
 
   // Thân thật của việc đổi giai đoạn — confirm dialog signed_design gọi thẳng vào
   // đây (đi lại handleStageChange sẽ bị hộp xác nhận chặn lần nữa, vòng lặp).
-  const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string; contractValue?: number }) => {
+  const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string; contractValue?: number; projectName?: string; projectBudget?: number; signedDate?: string }) => {
     if (stageBusy.current) return;
     stageBusy.current = true;
     try {
@@ -672,6 +679,9 @@ function LeadsContent() {
       await api.changeStage(lead.id, newStage, {
         lostReason: newStage === 'lost' ? opts?.reason : undefined,
         designContractValue: opts?.contractValue,
+        projectName: opts?.projectName,
+        projectBudget: opts?.projectBudget,
+        designSignedDate: opts?.signedDate,
         note: newStage === 'dormant' ? (opts?.reason ? `Ngủ đông: ${opts.reason}` : undefined) : undefined,
       });
       toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
@@ -770,7 +780,7 @@ function LeadsContent() {
     }
   };
 
-  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="grid grid-cols-5 gap-3">{[1,2,3,4,5].map(i => <div key={i} className="skeleton h-32 rounded-xl" />)}</div></div></Sidebar>;
+  if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="grid grid-cols-6 gap-3">{[1,2,3,4,5].map(i => <div key={i} className="skeleton h-32 rounded-xl" />)}</div></div></Sidebar>;
   if (error) {
     return (
       <Sidebar>
@@ -2207,7 +2217,7 @@ function LeadsContent() {
                 <option value="">— Chọn giai đoạn —</option>
                 {/* signed_design bị BE chặn (tự sinh KH+Dự án phải chạy từng lead),
                     lost thì hiện ra nhưng bắt nhập lý do ngay bên cạnh. */}
-                {['new', 'interested', 'survey_scheduled', 'potential', 'dormant', 'lost'].map(s => (
+                {['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'dormant', 'lost'].map(s => (
                   <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
                 ))}
               </select>
@@ -2242,17 +2252,26 @@ function LeadsContent() {
       {signedConfirmOpen && signedTarget && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="signed-confirm-title">
           <div className="absolute inset-0 bg-black/70" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }} />
-          <div className="relative w-full max-w-md rounded-2xl p-5 glass-card">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-5 glass-card">
             <h3 id="signed-confirm-title" className="text-base font-bold text-white"><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Xác nhận deal đã thắng</h3>
-            <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Đã ký — thiết kế» sẽ tự động tạo Khách hàng, Hợp đồng và 19 công việc.</p>
-            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Giá trị hợp đồng đã ký (đ) — dùng cho doanh số, thưởng, P&amp;L
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">Chuyển <strong>{signedTarget.name}</strong> sang «Deal đã thắng» sẽ tự động tạo Khách hàng, Dự án, Hợp đồng và 19 công việc. Bốn ô dưới đây ghi thẳng sang dự án.</p>
+            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Tên dự án
+              <input type="text" value={signedName} onChange={e => setSignedName(e.target.value)} maxLength={255} placeholder="VD: Nhà phố anh Minh – Thủ Đức" className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white" />
+            </label>
+            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Giá trị hợp đồng thiết kế (đ) — dùng cho doanh số, thưởng, P&amp;L
               <MoneyInput valueDong={signedValue} onChangeDong={setSignedValue} placeholder="VD: 120.000.000" className="mt-1 w-full" />
             </label>
             {!Number(signedValue) && <p className="mt-1 text-[11px] text-[var(--text-muted)]">Bỏ trống thì tạm lấy ngân sách dự kiến, sửa lại sau ở Hợp đồng.</p>}
+            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Giá trị ngân sách dự án (đ)
+              <MoneyInput valueDong={signedBudget} onChangeDong={setSignedBudget} placeholder="VD: 1.500.000.000" className="mt-1 w-full" />
+            </label>
+            <label className="block mt-3 text-xs text-[var(--text-secondary)]">Ngày ký thiết kế
+              <input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white" />
+            </label>
             <p className="mt-2 text-xs text-amber-400">Thao tác này không thể lùi lại. Chỉ xác nhận khi hợp đồng đã ký.</p>
             <div className="flex justify-end gap-2 mt-5">
               <button className="px-3 py-2 rounded-lg text-xs bg-white/10 text-white" onClick={() => { setSignedConfirmOpen(false); setSignedTarget(null); }}>Hủy</button>
-              <button className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300" onClick={() => { const target = signedTarget; setSignedConfirmOpen(false); setSignedTarget(null); void doStageChange(target, 'signed_design', { contractValue: Number(signedValue) || undefined }); }}>Xác nhận deal thắng</button>
+              <button className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300" onClick={() => { const target = signedTarget; setSignedConfirmOpen(false); setSignedTarget(null); void doStageChange(target, 'signed_design', { contractValue: Number(signedValue) || undefined, projectName: signedName.trim() || undefined, projectBudget: Number(signedBudget) || undefined, signedDate: signedDate || undefined }); }}>Xác nhận deal thắng</button>
             </div>
           </div>
         </div>

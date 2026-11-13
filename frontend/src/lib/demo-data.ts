@@ -72,8 +72,8 @@ export const DEMO_TEAMS: Team[] = [
 ];
 
 // ─── Helper: Generate realistic leads ──────────────────────
-const STAGES = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'] as const;
-const STAGE_DISTRIBUTION = { new: 15, interested: 20, survey_scheduled: 15, potential: 15, signed_design: 20, lost: 10, dormant: 5 };
+const STAGES = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'] as const;
+const STAGE_DISTRIBUTION = { new: 15, interested: 15, surveyed: 5, survey_scheduled: 15, potential: 15, signed_design: 20, lost: 10, dormant: 5 };
 const PROPERTIES = ['townhouse', 'apartment', 'villa', 'office', 'shophouse'] as const;
 const PROP_WEIGHTS = [0.55, 0.25, 0.10, 0.05, 0.05];
 const SOURCES = ['facebook', 'zalo', 'referral', 'website', 'tiktok'] as const;
@@ -296,9 +296,10 @@ export const DEMO_PIPELINE_STATS: PipelineStats = {
 export const DEMO_PIPELINE_KANBAN: PipelineKanban[] = [
   { stage: 'new', stage_label: 'Tiếp nhận mới', leads: DEMO_LEADS.filter(l => l.stage === 'new'), count: stageCounts['new'] || 0 },
   { stage: 'interested', stage_label: 'Đang tư vấn', leads: DEMO_LEADS.filter(l => l.stage === 'interested'), count: stageCounts['interested'] || 0 },
-  { stage: 'survey_scheduled', stage_label: 'Khảo sát', leads: DEMO_LEADS.filter(l => l.stage === 'survey_scheduled'), count: stageCounts['survey_scheduled'] || 0 },
+  { stage: 'surveyed', stage_label: 'Đã khảo sát', leads: DEMO_LEADS.filter(l => l.stage === 'surveyed'), count: stageCounts['surveyed'] || 0 },
+  { stage: 'survey_scheduled', stage_label: 'Đã gửi báo giá', leads: DEMO_LEADS.filter(l => l.stage === 'survey_scheduled'), count: stageCounts['survey_scheduled'] || 0 },
   { stage: 'potential', stage_label: 'Đang đàm phán', leads: DEMO_LEADS.filter(l => l.stage === 'potential'), count: stageCounts['potential'] || 0 },
-  { stage: 'signed_design', stage_label: 'Ký HĐ Thiết kế', leads: DEMO_LEADS.filter(l => l.stage === 'signed_design'), count: stageCounts['signed_design'] || 0 },
+  { stage: 'signed_design', stage_label: 'Deal đã thắng', leads: DEMO_LEADS.filter(l => l.stage === 'signed_design'), count: stageCounts['signed_design'] || 0 },
 ];
 
 // ─── Commissions ───────────────────────────────────────────

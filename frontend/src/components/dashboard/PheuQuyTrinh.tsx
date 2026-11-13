@@ -9,9 +9,9 @@
 
 import { STAGE_CONFIG } from '@/lib/utils';
 
-const GIAI_DOAN = ['new', 'interested', 'survey_scheduled', 'potential', 'signed_design'];
+const GIAI_DOAN = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design'];
 // Vàng nhạt → đậm theo độ sâu phễu; giai đoạn thắng sáng nhất
-const DO_DAM = [0.35, 0.5, 0.65, 0.8, 1];
+const DO_DAM = [0.35, 0.45, 0.58, 0.7, 0.84, 1];
 
 export default function PheuQuyTrinh({ funnel, onChon }: {
   funnel: Record<string, number>;

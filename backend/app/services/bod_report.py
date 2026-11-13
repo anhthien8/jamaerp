@@ -232,7 +232,7 @@ async def build_group_briefing(db: AsyncSession) -> str:
     )).scalar() or 0
     overdue_leads = (await db.execute(
         select(func.count(Lead.id)).where(
-            Lead.stage.in_(("new", "interested", "survey_scheduled", "potential")),
+            Lead.stage.in_(("new", "interested", "surveyed", "survey_scheduled", "potential")),
             Lead.last_contacted_at < now - timedelta(days=3),
         )
     )).scalar() or 0

@@ -10,6 +10,7 @@ router = Router()
 STAGE_EMOJIS = {
     "new": "🆕",
     "interested": "💡",
+    "surveyed": "📐",
     "survey_scheduled": "📅",
     "potential": "⭐",
     "signed_design": "✍️",
@@ -20,6 +21,7 @@ STAGE_EMOJIS = {
 STAGE_LABELS = {
     "new": "Mới tiếp nhận",
     "interested": "Có nhu cầu",
+    "surveyed": "Đã khảo sát",
     "survey_scheduled": "Đã gửi báo giá",
     "potential": "Đang đàm phán",
     "signed_design": "Ký thiết kế",
@@ -43,7 +45,7 @@ async def cmd_pipeline(message: types.Message):
     # Build visual pipeline
     lines = ["📊 <b>PIPELINE ERP</b>\n"]
 
-    for stage_key in ["new", "interested", "survey_scheduled", "potential", "signed_design"]:
+    for stage_key in ["new", "interested", "surveyed", "survey_scheduled", "potential", "signed_design"]:
         count = by_stage.get(stage_key, 0)
         emoji = STAGE_EMOJIS.get(stage_key, "•")
         label = STAGE_LABELS.get(stage_key, stage_key)
