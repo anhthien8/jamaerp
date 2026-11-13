@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
-title JAMA HOME CRM - Starting...
+title JAMA HOME ERP - Starting...
 
 echo.
 echo  =============================================
-echo    JAMA HOME CRM - ERP + CRM Interior Design
+echo    JAMA HOME ERP - Thiet ke va thi cong noi that
 echo    Dang khoi dong dich vu...
 echo  =============================================
 echo.
@@ -25,7 +25,7 @@ echo.
 
 REM ── Step 2: Start Backend (FastAPI) ──
 echo  Khoi dong Backend (FastAPI - port 8000)...
-start "JAMA Backend" cmd /k "cd /d H:\Hermes\jama-crm\backend && set PYTHONIOENCODING=utf-8 && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "JAMA Backend" cmd /k "cd /d %~dp0backend && set PYTHONIOENCODING=utf-8 && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 echo  [OK] Backend da khoi dong.
 echo.
 
@@ -42,10 +42,10 @@ echo.
 set /p "FRONTEND_MODE= Nhap so (1 hoac 2, mac dinh 1): "
 
 if "%FRONTEND_MODE%"=="2" (
-    start "JAMA Frontend" cmd /k "cd /d H:\Hermes\jama-crm\frontend && npx next start -p 3001"
+    start "JAMA Frontend" cmd /k "cd /d %~dp0frontend && npx next start -p 3001"
     echo  [OK] Frontend (Production) da khoi dong.
 ) else (
-    start "JAMA Frontend" cmd /k "cd /d H:\Hermes\jama-crm\frontend && npm run dev"
+    start "JAMA Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
     echo  [OK] Frontend (Development) da khoi dong.
 )
 echo.

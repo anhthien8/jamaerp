@@ -32,7 +32,7 @@ export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
     try { setDs((await api.myAttendance(period, userId)).records); }
     catch (e) { toast(e instanceof Error ? e.message : 'Không tải được công', 'error'); }
   }, [period, userId, toast]);
-  useEffect(() => { tai(); }, [tai]);
+  useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const ghi = async () => {
     if (!sua || luu) return;
@@ -96,7 +96,7 @@ export function LichNgayLe() {
   const tai = useCallback(async () => {
     try { setData(await api.ngayLe()); } catch { /* không có quyền xem thì thôi */ }
   }, []);
-  useEffect(() => { tai(); }, [tai]);
+  useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const luu = async (them: string[]) => {
     try { await api.luuNgayLe(them); toast('Đã lưu lịch nghỉ lễ', 'success'); tai(); }

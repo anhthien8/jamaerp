@@ -255,8 +255,10 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
 
   useEffect(() => {
     if (forceOpen) {
-      setVisible(true);
-      setStep(0);
+      void Promise.resolve().then(() => {
+        setVisible(true);
+        setStep(0);
+      });
       return;
     }
     if (!user) return;

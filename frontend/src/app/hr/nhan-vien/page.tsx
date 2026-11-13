@@ -125,9 +125,11 @@ function NhanVienContent() {
   }, [targetId]);
 
   // Đổi người đang xem (?id=): dọn giấy tờ + cache ảnh cũ, kẻo effect dưới fetch lệch cặp id người cũ/mới
-  useEffect(() => { setDocs([]); setDocThumbs({}); }, [targetId]);
+  // (reset ngay trong lúc render thay vì trong effect — cùng lượt render với targetId mới)
+  const [docsCuaId, setDocsCuaId] = useState(targetId);
+  if (docsCuaId !== targetId) { setDocsCuaId(targetId); setDocs([]); setDocThumbs({}); }
 
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+  useEffect(() => { void Promise.resolve().then(loadProfile); }, [loadProfile]);
 
   // Tự tải ảnh thu nhỏ khi vào tab Hồ sơ (song song; ảnh lỗi ghi '' để khỏi refetch — ô đổi chữ, bấm vẫn xem được)
   useEffect(() => {

@@ -105,7 +105,7 @@ export default function AccountingPage() {
   // sang tab Hoa hồng thay vì để người dùng kẹt trên tab trống không bấm lại được.
   useEffect(() => {
     if (user && !canSeePnL && (tab === 'overview' || tab === 'transactions')) {
-      setTab('commissions');
+      void Promise.resolve().then(() => setTab('commissions'));
     }
   }, [user, canSeePnL, tab]);
 

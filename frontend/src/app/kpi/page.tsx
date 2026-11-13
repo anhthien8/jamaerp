@@ -96,22 +96,24 @@ export default function KpiPage() {
 
   useEffect(() => {
     if (!user) return;
-    setBusy(true);
-    setKpiError(null);
-    // Tách 403 khỏi lỗi hệ thống: vai trò tùy chỉnh (VD Điều phối KD) chưa được backend
-    // cho xem KPI đội, trước đây chỉ hiện "Không thể tải dữ liệu KPI" nên nhìn như ERP hỏng.
-    const bao = (e: unknown) => setKpiError(
-      laLoiThieuQuyen(e)
-        ? 'Tài khoản của bạn chưa được cấp quyền xem mục này. Liên hệ quản trị nếu cần.'
-        : 'Không thể tải dữ liệu KPI — vui lòng thử lại.'
-    );
-    if (tab === 'me') {
-      api.getKpiMe(period).then(setMyKpi).catch(bao).finally(() => setBusy(false));
-    } else if (tab === 'team' && isLeaderOrAbove) {
-      api.getKpiTeam(period).then((d: any) => setTeamData(d.members || [])).catch(bao).finally(() => setBusy(false));
-    } else if (tab === 'leaderboard') {
-      api.getKpiLeaderboard(period).then((d: any) => setLeaderboard(d.leaderboard || [])).catch(bao).finally(() => setBusy(false));
-    }
+    void Promise.resolve().then(() => {
+      setBusy(true);
+      setKpiError(null);
+      // Tách 403 khỏi lỗi hệ thống: vai trò tùy chỉnh (VD Điều phối KD) chưa được backend
+      // cho xem KPI đội, trước đây chỉ hiện "Không thể tải dữ liệu KPI" nên nhìn như ERP hỏng.
+      const bao = (e: unknown) => setKpiError(
+        laLoiThieuQuyen(e)
+          ? 'Tài khoản của bạn chưa được cấp quyền xem mục này. Liên hệ quản trị nếu cần.'
+          : 'Không thể tải dữ liệu KPI — vui lòng thử lại.'
+      );
+      if (tab === 'me') {
+        api.getKpiMe(period).then(setMyKpi).catch(bao).finally(() => setBusy(false));
+      } else if (tab === 'team' && isLeaderOrAbove) {
+        api.getKpiTeam(period).then(d => setTeamData((d.members || []) as TeamMember[])).catch(bao).finally(() => setBusy(false));
+      } else if (tab === 'leaderboard') {
+        api.getKpiLeaderboard(period).then(d => setLeaderboard(d.leaderboard || [])).catch(bao).finally(() => setBusy(false));
+      }
+    });
   }, [tab, period, user]);
 
   if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></Sidebar>;

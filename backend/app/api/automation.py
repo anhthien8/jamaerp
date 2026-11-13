@@ -28,7 +28,7 @@ from app.services.task_sla import (
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
-_ADMIN_ROLES = ("admin", "executive")
+from app.middleware.rbac import VAI_TRO_BGD as _ADMIN_ROLES  # noqa: E402
 
 
 def _require_admin(current_user: User = Depends(get_current_user)) -> User:

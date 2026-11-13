@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 PERIOD_LABELS = {"daily": "ngày", "weekly": "tuần", "monthly": "tháng"}
 PERIOD_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
 
-BOD_ROLES = ("admin", "executive")
+from app.middleware.rbac import VAI_TRO_BGD as BOD_ROLES  # noqa: E402
 
 
 async def build_bod_report(db: AsyncSession, period: str = "daily") -> dict:

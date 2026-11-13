@@ -1,5 +1,8 @@
 # Module: Notifications & System (Thông báo & Hệ thống)
 
+> Luồng Telegram chi tiết: [`docs/telegram-workflow.md`](../../telegram-workflow.md).
+
+
 ## Overview
 
 The Notifications & System module provides in-app notifications with deduplication, Telegram push integration, system settings management, employee feedback collection, and comprehensive audit logging for sensitive operations.

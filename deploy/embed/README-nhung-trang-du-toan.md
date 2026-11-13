@@ -1,6 +1,6 @@
 # 🧲 Nhúng công cụ Báo giá vào trang Dự Toán — jamahome.vn
 
-Hai cách, chọn 1. **Điều kiện chung:** backend JAMA CRM phải được deploy công khai trước (có domain, ví dụ `https://jamacrm-production.up.railway.app`).
+Hai cách, chọn 1. **Điều kiện chung:** backend JAMA HOME ERP phải được deploy công khai trước (có domain, ví dụ `https://jamacrm-production.up.railway.app`).
 
 ---
 
@@ -63,7 +63,7 @@ Copy toàn bộ nội dung file → dán vào khối **HTML tùy chỉnh** trong
 1. Mở trang Dự Toán ngoài trình duyệt (chế độ ẩn danh cho chắc).
 2. Nhập thử: tên "Test", SĐT của bạn, 75m², căn hộ → bấm nhận báo giá.
 3. Phải thấy 3 khoảng giá hiện ra.
-4. Đăng nhập JAMA CRM → Pipeline → thấy lead "Test" nguồn **Website**, ưu tiên **cao**.
+4. Đăng nhập JAMA HOME ERP → Pipeline → thấy lead "Test" nguồn **Website**, ưu tiên **cao**.
 5. Xóa lead test đó đi là xong.
 
 ## Bảo mật (đã tích hợp sẵn)

@@ -1,184 +1,26 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { laTruongPhong } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, ApiError, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages, mediaUrl } from '@/lib/api';
+import { api, ApiError, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages } from '@/lib/api';
 import { nenAnh, blobThanhDataUrl } from '@/lib/anh';
-import AnhDuAn from '@/components/projects/AnhDuAn';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import LyDoTamDung from '@/components/projects/LyDoTamDung';
+import FormCongViec from '@/components/projects/FormCongViec';
+import YeuCauVatTu from '@/components/projects/YeuCauVatTu';
+import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
-import MoneyInput from '@/components/ui/MoneyInput';
-import Link from 'next/link';
 import LineIcon from '@/components/ui/LineIcon';
-import ChuCoLink from '@/components/ui/ChuCoLink';
+import { statusConfig, STAGE_LABELS, DEPT_LABELS, STAGE_ORDER, DeadlineBadge, StageBlocks } from '@/components/projects/shared';
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  active: { label: 'Đang thực hiện', color: '#10B981' },
-  on_hold: { label: 'Tạm dừng', color: '#F59E0B' },
-  completed: { label: 'Hoàn thành', color: '#3B82F6' },
-  cancelled: { label: 'Hủy', color: '#EF4444' },
-};
+const ChiTietDuAn = dynamic(() => import('@/components/projects/ChiTietDuAn'), { ssr: false });
+const ChiTietCongViec = dynamic(() => import('@/components/projects/ChiTietCongViec'), { ssr: false });
+const FormDuAn = dynamic(() => import('@/components/projects/FormDuAn'), { ssr: false });
 
-const STAGE_LABELS: Record<string, string> = {
-  design: 'Thiết kế',
-  quotation: 'Báo giá',
-  procurement: 'Thu mua',
-  construction: 'Thi công',
-  acceptance: 'Nghiệm thu & Bàn giao',
-  completed: 'Hoàn thành',
-  paused: 'Tạm dừng',
-};
-
-const DEPT_LABELS: Record<string, { label: string; color: string }> = {
-  design: { label: 'Thiết kế', color: '#8B5CF6' },
-  quotation: { label: 'Báo giá', color: '#F59E0B' },
-  procurement: { label: 'Thu mua', color: '#10B981' },
-  construction: { label: 'Thi công', color: '#3B82F6' },
-  accounting: { label: 'Kế toán', color: '#EC4899' },
-  sales: { label: 'Kinh doanh', color: '#F97316' },
-};
-
-// Phòng ban của task (viết thường) → phòng ban user (viết HOA) được nhận việc.
-// Sửa 05/09 theo cơ cấu THẬT trên prod: dự toán/báo giá (du_toan,
-// dutoan_thumua_leader) và thu mua đều nằm ở PURCHASING — bản cũ map báo giá
-// sang SALES+DESIGN và thu mua sang OPS nên hiện nhầm người.
-const DEPT_TO_USER_DEPT: Record<string, string[]> = {
-  design: ['DESIGN'],
-  quotation: ['PURCHASING'],
-  procurement: ['PURCHASING'],
-  construction: ['OPS'],
-  accounting: ['ACCT'],
-  sales: ['SALES'],
-};
-
-/** Phòng ban hiệu lực của task: `department` nếu có, không thì suy từ `stage`
- *  (task tự sinh khi thắng deal từng để trống department — backfill u01 đã dọn,
- *  nhưng vẫn giữ fallback cho dữ liệu cũ / cache). Nghiệm thu do đội thi công làm. */
-const taskDeptOf = (t: { department?: string | null; stage?: string | null }): string =>
-  t.department || (t.stage === 'acceptance' ? 'construction' : t.stage || '');
-
-/** Ai được nhận task phòng ban `dept` — CHỈ người thuộc đúng phòng ban đó.
- *  Không có ngoại lệ nào: chốt 05/09 sau khi user thấy 4 tài khoản Giám đốc (EXEC)
- *  lọt vào mọi dropdown. Supervisor cũng không toàn quyền — trên prod họ thuộc
- *  phòng cụ thể (DESIGN/OPS/PURCHASING/PM). Task không rõ phòng ban → không ai. */
-const canTakeTask = (u: { role?: string; department?: string | null }, dept: string): boolean => {
-  const allowed = DEPT_TO_USER_DEPT[dept];
-  return !!allowed && allowed.includes((u.department || '').toUpperCase());
-};
-
-/** Ô PIC ứng với bộ phận của người đang đăng nhập (22/09/2026).
- *  Luồng chốt: tạo dự án → thông báo trưởng phòng → trưởng phòng gắn PIC cho
- *  BỘ PHẬN MÌNH. «Trưởng phòng Kinh Doanh không thấy/show nhân sự phòng Thiết
- *  Kế» — nên mỗi người chỉ thấy đúng ô của phòng mình. Ban Giám Đốc (admin /
- *  executive) thấy cả 4 ô vì họ điều phối chéo phòng. */
-const PIC_CUA_BO_PHAN: Record<string, string> = {
-  OPS: 'pm_id',
-  DESIGN: 'designer_id',
-  PURCHASING: 'purchasing_id',
-  SALES: 'sales_id',
-};
-
-const laBanGiamDoc = (u?: { role?: string } | null): boolean =>
-  u?.role === 'admin' || u?.role === 'executive';
-
-// ── Spec 07: thanh tiến độ 5 khối + badge hạn chót ──────────────────────────
-const STAGE_ORDER = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'paused'] as const;
-const STAGE_SHORT: Record<string, string> = {
-  design: 'Thiết kế', quotation: 'Báo giá', procurement: 'Thu mua',
-  construction: 'Thi công', acceptance: 'Nghiệm thu',
-};
-
-// ── Nhóm người đảm nhận đầu việc + nhãn trễ hạn (13/10/2026) ────────────────
-
-/** Nhóm người đảm nhận của một đầu việc. `assignee_ids` là nguồn sự thật; rơi về
- *  `assigned_to` cho dữ liệu/cache cũ chưa có nhóm. */
-const nhomDamNhan = (t: { assignee_ids?: string[]; assigned_to?: string }): string[] =>
-  t.assignee_ids?.length ? t.assignee_ids : (t.assigned_to ? [t.assigned_to] : []);
-
-/** Tên gọi ngắn để badge không tràn hàng — người Việt gọi nhau bằng tên cuối. */
-const tenNgan = (full?: string): string => full?.trim().split(/\s+/).pop() || '✓';
-
-/** Nhãn trễ của đầu việc. Hạn thoả thuận (`due_date`) ưu tiên hơn chuẩn nội bộ
- *  (`sla_due_at`): trễ cả hai thì chỉ hiện một nhãn, đúng như quy tắc gửi thông
- *  báo ở backend (app/services/task_sla.py). */
-function nhanTreHan(t: { status: string; due_date?: string; sla_due_at?: string }):
-  { text: string; color: string; bg: string } | null {
-  if (t.status === 'done' || t.status === 'completed') return null;
-  const dHan = daysLeft(t.due_date);
-  if (dHan !== null && dHan < 0) {
-    return { text: `Quá hạn ${-dHan}n`, color: '#F87171', bg: 'rgba(248,113,113,0.18)' };
-  }
-  const dSla = daysLeft(t.sla_due_at);
-  if (dSla !== null && dSla < 0) {
-    return { text: `Vượt SLA ${-dSla}n`, color: '#FB923C', bg: 'rgba(251,146,60,0.18)' };
-  }
-  if (dHan !== null && dHan <= 2) {
-    return { text: `Còn ${dHan}n`, color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' };
-  }
-  return null;
-}
-
-/** `datetime-local` cần 'YYYY-MM-DDTHH:mm'; API trả ISO có giây + timezone. */
-const choOInputNgay = (iso?: string): string => (iso ? iso.slice(0, 10) : '');
-
-function daysLeft(target?: string | null): number | null {
-  if (!target) return null;
-  const end = new Date(target).getTime();
-  if (Number.isNaN(end)) return null;
-  return Math.ceil((end - Date.now()) / 86_400_000);
-}
-
-function DeadlineBadge({ project }: { project: Project }) {
-  if (project.status === 'completed' || project.status === 'cancelled') return null;
-  const d = daysLeft(project.target_end_date);
-  if (d === null) {
-    return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>Chưa đặt hạn</span>;
-  }
-  if (d < 0) {
-    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(248,113,113,0.18)', color: '#F87171' }}><span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />Quá hạn {-d} ngày</span>;
-  }
-  if (d <= 14) {
-    return <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(251,146,60,0.18)', color: '#FB923C' }}><span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />Còn {d} ngày</span>;
-  }
-  return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF' }}>Còn {d} ngày</span>;
-}
-
-function StageBlocks({ project }: { project: Project }) {
-  const progress = project.stage_progress;
-  if (!progress) return null;
-  return (
-    <div className="flex gap-1 mb-2" aria-label="Tiến độ theo giai đoạn">
-      {STAGE_ORDER.map(stage => {
-        const cell = progress[stage];
-        const total = cell?.total ?? 0;
-        const done = cell?.done ?? 0;
-        let bg = 'var(--surface-3)'; // chưa bắt đầu
-        if (total > 0 && done >= total) bg = '#10B981';       // xong
-        else if (done > 0 || project.stage === stage) bg = '#F59E0B'; // đang làm
-        return (
-          <div
-            key={stage}
-            className="h-1.5 flex-1 rounded-full"
-            style={{ background: bg }}
-            title={`${STAGE_SHORT[stage]}: ${done}/${total} việc`}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-const taskStatusConfig: Record<string, { label: string; color: string; icon: string }> = {
-  done: { label: 'Xong', color: '#10B981', icon: 'check' },
-  in_progress: { label: 'Đang làm', color: '#F59E0B', icon: 'refresh' },
-  not_started: { label: 'Chưa bắt đầu', color: '#6B7280', icon: 'hourglass' },
-  todo: { label: 'Chờ', color: '#6B7280', icon: 'hourglass' },
-  completed: { label: 'Hoàn thành', color: '#3B82F6', icon: 'check' },
-};
 
 function ProjectsPageInner() {
   const { user, loading, effectivePermissions } = useAuth();
@@ -347,7 +189,7 @@ function ProjectsPageInner() {
   }, [viewMode, fetchKanbanData, fetchProjects]);
 
   useEffect(() => {
-    if (user) refreshData();
+    if (user) void Promise.resolve().then(() => refreshData());
   }, [user, refreshData]);
 
   // Kanban trên mobile: khi cột đầu ('Thiết kế') trống, người dùng tưởng không có dự án.
@@ -1138,1066 +980,102 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
 
       {/* ── Project Detail Modal ── */}
       {selectedProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]" onClick={() => setSelectedProject(null)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-2xl max-h-[82vh] overflow-y-auto rounded-2xl animate-in"
-            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-[var(--text-muted)] font-mono">{selectedProject.code}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{
-                    backgroundColor: `${(statusConfig[selectedProject.status] || { color: '#6B7280' }).color}20`,
-                    color: (statusConfig[selectedProject.status] || { color: '#6B7280' }).color,
-                  }}>
-                    {statusConfig[selectedProject.status]?.label || selectedProject.status}
-                  </span>
-
-                  {/* Stage Dropdown */}
-                  <div className="flex items-center gap-1 ml-2">
-                    <span className="text-xs text-[var(--text-muted)]">Giai đoạn:</span>
-                    <select
-                      value={selectedProject.stage}
-                      onChange={e => handleProjectStageChange(e.target.value)}
-                      className="text-xs bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded px-1.5 py-0.5 text-[var(--text-primary)] cursor-pointer"
-                    >
-                      {Object.entries(STAGE_LABELS).map(([k, label]) => (
-                        <option key={k} value={k}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <h2 className="text-lg font-bold mt-1 text-white">{selectedProject.name}</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {permissions?.canCreateProjects && (
-                  <button
-                    onClick={() => openProjectForm(selectedProject)}
-                    className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)] transition-all"
-                  >
-                    Chỉnh sửa
-                  </button>
-                )}
-                <button onClick={() => setSelectedProject(null)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-5">
-              {/* Pause Reason — hiển thị khi dự án tạm dừng */}
-              {(selectedProject.stage === 'paused' || selectedProject.status === 'paused') && (
-                <div className="p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                  <p className="text-xs font-semibold text-amber-400 mb-1"><LineIcon name="pause" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Lý do tạm dừng:</p>
-                  <p className="text-sm text-[var(--text-secondary)]">{(selectedProject as unknown as Record<string, string>).pause_reason || 'Không ghi rõ'}</p>
-                </div>
-              )}
-
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { label: 'Tiến độ', value: `${selectedProject.progress}%` },
-                  { label: 'Tổng giá trị', value: formatCurrency(selectedProject.total_value || (selectedProject.design_value || 0) + (selectedProject.construction_value || 0)) },
-                  { label: 'Đã chi', value: formatCurrency(selectedProject.spent) },
-                  { label: 'Loại', value: selectedProject.project_type === 'design_build' ? 'TK & Thi công' : selectedProject.project_type === 'design_only' ? 'Chỉ Thiết kế' : 'Chỉ Thi công' },
-                ].map((card, i) => (
-                  <div key={i} className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-xs text-[var(--text-muted)]">{card.label}</p>
-                    <p className="text-sm font-semibold mt-1 text-[#C9A96E]">{card.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Team Assignment — Phân công bộ phận */}
-              <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3"><LineIcon name="users" size={16} className="inline-block align-[-2px] mr-1.5" />Phân công bộ phận</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { label: 'PM / Giám sát', id: selectedProject.pm_id, color: '#8B5CF6', icon: 'clipboard' },
-                    { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: 'palette' },
-                    { label: 'Báo giá – Thu mua', id: selectedProject.purchasing_id, color: '#10B981', icon: 'receipt' },
-                    { label: 'Kinh doanh', id: selectedProject.sales_id, color: '#3B82F6', icon: 'briefcase' },
-                  ].map(m => {
-                    const userName = m.id ? (users.find(u => u.id === m.id)?.full_name || '—') : '—';
-                    return (
-                      <div key={m.label} className="p-2 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                        <p className="mb-1 flex justify-center"><LineIcon name={m.icon} size={20} color={m.color} /></p>
-                        <p className="text-[10px] font-medium text-[var(--text-muted)]">{m.label}</p>
-                        <p className="text-xs font-semibold truncate" style={{ color: m.color }}>{userName}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-                {(doiKhachRieng || selectedProject.khach_rieng) && (
-                  <label className={cn('mt-3 flex items-start gap-2.5 p-2.5 rounded-lg min-h-[44px]', doiKhachRieng && 'cursor-pointer')}
-                    style={{ background: 'var(--surface-2)' }}>
-                    <input type="checkbox" className="mt-0.5 w-4 h-4 accent-[var(--gold-500)]"
-                      checked={!!selectedProject.khach_rieng} disabled={!doiKhachRieng}
-                      onChange={e => handleKhachRieng(e.target.checked)} />
-                    <span className="text-xs">
-                      <span className="font-semibold text-[var(--text-primary)]">Khách riêng của sale</span>
-                      <span className="block text-[var(--text-muted)]">Sale tự mang khách về → hoa hồng sale 2% thay vì 1% mỗi đợt thu tiền.{!doiKhachRieng && ' Chỉ TP Kinh doanh / Ban Giám đốc đổi được.'}</span>
-                    </span>
-                  </label>
-                )}
-              </div>
-
-              {/* Client Info */}
-              <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Thông tin khách hàng</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[var(--text-secondary)]">
-                  <p><LineIcon name="user" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_name}</p>
-                  {selectedProject.client_phone && <p><LineIcon name="smartphone" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_phone}</p>}
-                  {selectedProject.address && <p className="md:col-span-2"><LineIcon name="pin" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.address}</p>}
-                </div>
-              </div>
-
-              {/* Contract Values */}
-              <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Giá trị hợp đồng</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-xs text-[var(--text-muted)]">HĐ Thiết kế</p>
-                    <p className="text-sm font-semibold mt-1 text-white">{formatCurrency(selectedProject.design_value)}</p>
-                  </div>
-                  <div className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-xs text-[var(--text-muted)]">HĐ Thi công</p>
-                    <p className="text-sm font-semibold mt-1 text-white">{formatCurrency(selectedProject.construction_value)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ngân sách vs Thực chi — cảnh báo vượt ngân sách sớm */}
-              {selectedProject.budget_total ? (() => {
-                const budget = selectedProject.budget_total || 0;
-                const spent = selectedProject.spent || 0;
-                const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
-                const over = pct > 100;
-                const warn = pct >= 80 && !over;
-                const barColor = over ? '#F87171' : warn ? '#FBBF24' : '#34D399';
-                return (
-                  <div className="glass-card p-4">
-                    <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Ngân sách vs thực chi</h3>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-[var(--text-secondary)]">Đã chi {formatCurrency(spent)} / {formatCurrency(budget)}</span>
-                      <span className="font-bold" style={{ color: barColor }}>{pct}%</span>
-                    </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: barColor }} />
-                    </div>
-                    {over && <p className="text-xs mt-2" style={{ color: '#F87171' }}><LineIcon name="alert" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Vượt ngân sách {formatCurrency(spent - budget)} — cần rà soát chi phí</p>}
-                    {warn && <p className="text-xs mt-2" style={{ color: '#FBBF24' }}>Sắp chạm ngân sách — theo dõi sát các khoản chi tiếp theo</p>}
-                  </div>
-                );
-              })() : null}
-
-              {/* Ảnh công trình — Kho ảnh (Telegram «JAMA Công trình») */}
-              <AnhDuAn projectId={selectedProject.id} />
-
-              {/* Vật tư (25/10): phiếu khách chọn mẫu → Thu mua hỏi NCC → chốt giá */}
-              <Link href={`/vat-tu?project=${selectedProject.id}`}
-                className="flex items-center justify-between glass-card px-4 py-3 text-sm hover:border-[var(--gold-400)] transition-colors">
-                <span className="flex items-center gap-2 text-[var(--text-primary)]"><LineIcon name="package" size={16} /> Phiếu vật tư của dự án</span>
-                <span className="text-[var(--text-muted)]">Mở →</span>
-              </Link>
-
-              {/* Khách đã xác nhận nghiệm thu trên portal (27/10/2026) */}
-              {selectedProject.stage_acceptances && Object.keys(selectedProject.stage_acceptances).length > 0 && (
-                <div className="glass-card p-4">
-                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Khách đã nghiệm thu</h3>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(selectedProject.stage_acceptances).map(([gd, nt]) => (
-                      <div key={gd} className="flex items-start gap-2">
-                        <LineIcon name="check" size={16} />
-                        <div className="min-w-0">
-                          <div className="text-[var(--text-primary)]">{STAGE_LABELS[gd] || gd} · {new Date(nt.at).toLocaleDateString('vi-VN')}</div>
-                          {nt.note && <div className="text-xs text-[var(--text-muted)]">{nt.note}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Bàn giao & bảo hành */}
-              {selectedProject.handover_date && (
-                <div className="glass-card p-4">
-                  <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Bàn giao &amp; bảo hành</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-[var(--text-muted)]">Ngày bàn giao</p>
-                      <p className="font-semibold text-white mt-0.5">{new Date(selectedProject.handover_date).toLocaleDateString('vi-VN')}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[var(--text-muted)]">Hết bảo hành ({selectedProject.warranty_months ?? 12} tháng)</p>
-                      <p className="font-semibold text-white mt-0.5">
-                        {(() => {
-                          const d = new Date(selectedProject.handover_date);
-                          d.setMonth(d.getMonth() + (selectedProject.warranty_months ?? 12));
-                          return d.toLocaleDateString('vi-VN');
-                        })()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tasks - Grouped by Operational Stage */}
-              <div className="glass-card p-4">
-                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-                      Đầu việc
-                    </h3>
-                    <div className="flex rounded-lg overflow-hidden border border-[var(--border-subtle)]">
-                      <button
-                        onClick={() => setTaskGroupMode('stage')}
-                        className={cn('px-2 py-0.5 text-[10px] font-semibold transition-all',
-                          taskGroupMode === 'stage' ? 'bg-[var(--gold-500)] text-white' : 'text-[var(--text-muted)] hover:text-white')}
-                      >Theo giai đoạn</button>
-                      <button
-                        onClick={() => setTaskGroupMode('department')}
-                        className={cn('px-2 py-0.5 text-[10px] font-semibold transition-all',
-                          taskGroupMode === 'department' ? 'bg-[var(--gold-500)] text-white' : 'text-[var(--text-muted)] hover:text-white')}
-                      >Theo phòng ban</button>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {permissions?.canCreateProjects && (
-                      <button
-                        onClick={openMaterialRequest}
-                        className="text-xs px-3 py-1 rounded-lg font-medium bg-[#10B981] text-white hover:bg-[#059669] transition-all"
-                      >
-                        <LineIcon name="package" size={16} className="inline-block align-[-2px] mr-1.5" />Yêu cầu vật tư
-                      </button>
-                    )}
-                    {permissions?.canCreateTasks && (
-                      <button
-                        onClick={openTaskForm}
-                        className="text-xs px-3 py-1 rounded-lg font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] transition-all"
-                      >
-                        + Thêm công việc
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {loadingTasks ? (
-                  <p className="text-sm text-center text-[var(--text-muted)] py-4">Đang tải...</p>
-                ) : tasks.length === 0 ? (
-                  <p className="text-sm text-center text-[var(--text-muted)] py-4">Chưa có công việc</p>
-                ) : taskGroupMode === 'department' ? (
-                  <div className="space-y-4">
-                    {groupedByDepartment.map(group => (
-                      <div
-                        key={group.dept}
-                        className={cn('border-b border-white/5 pb-3 last:border-0 last:pb-0 rounded-lg transition-opacity', group.waiting && 'opacity-45')}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-xs font-bold uppercase flex items-center gap-1.5" style={{ color: group.color }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: group.color }} />
-                            {group.label} ({group.done}/{group.tasks.length})
-                            {group.waiting && (
-                              <span className="text-[9px] font-medium normal-case px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                                Chờ giai đoạn trước
-                              </span>
-                            )}
-                          </h4>
-                          <div className="w-24 h-1 rounded-full bg-white/5">
-                            <div className="h-full rounded-full" style={{ width: `${group.pct}%`, background: group.color }} />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5 pl-3">
-                          {group.tasks.map(task => {
-                            const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: 'pin' };
-                            return (
-                              <div
-                                key={task.id}
-                                className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
-                                onClick={() => openTaskDetail(task)}
-                              >
-                                <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
-                                <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{task.title}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${ts.color}20`, color: ts.color }}>{ts.label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {Object.entries(groupedTasks).map(([stageKey, stageTasks]) => {
-                      if (stageTasks.length === 0) return null;
-                      return (
-                        <div key={stageKey} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                          <h4 className="text-xs font-bold text-[var(--gold-400)] uppercase mb-2 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--gold-500)]" />
-                            {STAGE_LABELS[stageKey]} ({stageTasks.length})
-                          </h4>
-                          <div className="space-y-1.5 pl-3">
-                            {stageTasks.map(task => {
-                              const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: 'pin' };
-                              const dept = task.department ? DEPT_LABELS[task.department] : null;
-                              return (
-                                <div
-                                  key={task.id}
-                                  className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
-                                  onClick={() => openTaskDetail(task)}
-                                >
-                                  <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium truncate text-white">{task.title}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      {dept && (
-                                        <span className="text-[9px] px-1 py-0.2 rounded font-medium" style={{ background: `${dept.color}15`, color: dept.color }}>
-                                          {dept.label}
-                                        </span>
-                                      )}
-                                      {task.final_file_url && (
-                                        <LineIcon name="link" size={11} className="shrink-0" />
-                                      )}
-                                    </div>
-                                  </div>
-                                  {/* Inline status dropdown */}
-                                  <select
-                                    className="text-[9px] px-1 py-0.5 rounded font-medium bg-transparent border border-white/10 cursor-pointer max-w-[90px]"
-                                    style={{ color: ts.color }}
-                                    value={task.status}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskStatusChange(task.id, e.target.value);
-                                    }}
-                                  >
-                                    {['not_started', 'in_progress', 'done'].map(s => (
-                                      <option key={s} value={s} style={{ background: 'var(--surface-1)', color: 'var(--text-primary)' }}>
-                                        {taskStatusConfig[s]?.label || s}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {/* Nhãn trễ hạn / vượt SLA (13/10/2026) */}
-                                  {(() => {
-                                    const nhan = nhanTreHan(task);
-                                    return nhan ? (
-                                      <span
-                                        className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded font-bold"
-                                        style={{ background: nhan.bg, color: nhan.color }}
-                                        title={task.due_date ? `Hạn ${new Date(task.due_date).toLocaleDateString('vi-VN')}` : 'Theo chuẩn nội bộ (SLA)'}
-                                      >
-                                        <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />{nhan.text}
-                                      </span>
-                                    ) : null;
-                                  })()}
-                                  {/* Nhóm người đảm nhận — NHIỀU người, tất cả ngang vai */}
-                                  {nhomDamNhan(task).map(uid => (
-                                    <span
-                                      key={uid}
-                                      className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]"
-                                      title={users.find(u => u.id === uid)?.full_name || ''}
-                                    >
-                                      {tenNgan(users.find(u => u.id === uid)?.full_name)}
-                                    </span>
-                                  ))}
-                                  {/* Thêm người đảm nhận — luôn hiện, vì một đầu việc có thể
-                                      nhiều người (trước 13/10 nút này biến mất ngay khi có
-                                      người đầu tiên nên không ai thêm được người thứ hai). */}
-                                  <select
-                                    className="min-w-0 text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer border"
-                                    style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
-                                    title="Thêm người đảm nhận"
-                                    value=""
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      const uid = e.target.value;
-                                      if (!uid) return;
-                                      // Dùng chung đường lưu với ô trong chi tiết việc: cập nhật
-                                      // đúng một đầu việc trong state, không `refreshData()` —
-                                      // nạp lại cả dự án + việc + nhân sự chỉ để thêm một người
-                                      // làm cả bảng nhấp nháy và chậm trên danh sách dài.
-                                      luuNhomDamNhan(task.id, [...nhomDamNhan(task), uid]);
-                                    }}
-                                  >
-                                    <option value="">{nhomDamNhan(task).length ? '+ Thêm' : 'Đảm nhận'}</option>
-                                    {users
-                                      .filter(u => canTakeTask(u, taskDeptOf(task)) && !nhomDamNhan(task).includes(u.id))
-                                      .map(u => (
-                                        <option key={u.id} value={u.id}>{u.full_name}</option>
-                                      ))}
-                                  </select>
-                                  <svg className="flex-shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChiTietDuAn
+          setSelectedProject={setSelectedProject}
+          selectedProject={selectedProject}
+          handleProjectStageChange={handleProjectStageChange}
+          permissions={permissions}
+          openProjectForm={openProjectForm}
+          users={users}
+          doiKhachRieng={doiKhachRieng}
+          handleKhachRieng={handleKhachRieng}
+          setTaskGroupMode={setTaskGroupMode}
+          taskGroupMode={taskGroupMode}
+          openMaterialRequest={openMaterialRequest}
+          openTaskForm={openTaskForm}
+          loadingTasks={loadingTasks}
+          tasks={tasks}
+          groupedByDepartment={groupedByDepartment}
+          openTaskDetail={openTaskDetail}
+          groupedTasks={groupedTasks}
+          handleTaskStatusChange={handleTaskStatusChange}
+          luuNhomDamNhan={luuNhomDamNhan}
+        />
       )}
 
       {/* Pause Reason Modal */}
       {showPauseReason && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setShowPauseReason(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-2xl p-5" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1"><LineIcon name="pause" size={16} className="inline-block align-[-2px] mr-1.5" />Tạm dừng dự án</h3>
-            <p className="text-xs text-[var(--text-muted)] mb-3">Nhập lý do tạm dừng để lần sau quay lại biết context:</p>
-            <textarea
-              value={pauseReason}
-              onChange={e => setPauseReason(e.target.value)}
-              placeholder="VD: Đang xin phép, khách đi du lịch, chờ vật liệu..."
-              rows={3}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white resize-none outline-none focus:border-[#C9A96E]"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-3 justify-end">
-              <button onClick={() => setShowPauseReason(false)}
-                className="px-3 py-1.5 rounded-xl text-xs bg-white/5 text-[var(--text-muted)]">Hủy</button>
-              <button onClick={confirmPause}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
-                Xác nhận tạm dừng
-              </button>
-            </div>
-          </div>
-        </div>
+        <LyDoTamDung
+          setShowPauseReason={setShowPauseReason}
+          pauseReason={pauseReason}
+          setPauseReason={setPauseReason}
+          confirmPause={confirmPause}
+        />
       )}
 
       {/* ── Task Detail Modal (with Note timeline + File attachments) ── */}
       {selectedTask && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-[8vh]" onClick={() => setSelectedTask(null)}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl animate-in"
-            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <button onClick={() => setSelectedTask(null)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
-
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <LineIcon name={(taskStatusConfig[selectedTask.status] || { icon: 'pin' }).icon} size={24} color={(taskStatusConfig[selectedTask.status] || { color: '#6B7280' }).color} className="shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-white truncate">{selectedTask.title}</h3>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    <span className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-[var(--surface-3)] text-[var(--text-muted)]">
-                      {STAGE_LABELS[selectedTask.stage]}
-                    </span>
-                    <select
-                      value={selectedTask.status}
-                      onChange={e => handleTaskStatusChange(selectedTask.id, e.target.value)}
-                      className="text-[10px] bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded px-1 text-[var(--text-primary)] cursor-pointer"
-                    >
-                      {/* Giá trị phải là `not_started` — backend không có trạng thái
-                          «todo», chọn sai thì ô này hiện lệch với trạng thái thật. */}
-                      <option value="not_started">Chờ</option>
-                      <option value="in_progress">Đang làm</option>
-                      <option value="done">Hoàn thành</option>
-                    </select>
-                    {(() => {
-                      const nhan = nhanTreHan(selectedTask);
-                      return nhan ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: nhan.bg, color: nhan.color }}>
-                          <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: 'currentColor' }} />{nhan.text}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Người đảm nhận — NHIỀU người, tất cả ngang vai (13/10/2026).
-                  Thêm ai là người đó nhận thông báo trong app + Telegram ngay. */}
-              <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="user" size={16} className="inline-block align-[-2px] mr-1.5" />Người đảm nhận</h4>
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {nhomDamNhan(selectedTask).map(uid => (
-                    <span
-                      key={uid}
-                      className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
-                      style={{ background: 'var(--surface-3)', color: 'var(--text-primary)' }}
-                    >
-                      {users.find(u => u.id === uid)?.full_name || 'Nhân sự đã nghỉ'}
-                      <button
-                        type="button"
-                        title="Gỡ khỏi đầu việc"
-                        className="text-[var(--text-muted)] hover:text-red-400"
-                        onClick={() => luuNhomDamNhan(
-                          selectedTask.id,
-                          nhomDamNhan(selectedTask).filter(x => x !== uid),
-                        )}
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                  {nhomDamNhan(selectedTask).length === 0 && (
-                    <span className="text-[10px] text-[var(--text-muted)]">Chưa có ai nhận việc này</span>
-                  )}
-                  <select
-                    value=""
-                    className="text-[10px] px-2 py-1 rounded-lg cursor-pointer border"
-                    style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', borderColor: 'rgba(16,185,129,0.3)' }}
-                    onChange={e => {
-                      if (!e.target.value) return;
-                      luuNhomDamNhan(selectedTask.id, [...nhomDamNhan(selectedTask), e.target.value]);
-                    }}
-                  >
-                    <option value="">+ Thêm người</option>
-                    {users
-                      .filter(u => canTakeTask(u, taskDeptOf(selectedTask)) && !nhomDamNhan(selectedTask).includes(u.id))
-                      .map(u => (
-                        <option key={u.id} value={u.id}>{u.full_name}</option>
-                      ))}
-                  </select>
-                </div>
-                {/* Hạn chốt (thoả thuận) vs hạn theo chuẩn nội bộ (SLA) */}
-                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <label className="text-[10px] text-[var(--text-muted)]">Hạn chốt</label>
-                  <input
-                    type="date"
-                    value={choOInputNgay(selectedTask.due_date)}
-                    onChange={e => luuHanChot(selectedTask.id, e.target.value)}
-                    className="text-[10px] px-2 py-1 rounded-lg text-white"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-                  />
-                  <span className="text-[10px] text-[var(--text-muted)]">
-                    {selectedTask.sla_due_at
-                      ? `Chuẩn nội bộ (SLA): ${new Date(selectedTask.sla_due_at).toLocaleDateString('vi-VN')}`
-                      : 'SLA chạy khi việc có người nhận hoặc chuyển «Đang làm»'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Description */}
-              {selectedTask.description && (
-                <div className="rounded-xl p-3.5 mb-4 text-xs text-[var(--text-secondary)]" style={{ background: 'var(--surface-2)' }}>
-                  <p className="text-[10px] text-[var(--text-muted)] mb-1 uppercase font-semibold tracking-wider">Mô tả công việc</p>
-                  <p className="whitespace-pre-wrap">{selectedTask.description}</p>
-                </div>
-              )}
-
-              {/* Final Result File (Upload or Paste Link) */}
-              <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="layers" size={16} className="inline-block align-[-2px] mr-1.5" />File kết quả giai đoạn (Final File)</h4>
-                <label
-                  className={`flex items-center justify-center gap-2 w-full py-2.5 mb-2 rounded-xl text-xs font-medium cursor-pointer transition-all bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] ${dangTaiFile ? 'opacity-60 pointer-events-none' : ''}`}
-                >
-                  {dangTaiFile ? 'Đang tải lên…' : <><LineIcon name="upload" size={14} color="currentColor" />Tải file lên (PDF, DWG, SKP, Excel… tối đa 50MB)</>}
-                  <input
-                    type="file"
-                    className="hidden"
-                    disabled={dangTaiFile}
-                    onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) taiFileKetQua(f); }}
-                  />
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="…hoặc dán link (Drive, file >50MB)"
-                    value={taskFileUrl}
-                    onChange={e => setTaskFileUrl(e.target.value)}
-                    className="flex-1 text-xs px-3 py-2 rounded-xl text-white"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-                  />
-                  <button
-                    onClick={handleTaskFileSave}
-                    className="text-xs px-3 rounded-xl font-medium border border-[var(--gold-500)] text-[var(--gold-400)] hover:bg-[var(--gold-500)]/10 transition-all"
-                  >
-                    Lưu link
-                  </button>
-                </div>
-                {selectedTask.final_file_url && (
-                  <div className="mt-2 text-xs flex items-center justify-between">
-                    <span className="text-[var(--text-muted)]">File hiện tại:</span>
-                    <a
-                      href={mediaUrl(selectedTask.final_file_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[var(--gold-400)] hover:underline truncate max-w-[70%]"
-                    >
-                      <LineIcon name="link" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
-                      {selectedTask.final_file_url.startsWith('data:')
-                        ? 'Xem ảnh đính kèm (Base64)'
-                        : selectedTask.final_file_url.startsWith('/media/docs/')
-                          ? `${decodeURIComponent(selectedTask.final_file_url.split('/').pop() || 'Tài liệu')}`
-                          : selectedTask.final_file_url}
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {/* File Upload Zone — ảnh vào ghi chú bên dưới, tài liệu thành file kết quả phía trên. */}
-              <div className="mt-4 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
-                <p className="text-xs text-[var(--text-muted)] mb-2"><LineIcon name="link" size={14} className="inline-block align-[-2px] mr-1.5" />Chọn ảnh hoặc tài liệu</p>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  disabled={dangTaiFile}
-                  className="w-full text-xs text-[var(--text-muted)]"
-                />
-                <p className="text-[10px] text-[var(--text-muted)] mt-2">
-                  Ảnh → vào ghi chú bên dưới. PDF/DWG/SKP/Excel → tự lưu làm file kết quả và gửi vào nhóm Telegram dự án.
-                </p>
-              </div>
-
-              {/* Note and Media Attachment form */}
-              <div className="glass-card p-3.5 mb-4">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2"><LineIcon name="edit" size={14} className="inline-block align-[-2px] mr-1.5" />Thêm cập nhật ghi chú & hình ảnh</h4>
-                <div className="space-y-2">
-                  <textarea
-                    placeholder="Nhập thông tin cập nhật công việc..."
-                    value={newActivityContent}
-                    onChange={e => setNewActivityContent(e.target.value)}
-                    rows={2}
-                    className="w-full text-xs px-3 py-2 rounded-xl text-white resize-none"
-                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-                  />
-                  <div className="flex justify-between items-center">
-                    {/* Media attach buttons */}
-                    <div className="flex gap-2 items-center">
-                      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
-                      <button
-                        onClick={() => fileRef.current?.click()}
-                        type="button"
-                        className="text-[10px] px-2.5 py-1 rounded bg-white/5 border border-white/10 text-white hover:bg-white/10 relative"
-                      >
-                        <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Đính kèm ảnh
-                        {newActivityMedia.length > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-[#C9A96E] text-black">
-                            {newActivityMedia.length}
-                          </span>
-                        )}
-                      </button>
-                      {newActivityMedia.length > 0 && (
-                        <button
-                          onClick={() => setNewActivityMedia([])}
-                          type="button"
-                          className="text-[10px] px-1.5 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                        >
-                          Xóa ({newActivityMedia.length})
-                        </button>
-                      )}
-                    </div>
-                    {/* Photo thumbnails preview */}
-                    {newActivityMedia.length > 0 && (
-                      <div className="flex gap-1.5 mt-2 flex-wrap">
-                        {newActivityMedia.map((src, i) => (
-                          <div key={i} className="relative group">
-                            <img src={src} alt={`Ảnh ${i+1}`} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
-                            <button
-                              onClick={() => setNewActivityMedia(prev => prev.filter((_, idx) => idx !== i))}
-                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      onClick={handleAddTaskActivity}
-                      disabled={!newActivityContent.trim() && newActivityMedia.length === 0}
-                      className="text-xs px-3 py-1.5 rounded-xl font-medium bg-white text-black hover:opacity-90 disabled:opacity-50"
-                    >
-                      Đăng cập nhật
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* History Timeline */}
-              <div className="glass-card p-3.5 max-h-[22vh] overflow-y-auto">
-                <h4 className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3"><LineIcon name="message" size={16} className="inline-block align-[-2px] mr-1.5" />Lịch sử cập nhật công việc</h4>
-                {loadingActivities ? (
-                  <p className="text-[10px] text-center text-[var(--text-disabled)]">Đang tải...</p>
-                ) : taskActivities.length === 0 ? (
-                  <p className="text-[10px] text-center text-[var(--text-disabled)]">Chưa có cập nhật nào</p>
-                ) : (
-                  <div className="space-y-3.5">
-                    {taskActivities.map(act => (
-                      <div key={act.id} className="border-l border-white/10 pl-3 relative ml-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold-500)] absolute -left-[4px] top-1" />
-                        <div className="flex justify-between items-center text-[9px] text-[var(--text-disabled)] mb-0.5">
-                          <span className="font-semibold text-white">{act.user_name || 'Nhân viên'}</span>
-                          <span>{formatDate(act.created_at)}</span>
-                        </div>
-                        <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap"><ChuCoLink text={act.content || ''} /></p>
-                        {act.media_url && (
-                          <div className="mt-1.5 max-w-[150px] rounded overflow-hidden border border-white/5">
-                            <a href={mediaUrl(act.media_url)} target="_blank" rel="noopener noreferrer">
-                              <img src={mediaUrl(act.media_url)} alt="Cập nhật" loading="lazy" className="max-h-24 object-cover" />
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChiTietCongViec
+          setSelectedTask={setSelectedTask}
+          selectedTask={selectedTask}
+          handleTaskStatusChange={handleTaskStatusChange}
+          users={users}
+          luuNhomDamNhan={luuNhomDamNhan}
+          luuHanChot={luuHanChot}
+          dangTaiFile={dangTaiFile}
+          taiFileKetQua={taiFileKetQua}
+          taskFileUrl={taskFileUrl}
+          setTaskFileUrl={setTaskFileUrl}
+          handleTaskFileSave={handleTaskFileSave}
+          handleFileUpload={handleFileUpload}
+          newActivityContent={newActivityContent}
+          setNewActivityContent={setNewActivityContent}
+          fileRef={fileRef}
+          handleFileSelect={handleFileSelect}
+          newActivityMedia={newActivityMedia}
+          setNewActivityMedia={setNewActivityMedia}
+          handleAddTaskActivity={handleAddTaskActivity}
+          loadingActivities={loadingActivities}
+          taskActivities={taskActivities}
+        />
       )}
 
       {/* ── Project Create/Edit Form Modal ── */}
       {showProjectForm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowProjectForm(false)}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-in p-6"
-            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">{editingProject ? 'Chỉnh sửa dự án' : 'Tạo dự án mới'}</h2>
-              <button onClick={() => setShowProjectForm(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tên dự án *</label>
-                <input
-                  type="text" value={projectForm.name}
-                  onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Nhập tên dự án"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tên khách hàng *</label>
-                <input
-                  type="text" value={projectForm.client_name}
-                  onChange={e => setProjectForm(f => ({ ...f, client_name: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Nhập tên khách hàng"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Số điện thoại</label>
-                  <input
-                    type="text" inputMode="tel" value={projectForm.client_phone}
-                    onChange={e => setProjectForm(f => ({ ...f, client_phone: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                    placeholder="SĐT khách hàng"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Loại dự án</label>
-                  <select
-                    value={projectForm.project_type}
-                    onChange={e => setProjectForm(f => ({ ...f, project_type: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  >
-                    <option value="design_build">Thiết kế & Thi công</option>
-                    <option value="design_only">Chỉ Thiết kế</option>
-                    <option value="construction_only">Chỉ Thi công</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* ── Phân công PIC 4 bộ phận (05/09/2026) ──────────────────────
-                  Trước đây form chỉ tạo dự án rồi để trống PM/Thiết kế/Thu mua,
-                  nên các bộ phận đó không lọc được «dự án của tôi». Mỗi ô lọc
-                  bằng canTakeTask — cùng luật với ô «Đảm nhận» ở đầu việc. */}
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-2">
-                  Phân công phụ trách (PIC)
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {([
-                    { key: 'pm_id', nhan: 'PM / Giám sát', icon: 'clipboard', dept: 'construction' },
-                    { key: 'designer_id', nhan: 'Thiết kế', icon: 'palette', dept: 'design' },
-                    { key: 'purchasing_id', nhan: 'Báo giá – Thu mua', icon: 'receipt', dept: 'quotation' },
-                    { key: 'sales_id', nhan: 'Kinh doanh', icon: 'briefcase', dept: 'sales' },
-                  ] as const).filter(o =>
-                    // Ban Giám Đốc điều phối chéo phòng → thấy cả 4 ô.
-                    // TRƯỞNG PHÒNG thấy đúng ô của bộ phận mình. Người khác không
-                    // thấy ô nào — backend cũng chỉ cho trưởng phòng gắn PIC, nên
-                    // hiện ô cho họ chỉ dẫn tới bấm rồi ăn 403 (chốt 22/09).
-                    laBanGiamDoc(user) ||
-                    (laTruongPhong(user) &&
-                      PIC_CUA_BO_PHAN[(user?.department || '').toUpperCase()] === o.key)
-                  ).map(o => {
-                    const ungVien = users.filter(u => canTakeTask(u, o.dept));
-                    return (
-                      <div key={o.key}>
-                        <label className="text-[11px] text-[var(--text-muted)] block mb-1"><LineIcon name={o.icon} size={12} className="inline-block align-[-2px] mr-1" />{o.nhan}</label>
-                        <select
-                          value={projectForm[o.key]}
-                          onChange={e => setProjectForm(f => ({ ...f, [o.key]: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                        >
-                          <option value="">— Chưa phân công —</option>
-                          {ungVien.map(u => (
-                            <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                          ))}
-                        </select>
-                        {ungVien.length === 0 && (
-                          <p className="text-[10px] mt-1" style={{ color: '#F59E0B' }}>
-                            Chưa có nhân sự nào thuộc bộ phận này — kiểm phòng ban trong Tài khoản.
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {!laBanGiamDoc(user) && !laTruongPhong(user) && (
-                    <p className="text-[11px] sm:col-span-2" style={{ color: '#F59E0B' }}>
-                      Chỉ Trưởng phòng được phân công PIC cho bộ phận mình. Nhờ Trưởng phòng
-                      Thiết kế / Giám sát / Báo giá–Thu mua / Kinh doanh gắn người giúp.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Địa chỉ</label>
-                <input
-                  type="text" value={projectForm.address}
-                  onChange={e => setProjectForm(f => ({ ...f, address: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Địa chỉ công trình"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tổng giá trị (nghìn đồng)</label>
-                <MoneyInput
-                  valueDong={projectForm.total_value}
-                  onChangeDong={v => setProjectForm(f => ({ ...f, total_value: v }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày bắt đầu</label>
-                  <input
-                    type="date" value={projectForm.start_date}
-                    onChange={e => setProjectForm(f => ({ ...f, start_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày dự kiến hoàn thành</label>
-                  <input
-                    type="date" value={projectForm.target_end_date}
-                    onChange={e => setProjectForm(f => ({ ...f, target_end_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngân sách kế hoạch (nghìn đồng) — để cảnh báo khi chi vượt</label>
-                <MoneyInput
-                  valueDong={projectForm.budget_total}
-                  onChangeDong={v => setProjectForm(f => ({ ...f, budget_total: v }))}
-                  placeholder="Bỏ trống nếu chưa lập ngân sách"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ngày bàn giao</label>
-                  <input
-                    type="date" value={projectForm.handover_date}
-                    onChange={e => setProjectForm(f => ({ ...f, handover_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Bảo hành (tháng)</label>
-                  <input
-                    type="number" min={0} max={120} value={projectForm.warranty_months}
-                    onChange={e => setProjectForm(f => ({ ...f, warranty_months: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowProjectForm(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveProject}
-                  disabled={savingProject || !projectForm.name.trim() || !projectForm.client_name.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] disabled:opacity-50 transition-all"
-                >
-                  {savingProject ? 'Đang lưu...' : editingProject ? 'Cập nhật' : 'Tạo dự án'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FormDuAn
+          setShowProjectForm={setShowProjectForm}
+          editingProject={editingProject}
+          projectForm={projectForm}
+          setProjectForm={setProjectForm}
+          user={user}
+          users={users}
+          handleSaveProject={handleSaveProject}
+          savingProject={savingProject}
+        />
       )}
 
       {/* ── Task Create Form Modal ── */}
       {showTaskForm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowTaskForm(false)}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-2xl animate-in p-6"
-            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">Thêm công việc mới</h2>
-              <button onClick={() => setShowTaskForm(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Tiêu đề *</label>
-                <input
-                  type="text" value={taskForm.title}
-                  onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Nhập tên công việc"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Giai đoạn</label>
-                  <select
-                    value={taskForm.stage}
-                    onChange={e => setTaskForm(f => ({ ...f, stage: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  >
-                    {Object.entries(STAGE_LABELS).filter(([k]) => k !== 'completed').map(([k, label]) => (
-                      <option key={k} value={k}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Phòng ban</label>
-                  <select
-                    value={taskForm.department}
-                    onChange={e => setTaskForm(f => ({ ...f, department: e.target.value, assigned_to: '' }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                  >
-                    {Object.entries(DEPT_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Người phụ trách</label>
-                <select
-                  value={taskForm.assigned_to}
-                  onChange={e => setTaskForm(f => ({ ...f, assigned_to: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                >
-                  <option value="">-- Chọn người --</option>
-                  {users
-                    // Dùng chung canTakeTask với select «Đảm nhận» ở kanban.
-                    .filter(u => canTakeTask(u, taskForm.department))
-                    .map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name || u.email}{u.department ? ` (${u.department})` : ''}</option>
-                    ))
-                  }
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowTaskForm(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveTask}
-                  disabled={savingTask || !taskForm.title.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--gold-500)] text-white hover:bg-[var(--gold-600)] disabled:opacity-50 transition-all"
-                >
-                  {savingTask ? 'Đang lưu...' : 'Thêm công việc'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FormCongViec
+          setShowTaskForm={setShowTaskForm}
+          taskForm={taskForm}
+          setTaskForm={setTaskForm}
+          users={users}
+          handleSaveTask={handleSaveTask}
+          savingTask={savingTask}
+        />
       )}
 
       {/* ── Material Request Modal ── */}
       {showMaterialRequest && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowMaterialRequest(false)}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-md rounded-2xl animate-in p-6"
-            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white"><LineIcon name="package" size={16} className="inline-block align-[-2px] mr-1.5" />Yêu cầu vật tư</h2>
-              <button onClick={() => setShowMaterialRequest(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Vật tư *</label>
-                <select
-                  value={materialRequestForm.material_id}
-                  onChange={e => setMaterialRequestForm(f => ({ ...f, material_id: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none cursor-pointer"
-                >
-                  <option value="">-- Chọn vật tư --</option>
-                  {materialsList.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.unit} - tồn: {m.quantity_in_stock})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Số lượng *</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={materialRequestForm.quantity}
-                  onChange={e => setMaterialRequestForm(f => ({ ...f, quantity: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Nhập số lượng"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Ghi chú</label>
-                <textarea
-                  value={materialRequestForm.note}
-                  onChange={e => setMaterialRequestForm(f => ({ ...f, note: e.target.value }))}
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl text-sm text-white resize-none bg-[var(--surface-2)] border border-[var(--border-subtle)] outline-none focus:border-[var(--gold-500)]"
-                  placeholder="Ghi chú (không bắt buộc)"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowMaterialRequest(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-white/10 border border-[var(--border-subtle)]"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSubmitMaterialRequest}
-                  disabled={savingMaterialRequest || !materialRequestForm.material_id || !materialRequestForm.quantity}
-                  className="px-4 py-2 rounded-xl text-sm font-medium bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50 transition-all"
-                >
-                  {savingMaterialRequest ? 'Đang gửi...' : 'Gửi yêu cầu'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <YeuCauVatTu
+          setShowMaterialRequest={setShowMaterialRequest}
+          materialRequestForm={materialRequestForm}
+          setMaterialRequestForm={setMaterialRequestForm}
+          materialsList={materialsList}
+          handleSubmitMaterialRequest={handleSubmitMaterialRequest}
+          savingMaterialRequest={savingMaterialRequest}
+        />
       )}
     </Sidebar>
   );

@@ -11,7 +11,7 @@ from sqlalchemy import select, func, case, literal_column, and_, or_, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, Team
-from app.models.lead import Lead, Activity
+from app.models.lead import ACTIVE_LEAD_STAGES, XAC_SUAT_STAGE, Lead, Activity
 from app.models.contract import Contract
 from app.models.attendance import AttendanceRecord
 from app.models.leave import LeaveRequest
@@ -19,24 +19,16 @@ from app.models.performance import KpiSnapshot
 
 logger = logging.getLogger(__name__)
 
-# Stage weights for pipeline_value_weighted
-STAGE_WEIGHTS = {
-    "new": 0.10,
-    "interested": 0.25,
-    "surveyed": 0.35,
-    "survey_scheduled": 0.50,
-    "potential": 0.75,
-    "signed_design": 1.0,
-}
 
 # Default KPI weights (configurable via SystemSetting)
 DEFAULT_EFFORT_WEIGHT = 0.30
 DEFAULT_OUTCOME_WEIGHT = 0.50
 DEFAULT_QUALITY_WEIGHT = 0.20
 
-ACTIVE_LEAD_STAGES = ("new", "interested", "surveyed", "survey_scheduled", "potential")
 
-SALES_ROLES = ("data_entry", "leader")
+# Chỉ data_entry; KHÔNG gồm "leader" — leader cũng là trưởng phòng Thiết kế (rbac.py),
+# trưởng nhóm Sale được lấy qua department == "SALES" bên dưới.
+SALES_ROLES = ("data_entry",)
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +162,7 @@ async def compute_kpi(db: AsyncSession, user_id: str, period: str) -> dict:
     )).scalars().all()
 
     pipeline_weighted = sum(
-        (lead.deal_value or 0) * STAGE_WEIGHTS.get(lead.stage, 0)
+        (lead.deal_value or 0) * XAC_SUAT_STAGE.get(lead.stage, 0)
         for lead in active_for_pipeline
     )
 
@@ -238,27 +230,29 @@ async def snapshot_all(db: AsyncSession, period: str) -> int:
     count = 0
     for user in users:
         try:
-            result = await compute_kpi(db, user.id, period)
-            # Upsert: update existing or create new
-            existing = (await db.execute(
-                select(KpiSnapshot).where(
-                    KpiSnapshot.user_id == user.id,
-                    KpiSnapshot.period == period,
-                )
-            )).scalar_one_or_none()
+            # Savepoint: một người lỗi SQL không được làm hỏng giao dịch (Postgres) và mất snapshot cả công ty
+            async with db.begin_nested():
+                result = await compute_kpi(db, user.id, period)
+                # Upsert: update existing or create new
+                existing = (await db.execute(
+                    select(KpiSnapshot).where(
+                        KpiSnapshot.user_id == user.id,
+                        KpiSnapshot.period == period,
+                    )
+                )).scalar_one_or_none()
 
-            if existing:
-                existing.metrics_json = json.dumps(result["metrics"])
-                existing.score = result["score"]
-            else:
-                snapshot = KpiSnapshot(
-                    user_id=user.id,
-                    period=period,
-                    metrics_json=json.dumps(result["metrics"]),
-                    score=result["score"],
-                )
-                db.add(snapshot)
-            count += 1
+                if existing:
+                    existing.metrics_json = json.dumps(result["metrics"])
+                    existing.score = result["score"]
+                else:
+                    snapshot = KpiSnapshot(
+                        user_id=user.id,
+                        period=period,
+                        metrics_json=json.dumps(result["metrics"]),
+                        score=result["score"],
+                    )
+                    db.add(snapshot)
+                count += 1
         except Exception:
             logger.exception("KPI snapshot failed for user %s", user.id)
 

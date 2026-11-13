@@ -1,4 +1,4 @@
-# JAMA HOME CRM -- Multi-Tenant Implementation Plan
+# JAMA HOME ERP -- Multi-Tenant Implementation Plan
 
 > Status: READY FOR EXECUTION
 > Created: 2026-07-16
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document details the step-by-step implementation of Phase 1 multi-tenancy for the JAMA HOME CRM. Each section maps to specific file changes, migration steps, and testing requirements.
+This document details the step-by-step implementation of Phase 1 multi-tenancy for the JAMA HOME ERP. Each section maps to specific file changes, migration steps, and testing requirements.
 
 Estimated effort: 5-7 working days for a single developer familiar with the codebase.
 

@@ -377,24 +377,26 @@ async def portal_gui_danh_gia(token: str, project_id: str, data: DanhGiaIn, db: 
     if data.so_sao <= 2:
         # Khiếu nại: báo riêng quản lý (không đăng nhóm) để gọi lại khách trong ngày
         try:
-            from app.models.user import Team
-            from app.services.automation import _notify
-            nhan = set((await db.execute(
-                select(User.id).where(User.is_active == True, User.role.in_(("admin", "executive")))  # noqa: E712
-            )).scalars().all())
-            for uid in doi_du_an(project):
-                u = await db.get(User, uid)
-                if u and u.team_id:
-                    t = await db.get(Team, u.team_id)
-                    if t and t.leader_id:
-                        nhan.add(t.leader_id)
-            tieu_de = f"⚠️ Khách chấm {data.so_sao}★ — {project.code}"
-            noi_dung = (f"Khách {customer.name} chấm {data.so_sao} sao mốc «{MOC_DANH_GIA[data.moc]}» dự án "
-                        f"{project.code} {project.name}." + (f" Nhận xét: {data.nhan_xet.strip()[:300]}" if data.nhan_xet.strip() else "")
-                        + " Thưởng đánh giá của dự án đang được giữ lại — gọi lại khách sớm.")
-            for uid in nhan:
-                await _notify(db, await db.get(User, uid), type_="danh_gia_khach", title=tieu_de,
-                              body=noi_dung, link=f"/projects?id={project.id}", ref_id=r.id)
+            # Savepoint: báo quản lý lỗi thì bỏ qua, nhưng không được làm hỏng việc lưu đánh giá (Postgres)
+            async with db.begin_nested():
+                from app.models.user import Team
+                from app.services.automation import _notify
+                nhan = set((await db.execute(
+                    select(User.id).where(User.is_active == True, User.role.in_(("admin", "executive")))  # noqa: E712
+                )).scalars().all())
+                for uid in doi_du_an(project):
+                    u = await db.get(User, uid)
+                    if u and u.team_id:
+                        t = await db.get(Team, u.team_id)
+                        if t and t.leader_id:
+                            nhan.add(t.leader_id)
+                tieu_de = f"⚠️ Khách chấm {data.so_sao}★ — {project.code}"
+                noi_dung = (f"Khách {customer.name} chấm {data.so_sao} sao mốc «{MOC_DANH_GIA[data.moc]}» dự án "
+                            f"{project.code} {project.name}." + (f" Nhận xét: {data.nhan_xet.strip()[:300]}" if data.nhan_xet.strip() else "")
+                            + " Thưởng đánh giá của dự án đang được giữ lại — gọi lại khách sớm.")
+                for uid in nhan:
+                    await _notify(db, await db.get(User, uid), type_="danh_gia_khach", title=tieu_de,
+                                  body=noi_dung, link=f"/projects?id={project.id}", ref_id=r.id)
         except Exception:
             pass
 

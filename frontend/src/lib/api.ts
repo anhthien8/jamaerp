@@ -4,839 +4,6 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-/** Check if running in demo mode */
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('jama_demo') === 'true';
-}
-
-/** Lazy-load demo data (only in browser) */
-let _demoData: typeof import('./demo-data') | null = null;
-async function getDemoData() {
-  if (!_demoData) {
-    _demoData = await import('./demo-data');
-  }
-  return _demoData;
-}
-
-/** In-memory store for demo activities added during session */
-const _demoActivitiesCache: Activity[] = [];
-const _demoTaskActivitiesCache: TaskActivity[] = [];
-
-/**
- * Cache trạng thái cho Chế độ Tập luyện: các thao tác POST/PUT phải NHÌN THẤY
- * kết quả trên màn hình (đơn duyệt biến mất, lead đổi cột, check-in đổi nút...).
- * Trước đây POST không có resolver bị giả lập thành công → nhân viên đào tạo hoang mang
- * (lớp bug fake-success — xem Nhật ký 20/07).
- */
-interface DemoApproval { id: string; type: string; type_label: string; ref_id: string; title: string; amount: number | null; requester_id: string; requester_name: string; step: number; total_steps: number; status: string; reason: string | null; due_at: string | null; created_at: string; resolved_at: string | null; delegated: boolean }
-let _demoApprovals: DemoApproval[] | null = null;
-function demoApprovals(): DemoApproval[] {
-  if (!_demoApprovals) {
-    _demoApprovals = [
-      { id: 'demo-apr-1', type: 'leave', type_label: 'Nghỉ phép', ref_id: 'demo-leave-1', title: 'Phép năm 2 ngày (2026-07-23 → 2026-07-24) — Trần Thị Sales', amount: null, requester_id: 'demo-sales-001', requester_name: 'Trần Thị Sales', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-20 09:00', resolved_at: null, delegated: false },
-      { id: 'demo-apr-2', type: 'payroll', type_label: 'Bảng lương', ref_id: 'demo-payrun-6', title: 'Duyệt bảng lương kỳ 2026-06 — thực lĩnh 614,8 triệu (3 nhân sự mẫu demo)', amount: 614_800_000, requester_id: 'demo-acct-001', requester_name: 'Phạm Thị Kế Toán', step: 1, total_steps: 1, status: 'pending', reason: null, due_at: null, created_at: '2026-07-19 15:00', resolved_at: null, delegated: false },
-    ];
-  }
-  return _demoApprovals;
-}
-let _demoAttToday: Record<string, unknown> | null = null;
-let _demoPayrollRun: { period: string; status: string; items: Record<string, unknown>[] } | null = null;
-const _demoLeaves: Record<string, unknown>[] = [];
-
-/** Góp ý demo — cache module để cập nhật trạng thái/trả lời NHÌN THẤY sau khi sửa (không giả lập thành công). */
-let _demoFeedback: Array<Record<string, unknown>> | null = null;
-function demoFeedback(): Array<Record<string, unknown>> {
-  if (!_demoFeedback) {
-    _demoFeedback = [
-      { id: 'demo-fb-1', user_name: 'Trần Thị Sales', category: 'bug', content: 'Không thể upload ảnh khi tạo lead mới trên mobile', status: 'new', admin_reply: null, created_at: '2026-07-15 10:30' },
-      { id: 'demo-fb-2', user_name: 'Lê Văn Leader', category: 'feature_request', content: 'Cần chức năng xuất báo cáo KPI theo tuần thay vì chỉ theo tháng', status: 'in_review', admin_reply: null, created_at: '2026-07-14 14:20' },
-      { id: 'demo-fb-3', user_name: 'Nguyễn Thị Thiết Kế', category: 'workflow_improvement', content: 'Nên thêm nút "hoàn thành" nhanh cho task thiết kế thay vì mở từng cái', status: 'done', admin_reply: 'Đã thêm vào roadmap sprint sau.', created_at: '2026-07-10 09:15' },
-    ];
-  }
-  return _demoFeedback;
-}
-
-/** Wrap an array in a PaginatedResponse shape for demo mode. */
-function toPaginated<T>(items: T[], params?: Record<string, string>): PaginatedResponse<T> {
-  const page = parseInt(params?.page || '1', 10);
-  const pageSize = parseInt(params?.page_size || '50', 10);
-  const start = (page - 1) * pageSize;
-  return {
-    items: items.slice(start, start + pageSize),
-    total: items.length,
-    page,
-    page_size: pageSize,
-    total_pages: Math.ceil(items.length / pageSize),
-  };
-}
-
-/** Map API endpoints to demo data resolvers */
-async function resolveDemo<T>(endpoint: string, params?: Record<string, string>, options?: { method?: string; body?: unknown }): Promise<T> {
-  const d = await getDemoData();
-  // Normalize: strip query params
-  const path = endpoint.split('?')[0].replace(/\/$/, '');
-  const method = options?.method || 'GET';
-
-  // ── Auth ──
-  if (path === '/auth/me') {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-    return (stored ? JSON.parse(stored) : d.DEMO_USERS[0]) as T;
-  }
-
-  // ── Leads ──
-  if (path === '/leads' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Lead>;
-    const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-    const cu = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
-    const newLead = {
-      id: `demo-lead-${Date.now()}`, name: b.name || 'Lead mới', phone: b.phone || '',
-      address: b.address || '', needs: b.needs || '', source: b.source || 'other',
-      property_type: b.property_type || 'townhouse', area_sqm: b.area_sqm, estimated_budget: b.estimated_budget,
-      stage: 'new', priority: b.priority || 'medium', assigned_to: cu.id,
-      ai_score: 65, tags: [], deal_value: b.estimated_budget,
-      assigned_user_name: cu.full_name, team_name: 'Đội Văn Toàn', activity_count: 0,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    } as unknown as Lead;
-    d.DEMO_LEADS.unshift(newLead);
-    return newLead as T;
-  }
-  if (path === '/leads' && !path.includes('/pipeline')) {
-    let leads = [...d.DEMO_LEADS];
-    if (params) {
-      if (params.source && params.source !== 'all') leads = leads.filter(l => l.source === params.source);
-      if (params.priority && params.priority !== 'all') leads = leads.filter(l => l.priority === params.priority);
-    }
-    return toPaginated(leads, params) as T;
-  }
-  // Đổi giai đoạn / gán / sửa lead — mutate demo data để kanban thấy thẻ di chuyển thật
-  if (path.match(/^\/leads\/[^/]+\/stage$/) && method === 'PUT') {
-    const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
-    if (lead) {
-      const body = (options?.body || {}) as Record<string, string>;
-      lead.stage = body.new_stage || body.stage || lead.stage;
-      lead.updated_at = new Date().toISOString();
-      return lead as T;
-    }
-  }
-  if (path.match(/^\/leads\/[^/]+\/assign$/) && method === 'POST') {
-    const lead = d.DEMO_LEADS.find(l => l.id === path.split('/')[2]);
-    if (lead) {
-      const uid = (options?.body as Record<string, string>)?.user_id;
-      const u = d.DEMO_USERS.find(x => x.id === uid);
-      if (u) { lead.assigned_to = u.id; lead.assigned_user_name = u.full_name; }
-      return lead as T;
-    }
-  }
-  if (path.match(/^\/leads\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_LEADS.findIndex(l => l.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_LEADS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_LEADS[idx] as T; }
-  }
-  // ── Lead Activities (POST = create note, GET = list) ──
-  if (path.match(/\/leads\/[^/]+\/activities$/)) {
-    const leadId = path.split('/')[2];
-    if (method === 'POST') {
-      const body = options?.body as { type?: string; content?: string } || {};
-      const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-      const currentUser = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
-      const newActivity: Activity = {
-        id: `demo-act-${Date.now()}`,
-        lead_id: leadId,
-        user_id: currentUser.id,
-        user_name: currentUser.full_name,
-        type: body.type || 'note',
-        content: body.content || '',
-        created_at: new Date().toISOString(),
-      };
-      _demoActivitiesCache.push(newActivity);
-      return newActivity as T;
-    }
-    // GET: merge static demo activities + cached ones
-    const staticActs = d.DEMO_ACTIVITIES.filter(a => a.lead_id === leadId);
-    const cachedActs = _demoActivitiesCache.filter(a => a.lead_id === leadId);
-    return [...staticActs, ...cachedActs] as T;
-  }
-  if (path.includes('/pipeline/stats')) return d.DEMO_PIPELINE_STATS as T;
-  if (path.startsWith('/leads') && path.includes('/pipeline/kanban')) {
-    // Tính động từ DEMO_LEADS (không dùng snapshot tĩnh) để lead mới tạo / kéo cột hiển thị ngay
-    const defs: Array<[string, string]> = [['new', 'Tiếp nhận mới'], ['interested', 'Đang tư vấn'], ['surveyed', 'Đã khảo sát'], ['survey_scheduled', 'Đã gửi báo giá'], ['potential', 'Đang đàm phán'], ['signed_design', 'Deal đã thắng']];
-    return defs.map(([stage, stage_label]) => {
-      const leads = d.DEMO_LEADS.filter(l => l.stage === stage);
-      return { stage, stage_label, leads, count: leads.length };
-    }) as T;
-  }
-
-  // ── Projects ──
-  if (path === '/projects' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Project>;
-    const p = { id: `demo-proj-${Date.now()}`, code: `PRJ-2026-${String(d.DEMO_PROJECTS.length + 1).padStart(3, '0')}`, name: b.name || 'Dự án mới', client_name: b.client_name, client_phone: b.client_phone, address: b.address, project_type: b.project_type || 'design_build', status: 'active', stage: 'design', total_value: b.total_value || 0, design_value: b.design_value, construction_value: b.construction_value, spent: 0, progress: 0, start_date: b.start_date, target_end_date: b.target_end_date, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Project;
-    d.DEMO_PROJECTS.unshift(p);
-    return p as T;
-  }
-  if (path.match(/^\/projects\/[^/]+\/stage$/) && method === 'PUT') {
-    const p = d.DEMO_PROJECTS.find(x => x.id === path.split('/')[2]);
-    if (p) { p.stage = ((options?.body as Record<string, string>)?.stage) || p.stage; p.updated_at = new Date().toISOString(); return p as T; }
-  }
-  if (path === '/projects' && !path.includes('/pipeline') && !path.includes('/tasks')) {
-    let projects = [...d.DEMO_PROJECTS];
-    if (params?.status && params.status !== 'all') projects = projects.filter(p => p.status === params.status);
-    return toPaginated(projects, params) as T;
-  }
-  if (path.match(/^\/projects\/pipeline\/kanban$/)) {
-    const stages = ['design', 'quotation', 'procurement', 'construction', 'acceptance', 'completed'];
-    // Nhãn tiếng Việt — đồng bộ với backend api/projects.py stage_labels (spec 07C)
-    const stageLabels: Record<string, string> = {
-      design: 'Thiết kế', quotation: 'Báo giá', procurement: 'Thu mua',
-      construction: 'Thi công', acceptance: 'Nghiệm thu', completed: 'Hoàn thành',
-    };
-    // stage_progress cho thanh 5 khối (tính từ DEMO_TASKS như backend aggregate)
-    const progressOf = (projectId: string) => {
-      const byStage: Record<string, { done: number; total: number }> = {};
-      for (const t of d.DEMO_TASKS.filter(t => t.project_id === projectId)) {
-        const cell = (byStage[t.stage] ||= { done: 0, total: 0 });
-        cell.total += 1;
-        if (t.status === 'done' || t.status === 'completed') cell.done += 1;
-      }
-      return Object.keys(byStage).length ? byStage : null;
-    };
-    const kanban = stages.map(stage => ({
-      stage,
-      stage_label: stageLabels[stage] || stage,
-      projects: d.DEMO_PROJECTS.filter(p => p.stage === stage).map(p => ({ ...p, stage_progress: progressOf(p.id) })),
-      count: d.DEMO_PROJECTS.filter(p => p.stage === stage).length,
-    }));
-    return kanban as T;
-  }
-  if (path.match(/^\/projects\/tasks\/[^/]+\/activities$/)) {
-    const taskId = path.split('/')[3];
-    if (method === 'POST') {
-      const body = options?.body as { content?: string; media_url?: string } || {};
-      const userStored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-      const currentUser = userStored ? JSON.parse(userStored) : d.DEMO_USERS[0];
-      const newAct: TaskActivity = {
-        id: `demo-tact-${Date.now()}`,
-        task_id: taskId,
-        user_id: currentUser.id,
-        user_name: currentUser.full_name,
-        content: body.content || '',
-        media_url: body.media_url || undefined,
-        created_at: new Date().toISOString(),
-      };
-      _demoTaskActivitiesCache.push(newAct);
-      return newAct as T;
-    }
-    const cached = _demoTaskActivitiesCache.filter(a => a.task_id === taskId);
-    return cached as T;
-  }
-  if (path.match(/^\/projects\/[^/]+\/tasks$/)) {
-    const projectId = path.split('/')[2];
-    return d.DEMO_TASKS.filter(t => t.project_id === projectId).sort((a, b) => a.order - b.order) as T;
-  }
-  // PUT /projects/tasks/{taskId}/status — demo mode status update
-  if (path.match(/^\/projects\/tasks\/[^/]+\/status$/) && method === 'PUT') {
-    const taskId = path.split('/')[3];
-    const task = d.DEMO_TASKS.find(t => t.id === taskId);
-    if (task) {
-      task.status = (options?.body as Record<string, string>)?.status || task.status;
-      return task as T;
-    }
-  }
-  // PUT /projects/tasks/{taskId}/final-file — lưu file kết quả (design versioning) để trang thấy thay đổi thật
-  if (path.match(/^\/projects\/tasks\/[^/]+\/final-file$/) && method === 'PUT') {
-    const taskId = path.split('/')[3];
-    const task = d.DEMO_TASKS.find(t => t.id === taskId);
-    if (task) {
-      task.final_file_url = ((options?.body as Record<string, unknown>)?.final_file_url as string | undefined) ?? undefined;
-      return task as T;
-    }
-  }
-  // PUT /projects/{projectId}/tasks/{taskId}/assign — gán việc cho nhân sự (demo mutate)
-  if (path.match(/^\/projects\/[^/]+\/tasks\/[^/]+\/assign$/) && method === 'PUT') {
-    const taskId = path.split('/')[4];
-    const task = d.DEMO_TASKS.find(t => t.id === taskId);
-    if (task) {
-      const b = (options?.body || {}) as Record<string, string>;
-      if (b.assigned_to) task.assigned_to = b.assigned_to;
-      if (b.status) task.status = b.status;
-      return task as T;
-    }
-  }
-  // PHẢI đứng TRƯỚC matcher /projects/{id} — 'by-department' khớp pattern {id},
-  // nếu để sau sẽ bị nuốt và trả về 1 project object (không .items) → crash .length
-  if (path === '/projects/by-department') return { department: params?.dept || 'DESIGN', items: [] } as T;
-  if (path.match(/^\/projects\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_PROJECTS.findIndex(p => p.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_PROJECTS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_PROJECTS[idx] as T; }
-  }
-  if (path.match(/^\/projects\/[^/]+$/)) {
-    const projectId = path.split('/')[2];
-    return (d.DEMO_PROJECTS.find(p => p.id === projectId) || d.DEMO_PROJECTS[0]) as T;
-  }
-
-  // ── Dashboard ──
-  if (path === '/dashboard/executive') return d.DEMO_DASHBOARD_EXECUTIVE as T;
-  if (path === '/dashboard/personal') return d.DEMO_DASHBOARD_PERSONAL as T;
-
-  // ── Accounting ──
-  if (path === '/accounting/summary') return d.DEMO_ACCOUNTING_SUMMARY as T;
-  if (path === '/accounting/transactions' && method === 'POST') {
-    const b = (options?.body || {}) as { type?: string; category?: string; description?: string; amount?: number; date?: string; project_id?: string; user_id?: string };
-    const staff = b.user_id ? d.DEMO_USERS.find(u => u.id === b.user_id) : null;
-    const tx = {
-      id: `demo-tx-${Date.now()}`, code: `TX-${String(d.DEMO_TRANSACTIONS.length + 1).padStart(3, '0')}`,
-      type: b.type || 'expense', category: b.category || 'other', description: b.description || '',
-      amount: b.amount || 0, project_id: b.project_id,
-      related_user_id: b.user_id || null, related_user_name: staff?.full_name || null,
-      status: 'completed', date: b.date || new Date().toISOString(), created_at: new Date().toISOString(),
-    } as unknown as Transaction;
-    d.DEMO_TRANSACTIONS.unshift(tx);
-    return tx as T;
-  }
-  if (path === '/accounting/transactions') return toPaginated(d.DEMO_TRANSACTIONS, params) as T;
-  if (path.match(/^\/accounting\/transactions\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_TRANSACTIONS.findIndex(t => t.id === path.split('/')[3]);
-    if (idx >= 0) { Object.assign(d.DEMO_TRANSACTIONS[idx], options?.body || {}); return d.DEMO_TRANSACTIONS[idx] as T; }
-  }
-  if (path.match(/^\/accounting\/transactions\/[^/]+$/) && method === 'DELETE') {
-    const idx = d.DEMO_TRANSACTIONS.findIndex(t => t.id === path.split('/')[3]);
-    if (idx >= 0) d.DEMO_TRANSACTIONS.splice(idx, 1);
-    return { status: 'ok' } as T;
-  }
-  if (path.match(/^\/accounting\/commissions\/[^/]+$/) && method === 'PUT') {
-    const comm = d.DEMO_COMMISSIONS.find(c => c.id === path.split('/')[3]);
-    if (comm) { comm.status = ((options?.body as Record<string, string>)?.status) || comm.status; return { id: comm.id, status: comm.status } as T; }
-  }
-  if (path === '/accounting/commissions') return toPaginated(d.DEMO_COMMISSIONS, params) as T;
-  if (path === '/salary-grades') return d.DEMO_SALARY_GRADES as T;
-  if (path === '/accounting/payroll') return toPaginated(d.DEMO_PAYROLL, params) as T;
-
-  // ── Customers ──
-  if (path === '/customers' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Customer>;
-    const c = { id: `demo-cust-${Date.now()}`, name: b.name || 'Khách hàng mới', phone: b.phone || '', email: b.email, address: b.address, type: b.type || 'individual', company_name: b.company_name, tax_code: b.tax_code, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Customer;
-    d.DEMO_CUSTOMERS.unshift(c);
-    return c as T;
-  }
-  if (path === '/customers') {
-    let list = [...d.DEMO_CUSTOMERS];
-    const q = (params?.search || params?.q || '').toLowerCase();
-    if (q) list = list.filter(c => `${c.name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(q));
-    return toPaginated(list, params) as T;
-  }
-  // Portal link demo: token 'demo' → trang /portal/demo tự render dữ liệu mẫu
-  if (path.match(/^\/customers\/[^/]+\/generate-portal-link$/) && method === 'POST') {
-    return { portal_token: 'demo', portal_url: '/portal/demo' } as T;
-  }
-  if (path.match(/^\/customers\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_CUSTOMERS.findIndex(c => c.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_CUSTOMERS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_CUSTOMERS[idx] as T; }
-  }
-  if (path.match(/^\/customers\/[^/]+$/) && method === 'GET') {
-    const custId = path.split('/')[2];
-    const custList = d.DEMO_CUSTOMERS as unknown as Array<Record<string, unknown>>;
-    const projList = d.DEMO_PROJECTS as unknown as Array<Record<string, unknown>>;
-    const cust = custList.find(c => c.id === custId) || custList[0];
-    // Enrich with linked projects
-    const linkedProjects = projList.filter(p => p.lead_id === cust.lead_id || p.customer_id === cust.id);
-    return { ...cust, projects: linkedProjects, project_count: linkedProjects.length } as T;
-  }
-
-  // ── Contracts ──
-  if (path === '/contracts' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Contract>;
-    const ct = { id: `demo-ct-${Date.now()}`, code: `HD-2026-${String(d.DEMO_CONTRACTS.length + 1).padStart(3, '0')}`, title: b.title || 'Hợp đồng mới', status: 'draft', total_value: b.total_value || 0, project_id: b.project_id, working_days: b.working_days, start_date: b.start_date, signed_date: b.signed_date, notes: b.notes, payment_terms: { installments: [] }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Contract;
-    d.DEMO_CONTRACTS.unshift(ct);
-    return ct as T;
-  }
-  if (path === '/contracts') return toPaginated(d.DEMO_CONTRACTS, params) as T;
-  if (path.match(/^\/contracts\/[^/]+\/payments\/\d+$/) && method === 'PUT') {
-    const contractId = path.split('/')[2];
-    const idx = parseInt(path.split('/')[4], 10);
-    const ct = d.DEMO_CONTRACTS.find(c => c.id === contractId);
-    const inst = ct?.payment_terms?.installments?.[idx];
-    if (ct && inst) { inst.status = 'paid'; inst.paid_date = new Date().toISOString().slice(0, 10); ct.updated_at = new Date().toISOString(); return ct as T; }
-  }
-  if (path.match(/^\/contracts\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_CONTRACTS.findIndex(c => c.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_CONTRACTS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_CONTRACTS[idx] as T; }
-  }
-
-  // ── Quotations ──
-  if (path === '/quotations' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Quotation>;
-    const q = { id: `demo-q-${Date.now()}`, code: `BG-2026-${String(d.DEMO_QUOTATIONS.length + 1).padStart(3, '0')}`, type: b.type || 'design', title: b.title || 'Báo giá mới', status: 'draft', total_amount: b.total_amount || 0, tax_amount: b.tax_amount || 0, revision: 1, items: b.items || { line_items: [] }, project_id: b.project_id, lead_id: b.lead_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Quotation;
-    d.DEMO_QUOTATIONS.unshift(q);
-    return q as T;
-  }
-  if (path === '/quotations') return toPaginated(d.DEMO_QUOTATIONS, params) as T;
-  if (path.match(/^\/quotations\/[^/]+\/approve$/) && method === 'POST') {
-    const q = d.DEMO_QUOTATIONS.find(x => x.id === path.split('/')[2]);
-    if (q) { q.status = 'approved'; q.updated_at = new Date().toISOString(); return q as T; }
-  }
-  if (path.match(/^\/quotations\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_QUOTATIONS.findIndex(x => x.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_QUOTATIONS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_QUOTATIONS[idx] as T; }
-  }
-
-  // ── Inventory ──
-  if (path === '/inventory' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<Material>;
-    const m = { id: `demo-mat-${Date.now()}`, code: `VT-${String(d.DEMO_MATERIALS.length + 1).padStart(3, '0')}`, name: b.name || 'Vật tư mới', category: b.category || 'other', unit: b.unit || 'cái', unit_price: b.unit_price || 0, quantity_in_stock: b.quantity_in_stock || 0, min_stock: b.min_stock || 0, supplier: b.supplier, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as Material;
-    d.DEMO_MATERIALS.unshift(m);
-    return m as T;
-  }
-  if (path === '/inventory') return toPaginated(d.DEMO_MATERIALS, params) as T;
-  if (path.match(/^\/inventory\/[^/]+\/adjust-stock$/) && method === 'POST') {
-    const m = d.DEMO_MATERIALS.find(x => x.id === path.split('/')[2]);
-    const delta = Number((options?.body as Record<string, unknown>)?.quantity_delta ?? (options?.body as Record<string, unknown>)?.quantity ?? 0);
-    if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock + delta); m.updated_at = new Date().toISOString(); return m as T; }
-  }
-  // POST /inventory/use — yêu cầu/xuất vật tư cho công trình (trừ tồn kho demo)
-  if (path === '/inventory/use' && method === 'POST') {
-    const b = (options?.body || {}) as { material_id?: string; quantity?: number };
-    const m = d.DEMO_MATERIALS.find(x => x.id === b.material_id);
-    if (m) { m.quantity_in_stock = Math.max(0, m.quantity_in_stock - (Number(b.quantity) || 0)); m.updated_at = new Date().toISOString(); }
-    return { status: 'ok', material_id: b.material_id, used: Number(b.quantity) || 0 } as T;
-  }
-  // PUT /inventory/{id} — sửa thông tin vật tư (demo mutate)
-  if (path.match(/^\/inventory\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_MATERIALS.findIndex(x => x.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_MATERIALS[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return d.DEMO_MATERIALS[idx] as T; }
-  }
-  if (path === '/inventory/import' && method === 'POST') {
-    // Upsert demo: khớp theo mã/tên như backend, để đào tạo thu mua đúng luồng thật
-    const rows = ((options?.body as { rows?: Array<Record<string, unknown>> })?.rows) || [];
-    const vnMap: Record<string, string> = { 'gỗ': 'wood', 'đá': 'stone', 'kim loại': 'metal', 'sơn': 'paint', 'điện': 'electrical', 'nước': 'plumbing', 'phụ kiện nội thất': 'furniture', 'nội thất': 'furniture', 'vải': 'fabric', 'kính': 'glass', 'khác': 'general' };
-    let created = 0, updated = 0; const errors: string[] = [];
-    rows.forEach((r, idx) => {
-      const name = String(r.name || '').trim();
-      if (!name) { errors.push(`Dòng ${idx + 2}: thiếu Tên vật tư`); return; }
-      const catRaw = String(r.category || '').trim().toLowerCase();
-      const category = catRaw ? (vnMap[catRaw] || catRaw) : undefined;
-      const code = String(r.code || '').trim().toUpperCase();
-      const target = d.DEMO_MATERIALS.find(m => (code && m.code.toUpperCase() === code) || m.name.toLowerCase() === name.toLowerCase());
-      if (target) {
-        Object.assign(target, {
-          ...(category ? { category } : {}),
-          ...(r.unit ? { unit: r.unit } : {}),
-          ...(r.unit_price != null ? { unit_price: Number(r.unit_price) } : {}),
-          ...(r.supplier ? { supplier: r.supplier } : {}),
-          ...(r.quantity_in_stock != null ? { quantity_in_stock: Number(r.quantity_in_stock) } : {}),
-          ...(r.min_stock != null ? { min_stock: Number(r.min_stock) } : {}),
-          updated_at: new Date().toISOString(),
-        });
-        updated++;
-      } else {
-        d.DEMO_MATERIALS.unshift({
-          id: `demo-mat-${Date.now()}-${idx}`, code: code || `VT-${String(d.DEMO_MATERIALS.length + 1).padStart(3, '0')}`,
-          name, category: category || 'general', unit: String(r.unit || 'cái'), unit_price: Number(r.unit_price) || 0,
-          quantity_in_stock: Number(r.quantity_in_stock) || 0, min_stock: Number(r.min_stock) || 0,
-          supplier: (r.supplier as string) || undefined, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-        } as unknown as Material);
-        created++;
-      }
-    });
-    return { created, updated, errors, total: rows.length } as T;
-  }
-  if (path === '/inventory/low-stock') return toPaginated(d.DEMO_MATERIALS.filter(m => m.quantity_in_stock <= m.min_stock), params) as T;
-
-  // ── Suppliers (demo) ──
-  const _demoSuppliers: Array<Record<string, unknown>> = [
-    { id: 'demo-sup-1', name: 'Gỗ Phước An', contact_name: 'Anh Nam', phone: '0901234567', email: 'nam@phuocan.vn', address: 'Bình Dương', category: 'wood', notes: 'NCC gỗ tự nhiên, giao hàng 3-5 ngày', is_active: true, quote_count: 12, created_at: '2026-01-15', updated_at: '2026-07-10' },
-    { id: 'demo-sup-2', name: 'Đá Hoàn Cầu', contact_name: 'Chị Hoa', phone: '0912345678', email: 'hoa@hoancu.vn', address: 'Bình Định', category: 'stone', notes: 'Đá granite, marble', is_active: true, quote_count: 8, created_at: '2026-02-20', updated_at: '2026-07-05' },
-    { id: 'demo-sup-3', name: 'Sơn Nippon', contact_name: 'Anh Tuấn', phone: '0923456789', email: 'tuan@nippon.vn', address: 'TP.HCM', category: 'paint', notes: 'Sơn nội thất, ngoại thất', is_active: true, quote_count: 15, created_at: '2026-01-10', updated_at: '2026-07-12' },
-    { id: 'demo-sup-4', name: 'Điện Quang', contact_name: 'Chị Mai', phone: '0934567890', email: 'mai@dienquang.vn', address: 'TP.HCM', category: 'electrical', notes: 'Thiết bị điện dân dụng', is_active: true, quote_count: 6, created_at: '2026-03-01', updated_at: '2026-06-28' },
-    { id: 'demo-sup-5', name: 'Nội Thất Hòa Phát', contact_name: 'Anh Dũng', phone: '0945678901', email: 'dung@hoaphat.vn', address: 'Hà Nội', category: 'furniture', notes: 'Nội thất văn gia đình', is_active: true, quote_count: 10, created_at: '2026-02-01', updated_at: '2026-07-08' },
-  ];
-  const _demoSupplierQuotes: Array<Record<string, unknown>> = [
-    { id: 'demo-sq-1', supplier_id: 'demo-sup-1', supplier_name: 'Gỗ Phước An', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 850000, min_quantity: 5, lead_time_days: 5, notes: 'Gỗ đã xử lý chống ẩm', valid_from: '2026-07-01', valid_until: '2026-09-30', created_at: '2026-07-01' },
-    { id: 'demo-sq-2', supplier_id: 'demo-sup-2', supplier_name: 'Đá Hoàn Cầu', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 920000, min_quantity: 3, lead_time_days: 7, notes: 'Gỗ nhập khẩu', valid_from: '2026-07-01', valid_until: '2026-08-31', created_at: '2026-07-05' },
-    { id: 'demo-sq-3', supplier_id: 'demo-sup-3', supplier_name: 'Sơn Nippon', material_name: 'Sơn nội thất', material_category: 'paint', unit: 'thùng', unit_price: 1250000, min_quantity: 2, lead_time_days: 2, notes: 'Sơn Nippon Odour-less 5L', valid_from: '2026-07-01', valid_until: '2026-12-31', created_at: '2026-07-10' },
-    { id: 'demo-sq-4', supplier_id: 'demo-sup-4', supplier_name: 'Điện Quang', material_name: 'Đèn LED âm trần', material_category: 'electrical', unit: 'cái', unit_price: 185000, min_quantity: 10, lead_time_days: 3, notes: 'Đèn LED 7W', valid_from: '2026-07-01', valid_until: '2026-10-31', created_at: '2026-07-08' },
-    { id: 'demo-sq-5', supplier_id: 'demo-sup-5', supplier_name: 'Nội Thất Hòa Phát', material_name: 'Gỗ sồi tự nhiên', material_category: 'wood', unit: 'm²', unit_price: 780000, min_quantity: 10, lead_time_days: 10, notes: 'Gỗ trong nước, số lượng lớn', valid_from: '2026-07-01', valid_until: '2026-09-30', created_at: '2026-07-12' },
-  ];
-  if (path === '/suppliers') {
-    let list = [..._demoSuppliers];
-    const q = (params?.search || params?.q || '').toLowerCase();
-    if (q) list = list.filter(s => `${s.name} ${s.contact_name || ''}`.toLowerCase().includes(q));
-    if (params?.category && params.category !== 'all') list = list.filter(s => s.category === params.category);
-    return toPaginated(list as unknown as Supplier[], params) as T;
-  }
-  if (path === '/suppliers/compare') {
-    const matName = params?.material_name || '';
-    const matched = _demoSupplierQuotes.filter(q => String(q.material_name).toLowerCase().includes(matName.toLowerCase()));
-    const prices = matched.map(q => Number(q.unit_price));
-    const cheapest = Math.min(...prices);
-    const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-    return {
-      material_name: matName, unit: matched[0]?.unit || '',
-      quotes: matched.map(q => ({
-        supplier_id: q.supplier_id, supplier_name: q.supplier_name,
-        unit_price: Number(q.unit_price), min_quantity: Number(q.min_quantity) || undefined,
-        lead_time_days: Number(q.lead_time_days) || undefined, valid_until: q.valid_until as string | undefined,
-        is_cheapest: Number(q.unit_price) === cheapest,
-        price_trend: 'stable' as const,
-      })),
-      cheapest_price: cheapest, avg_price: avg,
-    } as T;
-  }
-  if (path === '/suppliers/price-history') {
-    const matName = params?.material_name || '';
-    return _demoSupplierQuotes
-      .filter(q => String(q.material_name).toLowerCase().includes(matName.toLowerCase()))
-      .map(q => ({ date: String(q.created_at), supplier_name: String(q.supplier_name), unit_price: Number(q.unit_price) })) as T;
-  }
-  if (path.match(/^\/suppliers\/[^/]+\/quotes$/)) {
-    const supId = path.split('/')[2];
-    if (method === 'POST') {
-      const b = (options?.body || {}) as Record<string, unknown>;
-      const sup = _demoSuppliers.find(s => s.id === supId);
-      const newQ = { id: `demo-sq-${Date.now()}`, supplier_id: supId, supplier_name: sup?.name || '', ...b, created_at: new Date().toISOString() };
-      _demoSupplierQuotes.push(newQ);
-      return newQ as T;
-    }
-    return _demoSupplierQuotes.filter(q => q.supplier_id === supId) as T;
-  }
-  if (path === '/suppliers' && method === 'POST') {
-    const b = (options?.body || {}) as Record<string, unknown>;
-    const newS = { id: `demo-sup-${Date.now()}`, ...b, is_active: true, quote_count: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    _demoSuppliers.push(newS);
-    return newS as T;
-  }
-  if (path.match(/^\/suppliers\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = _demoSuppliers.findIndex(s => s.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(_demoSuppliers[idx], options?.body || {}, { updated_at: new Date().toISOString() }); return _demoSuppliers[idx] as T; }
-  }
-  if (path.match(/^\/suppliers\/[^/]+$/)) {
-    const sup = _demoSuppliers.find(s => s.id === path.split('/')[2]);
-    return (sup || _demoSuppliers[0]) as T;
-  }
-
-  // ── Users / Teams ──
-  if (path === '/users' && method === 'POST') {
-    const b = (options?.body || {}) as Partial<User>;
-    const u = { id: `demo-user-${Date.now()}`, full_name: b.full_name || 'Nhân viên mới', email: b.email || `nv${Date.now()}@jamahome.vn`, phone: b.phone, role: b.role || 'data_entry', department: b.department || 'SALES', is_active: true, created_at: new Date().toISOString() } as unknown as User;
-    d.DEMO_USERS.push(u);
-    return u as T;
-  }
-  if (path === '/users') return toPaginated(d.DEMO_USERS, params) as T;
-  if (path === '/users/teams') return d.DEMO_TEAMS as T;
-  if (path === '/users/telegram-contacts') return [] as T;
-  // Per-user permission overrides (demo: store in-memory)
-  const _demoPermsCache: Record<string, Record<string, boolean>> = {};
-  if (path.match(/^\/users\/[^/]+\/permissions$/) && method === 'GET') {
-    const uid = path.split('/')[2];
-    return { user_id: uid, role: 'data_entry', custom_permissions: _demoPermsCache[uid] || null, combined_permissions: {} } as T;
-  }
-  if (path.match(/^\/users\/[^/]+\/permissions$/) && method === 'PUT') {
-    const uid = path.split('/')[2];
-    const body = (options?.body || {}) as { permissions?: Record<string, boolean> };
-    _demoPermsCache[uid] = body.permissions || {};
-    return { user_id: uid, custom_permissions: body.permissions || null, message: 'OK' } as T;
-  }
-  if (path.match(/^\/users\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const idx = d.DEMO_USERS.findIndex(u => u.id === path.split('/')[2]);
-    if (idx >= 0) { Object.assign(d.DEMO_USERS[idx], options?.body || {}); return d.DEMO_USERS[idx] as T; }
-  }
-
-  // ── P&L ──
-  if (path === '/pl/summary') return d.DEMO_PNL_SUMMARY as T;
-  if (path === '/pl/projects') return (d.DEMO_PNL_SUMMARY.revenue_by_project || []) as T;
-  if (path === '/pl/receivables') {
-    // Khớp DEMO_CONTRACTS: 3 HĐ 72 tỷ, đã thu 26,25 tỷ → còn phải thu 45,75 tỷ
-    return {
-      total_receivable: 45_750_000_000,
-      contract_count: 3,
-      contracts: [
-        {
-          contract_id: 'demo-ct-001', contract_code: 'HD-2026-001', project_code: 'PRJ-2026-001',
-          project_name: 'Nhà phố Q7 - Chị Mai', signed_date: '2026-05-11', total_value: 12_000_000_000,
-          pending_amount: 6_000_000_000,
-          pending_installments: [
-            { name: 'Đợt 3 (Nội thất)', percentage: 25, amount: 3_000_000_000, milestone: 'interior_complete' },
-            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 3_000_000_000, milestone: 'handover' },
-          ],
-        },
-        {
-          contract_id: 'demo-ct-002', contract_code: 'HD-2026-002', project_code: 'PRJ-2026-002',
-          project_name: 'Biệt thự Bình Chánh - Anh Tuấn', signed_date: '2026-05-28', total_value: 45_000_000_000,
-          pending_amount: 33_750_000_000,
-          pending_installments: [
-            { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 25, amount: 11_250_000_000, milestone: 'rough_complete' },
-            { name: 'Đợt 3 (Nội thất)', percentage: 25, amount: 11_250_000_000, milestone: 'interior_complete' },
-            { name: 'Đợt 4 (Bàn giao)', percentage: 25, amount: 11_250_000_000, milestone: 'handover' },
-          ],
-        },
-        {
-          contract_id: 'demo-ct-003', contract_code: 'HD-2026-003', project_code: 'PRJ-2026-005',
-          project_name: 'Nhà phố Gò Vấp - Chị Lan', signed_date: '2026-05-11', total_value: 15_000_000_000,
-          pending_amount: 6_000_000_000,
-          pending_installments: [
-            { name: 'Đợt 3 (Bàn giao)', percentage: 40, amount: 6_000_000_000, milestone: 'handover' },
-          ],
-        },
-      ],
-    } as T;
-  }
-  // ── Auth self-service (demo: giả lập thành công) ──
-  if (path === '/auth/change-password') return { status: 'ok', message: 'Đã đổi mật khẩu (demo)' } as T;
-  if (path === '/auth/forgot-password') return { status: 'ok', message: 'Demo: mã đã được "gửi" (dùng 000000)' } as T;
-  if (path === '/auth/reset-password') return { status: 'ok', message: 'Đã đặt lại mật khẩu (demo)' } as T;
-  if (path.match(/^\/pl\/projects\/[^/]+$/)) {
-    const projectId = path.split('/')[3];
-    const proj = (d.DEMO_PNL_SUMMARY.revenue_by_project || []).find((p: Record<string, unknown>) => p.project_id === projectId || p.project_code === projectId);
-    return (proj || (d.DEMO_PNL_SUMMARY.revenue_by_project || [])[0]) as T;
-  }
-
-  // ── AI ──
-  if (path === '/ai/parse-lead') return { name: '', phone: '', confidence: 0.95, raw_text: '' } as T;
-  if (path === '/ai/suggest-action') return d.DEMO_AI_SUGGESTIONS[0] as T;
-
-  // ── Notifications (demo: NotificationCenter generates locally) ──
-  if (path === '/notifications') return { items: [], unread_count: 0 } as T;
-  if (path.match(/^\/notifications\/.+\/read$/) || path === '/notifications/read-all') {
-    return { status: 'ok' } as T;
-  }
-
-  // ── HR: Nghỉ việc / chuyển giao (demo) — tránh crash TypeError undefined.length ──
-  if (path === '/hr/resign-preview' && method === 'POST') {
-    const b = (options?.body || {}) as { user_id?: string };
-    const u = d.DEMO_USERS.find(x => x.id === b.user_id);
-    return {
-      user_id: b.user_id,
-      user_name: u?.full_name || 'Nhân viên',
-      lead_count: 2,
-      task_count: 1,
-      leads: [
-        { id: 'demo-l1', name: 'Lead mẫu A', phone: '0900000001', stage: 'interested' },
-        { id: 'demo-l2', name: 'Lead mẫu B', phone: '0900000002', stage: 'survey_scheduled' },
-      ],
-      tasks: [
-        { id: 'demo-t1', title: 'Task mẫu', project_name: 'Nhà phố Q7', status: 'in_progress' },
-      ],
-    } as T;
-  }
-  if (path === '/hr/resign' && method === 'POST') {
-    return { status: 'ok', transferred_leads: 2, transferred_tasks: 1, message: '(Demo) Đã xử lý nghỉ việc — dữ liệu mẫu' } as T;
-  }
-  if (path === '/hr/undo-resign' && method === 'POST') {
-    return { status: 'ok', message: '(Demo) Đã hoàn tác nghỉ việc — dữ liệu mẫu' } as T;
-  }
-
-  // ── HR Phase 1: Chấm công / Phê duyệt / Nghỉ phép / Lương (có trạng thái) ──
-  if (path === '/attendance/checkin' && method === 'POST') {
-    const now = new Date();
-    // Giờ ĐỊA PHƯƠNG dạng 'YYYY-MM-DD HH:mm' — không dùng toISOString() (UTC) kẻo hiện lệch 7 tiếng
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const localStamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    _demoAttToday = { id: 'demo-att-today', work_date: localStamp.slice(0, 10), check_in: localStamp, check_out: null, source: 'web', work_hours: 0, ot_hours: 0, ot_status: 'none', needs_review: false };
-    return { status: 'ok', record: _demoAttToday, message: 'Đã vào ca (demo)' } as T;
-  }
-  if (path === '/attendance/checkout' && method === 'POST') {
-    if (_demoAttToday) {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      _demoAttToday.check_out = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      _demoAttToday.work_hours = 8;
-    }
-    return { status: 'ok', record: _demoAttToday, message: 'Đã tan ca (demo)' } as T;
-  }
-  if (path === '/attendance/today') return { record: _demoAttToday } as T;
-  if (path === '/attendance/me') {
-    return {
-      summary: { period: '2026-07', records: 20, work_days: 20, work_days_fraction: 20, total_hours: 160, ot_approved_hours: 4, needs_review: 0 },
-      records: [
-        { id: 'demo-att-1', user_id: 'demo-user', work_date: '2026-07-14', check_in: '2026-07-14 08:01', check_out: '2026-07-14 17:32', project_id: null, source: 'web', work_hours: 8, ot_hours: 1.5, ot_status: 'approved', needs_review: false, note: null },
-        { id: 'demo-att-2', user_id: 'demo-user', work_date: '2026-07-13', check_in: '2026-07-13 07:58', check_out: '2026-07-13 17:05', project_id: null, source: 'telegram', work_hours: 8, ot_hours: 0, ot_status: 'none', needs_review: false, note: null },
-      ],
-    } as T;
-  }
-  if (path === '/attendance/team') return { period: '2026-07', items: [] } as T;
-  if (path === '/attendance/ot/pending') return { items: [] } as T;
-  if (path.match(/^\/approvals\/[^/]+\/(approve|reject|cancel|request-changes)$/) && method === 'POST') {
-    const [, , aprId, action] = path.split('/');
-    const apr = demoApprovals().find(a => a.id === aprId);
-    if (apr) {
-      apr.status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action === 'cancel' ? 'cancelled' : 'changes_requested';
-      apr.resolved_at = new Date().toISOString();
-      apr.reason = (options?.body as Record<string, string>)?.reason || null;
-    }
-    return { status: 'ok', approval: apr } as T;
-  }
-  if (path === '/approvals/pending-for-me') {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-    const meId = stored ? (JSON.parse(stored) as { id?: string }).id : null;
-    // Đơn của chính mình không nằm trong "Chờ tôi duyệt"
-    const items = demoApprovals().filter(a => a.status === 'pending' && a.requester_id !== meId);
-    return { items, count: items.length } as T;
-  }
-  if (path === '/approvals/my-requests') {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-    const meId = stored ? (JSON.parse(stored) as { id?: string }).id : null;
-    return { items: demoApprovals().filter(a => a.requester_id === meId) } as T;
-  }
-  if (path === '/approvals/handled') return { items: demoApprovals().filter(a => a.status !== 'pending') } as T;
-  if (path === '/leaves' && method === 'POST') {
-    const b = (options?.body || {}) as Record<string, unknown>;
-    const leave = { id: `demo-leave-${Date.now()}`, type: b.type || 'annual', type_label: b.type === 'sick' ? 'Nghỉ ốm' : 'Phép năm', start_date: b.start_date, end_date: b.end_date, days: b.days || 1, reason: b.reason || '', status: 'pending', created_at: new Date().toISOString() };
-    _demoLeaves.unshift(leave);
-    return leave as T;
-  }
-  if (path === '/leaves/me') return { items: _demoLeaves } as T;
-  if (path === '/leaves/balance/me') return { year: 2026, annual_total: 12, annual_used: 3, annual_remaining: 9, sick_used: 0, unpaid_used: 0 } as T;
-  if (path === '/leaves/calendar') return { month: params?.month || '2026-07', items: [] } as T;
-  if (path === '/payroll/me') {
-    return { items: [
-      { id: 'demo-pay-1', period: '2026-06', base_salary: 18000000, work_days: 22, standard_days: 22, ot_hours: 4, ot_pay: 613000, commission_total: 185000000, bonus: 5000000, allowance: 2000000, gross_salary: 210613000, bhxh_employee: 1890000, taxable_income: 197723000, pit: 45400000, advance_deduction: 0, deductions: 0, net_salary: 163323000, status: 'paid', notes: 'Hoa hồng 2 công trình ký T6 — chúc mừng!', paid_at: '2026-07-05', payslip_sent_at: '2026-07-05' },
-    ] } as T;
-  }
-  if (path === '/payroll/advances/me') return { items: [] } as T;
-  if (path === '/payroll/settings') return { pit_personal_deduction: 11000000, pit_dependent_deduction: 4400000, bhxh_salary_cap: 46800000, payroll_standard_days: 22, ot_multiplier: 1.5 } as T;
-  // Chốt sổ lương demo: generate → submit → pay có trạng thái để stepper chạy thật
-  if (path.startsWith('/payroll/generate') && method === 'POST') {
-    _demoPayrollRun = {
-      period: params?.period || '2026-07', status: 'draft',
-      items: d.DEMO_PAYROLL.map(p => ({ ...p, id: `${p.id}-run`, period: params?.period || '2026-07' })),
-    };
-    return { ..._demoPayrollRun, ok: true } as T;
-  }
-  if (path.match(/^\/payroll\/[^/]+\/submit$/) && method === 'POST') {
-    if (_demoPayrollRun) _demoPayrollRun.status = 'pending_approval';
-    return { status: 'ok', run_status: _demoPayrollRun?.status } as T;
-  }
-  if (path.match(/^\/payroll\/[^/]+\/pay$/) && method === 'POST') {
-    if (_demoPayrollRun) _demoPayrollRun.status = 'paid';
-    return { status: 'ok', run_status: _demoPayrollRun?.status, message: 'Đã chi lương + gửi phiếu lương Telegram (demo)' } as T;
-  }
-  if (path === '/payroll') {
-    if (_demoPayrollRun && (!params?.period || params.period === _demoPayrollRun.period)) {
-      const total = _demoPayrollRun.items.reduce((s, i) => s + (Number(i.net_salary) || 0), 0);
-      return { period: _demoPayrollRun.period, items: _demoPayrollRun.items, total_net: total, total_company_cost: Math.round(total * 1.215), status: _demoPayrollRun.status } as T;
-    }
-    return { period: params?.period || '2026-07', items: [], total_net: 0, total_company_cost: 0, status: null } as T;
-  }
-
-  // ── Báo giá tức thì (demo): tính 3 phương án theo diện tích ──
-  if (path === '/instant-quote/generate' && method === 'POST') {
-    const b = (options?.body || {}) as { area_sqm?: number };
-    const area = Number(b.area_sqm) || 100;
-    const mk = (label: string, perSqm: number) => {
-      const total = area * perSqm;
-      return {
-        label, per_sqm: perSqm, total,
-        range_low: Math.round(total * 0.9), range_high: Math.round(total * 1.1),
-        items: [
-          { code: 'THO', name: 'Phần thô & kết cấu', unit: 'm²', qty: area, unit_price: Math.round(perSqm * 0.4), total: Math.round(total * 0.4) },
-          { code: 'HT', name: 'Hoàn thiện (sơn, sàn, trần)', unit: 'm²', qty: area, unit_price: Math.round(perSqm * 0.35), total: Math.round(total * 0.35) },
-          { code: 'NT', name: 'Nội thất cơ bản', unit: 'gói', qty: 1, unit_price: Math.round(total * 0.25), total: Math.round(total * 0.25) },
-        ],
-      };
-    };
-    return {
-      area_sqm: area, suggested_tier: 'standard',
-      tiers: { basic: mk('Cơ bản', 5_500_000), standard: mk('Tiêu chuẩn', 7_500_000), premium: mk('Cao cấp', 10_500_000) },
-      total: area * 7_500_000, per_sqm: 7_500_000,
-      customer_budget: null, parsed: null,
-      zalo_text: `Báo giá sơ bộ ${area}m²: Cơ bản ${(area * 5.5).toLocaleString('vi-VN')}tr · Tiêu chuẩn ${(area * 7.5).toLocaleString('vi-VN')}tr · Cao cấp ${(area * 10.5).toLocaleString('vi-VN')}tr (demo)`,
-      disclaimer: 'Báo giá demo — số liệu mẫu cho Chế độ Tập luyện, không dùng gửi khách.',
-    } as T;
-  }
-  if (path === '/instant-quote/price-items') return [] as T;
-  // PUT đơn giá demo: trả lại chính item đã sửa (tránh xóa trắng bảng — bug fake-success cũ)
-  if (path.match(/^\/instant-quote\/price-items\/[^/]+$/) && method === 'PUT') {
-    return { id: path.split('/')[3], ...(options?.body as Record<string, unknown> || {}) } as T;
-  }
-
-  // ── AI Settings (demo) ──
-  if (path === '/ai-settings') {
-    return {
-      llm_model: 'groq/llama-3.3-70b-versatile',
-      llm_api_key_masked: '', llm_api_key_set: false,
-      llm_fallback_model: 'google/gemini-2.0-flash-exp',
-      llm_fallback_api_key_masked: '', llm_fallback_api_key_set: false,
-      presets: [
-        { label: 'Groq — Llama 3.3 70B (free, khuyến nghị)', model: 'groq/llama-3.3-70b-versatile' },
-        { label: 'Google Gemini 2.0 Flash (free)', model: 'google/gemini-2.0-flash-exp' },
-        { label: 'OpenRouter — free models', model: 'openrouter/auto' },
-        { label: 'Ollama local (không cần key)', model: 'ollama/llama3.2' },
-      ],
-    } as T;
-  }
-  if (path === '/ai-settings/test') return { status: 'ok', model: 'demo-model', reply: 'Xin chào từ Chế độ Tập luyện' } as T;
-  // Khóa AI cá nhân: GET trả "chưa đặt" để thẻ hiển thị được; PUT/test không có
-  // resolver → honest-error (không giả lập lưu thành công trong Tập luyện)
-  if (path === '/ai-settings/my-key' && method === 'GET') return { set: false, masked: '' } as T;
-
-  // ── Sao lưu (demo) ── GET trả dữ liệu mẫu để trang không chết ở Chế độ Tập luyện.
-  // POST /backup/run và PUT /backup/settings KHÔNG có resolver → rơi vào honest-error (không giả lập thành công).
-  if (path === '/backup/settings' && method === 'GET') {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    // Lần chạy gần nhất: hôm nay lúc 05:00 giờ VN (ISO có offset +07:00)
-    const lastRunAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T05:00:00+07:00`;
-    return {
-      enabled: true,
-      hour: 5,
-      retention_days: 30,
-      telegram_chat_id: '-1001234567890',
-      telegram_configured: true,
-      last_run_at: lastRunAt,
-      last_status: 'success',
-      last_detail: 'Đã gửi vào nhóm Telegram',
-      last_size_mb: 2.4,
-    } as T;
-  }
-
-  // ── Zalo Listener (demo) ──
-  if (path === '/zalo/session') return { status: 'logged_out', qr_image: null, account_name: null, error_msg: null, ingest_online: false, last_seen: null } as T;
-  if (path === '/zalo/groups') return { items: [] } as T;
-  if (path === '/zalo/overview') return { scope: 'tat_ca', department: null, new_by_type: { lead_candidate: 1, quote_request: 1 }, groups_monitored: 2, listener_status: 'logged_out' } as T;
-  if (path === '/zalo/digests') return { day: '2026-07-16', days: ['2026-07-16'], items: [
-    { group_id: 'demo-g1', group_name: 'Nhóm KH Anh Minh', kind: 'customer', department: 'SALES', msg_count: 24, summary: '• Khách chốt màu tủ bếp, chờ báo giá phụ kiện\n• Hẹn đo lại phòng ngủ thứ Bảy', by_llm: true },
-  ] } as T;
-  if (path === '/zalo/signals') return { items: [
-    { id: 'demo-zsig-1', type: 'lead_candidate', summary: 'Phát hiện SĐT 0912345678 trong hội thoại', status: 'new', group_name: 'Nhóm KH Anh Minh', assigned_user_id: null, payload: { phone: '0912345678' }, created_at: '2026-07-16 09:12' },
-    { id: 'demo-zsig-2', type: 'quote_request', summary: 'Khách hỏi giá/báo giá — gợi ý dùng /quote-tool', status: 'new', group_name: 'Nhóm KH Chị Lan', assigned_user_id: null, payload: {}, created_at: '2026-07-16 08:40' },
-  ] } as T;
-
-  // ── Feedback (demo) ──
-  if (path === '/feedback') return toPaginated(demoFeedback(), params) as T;
-  if (path.match(/^\/feedback\/[^/]+$/) && (method === 'PUT' || method === 'PATCH')) {
-    const fb = demoFeedback().find(f => f.id === path.split('/')[2]);
-    if (fb) { Object.assign(fb, options?.body || {}); return fb as T; }
-  }
-
-  // ── KPI (demo) — câu chuyện số: Trần Thị Sales dẫn đầu, hoa hồng lớn ──
-  if (path === '/kpi/me' || path === '/kpi/team' || path === '/kpi/leaderboard') {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('jama_user') : null;
-    const me = stored ? JSON.parse(stored) : d.DEMO_USERS[0];
-    const kpiMembers = [
-      { user_id: 'demo-sales-001', name: 'Trần Thị Sales', team_id: 'demo-team-01', score: 92, rank_in_team: 1, metrics: { activity_rate: 2.8, sla_compliance: 96, first_touch_hours: 1.5, signed_count: 8, signed_value: 4_200_000_000, stage_conversion: 34, pipeline_value_weighted: 12_500_000_000, recall_rate: 1, lost_no_response_rate: 8 } },
-      { user_id: 'demo-sales-002', name: 'Nguyễn Văn Bán', team_id: 'demo-team-01', score: 78, rank_in_team: 2, metrics: { activity_rate: 2.1, sla_compliance: 88, first_touch_hours: 3.2, signed_count: 5, signed_value: 2_600_000_000, stage_conversion: 26, pipeline_value_weighted: 8_100_000_000, recall_rate: 2, lost_no_response_rate: 15 } },
-      { user_id: 'demo-sales-003', name: 'Phạm Thị Chăm', team_id: 'demo-team-02', score: 64, rank_in_team: 3, metrics: { activity_rate: 1.6, sla_compliance: 79, first_touch_hours: 6.5, signed_count: 3, signed_value: 1_400_000_000, stage_conversion: 18, pipeline_value_weighted: 5_200_000_000, recall_rate: 4, lost_no_response_rate: 24 } },
-    ];
-    const period = params?.period || '2026-07';
-    if (path === '/kpi/team') {
-      return { period, members: kpiMembers } as T;
-    }
-    if (path === '/kpi/leaderboard') {
-      const leaderboard = kpiMembers.map((m, i) => ({ rank: i + 1, score: m.score, name: m.name, team_id: m.team_id, is_me: m.user_id === me?.id }));
-      leaderboard.push({ rank: 4, score: 57, name: 'Hoàng Thu Em', team_id: 'demo-team-02', is_me: false });
-      return { leaderboard } as T;
-    }
-    // /kpi/me — nếu user hiện tại là sale trong bảng thì trả KPI của họ, ngược lại (giám đốc/kế toán…) trả KPI điều hành mẫu
-    const mine = kpiMembers.find(m => m.user_id === me?.id);
-    if (mine) {
-      return { period, score: mine.score, metrics: mine.metrics, rank_in_team: mine.rank_in_team, rank_overall: kpiMembers.indexOf(mine) + 1 } as T;
-    }
-    return { period, score: 88, metrics: { activity_rate: 2.4, sla_compliance: 93, first_touch_hours: 2.0, signed_count: 6, signed_value: 3_100_000_000, stage_conversion: 30, pipeline_value_weighted: 9_800_000_000, recall_rate: 1, lost_no_response_rate: 10 }, rank_in_team: null, rank_overall: null } as T;
-  }
-
-  // Fallback: throw so caller shows error
-  throw new Error(`Demo mode: no data for ${path}`);
-}
-
-
 interface ApiOptions {
   method?: string;
   body?: unknown;
@@ -882,7 +49,6 @@ let daXuLyHetPhien = false;
  */
 function xuLyHetPhien(endpoint: string) {
   if (typeof window === 'undefined') return;
-  if (isDemoMode()) return;
   if (ENDPOINT_CONG_KHAI.some(p => endpoint.startsWith(p))) return;
   if (daXuLyHetPhien) return;
   daXuLyHetPhien = true;
@@ -928,20 +94,6 @@ class ApiClient {
   async request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     const { method = 'GET', body, token, params } = options;
 
-    // Demo mode: return mock data without hitting the API
-    if (isDemoMode()) {
-      try {
-        return await resolveDemo<T>(endpoint, params, { method, body });
-      } catch {
-        if (method !== 'GET') {
-          // Mutation KHÔNG có resolver: KHÔNG giả lập thành công (bug fake-success cũ — toast xanh giả).
-          // Ném lỗi trung thực để UI hiện toast đỏ, người đào tạo biết dữ liệu KHÔNG đổi.
-          throw new Error('Thao tác này chưa được mô phỏng trong Chế độ Tập luyện — dữ liệu không thay đổi. Chuyển sang Chế độ Làm việc để thao tác thật.');
-        }
-        // GET không có resolver: rơi xuống API thật bên dưới
-      }
-    }
-
     let url = `${this.baseUrl}${endpoint}`;
     if (params) {
       const searchParams = new URLSearchParams(params);
@@ -958,7 +110,7 @@ class ApiClient {
     // token mới trong header X-Phien-Moi — lưu đè để phiên tự dài ra theo giờ làm.
     // Chỉ lưu khi đang dùng token phiên (không phải token truyền tay qua options).
     const tokenMoi = res.headers.get('X-Phien-Moi');
-    if (tokenMoi && !token && typeof window !== 'undefined' && !isDemoMode()) {
+    if (tokenMoi && !token && typeof window !== 'undefined') {
       localStorage.setItem('jama_token', tokenMoi);
     }
 
@@ -1065,7 +217,7 @@ class ApiClient {
   }
 
   async getActivities(leadId: string): Promise<Activity[]> {
-    // Backend trả object phân trang {items,...}; demo trả mảng thuần → chuẩn hoá về mảng.
+    // Backend trả object phân trang {items,...} → chuẩn hoá về mảng.
     // Lấy tối đa backend cho phép (200): khối lognote CSKH trong thẻ chi tiết đọc từ
     // mảng này, mặc định 50 thì lead bận rộn sẽ KHUẤT mất đánh giá cũ (QC 05/09).
     const res = await this.request<Activity[] | { items: Activity[] }>(`/leads/${leadId}/activities`, { params: { page_size: '200' } });
@@ -1074,9 +226,6 @@ class ApiClient {
 
   /** Ảnh đính kèm ghi chú lead — data-URL JPG đã nén; trả id để chèn «🖼 anh:<id>» vào ghi chú */
   async uploadLeadImage(leadId: string, dataUrl: string) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
-    }
     return this.request<{ id: string; width: number; height: number; size_bytes: number }>(
       `/leads/${leadId}/attachments`, { method: 'POST', body: { data_base64: dataUrl } }
     );
@@ -1097,14 +246,7 @@ class ApiClient {
     });
   }
 
-  // Pipeline
-  async getPipelineStats() {
-    return this.request<PipelineStats>('/leads/pipeline/stats');
-  }
 
-  async getPipelineKanban() {
-    return this.request<PipelineKanban[]>('/leads/pipeline/kanban');
-  }
 
   // Projects
   async getProjects(params?: Record<string, string>) {
@@ -1162,36 +304,9 @@ class ApiClient {
   // `/media/{id}/{sig}.jpg` đã ký nên <img> mở được không cần header.
 
   /** Tải 1 ảnh lên Kho ảnh. Multipart nên không đi qua request() (header JSON). */
-  async uploadMedia(file: Blob, opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
-    }
-    const fd = new FormData();
-    fd.append('file', file, 'anh.jpg');
-    fd.append('project_id', opts.projectId);
-    if (opts.kind) fd.append('kind', opts.kind);
-    if (opts.caption) fd.append('caption', opts.caption);
-    const t = this.getToken();
-    const res = await fetch(`${this.baseUrl}/media/upload`, {
-      method: 'POST',
-      headers: t ? { Authorization: `Bearer ${t}` } : {},
-      body: fd,
-    });
-    const tokenMoi = res.headers.get('X-Phien-Moi');
-    if (tokenMoi && typeof window !== 'undefined') localStorage.setItem('jama_token', tokenMoi);
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ detail: 'Tải ảnh thất bại' }));
-      if (res.status === 401) xuLyHetPhien('/media/upload');
-      throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
-    }
-    return res.json() as Promise<MediaFile & { deduped: boolean }>;
-  }
 
   /** Nhiều ảnh một lượt → nhóm Kho ảnh Telegram nhận thành MỘT album thay vì N tin. */
   async uploadMediaBatch(files: Blob[], opts: { projectId: string; kind?: ActivityKind; caption?: string }) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải ảnh lên được — chuyển sang Chế độ Làm việc.');
-    }
     const fd = new FormData();
     files.forEach((f, i) => fd.append('files', f, `anh${i}.jpg`));
     fd.append('project_id', opts.projectId);
@@ -1220,9 +335,6 @@ class ApiClient {
     );
   }
   async uploadContractTemplates(files: File[]) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải tệp lên được — chuyển sang Chế độ Làm việc.');
-    }
     const fd = new FormData();
     files.forEach(f => fd.append('files', f, f.name));
     const t = this.getToken();
@@ -1265,13 +377,9 @@ class ApiClient {
 
   // ── Tệp hợp đồng đã ký (26/10/2026) ──
   async listContractFiles(contractId: string) {
-    if (isDemoMode()) return { items: [] as ContractFile[] };
     return this.request<{ items: ContractFile[] }>(`/contracts/${contractId}/files`);
   }
   async uploadContractFiles(contractId: string, files: File[]) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải tệp lên được — chuyển sang Chế độ Làm việc.');
-    }
     const fd = new FormData();
     files.forEach(f => fd.append('files', f, f.name));
     const t = this.getToken();
@@ -1321,9 +429,6 @@ class ApiClient {
 
   /** Nhập danh sách nhân sự (Excel HCNS) → Hồ sơ 360°. apply=false chỉ xem trước. */
   async importEmployeesExcel(file: File, apply: boolean) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không nhập file được — chuyển sang Chế độ Làm việc.');
-    }
     const fd = new FormData();
     fd.append('file', file, file.name);
     fd.append('apply', apply ? 'true' : 'false');
@@ -1367,9 +472,6 @@ class ApiClient {
 
   /** Tải file kết quả giai đoạn (PDF/DWG/SKP… ≤50MB) — bot đăng vào topic dự án, trả task đã gắn file */
   async uploadTaskFile(taskId: string, file: File) {
-    if (isDemoMode()) {
-      throw new Error('Chế độ Tập luyện không tải file lên được — chuyển sang Chế độ Làm việc.');
-    }
     if (file.size > 50 * 1024 * 1024) {
       throw new Error(`File ${Math.round(file.size / 1048576)}MB vượt 50MB — nén lại hoặc dán link Drive.`);
     }
@@ -1407,14 +509,6 @@ class ApiClient {
     return this.request<ProjectTask>(`/projects/tasks/${taskId}/status`, {
       method: 'PUT',
       body: { status },
-    });
-  }
-  async assignTask(projectId: string, taskId: string, userId: string) {
-    // KHÔNG gửi status: bản cũ gửi kèm `status: 'not_started'` nên thêm người vào
-    // một đầu việc «Đang làm» là tụt trạng thái về «Chưa bắt đầu».
-    return this.request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/assign`, {
-      method: 'PUT',
-      body: { assignee_ids: [userId] },
     });
   }
 
@@ -1480,22 +574,10 @@ class ApiClient {
     return this.request<SalesDashboard>(`/dashboard/sales${duoi}${them}`);
   }
 
-  async getSalesTargets() {
-    return this.request<SalesTargets>('/dashboard/sales/muc-tieu');
-  }
-
   async saveSalesTargets(payload: SalesTargets) {
     return this.request<SalesTargets>('/dashboard/sales/muc-tieu', {
       method: 'PUT',
       body: JSON.stringify(payload),
-    });
-  }
-
-  // AI
-  async parseLead(text: string) {
-    return this.request<LeadParseResult>('/ai/parse-lead', {
-      method: 'POST',
-      body: { text },
     });
   }
 
@@ -1544,9 +626,6 @@ class ApiClient {
   async getContracts(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Contract>>('/contracts', { params });
   }
-  async getContract(id: string) {
-    return this.request<Contract>(`/contracts/${id}`);
-  }
   async createContract(data: Partial<Contract>) {
     return this.request<Contract>('/contracts', { method: 'POST', body: data });
   }
@@ -1580,9 +659,6 @@ class ApiClient {
   async getQuotations(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Quotation>>('/quotations', { params });
   }
-  async getQuotation(id: string) {
-    return this.request<Quotation>(`/quotations/${id}`);
-  }
   async createQuotation(data: Partial<Quotation>) {
     return this.request<Quotation>('/quotations', { method: 'POST', body: data });
   }
@@ -1597,34 +673,16 @@ class ApiClient {
   async getMaterials(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Material>>('/inventory', { params });
   }
-  async getMaterial(id: string) {
-    return this.request<Material>(`/inventory/${id}`);
-  }
-  async createMaterial(data: Partial<Material>) {
-    return this.request<Material>('/inventory', { method: 'POST', body: data });
-  }
-  async updateMaterial(id: string, data: Partial<Material>) {
-    return this.request<Material>(`/inventory/${id}`, { method: 'PUT', body: data });
-  }
-  async adjustStock(id: string, delta: number, reason?: string) {
-    return this.request<Material>(`/inventory/${id}/adjust-stock`, { method: 'POST', body: { quantity: delta, reason } });
-  }
   async useMaterial(data: { material_id: string; project_id: string; quantity: number; note?: string }) {
     return this.request<unknown>('/inventory/use', { method: 'POST', body: { ...data, notes: data.note, note: undefined } });
   }
   async getLowStock() {
     return this.request<Material[]>('/inventory/low-stock');
   }
-  async getMaterialUsages(materialId: string) {
-    return this.request<MaterialUsage[]>(`/inventory/${materialId}/usages`);
-  }
 
   // === ERP: Suppliers & Price Board ===
   async getSuppliers(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Supplier>>('/suppliers', { params });
-  }
-  async getSupplier(id: string) {
-    return this.request<Supplier>(`/suppliers/${id}`);
   }
   async createSupplier(data: Partial<Supplier>) {
     return this.request<Supplier>('/suppliers', { method: 'POST', body: data });
@@ -1679,13 +737,6 @@ class ApiClient {
         price_trend: 'stable' as const,
       })),
     };
-  }
-  async getPriceHistory(materialName: string) {
-    // Backend: GET /suppliers/price-history/{material_name:path} — tên vật tư nằm trên
-    // đường dẫn, không phải query. Gọi sai kiểu cũ luôn ra 404.
-    return this.request<{ material_name: string; history: Array<{ supplier_name: string; unit_price: number; quote_date: string }> }>(
-      `/suppliers/price-history/${encodeURIComponent(materialName)}`
-    );
   }
 
   // === ERP: Users (HR) ===
@@ -1851,12 +902,6 @@ class ApiClient {
   async pendingOT() {
     return this.request<{ items: (AttendanceRecord & { full_name: string })[] }>('/attendance/ot/pending');
   }
-  async approveOT(recordId: string) {
-    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-approve`, { method: 'POST' });
-  }
-  async rejectOT(recordId: string) {
-    return this.request<{ record: AttendanceRecord }>(`/attendance/${recordId}/ot-reject`, { method: 'POST' });
-  }
 
   // === Chấm công văn phòng + máy chấm công (09/09) ===
   async getOfficeConfig() {
@@ -1948,9 +993,6 @@ class ApiClient {
   async rejectRequest(id: string, reason: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/reject`, { method: 'POST', body: { reason } });
   }
-  async requestChanges(id: string, reason: string) {
-    return this.request<{ request: ApprovalItem }>(`/approvals/${id}/request-changes`, { method: 'POST', body: { reason } });
-  }
   async resubmitRequest(id: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/resubmit`, { method: 'POST' });
   }
@@ -1970,11 +1012,6 @@ class ApiClient {
   }
   async myLeaveBalance(year?: number) {
     return this.request<LeaveBalanceInfo>('/leaves/balance/me', { params: year ? { year: String(year) } : undefined });
-  }
-  async leaveCalendar(month: string, teamId?: string) {
-    const params: Record<string, string> = { month };
-    if (teamId) params.team_id = teamId;
-    return this.request<{ month: string; items: (LeaveItem & { full_name: string })[] }>('/leaves/calendar', { params });
   }
 
   // === HR Phase 1: Lương ===
@@ -2000,17 +1037,6 @@ class ApiClient {
     return this.request<{ period: string; paid_rows: number; sent: number; manual_delivery: string[] }>(
       `/payroll/${period}/pay`, { method: 'POST' }
     );
-  }
-  async payrollUpdateRow(rowId: string, data: { bonus?: number; allowance?: number; deductions?: number; notes?: string }) {
-    return this.request<{ row: PayrollRow }>(`/payroll/rows/${rowId}`, { method: 'PATCH', body: data });
-  }
-  async createAdvance(data: { amount: number; reason: string }) {
-    return this.request<{ advance: { id: string; amount: number; status: string }; approval_id: string }>(
-      '/payroll/advance', { method: 'POST', body: data }
-    );
-  }
-  async myAdvances() {
-    return this.request<{ items: { id: string; amount: number; reason: string; status: string; period_deducted: string | null; created_at: string }[] }>('/payroll/advances/me');
   }
 
   // === Tự đổi/đặt lại mật khẩu ===
@@ -2096,15 +1122,8 @@ class ApiClient {
     return this.request<{ hien: false } | ({ hien: true; ky: string; quy: string } & CdtDong)>(`/che-do-thuong/nguoi/${userId}`, { params: ky ? { ky } : undefined });
   }
 
-  // === ERP: P&L (C-level only) ===
-  async getPnLSummary() {
-    return this.request<PnLSummary>('/pl/summary');
-  }
   async getPnLProjects() {
     return this.request<PnLProject[]>('/pl/projects');
-  }
-  async getPnLProject(projectId: string) {
-    return this.request<PnLProjectDetail>(`/pl/projects/${projectId}`);
   }
 
   // Finance Module
@@ -2115,24 +1134,12 @@ class ApiClient {
   async updateCommissionStatus(id: string, status: string) {
     return this.request<{ id: string; status: string }>(`/accounting/commissions/${id}`, { method: 'PUT', body: { status } });
   }
-  async createSalaryGrade(data: Partial<SalaryGrade>) { return this.request<SalaryGrade>('/salary-grades', { method: 'POST', body: data }); }
-  async updateSalaryGrade(id: string, data: Partial<SalaryGrade>) { return this.request<SalaryGrade>(`/salary-grades/${id}`, { method: 'PUT', body: data }); }
-  async deleteSalaryGrade(id: string) { return this.request<unknown>(`/salary-grades/${id}`, { method: 'DELETE' }); }
 
   async getFixedCosts(month?: string) { return this.request<FixedCost[]>('/fixed-costs', { params: month ? { month } : undefined }); }
-  async createFixedCost(data: Partial<FixedCost>) { return this.request<FixedCost>('/fixed-costs', { method: 'POST', body: data }); }
-  async updateFixedCost(id: string, data: Partial<FixedCost>) { return this.request<FixedCost>(`/fixed-costs/${id}`, { method: 'PUT', body: data }); }
-  async deleteFixedCost(id: string) { return this.request<unknown>(`/fixed-costs/${id}`, { method: 'DELETE' }); }
 
   async getVariableCosts(month?: string) { return this.request<VariableCost[]>('/variable-costs', { params: month ? { month } : undefined }); }
-  async createVariableCost(data: Partial<VariableCost>) { return this.request<VariableCost>('/variable-costs', { method: 'POST', body: data }); }
-  async updateVariableCost(id: string, data: Partial<VariableCost>) { return this.request<VariableCost>(`/variable-costs/${id}`, { method: 'PUT', body: data }); }
-  async deleteVariableCost(id: string) { return this.request<unknown>(`/variable-costs/${id}`, { method: 'DELETE' }); }
 
   async getCommissionStructures() { return this.request<CommissionStructure[]>('/commission-structures'); }
-  async createCommissionStructure(data: Partial<CommissionStructure>) { return this.request<CommissionStructure>('/commission-structures', { method: 'POST', body: data }); }
-  async updateCommissionStructure(id: string, data: Partial<CommissionStructure>) { return this.request<CommissionStructure>(`/commission-structures/${id}`, { method: 'PUT', body: data }); }
-  async deleteCommissionStructure(id: string) { return this.request<unknown>(`/commission-structures/${id}`, { method: 'DELETE' }); }
 
   // === Notifications ===
   async getNotifications(unreadOnly = false) {
@@ -2313,11 +1320,6 @@ class ApiClient {
   }
   async sendBodReport(period: 'daily' | 'weekly' | 'monthly') {
     return this.request<Record<string, unknown>>(`/automation/run/bod-report/${period}`, { method: 'POST' });
-  }
-  async previewBodReport(period: 'daily' | 'weekly' | 'monthly') {
-    return this.request<{ period: string; text: string; metrics: Record<string, number> }>(
-      `/automation/bod-report/${period}/preview`
-    );
   }
   async sendGroupBriefing() {
     return this.request<{ status: string; reason?: string }>('/automation/run/group-briefing', { method: 'POST' });

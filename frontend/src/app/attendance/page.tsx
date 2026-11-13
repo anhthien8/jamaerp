@@ -67,7 +67,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
     } catch { setPayroll(null); }
   }, [period]);
 
-  useEffect(() => { void loadPayroll(); }, [loadPayroll]);
+  useEffect(() => { void Promise.resolve().then(loadPayroll); }, [loadPayroll]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -155,6 +155,21 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
   );
 }
 
+// GPS để đối chiếu bán kính văn phòng. Chốt 22/10/2026: vào ca văn phòng phải
+// trong 20 m (backend chặn; bộ phận hiện trường & mạng văn phòng được miễn) —
+// nên xin vị trí CHÍNH XÁC và mới (20 m không chịu được vị trí cũ 2 phút).
+function layGPS(): Promise<{ latitude?: number; longitude?: number }> {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve({});
+    const timer = setTimeout(() => resolve({}), 9000);
+    navigator.geolocation.getCurrentPosition(
+      pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
+      () => { clearTimeout(timer); resolve({}); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+    );
+  });
+}
+
 export default function AttendancePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -234,9 +249,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!user) return;
-    if (tab === 'attendance') void loadAttendance();
-    if (tab === 'leave') void loadLeave();
-    if (tab === 'payslip') void loadPayslips();
+    void Promise.resolve().then(() => {
+      if (tab === 'attendance') void loadAttendance();
+      if (tab === 'leave') void loadLeave();
+      if (tab === 'payslip') void loadPayslips();
+    });
   }, [user, tab, loadAttendance, loadLeave, loadPayslips]);
 
   // Offline-queue (spec 08 §1.1): 4G rớt giữa chừng — lưu lại, tự gửi khi có mạng.
@@ -269,27 +286,13 @@ export default function AttendancePage() {
   }, [toast, loadAttendance]);
 
   useEffect(() => {
-    void flushQueue(); // thử gửi lại khi mở trang
+    void Promise.resolve().then(() => flushQueue()); // thử gửi lại khi mở trang
     window.addEventListener('online', flushQueue);
     return () => window.removeEventListener('online', flushQueue);
   }, [flushQueue]);
 
   const isNetworkError = (e: unknown) =>
     e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
-
-  // GPS để đối chiếu bán kính văn phòng. Chốt 22/10/2026: vào ca văn phòng phải
-  // trong 20 m (backend chặn; bộ phận hiện trường & mạng văn phòng được miễn) —
-  // nên xin vị trí CHÍNH XÁC và mới (20 m không chịu được vị trí cũ 2 phút).
-  const layGPS = (): Promise<{ latitude?: number; longitude?: number }> =>
-    new Promise(resolve => {
-      if (!navigator.geolocation) return resolve({});
-      const timer = setTimeout(() => resolve({}), 9000);
-      navigator.geolocation.getCurrentPosition(
-        pos => { clearTimeout(timer); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
-        () => { clearTimeout(timer); resolve({}); },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
-      );
-    });
 
   const doCheckin = async () => {
     setBusy(true);

@@ -1,8 +1,11 @@
-# System Architecture — JAMA HOME CRM
+# System Architecture — JAMA HOME ERP
+
+> Bản chính về kiến trúc: [`docs/00-System-Architecture.md`](../../00-System-Architecture.md). Trang này là ghi chú Obsidian, có thể chậm cập nhật hơn.
+
 
 ## Overview
 
-JAMA HOME CRM is a full-stack enterprise application for a Vietnamese interior design company with ~200 employees across 8 roles. The system manages the complete business lifecycle: lead capture, design quotation, construction project management, HR/payroll, inventory, and financial reporting.
+JAMA HOME ERP is a full-stack enterprise application for a Vietnamese interior design company with ~200 employees across 8 roles. The system manages the complete business lifecycle: lead capture, design quotation, construction project management, HR/payroll, inventory, and financial reporting.
 
 ## Tech Stack
 

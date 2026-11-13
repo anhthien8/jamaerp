@@ -1,28 +1,17 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useAuth, type AppMode } from '@/lib/auth';
+import { useState, Suspense } from 'react';
+import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
-import { SHOW_DEMO_MODE } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
-
-const DEMO_CREDENTIALS = [
-  { email: 'admin@jamahome.vn', role: 'Admin' },
-  { email: 'ceo@jamahome.vn', role: 'CEO' },
-  { email: 'accountant@jamahome.vn', role: 'KT' },
-  { email: 'leader@jamahome.vn', role: 'Leader' },
-  { email: 'sales@jamahome.vn', role: 'Sales' },
-  { email: 'supervisor@jamahome.vn', role: 'Giám sát' },
-];
 
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<AppMode>('work');
   const { login } = useAuth();
   const router = useRouter();
 
@@ -62,42 +51,13 @@ function LoginForm() {
   // Bị đá về đây do phiên hết hạn — nói rõ lý do thay vì để người dùng ngơ ngác
   const hetHan = useSearchParams().get('het_han') === '1';
 
-  // Read persisted mode after mount (avoids SSR localStorage error)
-  useEffect(() => {
-    const stored = localStorage.getItem('jama_mode');
-    if (stored === 'demo' && !SHOW_DEMO_MODE) {
-      // Chế độ Tập luyện đang ẩn — ép về Làm việc kể cả khi máy còn lưu demo
-      localStorage.setItem('jama_mode', 'work');
-      return;
-    }
-    if (stored === 'demo' || stored === 'work') {
-      setSelectedMode(stored);
-    }
-  }, []);
-
-  const handleModeSwitch = (newMode: AppMode) => {
-    setSelectedMode(newMode);
-    localStorage.setItem('jama_mode', newMode);
-    setError('');
-    if (newMode === 'demo') {
-      // Pre-fill admin email; password is shared demo123
-      setEmail(DEMO_CREDENTIALS[0].email);
-      setPassword('demo123');
-    } else {
-      // Work mode: clear fields and show clear instructions
-      setEmail('');
-      setPassword('');
-      setError('');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await login(email, password, selectedMode);
+      await login(email, password);
       router.push('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
@@ -133,54 +93,10 @@ function LoginForm() {
             <p className="text-[var(--text-secondary)] mt-1">Hệ thống Quản lý ERP</p>
           </div>
 
-          {/* Mode Selector — ẩn khi SHOW_DEMO_MODE=false */}
-          {SHOW_DEMO_MODE && (
-          <div className="mb-6">
-            <div
-              className="flex rounded-xl p-1 gap-1"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
-            >
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('demo')}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200"
-                style={{
-                  background: selectedMode === 'demo' ? 'rgba(251,191,36,0.15)' : 'transparent',
-                  color: selectedMode === 'demo' ? '#FBBF24' : 'var(--text-muted)',
-                  border: selectedMode === 'demo' ? '1px solid rgba(251,191,36,0.3)' : '1px solid transparent',
-                }}
-              >
-                <span className="text-base">&#x1F3AF;</span>
-                <span>Chế độ Tập luyện</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('work')}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200"
-                style={{
-                  background: selectedMode === 'work' ? 'rgba(74,222,128,0.12)' : 'transparent',
-                  color: selectedMode === 'work' ? '#4ADE80' : 'var(--text-muted)',
-                  border: selectedMode === 'work' ? '1px solid rgba(74,222,128,0.3)' : '1px solid transparent',
-                }}
-              >
-                <span className="text-base">&#x1F4BC;</span>
-                <span>Chế độ Làm việc</span>
-              </button>
-            </div>
-            <p className="text-center text-[0.6875rem] mt-2" style={{ color: 'var(--text-disabled)' }}>
-              {selectedMode === 'demo'
-                ? 'Dùng để demo cho nhân sự — dữ liệu giả lập'
-                : 'Kết nối đến hệ thống thực — dữ liệu thật'}
-            </p>
+          {/* Hướng dẫn đăng nhập */}
+          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs text-center">
+            Đăng nhập bằng tên ngắn (vd <span className="font-mono font-semibold">admin</span>) hoặc email đầy đủ.
           </div>
-          )}
-
-          {/* Work mode info */}
-          {selectedMode === 'work' && (
-            <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs text-center">
-              Đăng nhập bằng tên ngắn (vd <span className="font-mono font-semibold">admin</span>) hoặc email đầy đủ.{SHOW_DEMO_MODE && <> Chưa có tài khoản? Quay lại <button type="button" onClick={() => handleModeSwitch('demo')} className="underline font-semibold">Chế độ Tập luyện</button>.</>}
-            </div>
-          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -196,7 +112,7 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[#C9A96E] focus:ring-1 focus:ring-[#C9A96E]/50 outline-none transition-all"
-                placeholder={selectedMode === 'demo' ? 'admin@jamahome.vn' : 'admin (hoặc admin@jamahome.vn)'}
+                placeholder="admin (hoặc admin@jamahome.vn)"
                 required
                 autoComplete="username"
               />
@@ -245,82 +161,54 @@ function LoginForm() {
                   </svg>
                   Đang đăng nhập...
                 </span>
-              ) : selectedMode === 'demo' ? (
-                'Vào Demo'
               ) : (
                 'Đăng nhập'
               )}
             </button>
           </form>
 
-          {/* Quên mật khẩu — chỉ Work mode (demo dùng demo123) */}
-          {selectedMode === 'work' && (
-            <div className="mt-4">
-              {!forgotOpen ? (
-                <button type="button" onClick={() => { setForgotOpen(true); setFpEmail(email); setFpMsg(''); }}
-                  className="text-xs text-[var(--text-muted)] hover:text-[#C9A96E] transition-colors underline">
-                  Quên mật khẩu?
-                </button>
-              ) : (
-                <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-[var(--text-secondary)]">Đặt lại mật khẩu</p>
-                    <button type="button" onClick={() => { setForgotOpen(false); setFpStep('request'); setFpMsg(''); }} className="text-xs text-[var(--text-muted)] hover:text-white">✕</button>
-                  </div>
-                  {fpStep === 'request' ? (
-                    <>
-                      <p className="text-xs text-[var(--text-muted)]">Mã xác nhận sẽ gửi qua <b>Telegram</b> bạn đã liên kết trong Cài đặt. Chưa liên kết? Nhờ Admin đặt lại hộ.</p>
-                      <input type="text" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="Email hoặc tên đăng nhập"
-                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
-                      <button type="button" onClick={fpRequest} disabled={fpBusy}
-                        className="w-full py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
-                        {fpBusy ? 'Đang gửi...' : 'Gửi mã qua Telegram'}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <input type="text" inputMode="numeric" value={fpCode} onChange={e => setFpCode(e.target.value)} placeholder="Mã 6 số từ Telegram"
-                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white font-mono focus:outline-none focus:border-[#C9A96E]" />
-                      <input type="password" value={fpNewPass} onChange={e => setFpNewPass(e.target.value)} placeholder="Mật khẩu mới (≥ 6 ký tự)"
-                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
-                      <div className="flex gap-2">
-                        <button type="button" onClick={fpReset} disabled={fpBusy}
-                          className="flex-1 py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
-                          {fpBusy ? 'Đang đặt lại...' : 'Đặt lại mật khẩu'}
-                        </button>
-                        <button type="button" onClick={() => setFpStep('request')} className="px-3 py-2 rounded-lg text-xs text-[var(--text-muted)] border border-white/10">Gửi lại mã</button>
-                      </div>
-                    </>
-                  )}
-                  {fpMsg && <p className="text-xs" style={{ color: fpMsg.startsWith('✓') ? '#34D399' : '#FBBF24' }}>{fpMsg}</p>}
+          {/* Quên mật khẩu */}
+          <div className="mt-4">
+            {!forgotOpen ? (
+              <button type="button" onClick={() => { setForgotOpen(true); setFpEmail(email); setFpMsg(''); }}
+                className="text-xs text-[var(--text-muted)] hover:text-[#C9A96E] transition-colors underline">
+                Quên mật khẩu?
+              </button>
+            ) : (
+              <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-[var(--text-secondary)]">Đặt lại mật khẩu</p>
+                  <button type="button" onClick={() => { setForgotOpen(false); setFpStep('request'); setFpMsg(''); }} className="text-xs text-[var(--text-muted)] hover:text-white">✕</button>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Demo Credentials — only visible in demo mode */}
-          {selectedMode === 'demo' && (
-            <details className="mt-5 rounded-xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-              <summary className="cursor-pointer px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors select-none flex items-center gap-2">
-                <span>&#x1F511;</span> Tài khoản demo
-              </summary>
-              <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {DEMO_CREDENTIALS.map(acc => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group"
-                    onClick={() => { setEmail(acc.email); setPassword('demo123'); }}
-                  >
-                    <span className="font-mono">{acc.email}</span>
-                    <span className="opacity-0 group-hover:opacity-100 text-[#C9A96E] transition-opacity text-[10px] font-medium">
-                      {acc.role} · Bấm để điền
-                    </span>
-                  </button>
-                ))}
+                {fpStep === 'request' ? (
+                  <>
+                    <p className="text-xs text-[var(--text-muted)]">Mã xác nhận sẽ gửi qua <b>Telegram</b> bạn đã liên kết trong Cài đặt. Chưa liên kết? Nhờ Admin đặt lại hộ.</p>
+                    <input type="text" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="Email hoặc tên đăng nhập"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                    <button type="button" onClick={fpRequest} disabled={fpBusy}
+                      className="w-full py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                      {fpBusy ? 'Đang gửi...' : 'Gửi mã qua Telegram'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input type="text" inputMode="numeric" value={fpCode} onChange={e => setFpCode(e.target.value)} placeholder="Mã 6 số từ Telegram"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white font-mono focus:outline-none focus:border-[#C9A96E]" />
+                    <input type="password" value={fpNewPass} onChange={e => setFpNewPass(e.target.value)} placeholder="Mật khẩu mới (≥ 6 ký tự)"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={fpReset} disabled={fpBusy}
+                        className="flex-1 py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                        {fpBusy ? 'Đang đặt lại...' : 'Đặt lại mật khẩu'}
+                      </button>
+                      <button type="button" onClick={() => setFpStep('request')} className="px-3 py-2 rounded-lg text-xs text-[var(--text-muted)] border border-white/10">Gửi lại mã</button>
+                    </div>
+                  </>
+                )}
+                {fpMsg && <p className="text-xs" style={{ color: fpMsg.startsWith('✓') ? '#34D399' : '#FBBF24' }}>{fpMsg}</p>}
               </div>
-            </details>
-          )}
+            )}
+          </div>
 
           {/* Footer */}
           <p className="text-center text-xs font-medium mt-6" style={{ color: 'var(--text-secondary)' }}>

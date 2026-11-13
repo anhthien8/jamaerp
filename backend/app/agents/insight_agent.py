@@ -385,9 +385,15 @@ async def _llm_insights(metrics: dict, period_days: int) -> tuple[dict, str | No
     """Send metrics to LLM. Trả kèm tên model đã trả lời (có thể là model dự phòng)."""
     period_label = _period_label(period_days)
 
+    # Gọn token: chỉ 10 dự án dùng ngân sách cao nhất (trước gửi toàn bộ 100+ dự án),
+    # JSON không thụt lề. Bộ luật dự phòng vẫn dùng đủ danh sách trong `metrics`.
+    gui_llm = dict(metrics)
+    gui_llm["project_budgets"] = sorted(
+        metrics.get("project_budgets", []), key=lambda p: p.get("utilisation", 0), reverse=True
+    )[:10]
     user_msg = (
         f"Phép tính cho kỳ {period_label}.\n\n"
-        f"Số liệu:\n{json.dumps(metrics, ensure_ascii=False, indent=2, default=str)}"
+        f"Số liệu:\n{json.dumps(gui_llm, ensure_ascii=False, separators=(',', ':'), default=str)}"
     )
 
     response = await llm_complete(

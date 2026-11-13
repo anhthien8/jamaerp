@@ -162,7 +162,7 @@ export default function UsersPage() {
     setLoading2(false);
   }, [page, roleFilter, deptFilter, teamFilter, searchQ]);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => { void Promise.resolve().then(() => loadUsers()); }, [loadUsers]);
   useEffect(() => {
     const t = setTimeout(() => setSearchQ(search), 300);
     return () => clearTimeout(t);

@@ -241,7 +241,7 @@ Tra ve JSON voi dinh dang:
   "assignments": [
     {
       "order": 1,
-      "assignee_email": "email@jama.vn hoac null neu khong phai",
+      "assignee_ma": "ma nhan vien (vd NV3) hoac null neu khong doi",
       "description_override": "mo ta tuy chinh neu can (optional)",
       "due_offset_days": so_ngay tu ngay bat dau (optional)
     }
@@ -262,7 +262,17 @@ Quy tac:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _build_project_context(project: Project, assignables: list[User]) -> str:
+# Chỉ gửi người thuộc các phòng làm dự án — trước 11/11/2026 gửi cả công ty kèm email lên LLM
+# (tốn token + lộ dữ liệu cá nhân ra ngoài). Mỗi người được gọi bằng mã ngắn "NV<n>".
+_PHONG_LAM_DU_AN = {"DESIGN", "PURCHASING", "OPS", "PM"}
+
+
+def _ma_nhan_vien(assignables: list[User]) -> dict[str, User]:
+    ds = [u for u in assignables if (u.department or "").upper() in _PHONG_LAM_DU_AN]
+    return {f"NV{i}": u for i, u in enumerate(ds, start=1)}
+
+
+def _build_project_context(project: Project, ma_nv: dict[str, User]) -> str:
     """Build a text summary of the project for the LLM."""
     lines = [
         f"Du an: {project.code} - {project.name}",
@@ -276,10 +286,10 @@ def _build_project_context(project: Project, assignables: list[User]) -> str:
         lines.append(f"Ngay bat dau: {project.start_date.date()}")
     if project.target_end_date:
         lines.append(f"Ngay ket thuc muc tieu: {project.target_end_date.date()}")
-    if assignables:
-        lines.append("Nhan vien co the phan cong:")
-        for u in assignables:
-            lines.append(f"  - {u.full_name} ({u.email}) | role={u.role}, dept={u.department}")
+    if ma_nv:
+        lines.append("Nhan vien co the phan cong (ma | phong):")
+        for ma, u in ma_nv.items():
+            lines.append(f"  - {ma} | {u.department}")
     return "\n".join(lines)
 
 
@@ -348,8 +358,8 @@ async def _apply_llm_enrichment(
         logger.info("No LLM configured — using rule-based task plan.")
         return base_tasks
 
-    assignables_map = {u.email: u.id for u in assignables if u.email}
-    context = _build_project_context(project, assignables)
+    ma_nv = _ma_nhan_vien(assignables)
+    context = _build_project_context(project, ma_nv)
 
     try:
         response = await llm_complete(
@@ -378,10 +388,10 @@ async def _apply_llm_enrichment(
         if not adj:
             continue
 
-        # Override assignee if the LLM provided a known email
-        email = adj.get("assignee_email")
-        if email and email in assignables_map:
-            task["assigned_to"] = assignables_map[email]
+        # Override assignee if the LLM provided a known staff code
+        ma = adj.get("assignee_ma")
+        if isinstance(ma, str) and ma.strip().upper() in ma_nv:
+            task["assigned_to"] = ma_nv[ma.strip().upper()].id
 
         # Override description if provided
         desc_override = adj.get("description_override")

@@ -1,10 +1,10 @@
 @echo off
 REM ====================================================
-REM  JAMA CRM — Deploy to Railway (run this in your terminal)
+REM  JAMA HOME ERP — Deploy to Railway (run this in your terminal)
 REM ====================================================
 echo.
 echo ========================================
-echo   JAMA CRM — Railway Deploy Script
+echo   JAMA HOME ERP — Railway Deploy Script
 echo ========================================
 echo.
 
@@ -37,7 +37,7 @@ echo.
 
 REM Step 4: Deploy backend
 echo [4/4] Deploy backend len Railway...
-cd /d H:\Hermes\jama-crm
+cd /d %~dp0
 railway up
 if errorlevel 1 (
     echo [FAIL] Deploy that bai!

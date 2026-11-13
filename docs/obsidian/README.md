@@ -1,4 +1,4 @@
-# JAMA HOME CRM — Obsidian Documentation
+# JAMA HOME ERP — Obsidian Documentation
 
 ## Navigation
 

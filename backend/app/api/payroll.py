@@ -421,14 +421,21 @@ async def pay(
 
     # Audit 27/10: hoa hồng/thưởng duyệt SAU khi lập bảng không có trong lương —
     # nếu đánh dấu paid luôn thì nhân viên mất tiền. Chặn, bắt lập lại bảng.
+    # 2 truy vấn GROUP BY cho cả kỳ thay vì 2 truy vấn mỗi nhân viên
+    hh_map = dict((await db.execute(
+        select(Commission.user_id, func.coalesce(func.sum(Commission.commission_amount), 0))
+        .where(Commission.period == period, Commission.status == "approved")
+        .group_by(Commission.user_id)
+    )).all())
+    th_map = dict((await db.execute(
+        select(Bonus.user_id, func.coalesce(func.sum(Bonus.amount), 0))
+        .where(Bonus.period == period, Bonus.status == "approved")
+        .group_by(Bonus.user_id)
+    )).all())
     lech = []
     for row in rows:
-        hh = (await db.execute(select(func.coalesce(func.sum(Commission.commission_amount), 0)).where(
-            Commission.user_id == row.user_id, Commission.period == period, Commission.status == "approved"
-        ))).scalar() or 0
-        th = (await db.execute(select(func.coalesce(func.sum(Bonus.amount), 0)).where(
-            Bonus.user_id == row.user_id, Bonus.period == period, Bonus.status == "approved"
-        ))).scalar() or 0
+        hh = hh_map.get(row.user_id) or 0
+        th = th_map.get(row.user_id) or 0
         if round(hh) > round(row.commission_total or 0) + 1 or round(th) > round(row.bonus or 0) + 1:
             u = await db.get(User, row.user_id)
             lech.append(u.full_name if u else row.user_id)

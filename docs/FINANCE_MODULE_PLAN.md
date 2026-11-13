@@ -1,4 +1,4 @@
-# JAMA CRM — Module Finance Plan
+# JAMA HOME ERP — Module Finance Plan
 
 > Kế hoạch triển khai Module Finance
 > Dựa trên tài liệu BA từ C-level

@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User, Team
-from app.models.lead import Lead, Activity
+from app.models.lead import ACTIVE_LEAD_STAGES, XAC_SUAT_STAGE, Activity, Lead
 from app.models.project import Project
 from app.models.quotation import Quotation
 from app.models.notification import SystemSetting
@@ -198,14 +198,8 @@ def do_sau_pheu(l: dict) -> int:
     return sau
 
 
-# Xác suất thắng theo bước — dùng cho dự báo có trọng số. Chốt theo tỷ lệ
-# chuyển bước thực tế của phòng KD; sửa ở đây là đổi cả màn hình.
-XAC_SUAT_STAGE: dict[str, float] = {
-    "new": 0.05, "interested": 0.15, "surveyed": 0.25, "survey_scheduled": 0.35,
-    "potential": 0.60, "signed_design": 1.0,
-}
-
-STAGE_DANG_MO = ["new", "interested", "surveyed", "survey_scheduled", "potential"]
+# Xác suất thắng + giai đoạn đang mở: định nghĩa chung ở models/lead.py (dùng cả cho KPI)
+STAGE_DANG_MO = list(ACTIVE_LEAD_STAGES)
 
 
 def gia_tri_lead(l: dict) -> float:

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.middleware.rbac import la_truong_phong
+from app.middleware.rbac import duoc_xem_sdt_day_du, la_truong_phong
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -23,12 +23,11 @@ from app.services.attendance_service import vn_today
 def _escape_like(term: str) -> str:
     return term.replace("%", "\\%").replace("_", "\\_")
 
-_PHONE_UNMASK_ROLES = {"admin", "leader", "data_entry"}
 
 
 def _mask_phone(phone: str | None, current_user=None) -> str | None:
     """Mask phone for non-privileged roles: show first 3 digits + '***'."""
-    if not phone or not current_user or current_user.role in _PHONE_UNMASK_ROLES:
+    if not phone or not current_user or duoc_xem_sdt_day_du(current_user):
         return phone
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 

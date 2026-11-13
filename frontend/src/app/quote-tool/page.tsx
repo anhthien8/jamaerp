@@ -65,7 +65,7 @@ export default function QuoteToolPage() {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  const generate = useCallback(async () => {
+  const generate = async () => {
     setGenerating(true);
     setMessage('');
     setResult(null);
@@ -101,15 +101,15 @@ export default function QuoteToolPage() {
     } finally {
       setGenerating(false);
     }
-  }, [quoteMode, inputMode, rawText, area, ptype, bedrooms, budget, floors]);
+  };
 
-  const copyZalo = useCallback(() => {
+  const copyZalo = () => {
     if (!result) return;
     navigator.clipboard.writeText(result.zalo_text).then(
       () => setMessage('✅ Đã copy — dán vào Zalo gửi khách ngay!'),
       () => setMessage('❌ Không copy được'),
     );
-  }, [result]);
+  };
 
   const loadPriceBook = useCallback(() => {
     api.getPriceItems().then(setPriceItems).catch(() => {});
