@@ -1126,6 +1126,14 @@ class ApiClient {
     return this.request<{ hien: false } | ({ hien: true; ky: string; quy: string } & CdtDong)>(`/che-do-thuong/nguoi/${userId}`, { params: ky ? { ky } : undefined });
   }
 
+  // AI Tiến Hoá (13/11/2026) — chỉ admin
+  async aiTienHoa(so_tuan = 12) {
+    return this.request<AiTienHoa>('/ai/tien-hoa', { params: { so_tuan: String(so_tuan) } });
+  }
+  async aiTienHoaQuyet(code: string, huong: AiHuong | null, quyet_dinh: 'duyet' | 'tu_choi' | 'go') {
+    return this.request<{ ok: boolean; bai_hoc: unknown }>('/ai/tien-hoa/bai-hoc', { method: 'POST', body: { code, huong, quyet_dinh } });
+  }
+
   async getPnLProjects() {
     return this.request<PnLProject[]>('/pl/projects');
   }
@@ -2731,6 +2739,35 @@ export type CdtHu = { hien: false } | {
   ca_nhan: { user_id: string; ten: string; doanh_so: number }[];
   doi: { team_id: string; ten: string; doanh_so: number }[];
 };
+
+// AI Tiến Hoá — tỷ lệ là số 0..1, null khi chưa có mẫu
+export type AiHuong = 'uu_tien' | 'ha';
+export interface AiTienHoaTuan {
+  tuan: string; nhan: string; chay: number; llm: number; rule: number; dung_lai: number;
+  lam: number; bo_qua: number; ty_le_lam_theo: number | null;
+}
+export interface AiBaiHoc {
+  code: string; nhan: string; huong: AiHuong; trang_thai: 'cho_duyet' | 'dang_ap_dung' | 'da_bo_qua';
+  de_xuat_moi: AiHuong | null; lam: number; bo_qua: number; noi_dung: string;
+  quyet_boi: string | null; quyet_luc: string | null;
+}
+export interface AiTienHoa {
+  so_tuan: number; tu_ngay: string;
+  tong: {
+    so_lan_chay: number; dung_lai: number; ty_le_dung_lai: number | null;
+    llm: number; rule: number; ty_le_llm: number | null;
+    so_goi_y: number; lam: number; bo_qua: number; ty_le_phan_hoi: number | null; ty_le_lam_theo: number | null;
+    ty_le_lam_theo_4_tuan: number | null; ty_le_lam_theo_4_tuan_truoc: number | null; chenh_lech: number | null;
+    ap_bai_hoc: { so_goi_y: number; lam: number; bo_qua: number; ty_le_lam_theo: number | null };
+  };
+  theo_tuan: AiTienHoaTuan[];
+  theo_agent: { agent: string; ten: string; chay: number; llm: number; rule: number; dung_lai: number }[];
+  model: { dang_bat: boolean; chinh: string | null; du_phong: string[]; da_tra_loi: { model: string; so_lan: number }[] };
+  theo_loai: { code: string; nhan: string; lam: number; bo_qua: number; chua_phan_hoi: number; ty_le_lam: number | null; ty_le_bo_qua: number | null }[];
+  bai_hoc: AiBaiHoc[];
+  so_cho_duyet: number;
+  nguong: { mau_toi_thieu: number; bo_qua: number; lam: number };
+}
 
 export interface PaginatedResponse<T> {
   items: T[];

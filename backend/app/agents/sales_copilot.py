@@ -26,7 +26,7 @@ from app.models.ai_memory import (
     AiRun,
 )
 from app.models.lead import Activity, Lead
-from app.services import ai_memory
+from app.services import ai_memory, ai_tien_hoa
 from app.services.llm_config import llm_available, llm_complete
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,8 @@ Trả về JSON:
   "action": "hành động cụ thể",
   "reason": "lý do ngắn gọn",
   "priority": "urgent/high/medium/low",
-  "message_template": "mẫu tin nhắn gợi ý (null nếu không cần)"
+  "message_template": "mẫu tin nhắn gợi ý (null nếu không cần)",
+  "loai": "một trong: call, recontact, survey, meeting, proposal, escalate, assign, note, khac"
 }
 """
 
@@ -239,8 +240,12 @@ def _chuan_hoa(data: dict) -> dict | None:
     if uu_tien not in ("urgent", "high", "medium", "low"):
         uu_tien = "medium"
     mau = data.get("message_template")
+    # Loại gợi ý để AI Tiến Hoá gom phản hồi; LLM không trả / trả bậy thì đoán từ câu chữ
+    loai = str(data.get("loai") or "").strip().lower()
+    if loai not in ai_tien_hoa.LOAI_GOI_Y:
+        loai = ai_tien_hoa.doan_loai(action)
     return {
-        "code": "llm",
+        "code": loai,
         "action": action,
         "reason": (data.get("reason") or "").strip() or "Co-Pilot đề xuất",
         "priority": uu_tien,
@@ -283,6 +288,10 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
     )
     tom_tat = _tom_tat_lich_su(lich_su)
     boi_canh = _boi_canh(lead, activities, tom_tat)
+    # AI Tiến Hoá: bài học quản trị đã duyệt. Nằm trong đầu vào nên duyệt bài mới là băm đổi.
+    bai_hoc = await ai_tien_hoa.bai_hoc_dang_ap_dung(db)
+    if bai_hoc:
+        boi_canh += "\n\n" + ai_tien_hoa.loi_dan_bai_hoc(bai_hoc)
 
     # Băm gồm cả lịch sử: sale bấm "Đã làm" là băm đổi ⇒ gợi ý mới, không trả bản cũ.
     input_hash = ai_memory.bam_dau_vao(boi_canh)
@@ -297,6 +306,7 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
             cu = ai_memory.doc_output(ban_cu)
             if cu.get("action"):
                 logger.info("Co-Pilot dùng lại gợi ý %s cho lead %s", ban_cu.id, lead_id)
+                await ai_memory.ghi_dung_lai(db, ban_cu)
                 return _tra_ve(ban_cu, cu, lich_su)
 
         try:
@@ -313,11 +323,13 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
             if goi_y is not None:
                 nguon = SOURCE_LLM
                 model_used = ai_memory.ten_model(response)
+                if bai_hoc:
+                    goi_y["theo_bai_hoc"] = True
         except Exception as e:
             logger.warning("Co-Pilot LLM lỗi cho lead %s: %s — chuyển sang bộ luật", lead_id, e)
 
     if goi_y is None:
-        goi_y = _chon_theo_luat(lead, activities, lich_su)
+        goi_y = _chon_theo_luat(lead, activities, lich_su, bai_hoc)
 
     ban = await ai_memory.ghi_lai(
         db,
@@ -332,19 +344,36 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
     return _tra_ve(ban, goi_y, lich_su)
 
 
-def _chon_theo_luat(lead: Lead, activities: list[Activity], lich_su: list[AiRun]) -> dict:
-    """Gợi ý bộ luật đầu tiên mà sale CHƯA phản hồi. Hết thì lấy cái cuối."""
+def _chon_theo_luat(
+    lead: Lead,
+    activities: list[Activity],
+    lich_su: list[AiRun],
+    bai_hoc: dict[str, str] | None = None,
+) -> dict:
+    """Gợi ý bộ luật đầu tiên mà sale CHƯA phản hồi. Hết thì lấy cái cuối.
+
+    Có bài học đã duyệt (AI Tiến Hoá) thì xếp lại ứng viên trước khi chọn; chọn khác
+    đi so với khi không có bài học thì đánh dấu `theo_bai_hoc` để đo xem học có ích không.
+    """
     da_phan_hoi = {
         ai_memory.doc_output(ban).get("code")
         for ban in lich_su
         if ban.outcome
     }
     ung_vien = _ung_vien_theo_luat(lead, activities, _so_ngay_im_lang(lead))
-    for uv in ung_vien:
-        if uv["code"] not in da_phan_hoi:
-            return uv
-    # Mọi việc trong sổ đều đã làm hoặc đã bỏ qua — không bịa thêm, nhắc cập nhật
-    return ung_vien[-1]
+
+    def _chon(ds: list[dict]) -> dict:
+        for uv in ds:
+            if uv["code"] not in da_phan_hoi:
+                return uv
+        # Mọi việc trong sổ đều đã làm hoặc đã bỏ qua — không bịa thêm, nhắc cập nhật
+        return ds[-1]
+
+    goc = _chon(ung_vien)
+    if not bai_hoc:
+        return goc
+    da_hoc = _chon(ai_tien_hoa.xep_theo_bai_hoc(ung_vien, bai_hoc))
+    return {**da_hoc, "theo_bai_hoc": True} if da_hoc["code"] != goc["code"] else goc
 
 
 def _tra_ve(ban: AiRun | None, goi_y: dict, lich_su: list[AiRun]) -> dict:

@@ -29,6 +29,22 @@ export const RELEASES: Release[] = [
   },
   {
     date: '13/11/2026',
+    title: 'AI Tiến Hoá: theo dõi AI học được gì, admin duyệt bài học',
+    tag: 'MỚI',
+    news: [
+      'Tổng quan (chỉ admin): khối «AI Tiến Hoá · 12 tuần» — tỷ lệ sale làm theo gợi ý Co-Pilot 4 tuần gần nhất so với 4 tuần trước, kèm số bài học chờ duyệt.',
+      'Trang «AI Tiến Hoá» (menu Kinh doanh): biểu đồ làm theo gợi ý theo tuần, lần chạy từng trợ lý AI (LLM hay bộ luật), tỷ lệ dùng lại bộ nhớ, model đang dùng, loại gợi ý hay bị bỏ qua. Mỗi biểu đồ có nút xem dạng bảng.',
+      'Vòng tự học: loại gợi ý bị bỏ qua ≥ 60% (hoặc được làm theo ≥ 70%, từ 5 phản hồi) thành bài học. Admin duyệt thì Co-Pilot xếp lại gợi ý và nhắc model AI; không duyệt thì không đổi gì, gỡ lúc nào cũng được.',
+    ],
+    test: [
+      'Đăng nhập admin, xem khối AI Tiến Hoá trên Tổng quan rồi bấm «Xem chi tiết».',
+      'Đổi kỳ 4 / 8 / 12 / 26 tuần, rê chuột lên biểu đồ, bấm «Bảng».',
+      'Duyệt một bài học rồi mở Co-Pilot của một lead: loại gợi ý được ưu tiên phải lên trước. Bấm «Gỡ bài học» để trả lại như cũ.',
+      'Đăng nhập Sale: không thấy khối và menu AI Tiến Hoá.',
+    ],
+  },
+  {
+    date: '13/11/2026',
     title: 'Đặt – duyệt – nhận hàng vật tư, cột Đã khảo sát, Việc của tôi 4 ô',
     tag: 'MỚI',
     news: [

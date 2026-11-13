@@ -93,6 +93,7 @@ async def generate_insights(db: AsyncSession, period_days: int = 7) -> dict:
         cu = ai_memory.doc_output(ban_cu)
         if cu.get("summary"):
             logger.info("Insight dùng lại bản %s trong bộ nhớ", ban_cu.id)
+            await ai_memory.ghi_dung_lai(db, ban_cu, commit=True)
             return cu
 
     # ---- try LLM, fall back to rules ----
