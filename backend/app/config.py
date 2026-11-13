@@ -37,9 +37,12 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
-    # 12 tiếng — phủ trọn một ngày làm việc (7h sáng đến 19h tối).
-    # Để 8 tiếng thì người đăng nhập lúc 8h sáng bị hết phiên ngay giữa buổi chiều.
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    # 7 ngày (13/11/2026) — sale đi gặp khách cả ngày, hiếm khi mở app; 12 tiếng thì
+    # sáng nào cũng phải đăng nhập lại. Token được ký lại mỗi ngày khi còn dùng app
+    # (xem get_current_user), nên ai mở app ít nhất 1 lần/tuần là không rớt phiên.
+    # Bù rủi ro phiên dài: đổi mật khẩu / «Đăng xuất các thiết bị khác» ghi mốc
+    # users.phien_tu — token cấp trước mốc đó bị từ chối ngay.
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""

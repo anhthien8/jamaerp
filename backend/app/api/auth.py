@@ -4,7 +4,7 @@ import hmac
 import time
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from app.schemas.user import (
 )
 from app.middleware.auth import (
     verify_password, hash_password, create_access_token, get_current_user,
+    cat_phien_cu,
 )
 
 settings = get_settings()
@@ -60,15 +61,41 @@ _RESET_MAX_ATTEMPTS = 5
 @router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Người dùng tự đổi mật khẩu (cần mật khẩu cũ)."""
+    """Người dùng tự đổi mật khẩu (cần mật khẩu cũ).
+
+    Đổi xong thì mọi thiết bị khác bị đăng xuất; thiết bị đang dùng nhận token mới
+    qua header X-Phien-Moi nên không bị văng.
+    """
     if not verify_password(data.old_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
     current_user.password_hash = hash_password(data.new_password)
+    cat_phien_cu(current_user, response)
     await db.flush()
-    return {"status": "ok", "message": "Đã đổi mật khẩu"}
+    return {"status": "ok", "message": "Đã đổi mật khẩu — các thiết bị khác đã bị đăng xuất"}
+
+
+@router.post("/logout-all")
+async def logout_all(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """«Đăng xuất các thiết bị khác» — dùng khi mất điện thoại / lỡ đăng nhập máy lạ.
+
+    Mọi token đã cấp trước lúc này bị từ chối (kể cả bot Telegram — bot tự xác
+    thực lại). Thiết bị đang bấm nút được cấp token mới nên vẫn ở lại.
+    """
+    token = cat_phien_cu(current_user, response)
+    await db.flush()
+    return {
+        "status": "ok",
+        "message": "Đã đăng xuất các thiết bị khác",
+        "access_token": token,
+    }
 
 
 @router.post("/forgot-password")
@@ -144,6 +171,7 @@ async def reset_password(request: Request, data: ResetPasswordRequest, db: Async
         raise HTTPException(status_code=400, detail="Tài khoản không hợp lệ")
 
     user.password_hash = hash_password(data.new_password)
+    cat_phien_cu(user)  # quên mật khẩu = có thể đã lộ → đăng xuất mọi thiết bị đang mở
     _reset_codes.pop(email, None)
     await db.flush()
     return {"status": "ok", "message": "Đã đặt lại mật khẩu — đăng nhập bằng mật khẩu mới"}

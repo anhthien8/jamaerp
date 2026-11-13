@@ -83,6 +83,10 @@ class User(Base):
     # users); cột này là "phiên bản" (epoch giây) để URL ?v= đổi khi thay ảnh.
     avatar_ver: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Mốc huỷ phiên (naive, UTC): token có iat trước mốc này bị từ chối. Ghi khi
+    # đổi/đặt lại mật khẩu và khi bấm «Đăng xuất các thiết bị khác».
+    phien_tu: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )

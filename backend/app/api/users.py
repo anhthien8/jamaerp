@@ -3,13 +3,13 @@
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.middleware.auth import get_current_user, hash_password
+from app.middleware.auth import cat_phien_cu, get_current_user, hash_password
 # _ROLE_PERMISSION_DEFAULTS đã dời sang middleware/permissions.py (lõi quyền backend).
 # Import lại tại đây để test đồng bộ 3 bản ma trận (test_ma_tran_phan_quyen_dong_bo.py)
 # vẫn `from app.api.users import _ROLE_PERMISSION_DEFAULTS` được như cũ.
@@ -1023,6 +1023,7 @@ async def doi_ho_ten(
 async def update_user(
     user_id: str,
     data: UserUpdate,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1136,6 +1137,9 @@ async def update_user(
         raise HTTPException(status_code=403, detail="Chỉ admin mới đổi mật khẩu của admin")
     if "password" in provided and data.password:
         user.password_hash = hash_password(data.password)
+        # Đặt mật khẩu mới = đăng xuất mọi thiết bị của người đó. Tự đổi cho chính
+        # mình thì thiết bị đang dùng nhận token mới (X-Phien-Moi) để không bị văng.
+        cat_phien_cu(user, response if user.id == current_user.id else None)
     user.updated_at = datetime.now(timezone.utc)
     # Chuyển đội qua đường sửa hồ sơ cũng phải kéo lead đi theo, y như xếp thành viên.
     if user.team_id != doi_cu:
