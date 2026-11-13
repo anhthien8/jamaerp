@@ -9,9 +9,10 @@ All endpoints are called by the Telegram Bot webhook handler.
 
 import uuid
 from datetime import datetime, timezone, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,11 @@ from app.models.inventory import Material
 from app.models.media import MediaFile
 from app.models.notification import Notification
 from app.services.media_gateway import url_media
+from app.middleware.rbac import duoc_xem_lead
+from app.models.lead import Lead
+from app.schemas.lead import _ngay_naive_vn
+from app.services.automation import gio_vn_naive
+from app.services.lead_touch import VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy model: MaterialRequest (pending approval workflow)
@@ -949,3 +955,100 @@ async def contact_seen(
     c.last_seen_at = _bay_gio()
     await db.flush()
     return {"ok": True}
+
+
+# ── R00 mục 3 (14/11/2026): nút trên tin bot ghi một lần chăm khách ──────────
+# Sale hiếm khi mở app: tin nhắc việc kèm nút «Đã gọi» · «Đã gặp/Zoom» · «Hẹn lại»,
+# bấm một chạm là xong. Bot gọi bằng JWT RIÊNG của người bấm (đăng nhập theo Telegram
+# ID), nên người bấm = current_user — chỉ ghi được vào lead chính mình phụ trách.
+
+class LeadTouchRequest(BaseModel):
+    """Một lần bấm nút trên tin bot về một lead."""
+
+    viec: Literal["goi", "gap", "zoom", "vp", "ghi_chu", "hen"]
+    noi_dung: str | None = Field(default=None, max_length=2000)
+    # Hẹn tiếp: mốc cụ thể (giờ VN) HOẶC «sau N ngày» (09:00 giờ VN của ngày đó).
+    # Đi kèm việc chạm khách thì vừa ghi lần chạm vừa đặt hẹn (bot xác nhận câu tự do).
+    hen_tiep_luc: datetime | None = None
+    hen_sau_ngay: int | None = Field(default=None, ge=1, le=60)
+    plan_type: Literal["online", "offline", "survey"] | None = None
+    telegram_message_id: int | None = None
+    telegram_chat_id: int | None = None
+
+    _hen = field_validator("hen_tiep_luc")(_ngay_naive_vn)
+
+
+def tom_tat_lead_cho_bot(lead: Lead) -> dict:
+    """Vài trường bot cần để vẽ lại tin sau khi bấm (không có giá, không có SĐT)."""
+    from app.api.leads import STAGE_LABELS
+
+    return {
+        "id": lead.id,
+        "name": lead.name,
+        "stage": lead.stage,
+        "stage_label": STAGE_LABELS.get(lead.stage, lead.stage),
+        "plan_type": lead.plan_type,
+        "hen_tiep_luc": lead.hen_tiep_luc.isoformat() if lead.hen_tiep_luc else None,
+    }
+
+
+@router.post("/lead/{lead_id}/touch")
+async def lead_touch(
+    lead_id: str,
+    data: LeadTouchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ghi «Đã gọi / Đã gặp / Zoom / Khách lên VP / Ghi chú / Hẹn lại» từ nút Telegram.
+
+    Ghi giống hệt web (lõi services/lead_touch): Activity kèm id tin Telegram, dời mốc
+    «liên hệ lần cuối» (trừ hẹn lịch), thông báo về lead này của người bấm → đã đọc.
+    Bấm lặp trong 2 phút trả lại bản ghi cũ (`moi_ghi=false`).
+    """
+    if not duoc_xem_lead(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ bộ phận Kinh doanh và Ban Giám Đốc được xem dữ liệu lead",
+        )
+    lead = await db.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead không tồn tại")
+    if lead.assigned_to != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Lead này không do bạn phụ trách",
+        )
+
+    hen_luc = data.hen_tiep_luc
+    if hen_luc is None and data.hen_sau_ngay:
+        hen_luc = moc_hen_sau(data.hen_sau_ngay)
+    if data.viec == "hen" and hen_luc is None:
+        raise HTTPException(status_code=422, detail="Thiếu giờ hẹn")
+    if hen_luc is not None and hen_luc <= gio_vn_naive():
+        raise HTTPException(status_code=422, detail="Giờ hẹn phải ở phía trước")
+
+    tg = {"tg_message_id": data.telegram_message_id, "tg_chat_id": data.telegram_chat_id}
+    if data.viec == "hen":
+        act, moi = await dat_hen_tiep(
+            db, lead, current_user, hen_luc,
+            plan_type=data.plan_type, ghi_them=data.noi_dung, **tg,
+        )
+    else:
+        loai, mac_dinh = VIEC_TIEP_XUC[data.viec]
+        noi_dung = (data.noi_dung or "").strip() or mac_dinh
+        if not noi_dung:
+            raise HTTPException(status_code=422, detail="Ghi chú đang trống")
+        act, moi = await ghi_hoat_dong(
+            db, lead, current_user, loai, noi_dung, chong_bam_lap=True, **tg,
+        )
+        if hen_luc is not None:
+            await dat_hen_tiep(db, lead, current_user, hen_luc, plan_type=data.plan_type, **tg)
+
+    return {
+        "ok": True,
+        "moi_ghi": moi,
+        "activity_id": act.id,
+        "loai": act.type,
+        "noi_dung": act.content,
+        "lead": tom_tat_lead_cho_bot(lead),
+    }

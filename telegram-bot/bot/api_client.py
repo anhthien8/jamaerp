@@ -177,20 +177,43 @@ class APIClient:
         except Exception:
             return None
 
-    async def change_stage(self, tg_user_id: int, lead_id: str, new_stage: str, note: str = None) -> dict | None:
-        """Change lead stage."""
+    async def change_stage(
+        self, tg_user_id: int, lead_id: str, new_stage: str,
+        note: str | None = None, lost_reason: str | None = None,
+    ) -> dict | None:
+        """Đổi giai đoạn lead (PUT /leads/{id}/stage — cùng kiểm quyền với web).
+
+        Chuyển sang «Mất» BẮT BUỘC có `lost_reason`. Lỗi trả {"error": chi tiết},
+        mất mạng trả None."""
+        if tg_user_id not in self._tokens:
+            await self.authenticate(tg_user_id)
+        payload = {"new_stage": new_stage, "note": note, "lost_reason": lost_reason}
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.put(
-                    f"{self._base_url}/leads/{lead_id}/stage",
-                    json={"new_stage": new_stage, "note": note},
-                    headers=self._headers(tg_user_id),
-                )
+                for lan in range(2):
+                    resp = await client.put(
+                        f"{self._base_url}/leads/{lead_id}/stage",
+                        json=payload, headers=self._headers(tg_user_id), timeout=15.0,
+                    )
+                    if resp.status_code == 401 and lan == 0 and await self.authenticate(tg_user_id):
+                        continue
+                    break
                 if resp.status_code == 200:
                     return resp.json()
-                return None
+                try:
+                    return {"error": resp.json().get("detail", "Không đổi được giai đoạn")}
+                except Exception:
+                    return {"error": "Không đổi được giai đoạn"}
         except Exception:
             return None
+
+    async def lead_touch(self, tg_user_id: int, lead_id: str, payload: dict) -> dict | None:
+        """Nút trên tin nhắc việc: ghi Đã gọi / Đã gặp / Zoom / Khách lên VP / Hẹn lại.
+
+        Server chỉ nhận lead người bấm đang phụ trách (khác → {"error": ...})."""
+        return await self._post(
+            tg_user_id, f"/telegram/lead/{lead_id}/touch", payload, error_default="Không ghi được",
+        )
 
     # ── Telegram workflow endpoints ──────────────────────────────────────────
 

@@ -25,6 +25,7 @@ from app.models.lead import (
     NGAN_SACH_KHOANG,
 )
 from app.services.media_gateway import MediaError, normalize_image
+from app.services.lead_touch import ghi_hoat_dong
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task, sinh_ma_du_an, task_department_for_stage
@@ -808,11 +809,9 @@ async def change_stage(
         content += f" — Lý do: {ly_do_mat}"
     if data.note:
         content += f" — {data.note}"
-    db.add(Activity(
-        lead_id=lead.id, user_id=current_user.id,
-        type="stage_change", content=content,
-    ))
-    await db.flush()
+    # Qua lõi chung: người vừa đổi giai đoạn (web hay nút «Mất» trên Telegram) thì
+    # thông báo về lead đó của họ coi như đã đọc; stage_change không dời mốc liên hệ.
+    await ghi_hoat_dong(db, lead, current_user, "stage_change", content)
 
     # Invalidate caches affected by lead stage changes
     cache.clear_prefix("dashboard")
@@ -1063,19 +1062,10 @@ async def create_activity(
             detail="Chỉ Admin CSKH và quản trị viên được ghi đánh giá chăm sóc",
         )
 
-    activity = Activity(
-        lead_id=lead_id, user_id=current_user.id,
-        type=data.type, content=data.content,
-    )
-    db.add(activity)
-
-    # Update last contacted.
-    # TRỪ lognote CSKH: đó là cuộc gọi KIỂM TRA chất lượng, không phải team KD chăm
-    # khách. Tính vào đây sẽ xoá oan cờ "⚠️ Quá hạn" và làm KPI chăm sóc đẹp giả.
-    if not is_cskh:
-        lead.last_contacted_at = datetime.now(timezone.utc)
-    lead.updated_at = datetime.now(timezone.utc)
-    await db.flush()
+    # Lõi chung với nút Telegram (services/lead_touch): ghi Activity, dời mốc «liên hệ
+    # lần cuối» — TRỪ lognote CSKH (cuộc gọi KIỂM TRA chất lượng, không phải team KD chăm
+    # khách; tính vào sẽ xoá oan cờ «Quá hạn», KPI chăm sóc đẹp giả) và dòng hẹn lịch.
+    activity, _ = await ghi_hoat_dong(db, lead, current_user, data.type, data.content)
 
     return ActivityResponse(
         id=activity.id, lead_id=activity.lead_id, user_id=activity.user_id,
