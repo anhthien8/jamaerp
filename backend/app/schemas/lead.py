@@ -46,7 +46,7 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    _ngay_ks = field_validator("survey_date", check_fields=False)(_ngay_naive_vn)
+    _ngay_ks = field_validator("survey_date", "hen_tiep_luc", check_fields=False)(_ngay_naive_vn)
 
     name: str | None = None
     phone: str | None = None
@@ -68,6 +68,7 @@ class LeadUpdate(BaseModel):
     ngan_sach_khoang: str | None = None
     segment: str | None = None
     plan_type: str | None = None
+    hen_tiep_luc: datetime | None = None
     tags: str | None = None
     deal_value: float | None = None
     priority: str | None = None
@@ -103,6 +104,7 @@ class LeadResponse(BaseModel):
     ngan_sach_khoang: str | None = None
     segment: str | None = None
     plan_type: str | None = None
+    hen_tiep_luc: datetime | None = None
     tags: str | None = None
     deal_value: float | None = None
     stage: str

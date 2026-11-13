@@ -292,7 +292,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Thẻ có nhãn đỏ «⚠️ Quá hạn» nghĩa là hơn 3 ngày chưa ai đụng tới khách này — ưu tiên gọi lại ngay."
+        "text": "Thẻ có nhãn đỏ «Quá hạn» nghĩa là đã lâu chưa ai đụng tới khách này (khách mới: quá 3 ngày; đang quan tâm, đã hẹn khảo sát: quá 7 ngày; đã khảo sát: quá 5 ngày; tiềm năng: quá 14 ngày) — ưu tiên gọi lại ngay. Khách đã có **hẹn tiếp** hoặc **ngày khảo sát** còn ở phía trước được tính là đang được chăm: không có nhãn này, bot không nhắc và hệ thống không thu hồi. Qua giờ hẹn thì đếm lại từ lúc hẹn."
       }
     ]
   },

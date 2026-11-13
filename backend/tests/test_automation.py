@@ -177,8 +177,11 @@ class TestLeadRecall:
         assert len(old_notif) == 1
         assert len(new_notif) == 1
 
-    async def test_recall_resets_contact_clock(self, db_session, sales_user, sales_user_2):
+    async def test_thu_hoi_khong_ghi_de_moc_lien_he(self, db_session, sales_user, sales_user_2):
+        """14/11/2026: last_contacted_at chỉ dành cho liên hệ thật — thu hồi không ghi đè.
+        Người mới nhận vẫn có đủ hạn chăm nhờ Activity «assignment» (không bị nhắc ngay)."""
         lead = _make_lead(sales_user.id, days_since_contact=10)
+        moc_cu = lead.last_contacted_at.replace(tzinfo=None)
         db_session.add(lead)
         await db_session.commit()
 
@@ -186,8 +189,23 @@ class TestLeadRecall:
         await db_session.commit()
         await db_session.refresh(lead)
 
-        # Fresh clock → no immediate follow-up reminder for new owner
-        assert (datetime.now(timezone.utc) - lead.last_contacted_at.replace(tzinfo=timezone.utc)).days == 0
+        assert lead.assigned_to == sales_user_2.id
+        assert abs((lead.last_contacted_at.replace(tzinfo=None) - moc_cu).total_seconds()) < 1
+        # Hôm sau job chạy lại: người mới chưa bị nhắc, lead không bị thu hồi lần nữa
+        assert (await run_followup_reminders(db_session))["reminded"] == 0
+        assert (await run_lead_recall(db_session))["recalled"] == 0
+
+    async def test_giao_tay_lead_cu_khong_bi_nhac_ngay(self, db_session, sales_user, sales_user_2):
+        """Lead cũ (10 ngày chưa liên hệ) vừa được giao tay hôm qua → người nhận có đủ hạn."""
+        lead = _make_lead(sales_user.id, days_since_contact=10)
+        db_session.add(lead)
+        await db_session.flush()
+        db_session.add(Activity(lead_id=lead.id, user_id=sales_user_2.id, type="assignment",
+                                content="Phân công cho Sales One", created_at=_days_ago(1)))
+        await db_session.commit()
+
+        assert (await run_followup_reminders(db_session))["reminded"] == 0
+        assert (await run_lead_recall(db_session))["recalled"] == 0
 
     async def test_no_candidate_no_recall(self, db_session, sales_user):
         # Only one SALES user — no one to reassign to
@@ -211,6 +229,71 @@ class TestLeadRecall:
 
         result = await run_lead_recall(db_session)
         assert result["recalled"] == 0
+
+
+# ── Hẹn tiếp (R00, 14/11/2026): có hẹn tương lai = đang chăm ────────────
+
+def _gio_vn(**delta) -> datetime:
+    """Giờ VN naive (hệ của survey_date / hen_tiep_luc) lệch khỏi bây giờ."""
+    return (datetime.now(timezone.utc) + timedelta(**delta)).astimezone(
+        timezone(timedelta(hours=7))).replace(tzinfo=None)
+
+
+@pytest.mark.asyncio
+class TestHenTiep:
+    async def test_hen_tiep_tuong_lai_khong_nhac_khong_thu_hoi(self, db_session, sales_user, sales_user_2):
+        lead = _make_lead(sales_user.id, days_since_contact=10)
+        lead.hen_tiep_luc = _gio_vn(days=2)
+        lead.plan_type = "offline"
+        db_session.add(lead)
+        await db_session.commit()
+
+        assert (await run_followup_reminders(db_session))["reminded"] == 0
+        assert (await run_lead_recall(db_session))["recalled"] == 0
+        await db_session.refresh(lead)
+        assert lead.assigned_to == sales_user.id
+
+    async def test_ngay_khao_sat_tuong_lai_cung_che(self, db_session, sales_user, sales_user_2):
+        lead = _make_lead(sales_user.id, days_since_contact=10)
+        lead.survey_date = _gio_vn(hours=3)
+        db_session.add(lead)
+        await db_session.commit()
+
+        assert (await run_followup_reminders(db_session))["reminded"] == 0
+        assert (await run_lead_recall(db_session))["recalled"] == 0
+
+    async def test_hen_vua_qua_tinh_la_moc_cham(self, db_session, sales_user, sales_user_2):
+        """Buổi hẹn hôm qua đã qua: sale có hạn mới tính từ buổi hẹn, không bị thu hồi
+        ngay sáng hôm sau chỉ vì lần ghi liên hệ cuối là 10 ngày trước."""
+        lead = _make_lead(sales_user.id, days_since_contact=10)
+        lead.hen_tiep_luc = _gio_vn(days=-1)
+        db_session.add(lead)
+        await db_session.commit()
+
+        assert (await run_followup_reminders(db_session))["reminded"] == 0
+        assert (await run_lead_recall(db_session))["recalled"] == 0
+
+    async def test_hen_qua_lau_van_nhac_va_thu_hoi(self, db_session, sales_user, sales_user_2):
+        lead = _make_lead(sales_user.id, days_since_contact=12)
+        lead.hen_tiep_luc = _gio_vn(days=-9)
+        db_session.add(lead)
+        await db_session.commit()
+
+        assert (await run_followup_reminders(db_session))["reminded"] == 1
+        assert (await run_lead_recall(db_session))["recalled"] == 1
+
+    async def test_api_sua_lead_nhan_hen_tiep_gio_vn(self, client: AsyncClient, db_session, sales_user):
+        """PUT /leads/{id} nhận hen_tiep_luc có múi giờ → lưu giờ VN naive, trả lại trong response."""
+        lead = _make_lead(sales_user.id, days_since_contact=1)
+        db_session.add(lead)
+        await db_session.commit()
+
+        r = await client.put(f"/api/v1/leads/{lead.id}", headers=auth_header(sales_user),
+                             json={"hen_tiep_luc": "2026-11-16T02:00:00Z", "plan_type": "online"})
+        assert r.status_code == 200, r.text
+        assert r.json()["hen_tiep_luc"].startswith("2026-11-16T09:00")
+        await db_session.refresh(lead)
+        assert lead.hen_tiep_luc == datetime(2026, 11, 16, 9, 0)
 
 
 # ── Payment reminders ────────────────────────────────────────────────────

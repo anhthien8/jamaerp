@@ -93,9 +93,19 @@ async def compute_kpi(db: AsyncSession, user_id: str, period: str) -> dict:
     sla_compliant = 0
     total_active = len(active_leads)
     first_touch_hours_list = []
+    # Lúc được giao gần nhất cũng là mốc (14/11/2026): thu hồi lead không còn ghi đè
+    # last_contacted_at, người vừa nhận lead không bị tính trễ ngay ngày nhận.
+    giao_luc = dict((await db.execute(
+        select(Activity.lead_id, func.max(Activity.created_at))
+        .where(Activity.type == "assignment", Activity.lead_id.in_([l.id for l in active_leads]))
+        .group_by(Activity.lead_id)
+    )).all()) if active_leads else {}
 
     for lead in active_leads:
         last = lead.last_contacted_at or lead.created_at
+        giao = giao_luc.get(lead.id)
+        if giao is not None and giao.replace(tzinfo=None) > last.replace(tzinfo=None):
+            last = giao
         if last.tzinfo is None:
             last = last.replace(tzinfo=timezone.utc)
         days_since = (datetime.now(timezone.utc) - last).total_seconds() / 86400

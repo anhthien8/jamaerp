@@ -63,6 +63,10 @@ class Lead(Base):
     ngan_sach_khoang: Mapped[str | None] = mapped_column(String(20), nullable=True)
     segment: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Phân khúc
     plan_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # online/offline/survey/none
+    # Hẹn tiếp (R00, 14/11/2026): lúc sale hẹn gọi/gặp lại khách; loại hẹn dùng lại
+    # `plan_type`. Naive GIỜ VN như `survey_date`. Hẹn còn ở tương lai = lead đang được
+    # chăm → job nhắc chăm sóc và thu hồi lead bỏ qua (automation.co_hen_toi).
+    hen_tiep_luc: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     tags: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of tags
     deal_value: Mapped[float | None] = mapped_column(Float, nullable=True)  # price_per_sqm × area_sqm
 

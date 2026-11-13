@@ -23,6 +23,8 @@ export const RELEASES: Release[] = [
     ],
     fixes: [
       'Nhắc việc không còn «im» khi bạn chưa mở thông báo cũ: việc chưa xong thì mỗi sáng nhắc một lần (HĐLĐ sắp hết hạn: mỗi tuần; bảo hành: mỗi mốc một lần).',
+      'Khách đã có hẹn tiếp hoặc ngày khảo sát ở phía trước được tính là đang được chăm: bot không nhắc, hệ thống không thu hồi, thẻ không hiện nhãn «Quá hạn». Qua giờ hẹn thì đếm lại từ lúc hẹn.',
+      'Thu hồi lead không còn ghi đè «Liên hệ lần cuối». Người vừa nhận lead (được giao tay hoặc nhận lại sau thu hồi) có đủ thời hạn chăm sóc tính từ lúc nhận, không bị nhắc hay trừ điểm SLA ngay.',
     ],
     test: [
       'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',

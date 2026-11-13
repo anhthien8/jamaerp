@@ -1542,6 +1542,8 @@ export interface Lead {
   ngan_sach_khoang?: string | null;
   segment?: string;
   plan_type?: 'online' | 'offline' | 'survey' | 'none';
+  /** Hẹn tiếp (R00): giờ VN naive như survey_date — trình duyệt ở VN đọc đúng bằng new Date(). */
+  hen_tiep_luc?: string | null;
   tags?: string[];
   deal_value?: number;
   lost_reason?: string;

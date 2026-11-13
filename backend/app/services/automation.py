@@ -122,6 +122,47 @@ def _last_touch(lead: Lead) -> datetime:
     return dt
 
 
+VN = timezone(timedelta(hours=7))
+
+
+def gio_vn_naive(now: datetime | None = None) -> datetime:
+    """Giờ VN dạng naive — cùng hệ với cột `survey_date` / `hen_tiep_luc`."""
+    return (now or datetime.now(timezone.utc)).astimezone(VN).replace(tzinfo=None)
+
+
+def co_hen_toi(lead: Lead, now_vn: datetime | None = None) -> bool:
+    """Lead còn hẹn tiếp / ngày khảo sát ở tương lai = đang được chăm (luật R00 số 3)."""
+    now_vn = now_vn or gio_vn_naive()
+    return any(m is not None and m > now_vn for m in (lead.hen_tiep_luc, lead.survey_date))
+
+
+def _moc_cham(lead: Lead, giao_luc: datetime | None, now_vn: datetime) -> datetime:
+    """Mốc «được chăm» gần nhất (UTC có múi): liên hệ thật, lúc được giao lead,
+    buổi hẹn / khảo sát vừa qua. Lúc giao là để người mới nhận có đủ hạn chăm
+    — thay cho lối cũ ghi đè `last_contacted_at` (mốc đó chỉ dành cho liên hệ thật)."""
+    moc = [_last_touch(lead)]
+    if giao_luc is not None:
+        moc.append(giao_luc if giao_luc.tzinfo else giao_luc.replace(tzinfo=timezone.utc))
+    for h in (lead.hen_tiep_luc, lead.survey_date):
+        if h is not None and h <= now_vn:
+            moc.append(h.replace(tzinfo=VN).astimezone(timezone.utc))
+    return max(moc)
+
+
+async def _lan_giao_cuoi(db: AsyncSession) -> dict[str, datetime]:
+    """{lead_id: lúc được giao gần nhất} cho lead đang chăm — từ Activity «assignment»
+    (giao tay, giao hàng loạt, tự thu hồi đều ghi)."""
+    dang_cham = select(Lead.id).where(
+        Lead.stage.in_(ACTIVE_LEAD_STAGES), Lead.assigned_to.is_not(None),
+    )
+    rows = await db.execute(
+        select(Activity.lead_id, func.max(Activity.created_at))
+        .where(Activity.type == "assignment", Activity.lead_id.in_(dang_cham))
+        .group_by(Activity.lead_id)
+    )
+    return {lead_id: luc for lead_id, luc in rows.all() if luc is not None}
+
+
 # ---------------------------------------------------------------------------
 # 1. Follow-up reminders — nhắc CSKH mỗi 3-5 ngày
 # ---------------------------------------------------------------------------
@@ -139,13 +180,18 @@ async def run_followup_reminders(db: AsyncSession) -> dict:
         )
     )
     leads = result.scalars().all()
+    now_vn = gio_vn_naive()
+    giao = await _lan_giao_cuoi(db)
 
     reminded = 0
     for lead in leads:
-        if _last_touch(lead) > cutoff:
+        if co_hen_toi(lead, now_vn):
+            continue  # có hẹn tương lai = đang chăm, không nhắc
+        moc = _moc_cham(lead, giao.get(lead.id), now_vn)
+        if moc > cutoff:
             continue
         user = await db.get(User, lead.assigned_to)
-        overdue_days = (datetime.now(timezone.utc) - _last_touch(lead)).days
+        overdue_days = (datetime.now(timezone.utc) - moc).days
         sent = await _notify(
             db,
             user,
@@ -242,10 +288,14 @@ async def run_lead_recall(db: AsyncSession) -> dict:
         )
     )
     leads = result.scalars().all()
+    now_vn = gio_vn_naive()
+    giao = await _lan_giao_cuoi(db)
 
     recalled = 0
     for lead in leads:
-        if _last_touch(lead) > cutoff:
+        if co_hen_toi(lead, now_vn):
+            continue  # có hẹn tương lai = đang chăm, không thu hồi
+        if _moc_cham(lead, giao.get(lead.id), now_vn) > cutoff:
             continue
 
         old_user = await db.get(User, lead.assigned_to)
@@ -256,8 +306,9 @@ async def run_lead_recall(db: AsyncSession) -> dict:
         lead.assigned_to = new_user.id
         if new_user.team_id:
             lead.team_id = new_user.team_id
-        # Reset clock so the new sales gets a fresh follow-up window
-        lead.last_contacted_at = datetime.now(timezone.utc)
+        # KHÔNG ghi đè last_contacted_at (14/11/2026): mốc đó chỉ dành cho liên hệ
+        # thật. Người mới vẫn có đủ hạn chăm nhờ Activity «assignment» dưới đây
+        # (_lan_giao_cuoi tính lúc giao là một mốc chăm).
 
         db.add(
             Activity(

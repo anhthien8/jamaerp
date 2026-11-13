@@ -63,11 +63,23 @@ export const OVERDUE_DAYS_BY_STAGE: Record<string, number> = {
 // 137 thẻ từng đẩy trang cao ~28.000px. Chỉ giới hạn render; đếm ở header cột vẫn là tổng thật.
 export const KANBAN_PAGE_SIZE = 25;
 
+// Hẹn tiếp / ngày khảo sát (R00, 14/11/2026): còn ở phía trước = khách đang được chăm →
+// không gắn cờ (bot cũng không nhắc, không thu hồi — automation.co_hen_toi). Hẹn đã qua
+// thì tính như một lần liên hệ: đồng hồ đếm lại từ giờ hẹn.
+function henMs(lead: Lead): number[] {
+  return [lead.hen_tiep_luc, lead.survey_date]
+    .map(v => (v ? new Date(v).getTime() : NaN))
+    .filter(t => !Number.isNaN(t));
+}
+
 export function isOverdueLead(lead: Lead) {
   const days = OVERDUE_DAYS_BY_STAGE[lead.stage];
   if (!days) return false;
+  const now = Date.now();
+  const hen = henMs(lead);
+  if (hen.some(t => t > now)) return false;
   const timestamp = lead.last_contacted_at || lead.updated_at;
   if (!timestamp) return false;
-  const ageMs = Date.now() - new Date(timestamp).getTime();
-  return ageMs > days * 24 * 60 * 60 * 1000;
+  const moc = Math.max(new Date(timestamp).getTime(), ...hen);
+  return now - moc > days * 24 * 60 * 60 * 1000;
 }
