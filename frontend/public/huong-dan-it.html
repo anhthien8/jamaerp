@@ -266,7 +266,7 @@ curl -sL https://raw.githubusercontent.com/anhthien8/jamaerp/main/deploy/setup.s
           <tr><td><code>CORS_ORIGINS</code></td><td>Production</td><td>Danh sách domain frontend, phân cách dấu phẩy. Sai biến này = frontend gọi API bị chặn</td></tr>
           <tr><td><code>API_BASE_URL</code></td><td>Cho bot</td><td>URL backend mà bot gọi. Docker: <code>http://backend:8000</code> · Windows: <code>http://localhost:8000</code></td></tr>
           <tr><td><code>NEXT_PUBLIC_API_URL</code></td><td>Frontend</td><td>Trong <code>frontend/.env.local</code>: URL backend + <code>/api/v1</code>. Đổi biến này phải <b>build lại</b> frontend</td></tr>
-          <tr><td><code>JWT_ACCESS_TOKEN_EXPIRE_MINUTES</code></td><td>Không</td><td>Mặc định 480 (8 giờ) — hết hạn nhân viên phải đăng nhập lại</td></tr>
+          <tr><td><code>JWT_ACCESS_TOKEN_EXPIRE_MINUTES</code></td><td>Không</td><td>Mặc định 10080 (7 ngày). Token dùng quá 24 giờ thì tự ký lại, nên ai mở app ít nhất 1 lần/tuần không phải đăng nhập lại. Đặt biến này trên Railway sẽ đè mặc định</td></tr>
           <tr><td><code>TIMEZONE</code></td><td>Không</td><td><code>Asia/Ho_Chi_Minh</code> — lịch gửi báo cáo BOD/briefing tính theo giờ này</td></tr>
         </table>
         <div class="warn"><b>Không commit .env lên Git!</b> File đã nằm trong <code>.gitignore</code> — giữ nguyên như vậy. Trên Railway/VPS dùng Variables/secrets của nền tảng.</div>

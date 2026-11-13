@@ -1045,6 +1045,10 @@ class ApiClient {
       method: 'POST', body: { old_password: oldPassword, new_password: newPassword },
     });
   }
+  // Đăng xuất mọi máy khác; máy đang dùng nhận token mới qua X-Phien-Moi (request() tự lưu)
+  async logoutOtherDevices() {
+    return this.request<{ status: string; message: string }>('/auth/logout-all', { method: 'POST' });
+  }
   async forgotPassword(email: string) {
     return this.request<{ status: string; message: string }>('/auth/forgot-password', {
       method: 'POST', body: { email },

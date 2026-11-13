@@ -16,6 +16,19 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '13/11/2026',
+    title: 'Giữ đăng nhập 7 ngày + đăng xuất các thiết bị khác',
+    tag: 'MỚI',
+    news: [
+      'Phiên đăng nhập dài 7 ngày: mở app ít nhất 1 lần mỗi tuần là không phải gõ lại mật khẩu.',
+      'Menu tài khoản (bấm ảnh đại diện) có nút «Đăng xuất các thiết bị khác» — dùng khi mất điện thoại hoặc lỡ đăng nhập máy lạ; máy đang dùng vẫn giữ đăng nhập.',
+      'Đổi mật khẩu hoặc đặt lại mật khẩu cũng tự đăng xuất các máy khác.',
+    ],
+    test: [
+      'Đăng nhập trên 2 máy, ở máy A bấm «Đăng xuất các thiết bị khác» → máy B bị đưa về trang đăng nhập, máy A vẫn dùng tiếp.',
+    ],
+  },
+  {
+    date: '13/11/2026',
     title: 'Đặt – duyệt – nhận hàng vật tư, cột Đã khảo sát, Việc của tôi 4 ô',
     tag: 'MỚI',
     news: [

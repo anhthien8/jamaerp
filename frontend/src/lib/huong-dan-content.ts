@@ -65,7 +65,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Đang dùng app liên tục thì phiên đăng nhập **tự gia hạn** — không lo bị văng giữa chừng. Chỉ khi bỏ máy quá lâu (khoảng nửa ngày) mới phải đăng nhập lại; lúc đó màn hình đăng nhập sẽ báo «Phiên đăng nhập đã hết hạn» — cứ đăng nhập lại bình thường."
+        "text": "Đang dùng app liên tục thì phiên đăng nhập **tự gia hạn** — không lo bị văng giữa chừng. Mở app ít nhất 1 lần mỗi tuần là không phải đăng nhập lại; bỏ máy quá 7 ngày thì màn hình đăng nhập sẽ báo «Phiên đăng nhập đã hết hạn» — cứ đăng nhập lại bình thường. **Mất điện thoại hoặc lỡ đăng nhập máy lạ:** từ máy khác bấm ảnh đại diện → **Đăng xuất các thiết bị khác** (máy đang dùng vẫn giữ đăng nhập), hoặc báo Admin khoá tài khoản. Đổi mật khẩu cũng tự đăng xuất các máy khác."
       }
     ]
   },
@@ -80,7 +80,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Bấm vào ảnh đại diện + tên của bạn ở góc dưới cột menu** để mở menu tài khoản: **Hồ sơ 360° của tôi** (thông tin cá nhân, giấy tờ, hợp đồng, chấm công, lương, nghỉ phép của chính bạn), **Đổi ảnh đại diện**, **Cài đặt tài khoản** (mật khẩu, Telegram, thông báo), **Sổ tay hướng dẫn** và **Đăng xuất**."
+        "text": "**Bấm vào ảnh đại diện + tên của bạn ở góc dưới cột menu** để mở menu tài khoản: **Hồ sơ 360° của tôi** (thông tin cá nhân, giấy tờ, hợp đồng, chấm công, lương, nghỉ phép của chính bạn), **Đổi ảnh đại diện**, **Cài đặt tài khoản** (mật khẩu, Telegram, thông báo), **Sổ tay hướng dẫn**, **Đăng xuất các thiết bị khác** và **Đăng xuất**."
       },
       {
         "type": "p",

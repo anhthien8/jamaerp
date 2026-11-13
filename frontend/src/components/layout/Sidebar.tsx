@@ -16,6 +16,8 @@ import { SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 import JamaLoader from '@/components/ui/JamaLoader';
+import { useToast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
 
 // ── SVG Icons (reusable) ──────────────────────────────────────────────
 const Icon = {
@@ -232,6 +234,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Menu tài khoản khi bấm vào ảnh đại diện góc dưới
   const [accountOpen, setAccountOpen] = useState(false);
+  const { toast } = useToast();
+  const dangXuatMayKhac = async () => {
+    setAccountOpen(false);
+    if (!window.confirm('Đăng xuất tài khoản khỏi mọi điện thoại/máy tính khác? Máy này vẫn giữ đăng nhập.')) return;
+    try {
+      const r = await api.logoutOtherDevices();
+      toast(r.message || 'Đã đăng xuất các thiết bị khác', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Không đăng xuất được, thử lại sau', 'error');
+    }
+  };
   useEffect(() => {
     if (!accountOpen) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
@@ -376,6 +389,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <AccountItem href="/settings" icon="settings" label="Cài đặt tài khoản" hint="Mật khẩu, Telegram, thông báo" />
               <AccountItem href="/huong-dan" icon="compass" label="Sổ tay hướng dẫn" />
               <div className="my-1 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={dangXuatMayKhac}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left transition-colors hover:bg-[var(--surface-2)]"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                <LineIcon name="smartphone" size={16} color="var(--gold-400)" />
+                <span className="min-w-0">
+                  <span className="block font-medium">Đăng xuất các thiết bị khác</span>
+                  <span className="block text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>Khi mất điện thoại hoặc lỡ đăng nhập máy lạ</span>
+                </span>
+              </button>
               <button
                 type="button"
                 role="menuitem"
