@@ -1,10 +1,17 @@
 """R00 (14/11/2026): tin Telegram kèm nút bấm + nút «Mở ERP» trỏ thẳng việc cần làm."""
+import uuid
+from datetime import datetime, timedelta, timezone
+
 import httpx
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.database as database
-from app.models.notification import SystemSetting
+from app.middleware.auth import hash_password
+from app.models.lead import Lead
+from app.models.notification import Notification, SystemSetting
+from app.models.user import User
 from app.services import automation, telegram_notify
 
 
@@ -122,3 +129,91 @@ async def test_notify_luon_kem_mo_erp(db_session, sales_user, monkeypatch):
     assert await automation._notify(db_session, sales_user, "lead_assigned", "Lead mới", "KH A",
                                     link="/leads?id=L1", ref_id="L1") is False
     assert len(gui) == 1
+
+
+# ── R00 mục 6: tin về lead kèm hàng nút «Đã gọi · Đã gặp/Zoom · Hẹn lại · Mở ERP» ──
+
+def _bat_tin(monkeypatch) -> list[tuple]:
+    gui: list[tuple] = []
+
+    async def fake_send(chat, text, parse_mode="HTML", reply_markup=None):
+        gui.append((chat, text, reply_markup))
+        return True
+
+    monkeypatch.setattr(automation, "send_telegram", fake_send)
+    monkeypatch.setattr(telegram_notify.get_settings(), "FRONTEND_URL", "http://localhost:3000", raising=False)
+    return gui
+
+
+def _lead_qua_han(owner_id: str, so_ngay: int, ten: str = "Anh Nam – Vinhomes") -> Lead:
+    now = datetime.now(timezone.utc)
+    return Lead(
+        id=str(uuid.uuid4()), name=ten, phone="0909000111", stage="interested", assigned_to=owner_id,
+        created_at=now - timedelta(days=so_ngay + 10), last_contacted_at=now - timedelta(days=so_ngay),
+    )
+
+
+def _hang_lead(lead_id: str) -> list[list[dict]]:
+    return [
+        [{"text": "Đã gọi", "callback_data": f"ld:goi:{lead_id}"},
+         {"text": "Đã gặp/Zoom", "callback_data": f"ld:gz:{lead_id}"}],
+        [{"text": "Hẹn lại", "callback_data": f"ld:hl:{lead_id}"}],
+        [{"text": "Mở ERP", "url": f"https://crm.jamahome.vn/leads?id={lead_id}"}],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_nhac_cham_soc_kem_nut_lead_va_sdt_trong_chu(db_session, sales_user, monkeypatch):
+    gui = _bat_tin(monkeypatch)
+    sales_user.telegram_user_id = 555002
+    lead = _lead_qua_han(sales_user.id, so_ngay=5)
+    db_session.add(lead)
+    await db_session.commit()
+
+    assert (await automation.run_followup_reminders(db_session))["reminded"] == 1
+    chat, text, mk = gui[0]
+    assert chat == 555002
+    assert "0909000111" in text  # SĐT nằm trong chữ — Telegram tự biến thành số bấm gọi
+    assert mk["inline_keyboard"] == _hang_lead(lead.id)
+    # callback_data của Telegram tối đa 64 byte — lead id là uuid 36 ký tự
+    assert all(len(b["callback_data"].encode()) <= 64
+               for h in mk["inline_keyboard"] for b in h if "callback_data" in b)
+
+
+@pytest.mark.asyncio
+async def test_thu_hoi_chi_nguoi_moi_nhan_nut_lead(db_session, sales_user, monkeypatch):
+    gui = _bat_tin(monkeypatch)
+    nguoi_moi = User(
+        id=str(uuid.uuid4()), full_name="Sale Nhận", email="sale.nhan@test.com",
+        password_hash=hash_password("x12345678"), role="data_entry", department="SALES",
+        is_active=True, telegram_user_id=555004,
+    )
+    sales_user.telegram_user_id = 555003
+    db_session.add(nguoi_moi)
+    lead = _lead_qua_han(sales_user.id, so_ngay=10)
+    db_session.add(lead)
+    await db_session.commit()
+
+    assert (await automation.run_lead_recall(db_session))["recalled"] == 1
+    theo_nguoi = {chat: (text, mk) for chat, text, mk in gui}
+    text_cu, mk_cu = theo_nguoi[555003]
+    text_moi, mk_moi = theo_nguoi[555004]
+    # Người cũ không còn giữ lead: chỉ còn «Mở ERP», không nút ghi chạm khách
+    assert mk_cu["inline_keyboard"] == [[{"text": "Mở ERP", "url": f"https://crm.jamahome.vn/leads?id={lead.id}"}]]
+    assert mk_moi["inline_keyboard"] == _hang_lead(lead.id)
+    assert "0909000111" in text_moi
+    assert text_cu.startswith("<b>Lead bị thu hồi") and text_moi.startswith("<b>Lead mới được giao")
+
+
+@pytest.mark.asyncio
+async def test_ten_khach_co_ky_tu_html_van_gui_duoc(db_session, sales_user, monkeypatch):
+    gui = _bat_tin(monkeypatch)
+    sales_user.telegram_user_id = 555005
+    await db_session.commit()
+    assert await automation._notify(db_session, sales_user, "lead_assigned", "Lead mới: A&B <VIP>",
+                                    "Anh Tâm & chị Hoa", link="/leads?id=L9", ref_id="L9") is True
+    _, text, _ = gui[0]
+    assert text == "<b>Lead mới: A&amp;B &lt;VIP&gt;</b>\nAnh Tâm &amp; chị Hoa"
+    # Trong app vẫn lưu chữ gốc, không bị thoát
+    n = (await db_session.execute(select(Notification).where(Notification.ref_id == "L9"))).scalar_one()
+    assert n.title == "Lead mới: A&B <VIP>"

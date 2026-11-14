@@ -97,6 +97,21 @@ def erp_url(link: str | None) -> str | None:
     return f"{base}/{link.lstrip('/')}"
 
 
+def nut_lead(lead_id: str) -> list[list[dict]]:
+    """Hàng nút trên tin về MỘT lead gửi người đang phụ trách (R00 mục 6).
+
+    Khớp `hang_nut_chinh()` của bot (telegram-bot/bot/handlers/lead_nut.py) — bot xử lý
+    `ld:<việc>:<lead_id>`. SĐT khách để trong chữ của tin (nút url không nhận `tel:`).
+    """
+    return [
+        [
+            {"text": "Đã gọi", "callback_data": f"ld:goi:{lead_id}"},
+            {"text": "Đã gặp/Zoom", "callback_data": f"ld:gz:{lead_id}"},
+        ],
+        [{"text": "Hẹn lại", "callback_data": f"ld:hl:{lead_id}"}],
+    ]
+
+
 def ban_phim(nut: list[list[dict]] | None = None, link: str | None = None) -> dict | None:
     """InlineKeyboardMarkup: các hàng nút `nut` + hàng «Mở ERP» cuối cùng (khi có link)."""
     hang = [list(h) for h in (nut or []) if h]

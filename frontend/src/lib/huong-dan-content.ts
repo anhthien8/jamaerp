@@ -1491,7 +1491,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Ghi chăm khách ngay trên tin bot (Kinh doanh):** tin nhắc chăm khách và tin báo được giao lead có nút **«Đã gọi»**, **«Đã gặp/Zoom»** (chọn tiếp Gặp trực tiếp / Zoom-online / Khách lên văn phòng) và **«Hẹn lại»** (Mai / 3 ngày / 1 tuần, hẹn lúc 9:00). Bấm là ghi xong vào lịch sử khách y như ghi trên web, thông báo về khách đó tự chuyển sang đã đọc. Ghi xong bot hỏi luôn «Hẹn lại khi nào?» — có hẹn ở phía trước thì bot thôi nhắc khách đó. Chỉ bấm được trên khách mình đang phụ trách; lỡ bấm hai lần cũng không bị ghi đôi."
+        "text": "**Ghi chăm khách ngay trên tin bot (Kinh doanh):** tin nhắc chăm khách và tin báo được giao lead có nút **«Đã gọi»**, **«Đã gặp/Zoom»** (chọn tiếp Gặp trực tiếp / Zoom-online / Khách lên văn phòng) và **«Hẹn lại»** (Mai / 3 ngày / 1 tuần, hẹn lúc 9:00); số điện thoại khách nằm ngay trong tin, chạm vào số là gọi. Bấm nút là ghi xong vào lịch sử khách y như ghi trên web, thông báo về khách đó tự chuyển sang đã đọc. Ghi xong bot hỏi luôn «Hẹn lại khi nào?» — có hẹn ở phía trước thì bot thôi nhắc khách đó. Chỉ bấm được trên khách mình đang phụ trách; lỡ bấm hai lần cũng không bị ghi đôi."
       },
       {
         "type": "h3",

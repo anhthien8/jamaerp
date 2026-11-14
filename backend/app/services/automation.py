@@ -6,6 +6,7 @@ Theo Brief JAMA HOME:
 - Nhắc hẹn thanh toán hóa đơn (đợt thanh toán pending)
 """
 
+import html
 import logging
 from datetime import date, datetime, timedelta, timezone
 
@@ -17,7 +18,7 @@ from app.models.contract import Contract
 from app.models.project import Project
 from app.models.user import User
 from app.models.notification import Notification, SystemSetting, DEFAULT_AUTOMATION_SETTINGS
-from app.services.telegram_notify import ban_phim, send_telegram
+from app.services.telegram_notify import ban_phim, nut_lead, send_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +109,12 @@ async def _notify(
     await db.flush()
 
     if telegram and user.telegram_user_id:
+        # Tiêu đề/nội dung là chữ thường (cũng hiện trong app) — thoát HTML khi đẩy Telegram,
+        # kẻo tên khách có «&» hay «<» làm Telegram từ chối cả tin.
         await send_telegram(
-            user.telegram_user_id, f"<b>{title}</b>\n{body}", reply_markup=ban_phim(nut, link),
+            user.telegram_user_id,
+            f"<b>{html.escape(title, quote=False)}</b>\n{html.escape(body, quote=False)}",
+            reply_markup=ban_phim(nut, link),
         )
     return True
 
@@ -196,11 +201,12 @@ async def run_followup_reminders(db: AsyncSession) -> dict:
             db,
             user,
             "followup_reminder",
-            f"⏰ Nhắc chăm sóc KH: {lead.name}",
-            f"Lead \"{lead.name}\" ({lead.phone}) đã {overdue_days} ngày chưa được liên hệ. "
-            f"Vui lòng cập nhật tình trạng chăm sóc.",
+            f"Nhắc chăm sóc KH: {lead.name}",
+            f"Lead \"{lead.name}\" — SĐT {lead.phone} — đã {overdue_days} ngày chưa được liên hệ. "
+            f"Liên hệ xong bấm nút bên dưới để ghi, khỏi mở web.",
             link=f"/leads?id={lead.id}",
             ref_id=lead.id,
+            nut=nut_lead(lead.id),
         )
         if sent:
             reminded += 1
@@ -316,7 +322,7 @@ async def run_lead_recall(db: AsyncSession) -> dict:
                 user_id=new_user.id,
                 type="assignment",
                 content=(
-                    f"🔄 Tự động thu hồi: lead quá hạn chăm sóc {days} ngày. "
+                    f"Tự động thu hồi: lead quá hạn chăm sóc {days} ngày. "
                     f"Chuyển từ {old_user.full_name if old_user else 'N/A'} → {new_user.full_name}."
                 ),
             )
@@ -326,7 +332,7 @@ async def run_lead_recall(db: AsyncSession) -> dict:
             db,
             old_user,
             "lead_recalled",
-            f"⚠️ Lead bị thu hồi: {lead.name}",
+            f"Lead bị thu hồi: {lead.name}",
             f"Lead \"{lead.name}\" quá hạn chăm sóc {days} ngày, đã chuyển cho {new_user.full_name}.",
             link=f"/leads?id={lead.id}",
             ref_id=lead.id,
@@ -335,10 +341,11 @@ async def run_lead_recall(db: AsyncSession) -> dict:
             db,
             new_user,
             "lead_assigned",
-            f"📥 Lead mới được giao: {lead.name}",
-            f"Bạn được giao lead \"{lead.name}\" ({lead.phone}). Vui lòng liên hệ sớm.",
+            f"Lead mới được giao: {lead.name}",
+            f"Bạn được giao lead \"{lead.name}\" — SĐT {lead.phone}. Liên hệ xong bấm nút bên dưới để ghi.",
             link=f"/leads?id={lead.id}",
             ref_id=lead.id,
+            nut=nut_lead(lead.id),  # người cũ (lead_recalled) không còn giữ lead → không nút
         )
         recalled += 1
 

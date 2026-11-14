@@ -20,7 +20,7 @@ export const RELEASES: Release[] = [
     tag: 'MỚI',
     news: [
       'Mọi tin nhắc việc của bot có nút «Mở ERP»: bấm là mở thẳng đúng khách, dự án hoặc việc đó trên điện thoại.',
-      'Tin nhắc chăm khách và tin báo được giao lead có nút «Đã gọi» · «Đã gặp/Zoom» · «Hẹn lại» (Mai / 3 ngày / 1 tuần): một chạm là ghi vào lịch sử khách y như trên web, không cần mở app. Chỉ khách mình phụ trách mới bấm được; lỡ bấm hai lần không bị ghi đôi.',
+      'Tin nhắc chăm khách và tin báo được giao lead có nút «Đã gọi» · «Đã gặp/Zoom» · «Hẹn lại» (Mai / 3 ngày / 1 tuần): một chạm là ghi vào lịch sử khách y như trên web, không cần mở app. Số điện thoại khách nằm ngay trong tin, chạm là gọi. Chỉ khách mình phụ trách mới bấm được; lỡ bấm hai lần không bị ghi đôi.',
     ],
     fixes: [
       'Nhắc việc không còn «im» khi bạn chưa mở thông báo cũ: việc chưa xong thì mỗi sáng nhắc một lần (HĐLĐ sắp hết hạn: mỗi tuần; bảo hành: mỗi mốc một lần).',
