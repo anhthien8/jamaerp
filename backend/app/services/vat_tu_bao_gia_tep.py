@@ -5,7 +5,7 @@ Nguyên tắc: bot đọc → bản xem trước → người xác nhận → m�
 TRÍCH, không ghi DB. AI chỉ được dùng để đọc nội dung; việc khớp mã với dòng
 phiếu làm bằng so chuỗi để không «sáng tạo» mã.
 
-Model chữ hiện tại (Groq Llama 3.3) không đọc ảnh → ảnh đi qua model vision
+Ảnh đi theo chuỗi model hệ thống (llm_config.ds_lan_thu_anh): Groq dùng model vision
 riêng (`LLM_VISION_MODEL`, cùng key Groq). Không có key phù hợp thì báo rõ,
 không đoán.
 """
@@ -303,34 +303,33 @@ async def trich_tu_chu(chu: str, prompt: str | None = None, chuan=None) -> dict:
 
 
 async def trich_tu_anh(anh: bytes, mime: str | None, prompt: str | None = None, chuan=None) -> dict:
-    """Ảnh chụp bảng giá → model vision (cùng key Groq với model chữ)."""
-    from litellm import acompletion
+    """Ảnh chụp bảng giá → lần lượt các model đọc được ảnh trong chuỗi hệ thống."""
+    from app.services import llm_config as lc
 
-    from app.services.llm_config import get_llm_config
-
-    cfg = await get_llm_config()
-    from app.services.llm_config import chuan_model
-    model = chuan_model(get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
-    key = cfg.get("llm_api_key", "")
-    if not key or not (cfg.get("llm_model", "").split("/")[0] == model.split("/")[0]):
+    cfg = await lc.get_llm_config()
+    lan_thu = lc.ds_lan_thu_anh(cfg, get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
+    if not lan_thu:
         raise TepError(
             "Bot chưa đọc được ảnh với cấu hình AI hiện tại — gửi tệp Excel/PDF của NCC thay cho ảnh", 503,
         )
-    b64 = base64.b64encode(anh).decode()
-    url = f"data:{mime or 'image/jpeg'};base64,{b64}"
-    try:
-        raw = await acompletion(
-            model=model, api_key=key, temperature=0.0, max_tokens=4000,
-            response_format={"type": "json_object"},
-            messages=[{"role": "user", "content": [
-                {"type": "text", "text": (prompt or _PROMPT) + "\nĐây là ảnh chụp bảng báo giá."},
-                {"type": "image_url", "image_url": {"url": url}},
-            ]}],
-        )
-        return (chuan or _chuan_hoa)(_noi_dung_tra_ve(raw))
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Vision đọc ảnh báo giá lỗi: %s", exc)
-        raise TepError("AI không đọc được ảnh này — chụp rõ hơn hoặc gửi tệp Excel/PDF", 503) from exc
+    url = f"data:{mime or 'image/jpeg'};base64,{base64.b64encode(anh).decode()}"
+    messages = [{"role": "user", "content": [
+        {"type": "text", "text": (prompt or _PROMPT) + chr(10) + "Đây là ảnh chụp bảng báo giá."},
+        {"type": "image_url", "image_url": {"url": url}},
+    ]}]
+    loi: Exception | None = None
+    for model, key in lan_thu:
+        try:
+            raw = await lc.acompletion(**lc.tham_so_goi(
+                model, messages, temperature=0.0, max_tokens=4000, api_key=key,
+                response_format={"type": "json_object"}))
+            return (chuan or _chuan_hoa)(lc.boc_json(_noi_dung_tra_ve(raw) or ""))
+        except TepError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — model/khóa/quota → thử model kế
+            logger.warning("Vision đọc ảnh báo giá lỗi trên %s: %s", model, exc)
+            loi = exc
+    raise TepError("AI không đọc được ảnh này — chụp rõ hơn hoặc gửi tệp Excel/PDF", 503) from loi
 
 
 # ── Khớp mã với dòng phiếu ─────────────────────────────────────────────────

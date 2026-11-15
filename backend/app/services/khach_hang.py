@@ -126,32 +126,35 @@ def chuan_hoa_cccd(raw: Any) -> dict:
 
 
 async def doc_cccd(anh: bytes, mime: str | None = "image/jpeg") -> dict:
-    from litellm import acompletion
+    """Đọc ảnh CCCD theo chuỗi model hệ thống (Groq vision → OpenAI/Claude/Gemini).
 
-    from app.services.llm_config import get_llm_config
+    Không bao giờ gửi ảnh cho OpenCode/OpenRouter — ds_lan_thu_anh đã loại.
+    """
+    from app.services import llm_config as lc
     from app.services.vat_tu_bao_gia_tep import MODEL_VISION_MAC_DINH
 
-    cfg = await get_llm_config()
-    from app.services.llm_config import chuan_model
-    model = chuan_model(get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
-    key = cfg.get("llm_api_key", "")
-    if not key or cfg.get("llm_model", "").split("/")[0] != model.split("/")[0]:
+    cfg = await lc.get_llm_config()
+    lan_thu = lc.ds_lan_thu_anh(cfg, get_settings().LLM_VISION_MODEL or MODEL_VISION_MAC_DINH)
+    if not lan_thu:
         raise CccdError("Cấu hình AI hiện tại chưa đọc được ảnh — nhập tay giúp nhé", 503)
     url = f"data:{mime or 'image/jpeg'};base64,{base64.b64encode(anh).decode()}"
-    try:
-        raw = await acompletion(
-            model=model, api_key=key, temperature=0.0, max_tokens=600,
-            response_format={"type": "json_object"},
-            messages=[{"role": "user", "content": [
-                {"type": "text", "text": _PROMPT_CCCD},
-                {"type": "image_url", "image_url": {"url": url}},
-            ]}],
-        )
-        noi_dung = raw.choices[0].message.content
-    except Exception as exc:  # noqa: BLE001 — model/khóa/quota
-        logger.warning("Vision đọc CCCD lỗi: %s", exc)
-        raise CccdError("AI chưa đọc được ảnh lúc này — thử lại hoặc nhập tay", 503) from exc
-    return chuan_hoa_cccd(noi_dung)
+    messages = [{"role": "user", "content": [
+        {"type": "text", "text": _PROMPT_CCCD},
+        {"type": "image_url", "image_url": {"url": url}},
+    ]}]
+    loi: Exception | None = None
+    for model, key in lan_thu:
+        try:
+            raw = await lc.acompletion(**lc.tham_so_goi(
+                model, messages, temperature=0.0, max_tokens=600, api_key=key,
+                response_format={"type": "json_object"}))
+            return chuan_hoa_cccd(lc.boc_json(raw.choices[0].message.content or ""))
+        except CccdError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — model/khóa/quota → thử model kế
+            logger.warning("Vision đọc CCCD lỗi trên %s: %s", model, exc)
+            loi = exc
+    raise CccdError("AI chưa đọc được ảnh lúc này — thử lại hoặc nhập tay", 503) from loi
 
 
 # ── Nhắc sinh nhật ─────────────────────────────────────────────────────────

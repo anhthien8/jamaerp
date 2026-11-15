@@ -18,13 +18,12 @@ from app.services.llm_config import (
     MAX_FALLBACKS,
     chuan_model,
     ds_du_phong,
-    FREE_MODEL_PRESETS,
+    MODEL_PRESETS,
     LLM_SETTING_KEYS,
     get_llm_config,
     invalidate_llm_cache,
     ds_lan_thu,
     llm_complete,
-    tham_so_model,
 )
 from app.services import llm_config as _lc
 from app.services.llm_user_key import current_user_llm_key
@@ -44,7 +43,11 @@ def _mask(key: str) -> str:
         return ""
     if len(key) <= 8:
         return "****"
-    return f"{key[:4]}****{key[-4:]}"
+    # Giữ tiền tố nhà cung cấp để admin nhận ra khoá nào của ai
+    dau = next((p for p in ("sk-ant-", "sk-or-", "sk-proj-", "sk-svcacct-") if key.startswith(p)), key[:4])
+    if len(key) <= len(dau) + 8:
+        dau = key[:4]
+    return f"{dau}****{key[-4:]}"
 
 
 class AISettingsUpdate(BaseModel):
@@ -70,7 +73,7 @@ async def _settings_response(db: AsyncSession) -> dict:
         "llm_fallback_model": config.get("llm_fallback_model", ""),
         "llm_fallback_api_key_masked": _mask(config.get("llm_fallback_api_key", "")),
         "llm_fallback_api_key_set": bool(config.get("llm_fallback_api_key")),
-        "presets": FREE_MODEL_PRESETS,
+        "presets": MODEL_PRESETS,
     }
 
 
@@ -211,16 +214,16 @@ async def test_ai_connection(
     ket_qua = []
     for model, key in lan_thu:
         try:
-            r = await _lc.acompletion(
-                **tham_so_model(model),
-                messages=[
+            r = await _lc.acompletion(**_lc.tham_so_goi(
+                model,
+                [
                     {"role": "system", "content": "Bạn là trợ lý JAMA HOME. Trả lời đúng 1 câu ngắn."},
                     {"role": "user", "content": "Chào bạn, hệ thống hoạt động chứ?"},
                 ],
                 temperature=0.1,
                 max_tokens=400,  # gpt-oss nghĩ trước khi trả lời — 50 token là hết lời
-                **({"api_key": key} if key else {}),
-            )
+                api_key=key,
+            ))
             ket_qua.append({"model": model, "status": "ok", "key_masked": _mask(key),
                             "reply": (r.choices[0].message.content or "").strip()})
         except Exception as exc:  # noqa: BLE001
