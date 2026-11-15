@@ -1,15 +1,16 @@
 """/vatlieu handler — material purchase requests + approve/reject callbacks."""
 
 import re
+from html import escape
 
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from bot.api_client import api
-from bot.keyboards import hien_ban_phim, nut_huy
+from bot.keyboards import NUT_HUY, hien_ban_phim, nut_huy
 
 
 class RejectState(StatesGroup):
@@ -18,8 +19,12 @@ class RejectState(StatesGroup):
 
 
 class VatTuState(StatesGroup):
-    """Đã bấm chọn dự án, chờ gõ «Tên vật tư - SL đơn vị»."""
+    """Đã bấm chọn dự án, chờ gõ «Tên vật tư - SL đơn vị» (một hoặc nhiều dòng)."""
     waiting_item = State()
+    confirm_batch = State()  # đã xem trước danh sách nhiều dòng, chờ bấm «Gửi N dòng»
+
+
+MAX_DONG = 20  # một lần dán tối đa bấy nhiêu vật tư
 
 router = Router()
 
@@ -48,24 +53,141 @@ async def hoi_vat_tu(message: types.Message, state: FSMContext, project_code: st
     await message.answer(
         f"📦 <b>Yêu cầu vật tư — {project_code}</b>\n\n"
         "Gõ theo mẫu <code>Tên vật tư - Số lượng Đơn vị</code>\n"
-        "Ví dụ: <code>Xi măng Portland - 50 bao</code>",
+        "Cần nhiều món thì gõ mỗi dòng một vật tư rồi gửi một lần:\n"
+        "<code>Xi măng Portland - 50 bao\n"
+        "Sắt phi 12 - 200 kg</code>",
         reply_markup=nut_huy(),
     )
 
 
-@router.message(VatTuState.waiting_item, F.text & ~F.text.startswith("/"))
+def _bo_dau_dong(dong: str) -> str:
+    """Bỏ gạch đầu dòng / số thứ tự người dùng hay dán kèm («- », «• », «1. »)."""
+    return re.sub(r"^\s*(?:[-–•*+]\s+|\d+[.)]\s+)", "", dong).strip()
+
+
+def _so(x: float) -> str:
+    return f"{x:g}"
+
+
+@router.message(
+    StateFilter(VatTuState.waiting_item, VatTuState.confirm_batch),
+    F.text & ~F.text.startswith("/"),
+)
 async def nhan_vat_tu(message: types.Message, state: FSMContext):
+    """Một dòng → gửi luôn như cũ. Nhiều dòng → xem trước rồi bấm «Gửi N dòng»
+    (đang ở bước xem trước mà gõ lại = thay cả danh sách)."""
     data = await state.get_data()
-    text = f"{data.get('project_code', '')} {message.text.strip()}"
-    if not _parse_material_args(text):
+    code = data.get("project_code", "")
+    dong = [d for d in (_bo_dau_dong(x) for x in message.text.splitlines()) if d]
+
+    if len(dong) <= 1:
+        text = f"{code} {dong[0] if dong else ''}"
+        if not _parse_material_args(text):
+            await message.answer(
+                "⚠️ Chưa đúng mẫu. Gõ lại: <code>Tên vật tư - Số lượng Đơn vị</code>\n"
+                "Ví dụ: <code>Sắt phi 12 - 200 kg</code>",
+                reply_markup=nut_huy(),
+            )
+            return
+        await state.clear()
+        await gui_vat_tu(message, message.from_user.id, text)
+        return
+
+    if len(dong) > MAX_DONG:
         await message.answer(
-            "⚠️ Chưa đúng mẫu. Gõ lại: <code>Tên vật tư - Số lượng Đơn vị</code>\n"
-            "Ví dụ: <code>Sắt phi 12 - 200 kg</code>",
+            f"⚠️ Danh sách có {len(dong)} dòng — mỗi lần gửi tối đa {MAX_DONG} dòng. Tách ra rồi gửi lại.",
             reply_markup=nut_huy(),
         )
         return
+
+    items, sai = [], []
+    for d in dong:
+        p = _parse_material_args(f"{code} {d}")
+        if p:
+            items.append({"material_name": p["material_name"], "quantity": p["quantity"], "unit": p["unit"]})
+        else:
+            sai.append(d)
+    if not items:
+        await message.answer(
+            "⚠️ Chưa dòng nào đúng mẫu <code>Tên vật tư - Số lượng Đơn vị</code>. Gõ lại cả danh sách.",
+            reply_markup=nut_huy(),
+        )
+        return
+
+    await state.update_data(items=items)
+    await state.set_state(VatTuState.confirm_batch)
+    lines = [f"📦 <b>Yêu cầu vật tư — {escape(code)}</b>", "", f"Đọc được {len(items)} dòng:"]
+    lines += [
+        f"{i}. <b>{escape(it['material_name'])}</b> — {_so(it['quantity'])} {escape(it['unit'])}"
+        for i, it in enumerate(items, 1)
+    ]
+    if sai:
+        lines += ["", f"⚠️ {len(sai)} dòng sai mẫu, sẽ KHÔNG gửi:"]
+        lines += [f"• {escape(d[:80])}" for d in sai]
+    lines += ["", "Kiểm tra tên và số lượng. Sai thì gõ lại cả danh sách."]
+    await message.answer(
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text=f"Gửi {len(items)} dòng", callback_data="vt_batch:send"),
+            NUT_HUY,
+        ]]),
+    )
+
+
+@router.callback_query(F.data == "vt_batch:send", VatTuState.confirm_batch)
+async def cb_gui_nhieu_dong(callback: CallbackQuery, state: FSMContext):
+    """Gửi lần lượt từng dòng qua đúng API một-món; một tin tổng kết, không in số tiền."""
+    data = await state.get_data()
+    await state.clear()  # xoá trước khi gọi API → bấm đúp không gửi hai lần
+    await callback.answer("Đang gửi…")
+    code, items = data.get("project_code", ""), data.get("items") or []
+    tg_id = callback.from_user.id
+
+    xong, loi, vuot = [], [], False
+    for it in items:
+        ten = f"{escape(it['material_name'])} — {_so(it['quantity'])} {escape(it['unit'])}"
+        result = await api.create_material_request(tg_id, {
+            "project_code": code, **it, "requester_tg_id": tg_id,
+        })
+        if not result:
+            loi.append(f"• {ten}: không kết nối được server")
+        elif result.get("error"):
+            loi.append(f"• {ten}: {escape(str(result['error']))}")
+        else:
+            vuot = vuot or bool(result.get("over_budget"))
+            xong.append(f"• {ten}" + (" — ⚠️ vượt định mức" if result.get("over_budget") else ""))
+
+    lines = [f"📦 <b>Yêu cầu vật tư — {escape(code)}</b>", ""]
+    if xong:
+        lines += [f"✅ Đã gửi {len(xong)}/{len(items)} dòng cho Thu mua:", *xong]
+    if loi:
+        lines += ["", f"❌ {len(loi)} dòng CHƯA gửi được (gõ lại các dòng này):", *loi]
+    if vuot:
+        lines += ["", "Dòng vượt định mức cần giải trình trước khi được duyệt."]
+    ban_phim = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=f"Thêm vật tư cho {code}", callback_data=f"vt_more:{code}"[:64]),
+    ]])
+    try:
+        await callback.message.edit_text("\n".join(lines), reply_markup=ban_phim)
+    except Exception:
+        await callback.message.answer("\n".join(lines), reply_markup=ban_phim)
+
+
+@router.callback_query(F.data == "vt_batch:send")
+async def cb_gui_nhieu_dong_cu(callback: CallbackQuery):
+    """Nút trên tin cũ: danh sách đã gửi / đã hủy / đã bị thay."""
+    await callback.answer("Danh sách này đã gửi hoặc đã hủy. Gõ /vatlieu để tạo lại.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("vt_more:"))
+async def cb_them_vat_tu(callback: CallbackQuery, state: FSMContext):
+    """«Thêm vật tư cho <MÃ>» — hỏi tiếp cho đúng dự án, khỏi chọn lại."""
+    code = callback.data.split(":", 1)[1]
+    await callback.answer()
+    if not code:
+        return
     await state.clear()
-    await gui_vat_tu(message, message.from_user.id, text)
+    await hoi_vat_tu(callback.message, state, code)
 
 
 async def gui_vat_tu(message: types.Message, tg_id: int, text: str):

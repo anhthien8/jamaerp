@@ -7,6 +7,9 @@ import Sidebar from '@/components/layout/Sidebar';
 import PriceComparisonTable from '@/components/ui/PriceComparison';
 import LineIcon from '@/components/ui/LineIcon';
 
+// Số điện thoại → dạng zalo.me nhận (chỉ chữ số, 84… → 0…); rỗng khi không ra số hợp lệ
+const soZalo = (s?: string | null) => { const so = (s || '').replace(/\D/g, '').replace(/^84(?=\d{9}$)/, '0'); return /^0\d{9,10}$/.test(so) ? so : ''; };
+
 const CATEGORY_LABELS: Record<string, string> = {
   wood: 'Gỗ', stone: 'Đá', metal: 'Kim loại', paint: 'Sơn',
   electrical: 'Điện', plumbing: 'Nước', furniture: 'Nội thất',
@@ -288,7 +291,15 @@ export default function SuppliersPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                   {selectedSupplier.contact_name && <div><span style={{ color: 'var(--text-muted)' }}>Liên hệ:</span> {selectedSupplier.contact_name}</div>}
-                  {selectedSupplier.phone && <div><span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span> {selectedSupplier.phone}</div>}
+                  {selectedSupplier.phone && (
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Điện thoại:</span>{' '}
+                      <a href={`tel:${selectedSupplier.phone.replace(/[^\d+]/g, '')}`} className="underline" style={{ color: 'var(--gold-400)' }}>{selectedSupplier.phone}</a>
+                      {soZalo(selectedSupplier.zalo || selectedSupplier.phone) && (
+                        <>{' · '}<a href={`https://zalo.me/${soZalo(selectedSupplier.zalo || selectedSupplier.phone)}`} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--gold-400)' }}>Zalo</a></>
+                      )}
+                    </div>
+                  )}
                   {selectedSupplier.email && <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {selectedSupplier.email}</div>}
                   {selectedSupplier.address && <div><span style={{ color: 'var(--text-muted)' }}>Địa chỉ:</span> {selectedSupplier.address}</div>}
                   {selectedSupplier.ten_cong_ty && <div className="col-span-2"><span style={{ color: 'var(--text-muted)' }}>Công ty:</span> {selectedSupplier.ten_cong_ty}</div>}

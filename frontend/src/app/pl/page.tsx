@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, PnLProject } from '@/lib/api';
+import { api, PnLProject, ReceivableContract, ReceivableInstallment } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { getPermissions, UserRole } from '@/lib/roles';
+import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
+import { useToast } from '@/components/ui/Toast';
 
 // ── Types ──────────────────────────────────────────────────
 interface ProjectPL {
@@ -144,6 +145,28 @@ export default function PLPage() {
   const [detailProject, setDetailProject] = useState<ProjectPL | null>(null);  // modal chi tiết P&L dự án
   const [receivables, setReceivables] = useState<import('@/lib/api').ReceivablesResponse | null>(null);
   const [showReceivables, setShowReceivables] = useState(false);
+  const { toast } = useToast();
+  // Ghi thu chỉ admin + kế toán (khớp backend); BGĐ chỉ xem hạn + chép tin nhắc
+  const duocGhiThu = canConfirmPayment(user);
+  const [homNay] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const ngayVN = (iso: string, coNam = false) => {
+    const [y, m, d] = iso.slice(0, 10).split('-');
+    return coNam ? `${d}/${m}/${y}` : `${d}/${m}`;
+  };
+  const chepTinNhacThu = async (c: ReceivableContract, inst: ReceivableInstallment) => {
+    const tin = `HĐ ${c.contract_code} · ${c.project_name}: ${inst.name} còn phải thu ${new Intl.NumberFormat('vi-VN').format(inst.amount)}đ`
+      + (inst.due_date ? `, hạn ${ngayVN(inst.due_date, true)}` : '');
+    try {
+      await navigator.clipboard.writeText(tin);
+      toast('Đã chép tin nhắc thu', 'success');
+    } catch {
+      // iOS Safari/webview có thể chặn clipboard — cho người dùng tự chép
+      window.prompt('Chép tin nhắc thu:', tin);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -590,12 +613,38 @@ export default function PLPage() {
                           <p className="text-sm font-bold text-amber-400">{formatCurrency(c.pending_amount)}</p>
                         </div>
                         <div className="mt-2 space-y-1">
-                          {c.pending_installments.map((inst, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-                              <span>• {inst.name} ({inst.percentage}%)</span>
-                              <span className="font-mono">{formatCurrency(inst.amount)}</span>
-                            </div>
-                          ))}
+                          {c.pending_installments.map((inst, i) => {
+                            const han = inst.due_date ? inst.due_date.slice(0, 10) : '';
+                            const quaHan = !!han && han < homNay;
+                            return (
+                              <div key={i} className="flex items-center justify-between flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)]">
+                                <span>
+                                  • {inst.name} ({inst.percentage}%)
+                                  {han && (
+                                    <span className={quaHan ? 'text-red-400 font-medium' : 'text-[var(--text-muted)]'}>
+                                      {' '}· {quaHan ? 'quá hạn' : 'hạn'} {ngayVN(han)}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex items-center gap-2 ml-auto">
+                                  <span className="font-mono">{formatCurrency(inst.amount)}</span>
+                                  <button onClick={() => chepTinNhacThu(c, inst)} title="Chép tin nhắc thu" aria-label="Chép tin nhắc thu"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px]"
+                                    style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                                    <LineIcon name="copy" size={12} />Chép tin nhắc
+                                  </button>
+                                  {duocGhiThu && (
+                                    <button title="Mở hợp đồng đúng đợt này để ghi thu"
+                                      onClick={() => router.push(`/contracts?hd=${encodeURIComponent(c.contract_id)}&dot=${inst.idx}&ten=${encodeURIComponent(inst.name)}`)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium"
+                                      style={{ background: 'var(--gold-400)', color: '#000' }}>
+                                      <LineIcon name="cash" size={12} />Ghi thu
+                                    </button>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

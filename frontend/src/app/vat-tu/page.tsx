@@ -4,7 +4,7 @@
 // Giá vốn/NCC/lãi chỉ hiện khi backend trả thay_gia_von (Giám đốc, Thu mua, Trưởng phòng);
 // sale/thiết kế không bao giờ nhận các cột đó trong JSON — FE chỉ vẽ cái có.
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, mediaUrl, type CanThuongLuong, type DongVatTu, type GoiYNcc, type MauVatTu, type ShopeeSanPham, type PhieuVatTu, type Project, type VatTuTongQuan } from '@/lib/api';
@@ -29,6 +29,40 @@ const btn = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm f
 const btnGold = `${btn} bg-[var(--gold-400)] text-black border-transparent hover:opacity-90`;
 const btnGhost = `${btn} bg-transparent text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]`;
 const loi = (e: unknown, mac: string) => (e instanceof Error && e.message ? e.message : mac);
+// Tiền viết đủ số cho tin gửi ra ngoài (tien() làm tròn kiểu 1,2tr — chỉ hợp xem nhanh trong app)
+const tienDu = (v: number) => `${Math.round(v).toLocaleString('vi-VN')}đ`;
+// Số điện thoại → dạng zalo.me nhận (chỉ chữ số, 84… → 0…); rỗng khi không ra số hợp lệ
+const soZalo = (s?: string | null) => { const so = (s || '').replace(/\D/g, '').replace(/^84(?=\d{9}$)/, '0'); return /^0\d{9,10}$/.test(so) ? so : ''; };
+const chepTin = async (text: string) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+
+// Khách đã đồng ý SAU lúc chốt giá chưa — cùng luật server dùng khi đặt hàng (vat_tu.py dat_hang)
+const dongYSauChot = (d: DongVatTu) => !!d.khach_dong_y_luc && (!d.chot_luc || new Date(d.khach_dong_y_luc) >= new Date(d.chot_luc));
+// Dòng đang chờ khách duyệt — cùng luật với portal khách
+const choKhachDuyet = (d: DongVatTu) => ['het_hang', 'cho_khach_duyet_lai'].includes(d.trang_thai)
+  || (d.trang_thai === 'khach_chon' && !d.khach_dong_y_luc)
+  || (d.trang_thai === 'da_chot_gia' && d.gia_ban != null && !dongYSauChot(d));
+
+/** Tin đã soạn sẵn: đã chép vào bộ nhớ tạm (hoặc để chép tay), kèm nút mở khung chat Zalo.
+ *  Chỉ là đường dẫn mở Zalo — app không tự gửi gì. */
+type TinSoan = { tieuDe: string; text: string; chep: boolean; phone?: string | null; nhanZalo?: string };
+function TinDaSoan({ tin, onDong }: { tin: TinSoan; onDong: () => void }) {
+  const [chep, setChep] = useState(tin.chep);
+  const so = soZalo(tin.phone);
+  return (
+    <div className="glass-card p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-medium text-[var(--text-primary)]">{tin.tieuDe}</div>
+        <button className="p-1 text-[var(--text-muted)]" aria-label="Đóng" onClick={onDong}><LineIcon name="x" size={16} /></button>
+      </div>
+      <div className={`text-xs ${chep ? 'text-emerald-400' : 'text-amber-300'}`}>{chep ? 'Đã chép tin — mở Zalo rồi dán vào khung chat.' : 'Máy không cho chép tự động — chạm vào ô dưới, chọn tất cả rồi chép tay.'}</div>
+      <textarea readOnly className={inp} rows={Math.min(12, tin.text.split('\n').length + 1)} value={tin.text} onFocus={e => e.currentTarget.select()} />
+      <div className="flex flex-wrap gap-2">
+        {so && <a href={`https://zalo.me/${so}`} target="_blank" rel="noopener noreferrer" className={btnGold}><LineIcon name="send" size={14} color="currentColor" /> Mở Zalo {tin.nhanZalo || so}</a>}
+        <button className={btnGhost} onClick={async () => setChep(await chepTin(tin.text))}><LineIcon name="copy" size={14} /> Chép lại</button>
+      </div>
+    </div>
+  );
+}
 
 function NhanTrangThai({ d }: { d: DongVatTu }) {
   const mau = MAU_TRANG_THAI[d.trang_thai] || '#9CA3AF';
@@ -156,7 +190,7 @@ function VatTuNoiDung() {
           ))}
         </div>
 
-        {tab === 'du-an' && <PhieuDuAn key={projectParam || ''} projectId={projectParam} thayGiaVon={thayGiaVon} laAdmin={laAdmin} q={qDatNhan} userId={user?.id} bao={bao} />}
+        {tab === 'du-an' && <PhieuDuAn key={projectParam || ''} projectId={projectParam} thayGiaVon={thayGiaVon} laAdmin={laAdmin} q={qDatNhan} userId={user?.id} tenNV={user?.full_name} bao={bao} />}
         {tab === 'dat-nhan' && <DatNhanTab q={qDatNhan} bao={bao} />}
         {tab === 'danh-muc' && <DanhMuc thayGiaVon={thayGiaVon} laThuMua={laThuMua} bao={bao} />}
         {tab === 'can-hoi-gia' && thayGiaVon && <CanHoiGia laThuMua={laThuMua} bao={bao} />}
@@ -365,7 +399,7 @@ function ChonMau({ onChon, placeholder = 'Gõ mã hoặc hãng…' }: { onChon: 
 }
 
 // ───────────────────────── Phiếu dự án ─────────────────────────
-function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { projectId: string | null; thayGiaVon: boolean; laAdmin: boolean; q: QuyenDatNhan; userId?: string; bao: (l: 'ok' | 'loi', t: string) => void }) {
+function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, tenNV, bao }: { projectId: string | null; thayGiaVon: boolean; laAdmin: boolean; q: QuyenDatNhan; userId?: string; tenNV?: string; bao: (l: 'ok' | 'loi', t: string) => void }) {
   const [duAns, setDuAns] = useState<Project[]>([]);
   const [pid, setPid] = useState(projectId || '');
   const [phieu, setPhieu] = useState<PhieuVatTu | null>(null);
@@ -373,6 +407,9 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
   const [moThem, setMoThem] = useState(false);
   const [form, setForm] = useState<{ phong: string; hang_muc: string; mau_id: string | null; ma_tu_do: string; so_luong: number; don_vi: string; ghi_chu: string; can_ngay: string }>({ phong: 'Chung', hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, don_vi: 'm2', ghi_chu: '', can_ngay: '' });
   const [dongY, setDongY] = useState<{ id: string; ghi_chu: string } | null>(null);
+  const [tin, setTin] = useState<TinSoan | null>(null);
+  const [dongYLoat, setDongYLoat] = useState<string | null>(null); // ghi chú chung khi ghi «khách đồng ý» nhiều dòng
+  const [dangLoat, setDangLoat] = useState('');
 
   useEffect(() => { api.getProjects({ page_size: '200' }).then(r => setDuAns(r.items || [])).catch(() => setDuAns([])); }, []);
 
@@ -394,9 +431,37 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
     if (!confirm(`Xoá dòng ${d.ma || d.ma_tu_do}?`)) return;
     try { await api.vatTuXoaDong(d.id); tai(); } catch (e) { bao('loi', loi(e, 'Không xoá được')); }
   };
+  // Endpoint không lưu ai bấm thay khách → chèn tên nhân viên vào ghi chú để còn vết
+  const ghiThay = (gc: string) => `${tenNV || 'Nhân viên'} ghi thay khách${gc.trim() ? `: ${gc.trim()}` : ''}`;
   const guiDongY = async () => {
     if (!dongY) return;
-    try { await api.vatTuKhachDongY(dongY.id, dongY.ghi_chu); bao('ok', 'Đã ghi khách đồng ý'); setDongY(null); tai(); } catch (e) { bao('loi', loi(e, 'Không ghi được')); }
+    const d = phieu?.items.find(x => x.id === dongY.id);
+    if (d?.trang_thai === 'da_chot_gia' && !dongY.ghi_chu.trim()) { bao('loi', 'Ghi rõ khách đồng ý giá qua kênh nào (Zalo, điện thoại, gặp trực tiếp…)'); return; }
+    try { await api.vatTuKhachDongY(dongY.id, ghiThay(dongY.ghi_chu)); bao('ok', 'Đã ghi khách đồng ý'); setDongY(null); tai(); } catch (e) { bao('loi', loi(e, 'Không ghi được')); }
+  };
+
+  // Dòng đã chốt giá, khách chưa đồng ý sau lúc chốt → chưa đặt hàng được
+  const dsChoDuyetGia = useMemo(() => (phieu?.items || []).filter(d => d.trang_thai === 'da_chot_gia' && choKhachDuyet(d)), [phieu]);
+  const tongChoDuyet = dsChoDuyetGia.reduce((s, d) => s + (d.thanh_tien || 0), 0);
+  // Tin gửi khách: CHỈ dùng phòng, mã, số lượng, giá bán, thành tiền — không đụng giá vốn/NCC/lãi
+  const soanTinKhach = async () => {
+    const dong = dsChoDuyetGia.map((d, i) => `${i + 1}) ${d.phong} · ${d.ma || d.ma_tu_do || ''}: ${d.so_luong} ${d.don_vi} × ${tienDu(d.gia_ban || 0)} = ${tienDu(d.thanh_tien || 0)}`);
+    const text = [`JAMA HOME gửi anh/chị giá vật tư đã chốt${duAn ? ` — ${duAn.name}` : ''}:`, ...dong, `Tổng cộng: ${tienDu(tongChoDuyet)}`, 'Anh/chị xem và nhắn lại «đồng ý» giúp em để bên em tiến hành đặt hàng ạ.'].join('\n');
+    setTin({ tieuDe: `Tin gửi khách duyệt giá · ${dsChoDuyetGia.length} dòng`, text, chep: await chepTin(text), phone: duAn?.client_phone, nhanZalo: 'khách' });
+  };
+  const dongYHangLoat = async () => {
+    if (!dongYLoat?.trim() || dangLoat) return;
+    const ds = dsChoDuyetGia;
+    const con: string[] = [];
+    for (let i = 0; i < ds.length; i++) {
+      setDangLoat(`Đang ghi ${i + 1}/${ds.length}…`);
+      try { await api.vatTuKhachDongY(ds[i].id, ghiThay(dongYLoat)); }
+      catch (e) { con.push(`${ds[i].ma || ds[i].ma_tu_do || '?'} (${loi(e, 'lỗi')})`); }
+    }
+    setDangLoat('');
+    if (con.length) bao('loi', `Đã ghi ${ds.length - con.length}/${ds.length} — còn: ${con.join(', ')}`);
+    else { bao('ok', `Đã ghi khách đồng ý ${ds.length} dòng`); setDongYLoat(null); }
+    tai();
   };
 
   const theoPhong = useMemo(() => {
@@ -415,7 +480,27 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
         <ChonDuAn duAns={duAns} value={pid} onChange={setPid} />
         {pid && <Link href={`/projects?id=${pid}`} className={btnGhost}><LineIcon name="eye" size={14} /> Mở dự án</Link>}
         {pid && <button className={btnGold} onClick={() => setMoThem(v => !v)}><LineIcon name="plus" size={14} color="currentColor" /> Khách chọn mẫu</button>}
+        {pid && dsChoDuyetGia.length > 0 && <>
+          <button className={btnGhost} onClick={soanTinKhach}><LineIcon name="send" size={14} /> Gửi khách duyệt giá</button>
+          <button className={`${btn} text-emerald-300 border-emerald-500/40`} onClick={() => setDongYLoat(v => (v === null ? '' : null))}><LineIcon name="tick" size={14} /> Khách đồng ý {dsChoDuyetGia.length} dòng đã chốt</button>
+        </>}
       </div>
+
+      {tin && <TinDaSoan key={tin.text} tin={tin} onDong={() => setTin(null)} />}
+
+      {dongYLoat !== null && dsChoDuyetGia.length > 0 && (
+        <div className="glass-card p-3 space-y-2">
+          <div className="text-sm text-[var(--text-primary)]">Ghi nhận khách đồng ý giá bán của <b>{dsChoDuyetGia.length} dòng</b> đã chốt — tổng <b className="text-[var(--gold-400)]">{tienDu(tongChoDuyet)}</b>. Sau bước này Thu mua mới đặt hàng được.</div>
+          <ul className="text-xs text-[var(--text-secondary)] space-y-0.5 max-h-40 overflow-auto">
+            {dsChoDuyetGia.map(d => <li key={d.id}>{d.phong} · {d.ma || d.ma_tu_do} — {d.so_luong} {d.don_vi} × {tienDu(d.gia_ban || 0)} = {tienDu(d.thanh_tien || 0)}</li>)}
+          </ul>
+          <input className={inp} placeholder="Khách nói gì, qua kênh nào, lúc nào (bắt buộc)" value={dongYLoat} onChange={e => setDongYLoat(e.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <button className={btnGold} disabled={!dongYLoat.trim() || !!dangLoat} onClick={dongYHangLoat}><LineIcon name="tick" size={14} color="currentColor" /> {dangLoat || `Xác nhận khách đồng ý ${dsChoDuyetGia.length} dòng`}</button>
+            <button className={btnGhost} disabled={!!dangLoat} onClick={() => setDongYLoat(null)}>Huỷ</button>
+          </div>
+        </div>
+      )}
 
       {!pid && <div className="glass-card p-8 text-center text-[var(--text-muted)]">Chọn dự án để xem phiếu vật tư. Mỗi phòng một nhóm dòng: khách chọn → Thu mua hỏi NCC → chốt giá.</div>}
 
@@ -443,6 +528,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
             <div><span className="text-[var(--text-muted)]">Tổng giá bán (đã chốt)</span> <span className="text-[var(--gold-400)] font-semibold">{tien(phieu.tong_gia_ban)}</span></div>
             {thayGiaVon && phieu.tong_lai !== undefined && <div><span className="text-[var(--text-muted)]">Lãi dự kiến</span> <span className="text-emerald-400 font-semibold">{tien(phieu.tong_lai)}</span></div>}
           </div>
+          {qDuAn.laThuMua && thayGiaVon && <DatTheoBaoGia key={phieu.items.map(d => `${d.id}${d.trang_thai}`).join()} items={phieu.items} tai={tai} bao={bao} />}
           {phieu.items.length === 0 && <div className="glass-card p-8 text-center text-[var(--text-muted)]">Chưa có dòng nào. Bấm «Khách chọn mẫu» khi ngồi cùng khách.</div>}
           {theoPhong.map(([phong, ds]) => (
             <div key={phong} className="glass-card overflow-hidden">
@@ -466,7 +552,9 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
                       {(d.trang_thai === 'het_hang' || d.trang_thai === 'cho_khach_duyet_lai') && (
                         <div className="text-xs rounded-lg bg-red-500/10 text-red-300 px-2 py-1 flex items-start gap-1"><LineIcon name="alert" size={12} /> Hết hàng. Đề xuất thay: <b>{d.ma_thay_the || '—'}</b>{d.ly_do_doi ? ` — ${d.ly_do_doi}` : ''}. Cần khách duyệt lại.</div>
                       )}
-                      {d.khach_dong_y_luc && <div className="text-xs text-emerald-400">Khách đồng ý {new Date(d.khach_dong_y_luc).toLocaleDateString('vi-VN')}{d.khach_ghi_chu ? ` — ${d.khach_ghi_chu}` : ''}</div>}
+                      {d.khach_dong_y_luc && (d.trang_thai === 'da_chot_gia' && d.gia_ban != null && !dongYSauChot(d)
+                        ? <div className="text-xs text-amber-300">Khách đồng ý {new Date(d.khach_dong_y_luc).toLocaleDateString('vi-VN')} — trước khi chốt giá, cần khách duyệt lại giá bán</div>
+                        : <div className="text-xs text-emerald-400">Khách đồng ý {new Date(d.khach_dong_y_luc).toLocaleDateString('vi-VN')}{d.khach_ghi_chu ? ` — ${d.khach_ghi_chu}` : ''}</div>)}
                       {d.can_ngay && <div className="text-xs text-amber-300">Cần trước {new Date(d.can_ngay).toLocaleDateString('vi-VN')}</div>}
                       {d.ghi_chu && <div className="text-xs text-[var(--text-muted)]">{d.ghi_chu}</div>}
                       <ThongTinDatNhan d={d} />
@@ -479,8 +567,8 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
                       )}
                     </div>
                     <div className="flex flex-col gap-1 items-end shrink-0">
-                      {!d.khach_dong_y_luc && ['khach_chon', 'het_hang', 'cho_khach_duyet_lai'].includes(d.trang_thai) && dongY?.id !== d.id && (
-                        <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} onClick={() => setDongY({ id: d.id, ghi_chu: '' })}><LineIcon name="tick" size={12} /> Khách đã đồng ý</button>
+                      {choKhachDuyet(d) && dongY?.id !== d.id && (
+                        <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} onClick={() => setDongY({ id: d.id, ghi_chu: '' })}><LineIcon name="tick" size={12} /> {d.trang_thai === 'da_chot_gia' ? 'Khách đồng ý giá' : 'Khách đã đồng ý'}</button>
                       )}
                       {(laAdmin || !['da_chot_gia', 'cho_duyet_dat', 'da_dat', 'giao_thieu', 'da_giao'].includes(d.trang_thai)) && (
                         <button className="text-[var(--text-muted)] hover:text-red-400 p-1" title="Xoá" onClick={() => xoa(d)}><LineIcon name="trash" size={14} /></button>
@@ -504,6 +592,69 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, bao }: { project
 type QuyenDatNhan = { laThuMua: boolean; laLeader: boolean; laGiamSat: boolean; thayGiaVon: boolean; soAnh: number };
 
 const ngayGio = (s?: string | null) => (s ? new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+
+// Thu mua: đặt một loạt dòng đúng báo giá đã chốt (không sửa khối lượng/đơn giá).
+// Gọi tuần tự từng dòng — server cộng dồn ngân sách theo từng lần đặt và tự đẩy dòng vượt sang Leader duyệt.
+const datDuoc = (d: DongVatTu) => d.trang_thai === 'da_chot_gia' && !d.gia_cu && (d.gia_ban == null || dongYSauChot(d));
+function DatTheoBaoGia({ items, tai, bao }: { items: DongVatTu[]; tai: () => void; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const [mo, setMo] = useState(false);
+  const [chon, setChon] = useState<Set<string>>(new Set()); // nhóm NCC đã chọn — mặc định không chọn
+  const [dang, setDang] = useState('');
+  const ds = useMemo(() => items.filter(datDuoc), [items]);
+  const nhom = useMemo(() => {
+    const m = new Map<string, DongVatTu[]>();
+    ds.forEach(d => { const k = d.ncc_ten || 'Chưa rõ NCC'; m.set(k, [...(m.get(k) || []), d]); });
+    return [...m.entries()];
+  }, [ds]);
+  if (!ds.length) return null;
+  const tienDong = (d: DongVatTu) => d.so_luong * (d.gia_von || 0);
+  const dsChon = nhom.filter(([k]) => chon.has(k)).flatMap(([, v]) => v);
+  const tong = dsChon.reduce((s, d) => s + tienDong(d), 0);
+  const dat = async () => {
+    if (!dsChon.length || dang) return;
+    let daDat = 0, choDuyet = 0;
+    const con: string[] = [];
+    for (let i = 0; i < dsChon.length; i++) {
+      setDang(`Đang đặt ${i + 1}/${dsChon.length}…`);
+      try {
+        const r = await api.vatTuDatHang(dsChon[i].id, { so_luong: null, don_gia: null });
+        if (r.trang_thai === 'cho_duyet_dat') choDuyet++; else daDat++;
+      } catch (e) { con.push(`${dsChon[i].ma || dsChon[i].ma_tu_do || '?'} (${loi(e, 'lỗi')})`); }
+    }
+    setDang('');
+    const tom = `${daDat} dòng đã đặt${choDuyet ? `, ${choDuyet} dòng chờ Leader duyệt` : ''}`;
+    if (con.length) bao('loi', `${tom}, ${con.length} lỗi: ${con.join(', ')}`); else bao('ok', tom);
+    setMo(false); setChon(new Set()); tai();
+  };
+  return (
+    <div className="glass-card p-3 space-y-2">
+      <button className={btnGhost} disabled={!!dang} onClick={() => setMo(v => !v)}><LineIcon name="receipt" size={14} /> Đặt {ds.length} dòng đúng báo giá</button>
+      {mo && (
+        <div className="space-y-2">
+          <div className="text-xs text-[var(--text-muted)]">Chỉ gồm dòng đã chốt giá, giá chưa cũ, khách đã đồng ý sau lúc chốt. Đặt đúng khối lượng và đơn giá đã chốt; dòng cần sửa thì dùng nút «Đặt hàng» của riêng dòng đó. Dòng vượt ngân sách sẽ tự chuyển Leader Thu mua duyệt.</div>
+          {nhom.map(([k, v]) => (
+            <label key={k} className="block rounded-lg border border-[var(--border-subtle)] p-2 cursor-pointer">
+              <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                <input type="checkbox" className="w-5 h-5 shrink-0 accent-[var(--gold-400)]" disabled={!!dang} checked={chon.has(k)}
+                  onChange={() => setChon(c => { const n = new Set(c); if (n.has(k)) n.delete(k); else n.add(k); return n; })} />
+                <span className="font-medium">{k}</span><span className="text-[var(--text-muted)]">· {v.length} dòng · {tienDu(v.reduce((s, d) => s + tienDong(d), 0))}</span>
+              </div>
+              <ul className="mt-1 ml-7 text-xs text-[var(--text-secondary)] space-y-0.5">
+                {v.map(d => <li key={d.id}>{d.ma || d.ma_tu_do} · {d.phong} — {d.so_luong} {d.don_vi} × {tienDu(d.gia_von || 0)}</li>)}
+              </ul>
+            </label>
+          ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <button className={btnGold} disabled={!!dang || !dsChon.length} onClick={dat}>
+              <LineIcon name="receipt" size={14} color="currentColor" /> {dang || `Xác nhận đặt ${dsChon.length} dòng · ${tienDu(tong)}`}
+            </button>
+            <button className={btnGhost} disabled={!!dang} onClick={() => { setMo(false); setChon(new Set()); }}>Huỷ</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 async function anhSangBlob(f: File): Promise<Blob> {
   const nen = await compressImage(f).catch(() => null);
@@ -670,37 +821,148 @@ function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; x
 
 /** Hai hàng chờ: đơn vượt chờ Leader duyệt · hàng đã đặt chờ Giám sát nhận. */
 function DatNhanTab({ q, bao }: { q: QuyenDatNhan; bao: (l: 'ok' | 'loi', t: string) => void }) {
-  const [data, setData] = useState<{ cho_duyet: DongVatTu[]; cho_nhan: DongVatTu[] } | null>(null);
+  const [data, setData] = useState<{ cho_duyet: DongVatTu[]; cho_nhan: DongVatTu[]; nhan_cua_toi?: string[] } | null>(null);
   const tai = useCallback(() => { api.vatTuViecDatNhan().then(setData).catch(e => { bao('loi', loi(e, 'Không tải được')); setData({ cho_duyet: [], cho_nhan: [] }); }); }, [bao]);
   useEffect(() => { tai(); }, [tai]);
+  // Gom hàng chờ nhận theo dự án: ảnh nhận hàng chỉ hợp lệ trong đúng dự án (server kiểm)
+  const nhomNhan = useMemo(() => {
+    const m = new Map<string, DongVatTu[]>();
+    (data?.cho_nhan || []).forEach(d => m.set(d.project_id, [...(m.get(d.project_id) || []), d]));
+    return [...m.entries()];
+  }, [data]);
   if (!data) return <div className="text-sm text-[var(--text-muted)] p-4">Đang tải…</div>;
+  const cuaToi = new Set(data.nhan_cua_toi || []);
   const khoi = (tieuDe: string, ds: DongVatTu[], rong: string, qq: QuyenDatNhan) => (
     <div className="glass-card overflow-hidden">
       <div className="px-4 py-2 text-sm font-semibold text-[var(--text-primary)] bg-[var(--surface-2)] border-b border-[var(--border-subtle)]">{tieuDe} <span className="text-[var(--text-muted)] font-normal">· {ds.length}</span></div>
       {ds.length === 0 && <div className="p-4 text-sm text-[var(--text-muted)]">{rong}</div>}
       <div className="divide-y divide-[var(--border-subtle)]">
-        {ds.map(d => (
-          <div key={d.id} className="p-3 flex gap-3">
-            <AnhMau url={d.anh_url} size={44} />
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-[var(--text-primary)]">{d.ma || d.ma_tu_do}</span>
-                <NhanTrangThai d={d} />
-                <Link href={`/vat-tu?project=${d.project_id}`} className="text-xs text-[var(--gold-400)] hover:underline">{d.project_code} · {d.project_name}</Link>
-              </div>
-              <div className="text-xs text-[var(--text-secondary)]">{d.phong}{d.hang_muc ? ` · ${d.hang_muc}` : ''} · báo giá {d.so_luong} {d.don_vi}</div>
-              <ThongTinDatNhan d={d} />
-              <HanhDongDatNhan d={d} q={qq} xong={tai} bao={bao} />
-            </div>
-          </div>
-        ))}
+        {ds.map(d => <DongDatNhan key={d.id} d={d} q={qq} xong={tai} bao={bao} />)}
       </div>
     </div>
   );
   return (
     <div className="space-y-3">
       {(q.laLeader || data.cho_duyet.length > 0) && khoi('Đơn vượt báo giá chờ Leader Thu mua duyệt', data.cho_duyet, 'Không có đơn nào chờ duyệt.', { ...q, laGiamSat: false })}
-      {khoi('Hàng đã đặt, chờ Giám sát nhận tại công trình', data.cho_nhan, 'Không có hàng nào đang chờ nhận.', { ...q, laLeader: false, laThuMua: false })}
+      <div className="glass-card overflow-hidden">
+        <div className="px-4 py-2 text-sm font-semibold text-[var(--text-primary)] bg-[var(--surface-2)] border-b border-[var(--border-subtle)]">Hàng đã đặt, chờ Giám sát nhận tại công trình <span className="text-[var(--text-muted)] font-normal">· {data.cho_nhan.length}</span></div>
+        {data.cho_nhan.length === 0 && <div className="p-4 text-sm text-[var(--text-muted)]">Không có hàng nào đang chờ nhận.</div>}
+        {nhomNhan.map(([pid, ds]) => (
+          <NhomChoNhan key={pid} ds={ds} cuaToi={cuaToi} q={{ ...q, laLeader: false, laThuMua: false }} tai={tai} bao={bao} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Một dòng ở tab «Đặt & nhận hàng»; `truoc` là ô tick (nếu có) đặt trước ảnh mẫu. */
+function DongDatNhan({ d, q, xong, bao, truoc }: { d: DongVatTu; q: QuyenDatNhan; xong: () => void; bao: (l: 'ok' | 'loi', t: string) => void; truoc?: ReactNode }) {
+  return (
+    <div className="p-3 flex gap-3">
+      {truoc}
+      <AnhMau url={d.anh_url} size={44} />
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-[var(--text-primary)]">{d.ma || d.ma_tu_do}</span>
+          <NhanTrangThai d={d} />
+          <Link href={`/vat-tu?project=${d.project_id}`} className="text-xs text-[var(--gold-400)] hover:underline">{d.project_code} · {d.project_name}</Link>
+        </div>
+        <div className="text-xs text-[var(--text-secondary)]">{d.phong}{d.hang_muc ? ` · ${d.hang_muc}` : ''} · báo giá {d.so_luong} {d.don_vi}</div>
+        <ThongTinDatNhan d={d} />
+        <HanhDongDatNhan d={d} q={q} xong={xong} bao={bao} />
+      </div>
+    </div>
+  );
+}
+
+/** Hàng chờ nhận của MỘT dự án. Giám sát tick các dòng về đủ trong cùng chuyến xe, chụp một bộ
+ *  ảnh, bấm một lần — vẫn gọi endpoint nhận hàng cho từng dòng nên luật số ảnh tối thiểu do
+ *  server gác. Dòng thiếu hàng đi nút «Nhận hàng» từng dòng như cũ (bắt buộc ghi thiếu gì). */
+function NhomChoNhan({ ds, cuaToi, q, tai, bao }: { ds: DongVatTu[]; cuaToi: Set<string>; q: QuyenDatNhan; tai: () => void; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const [chon, setChon] = useState<Set<string>>(new Set());
+  const [anh, setAnh] = useState<File[]>([]);
+  const [anhIds, setAnhIds] = useState<string[] | null>(null); // ảnh đã tải — lỗi giữa chừng bấm lại không tải lại
+  const [daDem, setDaDem] = useState(false);
+  const [dangGui, setDangGui] = useState('');
+  const xem = useMemo(() => anh.map(f => URL.createObjectURL(f)), [anh]);
+  useEffect(() => () => xem.forEach(u => URL.revokeObjectURL(u)), [xem]);
+
+  const dsChon = ds.filter(d => cuaToi.has(d.id) && chon.has(d.id));
+  const doi = (id: string) => { setDaDem(false); setChon(c => { const m = new Set(c); if (m.has(id)) m.delete(id); else m.add(id); return m; }); };
+
+  const nhan = async () => {
+    if (!dsChon.length || dangGui) return;
+    let ids = anhIds;
+    if (!ids) {
+      setDangGui('Đang tải ảnh…');
+      try {
+        const blobs = await Promise.all(anh.map(anhSangBlob));
+        const up = await api.uploadMediaBatch(blobs, { projectId: ds[0].project_id, kind: 'vat_tu', caption: `Nhận hàng ${dsChon.length} dòng · ${ds[0].project_code || ''}` });
+        ids = up.items.map(x => x.id);
+        setAnhIds(ids);
+      } catch (e) { bao('loi', loi(e, 'Không tải được ảnh')); setDangGui(''); return; }
+    }
+    const xong = new Set<string>();
+    const con: string[] = [];
+    for (let i = 0; i < dsChon.length; i++) { // tuần tự để biết đúng dòng nào chưa xong
+      const d = dsChon[i];
+      setDangGui(`Đang ghi ${i + 1}/${dsChon.length}…`);
+      try { await api.vatTuNhanHang(d.id, { ket_qua: 'du', anh_ids: ids, ghi_chu: '' }); xong.add(d.id); }
+      catch (e) { con.push(`${d.ma || d.ma_tu_do || '?'} (${loi(e, 'lỗi')})`); }
+    }
+    setChon(c => new Set([...c].filter(i => !xong.has(i))));
+    setDaDem(false); setDangGui('');
+    if (con.length) bao('loi', `Đã nhận ${xong.size}/${dsChon.length} — còn: ${con.join(', ')}`);
+    else { bao('ok', `Đã xác nhận ${xong.size} dòng về đủ`); setAnh([]); setAnhIds(null); }
+    tai();
+  };
+
+  return (
+    <div className="border-b border-[var(--border-subtle)] last:border-b-0">
+      <div className="divide-y divide-[var(--border-subtle)]">
+        {ds.map(d => (
+          <DongDatNhan key={d.id} d={d} q={{ ...q, laGiamSat: q.laGiamSat || cuaToi.has(d.id) }} xong={tai} bao={bao}
+            truoc={cuaToi.has(d.id) ? (
+              <input type="checkbox" className="mt-3 w-5 h-5 shrink-0 accent-[var(--gold-400)]" disabled={!!dangGui}
+                aria-label={`Chọn ${d.ma || d.ma_tu_do || 'dòng'} để nhận đủ`} checked={chon.has(d.id)} onChange={() => doi(d.id)} />
+            ) : undefined} />
+        ))}
+      </div>
+      {dsChon.length > 0 && (
+        <div className="p-3 space-y-2 bg-[var(--surface-2)]">
+          <div className="text-sm font-medium text-[var(--text-primary)]">Nhận đủ cả chuyến · {ds[0].project_code} — {dsChon.length} dòng</div>
+          <ul className="text-xs text-[var(--text-secondary)] space-y-0.5">
+            {dsChon.map(d => <li key={d.id}>{d.ma || d.ma_tu_do} — đặt <b className="text-[var(--text-primary)]">{d.sl_dat ?? d.so_luong} {d.don_vi}</b> · {d.phong}</li>)}
+          </ul>
+          <label className={`${btnGhost} text-xs cursor-pointer w-fit`}>
+            <LineIcon name="camera" size={12} /> Chụp / chọn ảnh hiện trường (dùng chung cho các dòng)
+            <input type="file" accept="image/*" capture="environment" multiple className="hidden" disabled={!!dangGui}
+              onChange={e => { const fs = Array.from(e.target.files || []); setAnh(a => [...a, ...fs].slice(0, 10)); setAnhIds(null); e.target.value = ''; }} />
+          </label>
+          {xem.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {xem.map((u, i) => (
+                <div key={u} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                  <button className="absolute -top-1 -right-1 rounded-full bg-black/70 p-0.5" aria-label="Bỏ ảnh" disabled={!!dangGui} onClick={() => { setAnh(a => a.filter((_, j) => j !== i)); setAnhIds(null); }}><LineIcon name="x" size={10} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={`text-xs ${anh.length >= q.soAnh ? 'text-emerald-400' : 'text-amber-300'}`}>{anh.length}/{q.soAnh} ảnh tối thiểu — ảnh vào Kho ảnh dự án. Dòng nào thiếu hàng thì bỏ tick, dùng nút «Nhận hàng» của riêng dòng đó.</div>
+          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <input type="checkbox" className="w-5 h-5 shrink-0 accent-[var(--gold-400)]" checked={daDem} disabled={!!dangGui} onChange={e => setDaDem(e.target.checked)} />
+            Tôi đã đếm đủ số lượng của {dsChon.length} dòng trên
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button className={btnGold} disabled={!!dangGui || !daDem || anh.length < q.soAnh} onClick={nhan}>
+              <LineIcon name="truck" size={14} color="currentColor" /> {dangGui || `Nhận đủ ${dsChon.length} dòng đã chọn`}
+            </button>
+            <button className={btnGhost} disabled={!!dangGui} onClick={() => { setChon(new Set()); setDaDem(false); }}>Bỏ chọn</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -713,6 +975,9 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
   const [bg, setBg] = useState({ ncc_ten: '', gia: '', con_hang: true, ngay_giao: '', ghi_chu: '' });
   const [hetHang, setHetHang] = useState<{ id: string; ma_thay_the: string; mau_thay_the_id: string | null; ly_do: string } | null>(null);
   const [giaTay, setGiaTay] = useState<{ id: string; gia_von: string; ncc_ten: string } | null>(null);
+  const [chon, setChon] = useState<Set<string>>(new Set()); // dòng chọn để soạn tin hỏi giá NCC
+  const [nccHoi, setNccHoi] = useState('');
+  const [tin, setTin] = useState<TinSoan | null>(null);
 
   const tai = useCallback(async () => {
     setLoading(true);
@@ -737,6 +1002,35 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
     try { const d = await api.vatTuChot(giaTay.id, { gia_von: Number(giaTay.gia_von), ncc_ten: giaTay.ncc_ten || undefined }); bao('ok', `Đã chốt — giá bán ${tien(d.gia_ban || 0)}/${d.don_vi}`); setGiaTay(null); tai(); }
     catch (e) { bao('loi', loi(e, 'Không chốt được')); }
   };
+  // Một chạm: chốt theo giá vốn + NCC của lần mua gần nhất (gửi supplier_id để không khớp nhầm tên)
+  const [dangChot, setDangChot] = useState<string | null>(null);
+  const chotGanNhat = async (d: DongVatTu) => {
+    if (!d.gia_von_gan_nhat || dangChot) return;
+    setDangChot(d.id);
+    try { const r = await api.vatTuChot(d.id, { gia_von: d.gia_von_gan_nhat, supplier_id: d.ncc_gan_nhat_id || null, ncc_ten: d.ncc_gan_nhat_ten || undefined }); bao('ok', `Đã chốt — giá bán ${tien(r.gia_ban || 0)}/${r.don_vi}`); tai(); }
+    catch (e) { bao('loi', loi(e, 'Không chốt được')); }
+    finally { setDangChot(null); }
+  };
+  // Tin hỏi giá gửi NCC: CHỈ mã, hãng, số lượng, đơn vị, hạn cần — không tên khách/dự án, không giá nào, không ghi chú nội bộ.
+  // Là tin «xin báo giá», không phải đơn đặt hàng.
+  const soanTinHoiGia = async () => {
+    const gop = new Map<string, { ten: string; so_luong: number; don_vi: string; can_ngay: string | null }>();
+    items.filter(d => chon.has(d.id)).forEach(d => {
+      const k = d.mau_id || `${d.ma_tu_do || d.ma || ''}|${d.don_vi}`;
+      const cu = gop.get(k);
+      const can = d.can_ngay || null;
+      if (cu) { cu.so_luong += d.so_luong; if (can && (!cu.can_ngay || can < cu.can_ngay)) cu.can_ngay = can; }
+      else gop.set(k, { ten: [d.ma || d.ma_tu_do, d.hang].filter(Boolean).join(' '), so_luong: d.so_luong, don_vi: d.don_vi, can_ngay: can });
+    });
+    const dong = [...gop.values()].map((g, i) => `${i + 1}) ${g.ten} — ${Math.round(g.so_luong * 100) / 100} ${g.don_vi}${g.can_ngay ? `, cần trước ${new Date(g.can_ngay).toLocaleDateString('vi-VN')}` : ''}`);
+    const text = ['JAMA HOME xin báo giá các mã sau:', ...dong, 'Anh/chị báo giúp đơn giá, tình trạng còn hàng và thời gian giao. Cảm ơn anh/chị!'].join('\n');
+    let phone: string | null = null;
+    if (nccHoi.trim()) {
+      try { const r = await api.getSuppliers({ search: nccHoi.trim() }); const s = r.items.find(x => x.name.toLowerCase() === nccHoi.trim().toLowerCase()); phone = s?.zalo || s?.phone || null; }
+      catch { phone = null; } // không xem được danh bạ NCC → chỉ chép tin
+    }
+    setTin({ tieuDe: `Tin hỏi giá · ${dong.length} mã`, text, chep: await chepTin(text), phone, nhanZalo: nccHoi.trim() || undefined });
+  };
   const baoHetHang = async () => {
     if (!hetHang || !hetHang.ma_thay_the.trim()) { bao('loi', 'Cần mã thay thế'); return; }
     try {
@@ -750,12 +1044,28 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
 
   return (
     <div className="space-y-2">
+      {laThuMua && (
+        <div className="glass-card p-3 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <input type="checkbox" className="w-5 h-5 accent-[var(--gold-400)]" checked={chon.size === items.length}
+              onChange={e => setChon(e.target.checked ? new Set(items.map(d => d.id)) : new Set())} /> Chọn tất cả
+          </label>
+          <NccGoiY /><input className={`${inp} w-48`} list="ds-ncc" placeholder="Gửi NCC (để mở Zalo)" value={nccHoi} onChange={e => setNccHoi(e.target.value)} />
+          <button className={btnGold} disabled={!chon.size} onClick={soanTinHoiGia}><LineIcon name="copy" size={14} color="currentColor" /> Sao chép tin hỏi giá ({chon.size})</button>
+        </div>
+      )}
+      {tin && <TinDaSoan key={tin.text + (tin.phone || '')} tin={tin} onDong={() => setTin(null)} />}
       {items.map(d => {
         const bgs = [...(d.bao_gia || [])].sort((a, b) => a.gia - b.gia);
         const dangMo = mo === d.id;
         return (
           <div key={d.id} className="glass-card overflow-hidden">
-            <button type="button" className="w-full p-3 flex gap-3 text-left" onClick={() => setMo(dangMo ? null : d.id)}>
+            <div className="flex">
+            {laThuMua && (
+              <input type="checkbox" className="ml-3 mt-4 w-5 h-5 shrink-0 accent-[var(--gold-400)]" aria-label={`Chọn ${d.ma || d.ma_tu_do || 'dòng'} để hỏi giá`}
+                checked={chon.has(d.id)} onChange={() => setChon(c => { const n = new Set(c); if (n.has(d.id)) n.delete(d.id); else n.add(d.id); return n; })} />
+            )}
+            <button type="button" className="flex-1 min-w-0 p-3 flex gap-3 text-left" onClick={() => setMo(dangMo ? null : d.id)}>
               <AnhMau url={d.anh_url} size={44} />
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -776,9 +1086,17 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                 </div>
               </div>
             </button>
+            </div>
+            {laThuMua && d.gia_von_gan_nhat && d.ncc_gan_nhat_ten && !d.gia_gan_nhat_cu && (
+              <div className="px-3 pb-3 -mt-1">
+                <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} disabled={dangChot === d.id} onClick={() => chotGanNhat(d)}>
+                  <LineIcon name="check" size={12} /> Chốt {tien(d.gia_von_gan_nhat)} · {d.ncc_gan_nhat_ten}{d.gia_von_cap_nhat_luc ? ` (giá ngày ${new Date(d.gia_von_cap_nhat_luc).toLocaleDateString('vi-VN')})` : ''}
+                </button>
+              </div>
+            )}
             {dangMo && (
               <div className="border-t border-[var(--border-subtle)] p-3 space-y-3 bg-[var(--surface-1)]">
-                {d.mau_id && <GoiYNccKhoi mauId={d.mau_id} />}
+                {d.mau_id && <GoiYNccKhoi mauId={d.mau_id} onDung={laThuMua ? g => setGiaTay({ id: d.id, gia_von: String(g.gia), ncc_ten: g.ncc_ten }) : undefined} />}
                 {bgs.length > 0 && (
                   <div className="space-y-1">
                     {bgs.map((b, i) => (
@@ -814,7 +1132,7 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
                           <button className={btnGold} onClick={chotTay}>Chốt</button><button className={btnGhost} onClick={() => setGiaTay(null)}>Huỷ</button>
                         </>
                       ) : (
-                        <button className={`${btnGhost} text-xs`} onClick={() => setGiaTay({ id: d.id, gia_von: String(d.gia_von_gan_nhat || d.gia_tham_khao || ''), ncc_ten: '' })}>Chốt nhanh theo giá vốn</button>
+                        <button className={`${btnGhost} text-xs`} onClick={() => setGiaTay({ id: d.id, gia_von: String(d.gia_von_gan_nhat || d.gia_tham_khao || ''), ncc_ten: d.ncc_gan_nhat_ten || '' })}>Chốt nhanh theo giá vốn</button>
                       )}
                       {d.trang_thai !== 'het_hang' && d.trang_thai !== 'cho_khach_duyet_lai' && (
                         hetHang?.id === d.id ? (
@@ -954,7 +1272,7 @@ function ChonShopee({ mau, onDong, onXong, bao }: { mau: MauVatTu; onDong: () =>
   );
 }
 
-function GoiYNccKhoi({ mauId }: { mauId: string }) {
+function GoiYNccKhoi({ mauId, onDung }: { mauId: string; onDung?: (g: GoiYNcc) => void }) {
   const [ds, setDs] = useState<GoiYNcc[] | null>(null);
   useEffect(() => { api.vatTuGoiYNcc(mauId).then(r => setDs(r.items)).catch(() => setDs([])); }, [mauId]);
   if (!ds || ds.length === 0) return null;
@@ -969,6 +1287,7 @@ function GoiYNccKhoi({ mauId }: { mauId: string }) {
           {g.da_mua > 0 && <span className="text-xs text-[var(--text-muted)]">đã mua {tien(g.da_mua)}</span>}
           {!g.con_hang && <span className="text-xs text-red-300">hết hàng</span>}
           {g.cao_hon_shopee && <span className="text-xs text-red-300">cao hơn Shopee</span>}
+          {onDung && g.con_hang && <button className={`${btnGhost} text-xs ml-auto`} onClick={() => onDung(g)}>Dùng</button>}
         </div>
       ))}
     </div>

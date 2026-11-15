@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
-import { laTruongPhong } from '@/lib/roles';
+import { laTruongPhong, laTruongNhom } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ApiError, Project, ProjectTask, ProjectKanban, TaskActivity, User, Material, Contract, Quotation, extractItems, fetchAllPages } from '@/lib/api';
@@ -15,7 +15,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import LineIcon from '@/components/ui/LineIcon';
-import { statusConfig, STAGE_LABELS, DEPT_LABELS, STAGE_ORDER, DeadlineBadge, StageBlocks } from '@/components/projects/shared';
+import { statusConfig, STAGE_LABELS, DEPT_LABELS, STAGE_ORDER, DeadlineBadge, StageBlocks, laBanGiamDoc, canTakeTask, taskDeptOf } from '@/components/projects/shared';
 
 const ChiTietDuAn = dynamic(() => import('@/components/projects/ChiTietDuAn'), { ssr: false });
 const ChiTietCongViec = dynamic(() => import('@/components/projects/ChiTietCongViec'), { ssr: false });
@@ -224,8 +224,10 @@ function ProjectsPageInner() {
       ]);
       setTasks(t);
       if (u.length > 0 && users.length === 0) setUsers(u);
+      return t;
     } catch {
       setTasks([]);
+      return [] as ProjectTask[];
     } finally {
       setLoadingTasks(false);
     }
@@ -234,14 +236,22 @@ function ProjectsPageInner() {
   // Mở thẳng chi tiết dự án từ link thông báo (/projects?id=…), rồi gỡ `id`
   // khỏi URL để bấm lại cùng thông báo vẫn mở được.
   const searchParams = useSearchParams();
+  // Việc cần mở từ link (&task=…) — mở ở effect đặt sau openTaskDetail.
+  const [viecChoMo, setViecChoMo] = useState<ProjectTask | null>(null);
   const urlProjectId = searchParams.get('id');
   useEffect(() => {
     if (!urlProjectId || loadingProjects) return;
+    // Giữ `task` trước khi replace xoá query; mở thẳng đúng đầu việc nếu còn thấy.
+    const urlTaskId = searchParams.get('task');
     router.replace('/projects', { scroll: false });
+    const moViec = (ds: ProjectTask[]) => {
+      const v = urlTaskId ? ds.find(x => x.id === urlTaskId) : undefined;
+      if (v) setViecChoMo(v);
+    };
     const coSan = projects.find(p => p.id === urlProjectId);
-    if (coSan) { void Promise.resolve().then(() => openProjectDetail(coSan)); return; }
+    if (coSan) { void Promise.resolve().then(() => openProjectDetail(coSan)).then(moViec); return; }
     api.getProject(urlProjectId)
-      .then(p => openProjectDetail(p))
+      .then(p => openProjectDetail(p).then(moViec))
       .catch(() => toast('Không mở được dự án này (đã xoá hoặc ngoài phạm vi của bạn)', 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlProjectId, loadingProjects]);
@@ -261,6 +271,13 @@ function ProjectsPageInner() {
       setLoadingActivities(false);
     }
   };
+
+  const viecDaMo = useRef<ProjectTask | null>(null);
+  useEffect(() => {
+    if (!viecChoMo || viecDaMo.current === viecChoMo) return;
+    viecDaMo.current = viecChoMo;
+    void openTaskDetail(viecChoMo);
+  }, [viecChoMo]);
 
   const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
     try {
@@ -293,6 +310,33 @@ function ProjectsPageInner() {
     } catch {
       toast('Lỗi khi cập nhật người đảm nhận', 'error');
     }
+  };
+
+  // Ai được phân công đầu việc này — soi theo _kiem_quyen_sua_task ở backend (BGĐ,
+  // PIC dự án, trưởng phòng/nhóm ĐÚNG bộ phận, ô «Sửa Công việc»). Chỉ để ẩn/hiện
+  // nút; máy chủ vẫn kiểm lại từng việc.
+  const duocGiaoViec = (t: ProjectTask): boolean => {
+    if (!user || !selectedProject) return false;
+    if (laBanGiamDoc(user) || permissions.canEditTasks) return true;
+    const p = selectedProject;
+    if ([p.pm_id, p.designer_id, p.sales_id, p.purchasing_id].includes(user.id)) return true;
+    return (laTruongPhong(user) || laTruongNhom(user)) && canTakeTask(user, taskDeptOf(t));
+  };
+
+  // Giao cả nhóm việc cho một người: đi qua đúng đường giao từng việc sẵn có nên
+  // quyền được kiểm theo TỪNG việc, và người nhận được báo như khi giao lẻ.
+  const giaoCaNhom = async (viec: ProjectTask[], uid: string) => {
+    if (!selectedProject) return;
+    let ok = 0;
+    for (const t of viec) {
+      try {
+        const updated = await api.setTaskAssignees(selectedProject.id, t.id, [uid]);
+        setTasks(prev => prev.map(x => x.id === t.id ? updated : x));
+        ok += 1;
+      } catch { /* đếm ở dưới */ }
+    }
+    if (ok === viec.length) toast(`Đã giao ${ok} việc`, 'success');
+    else toast(`Giao được ${ok}/${viec.length} việc — số còn lại bạn không có quyền hoặc bị lỗi`, 'error');
   };
 
   const luuHanChot = async (taskId: string, ngay: string) => {
@@ -1000,6 +1044,8 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
           groupedTasks={groupedTasks}
           handleTaskStatusChange={handleTaskStatusChange}
           luuNhomDamNhan={luuNhomDamNhan}
+          duocGiaoViec={duocGiaoViec}
+          giaoCaNhom={giaoCaNhom}
         />
       )}
 

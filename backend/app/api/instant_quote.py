@@ -157,6 +157,8 @@ async def generate(
         "suggested_tier": tier,
         "customer_budget": budget,
         "zalo_text": format_quote_for_zalo(quote, tier),
+        # Sale có thể chọn thẻ phương án khác gợi ý → nút Copy lấy đúng phương án đang chọn.
+        "zalo_texts": {t: format_quote_for_zalo(quote, t) for t in ("basic", "standard", "premium")},
         "parsed": parsed,
     }
 

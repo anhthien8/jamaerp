@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
@@ -13,8 +13,12 @@ import { useToast } from '@/components/ui/Toast';
 import { monthLabelVN } from '@/lib/labels';
 import LineIcon from '@/components/ui/LineIcon';
 import { SuaCongNhanVien, LichNgayLe } from '@/components/attendance/SuaCong';
+import { UyQuyenDuyet, ngayVN } from '@/components/attendance/UyQuyenDuyet';
 
 const fmtMoney = (v: number) => `${v.toLocaleString('vi-VN')}đ`;
+/** "YYYY-MM-DD" có phải Chủ nhật */
+const laChuNhat = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 0;
+const LY_DO_NHANH = ['Việc gia đình', 'Ốm', 'Việc cá nhân'];
 // Kỳ theo GIỜ VN — toISOString là UTC, sáng sớm ngày 1 (00:00-06:59 VN) sẽ lùi nhầm kỳ tháng trước
 const currentPeriod = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 7);
 
@@ -58,7 +62,8 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [payroll, setPayroll] = useState<{ status: string | null; total_net: number; items: unknown[] } | null>(null);
+  const [payroll, setPayroll] = useState<{ status: string | null; total_net: number; items: (PayrollRow & { full_name: string })[] } | null>(null);
+  const [guiLai, setGuiLai] = useState<{ sent: number; manual_delivery: string[] } | null>(null);
 
   const loadPayroll = useCallback(async () => {
     try {
@@ -69,11 +74,11 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
 
   useEffect(() => { void Promise.resolve().then(loadPayroll); }, [loadPayroll]);
 
-  const run = async (fn: () => Promise<unknown>, ok: string) => {
+  const run = async <T,>(fn: () => Promise<T>, ok: string | ((r: T) => string)) => {
     setBusy(true);
     try {
-      await fn();
-      toast(ok, 'success');
+      const r = await fn();
+      toast(typeof ok === 'function' ? ok(r) : ok, 'success');
       await loadPayroll();
       onRefresh();
     } catch (e) {
@@ -82,10 +87,15 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
   };
 
   const status = payroll?.status;
+  // Ai chưa nhận phiếu lương — lấy từ payslip_sent_at nên còn nguyên sau khi tải lại trang
+  const chuaNhan = status === 'paid' ? (payroll?.items ?? []).filter(i => !i.payslip_sent_at) : [];
+  const tongNguoi = payroll?.items.length ?? 0;
+  const ketQuaGui = (r: { sent: number; manual_delivery: string[] }) =>
+    `gửi ${r.sent} phiếu${r.manual_delivery.length ? ` · chưa gửi được ${r.manual_delivery.length} người` : ''}`;
   const steps = [
     {
       key: 'review', label: `1. Rà ca cần xác nhận`, done: needsReview === 0,
-      detail: needsReview > 0 ? `Còn ${needsReview} ca quên tan ca — sửa ở bảng công bên dưới` : 'Sạch',
+      detail: needsReview > 0 ? `Còn ${needsReview} ca cần xác nhận — bấm tên nhân viên ở bảng công bên dưới để xác nhận hoặc sửa` : 'Sạch',
     },
     {
       key: 'ot', label: '2. Tăng ca (tự ghi nhận)', done: otPending === 0,
@@ -113,7 +123,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
       detail: status === 'draft' ? 'Bảng lương đang ở bản nháp' :
               status === 'pending_approval' ? '⏳ Đang chờ Giám đốc duyệt (nhắc qua Telegram sau 72h)' :
               status === 'approved' ? 'Đã duyệt — kỳ đã KHÓA' :
-              status === 'paid' ? 'Đã chi + phiếu lương đã gửi' : '—',
+              status === 'paid' ? 'Đã duyệt và đã chi' : '—',
       action: status === 'draft' && (
         <button disabled={busy} onClick={() => run(() => api.payrollSubmit(period), 'Đã trình duyệt — Giám đốc sẽ nhận thông báo')}
           className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: 'var(--gold-500)' }}>
@@ -124,10 +134,34 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
     {
       key: 'pay', label: '5. Chi lương + gửi phiếu', done: status === 'paid',
       detail: status === 'approved' ? 'Sẵn sàng chi — phiếu lương sẽ gửi Telegram RIÊNG từng người' :
-              status === 'paid' ? 'Hoàn tất kỳ' : 'Chờ bước 4',
-      action: status === 'approved' && (
+              status === 'paid' ? (
+                <>
+                  Hoàn tất kỳ · {tongNguoi - chuaNhan.length}/{tongNguoi} người đã nhận phiếu
+                  {chuaNhan.length > 0 && <span className="block">Chưa nhận: {chuaNhan.map(i => i.full_name).join(', ')}</span>}
+                  {guiLai && (
+                    <span className="block">
+                      Đã gửi {guiLai.sent} phiếu
+                      {guiLai.manual_delivery.length > 0 && ` · Chưa gửi được: ${guiLai.manual_delivery.join(', ')} — họ chưa gắn Telegram hoặc chưa bấm Start với bot; nhờ họ mở bot bấm Start rồi bấm lại`}
+                    </span>
+                  )}
+                </>
+              ) : 'Chờ bước 4',
+      action: status === 'paid' && chuaNhan.length > 0 ? (
         <button disabled={busy}
-          onClick={() => run(() => api.payrollPay(period), 'Đã chi — phiếu lương đang gửi từng người')}
+          onClick={() => run(async () => {
+            const r = await api.payrollResendPayslips(period);
+            setGuiLai(r);
+            return r;
+          }, r => `Đã ${ketQuaGui(r)}`)}
+          className="px-3 py-1.5 rounded-full text-xs font-bold disabled:opacity-40" style={{ background: 'var(--gold-400)', color: '#000' }}>
+          Gửi lại phiếu cho người chưa nhận
+        </button>
+      ) : status === 'approved' && (
+        <button disabled={busy}
+          onClick={() => {
+            if (!confirm(`Xác nhận đã chi lương kỳ ${monthLabelVN(period)}: ${tongNguoi} người, tổng thực lĩnh ${fmtMoney(payroll?.total_net ?? 0)}?\nHệ thống sẽ ghi phiếu chi lương vào sổ và gửi phiếu lương cho từng người.`)) return;
+            void run(() => api.payrollPay(period), r => `Đã chi · ${ketQuaGui(r)}`);
+          }}
           className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: '#34d399' }}>
           Xác nhận đã chi
         </button>
@@ -183,6 +217,9 @@ export default function AttendancePage() {
   const [teamRows, setTeamRows] = useState<TeamAttendanceRow[]>([]);
   const [pendingOT, setPendingOT] = useState<(AttendanceRecord & { full_name: string })[]>([]);
   const [busy, setBusy] = useState(false);
+  const lyDoRef = useRef<HTMLTextAreaElement>(null);
+  // Gợi ý ủy quyền duyệt sau khi gửi đơn nghỉ: ngày kết thúc nghỉ
+  const [goiYUyQuyen, setGoiYUyQuyen] = useState<string | null>(null);
   // Đồng hồ «Đang làm» trên thẻ hôm nay — nhảy mỗi phút
   const [bayGio, setBayGio] = useState(() => Date.now());
   useEffect(() => {
@@ -342,6 +379,8 @@ export default function AttendancePage() {
     try {
       await api.createLeave(leaveForm);
       toast('Đã gửi đơn nghỉ phép — chờ duyệt', 'success');
+      // Admin vốn duyệt được mọi đơn → không cần gợi ý ủy quyền
+      if (user?.role !== 'admin') setGoiYUyQuyen(leaveForm.end_date);
       setShowLeaveForm(false);
       setLeaveForm({ leave_type: 'annual', start_date: '', end_date: '', half_day: false, reason: '' });
       await loadLeave();
@@ -558,6 +597,36 @@ export default function AttendancePage() {
               </div>
             )}
 
+            {/* Xin nghỉ nhanh: điền sẵn ngày (giờ VN) + loại, người dùng chỉ còn chọn lý do và bấm «Gửi đơn» */}
+            {(() => {
+              const homNay = ngayVN(0);
+              let mai = ngayVN(1);
+              if (laChuNhat(mai)) mai = ngayVN(2);
+              const tenMai = mai === ngayVN(1) ? 'ngày mai' : `thứ Hai ${fmtDateVN(mai)}`;
+              const chips = [
+                ...(laChuNhat(homNay) ? [] : [{ label: 'Nghỉ hôm nay', d: homNay, half: false }, { label: 'Nửa ngày hôm nay', d: homNay, half: true }]),
+                { label: `Nghỉ ${tenMai}`, d: mai, half: false },
+                { label: `Nửa ngày ${tenMai}`, d: mai, half: true },
+              ];
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {chips.map(c => (
+                    <button key={c.label} type="button"
+                      onClick={() => {
+                        const conPhep = (balance?.annual_remaining ?? 0) >= (c.half ? 0.5 : 1);
+                        setLeaveForm({ leave_type: conPhep ? 'annual' : 'unpaid', start_date: c.d, end_date: c.d, half_day: c.half, reason: '' });
+                        setShowLeaveForm(true);
+                        setTimeout(() => lyDoRef.current?.focus(), 50);
+                      }}
+                      className="px-4 rounded-full text-sm border"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--gold-400)', minHeight: 44 }}>
+                      <LineIcon name="calendar" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{c.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => {
                 // Đóng lại thì reset form về mặc định để lần mở sau sạch.
@@ -586,7 +655,11 @@ export default function AttendancePage() {
                   </div>
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Từ ngày</label>
-                    <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm(f => ({ ...f, start_date: e.target.value }))}
+                    <input type="date" value={leaveForm.start_date} onChange={e => {
+                      const v = e.target.value;
+                      // «Đến ngày» trống/nhỏ hơn hoặc đang nửa ngày → theo «Từ ngày»
+                      setLeaveForm(f => ({ ...f, start_date: v, end_date: !f.end_date || f.end_date < v || f.half_day ? v : f.end_date }));
+                    }}
                       className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} />
                   </div>
                   <div>
@@ -597,12 +670,27 @@ export default function AttendancePage() {
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Tùy chọn</label>
                     <label className="flex items-center gap-2 text-sm h-[38px]" style={{ color: 'var(--text-secondary)' }}>
-                      <input type="checkbox" checked={leaveForm.half_day} onChange={e => setLeaveForm(f => ({ ...f, half_day: e.target.checked }))} />
+                      <input type="checkbox" checked={leaveForm.half_day} onChange={e => {
+                        const on = e.target.checked;
+                        // Nửa ngày chỉ áp dụng cho 1 ngày
+                        setLeaveForm(f => ({ ...f, half_day: on, end_date: on && f.start_date ? f.start_date : f.end_date }));
+                      }} />
                       Nửa ngày
                     </label>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {LY_DO_NHANH.map(r => (
+                    <button key={r} type="button"
+                      onClick={() => setLeaveForm(f => ({ ...f, reason: r, leave_type: r === 'Ốm' ? 'sick' : f.leave_type }))}
+                      className="px-3 rounded-full text-xs border"
+                      style={{ borderColor: leaveForm.reason === r ? 'var(--gold-400)' : 'var(--border-subtle)', color: 'var(--text-secondary)', minHeight: 36 }}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
                 <textarea
+                  ref={lyDoRef}
                   placeholder="Lý do nghỉ..."
                   value={leaveForm.reason}
                   onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))}
@@ -615,6 +703,8 @@ export default function AttendancePage() {
                 </button>
               </div>
             )}
+
+            {goiYUyQuyen && <UyQuyenDuyet denNgay={goiYUyQuyen} onDong={() => setGoiYUyQuyen(null)} />}
 
             {/* My leaves */}
             <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>

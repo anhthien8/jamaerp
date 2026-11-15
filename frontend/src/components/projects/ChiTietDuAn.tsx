@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import AnhDuAn from '@/components/projects/AnhDuAn';
+import GuiLinkKhach from '@/components/projects/GuiLinkKhach';
+import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import Link from 'next/link';
 import LineIcon from '@/components/ui/LineIcon';
@@ -30,6 +33,8 @@ export default function ChiTietDuAn({
   groupedTasks,
   handleTaskStatusChange,
   luuNhomDamNhan,
+  duocGiaoViec,
+  giaoCaNhom,
 }: {
   setSelectedProject: Dispatch<SetStateAction<Project | null>>;
   selectedProject: Project;
@@ -50,7 +55,49 @@ export default function ChiTietDuAn({
   groupedTasks: { design: ProjectTask[]; quotation: ProjectTask[]; procurement: ProjectTask[]; construction: ProjectTask[]; acceptance: ProjectTask[]; };
   handleTaskStatusChange: (taskId: string, newStatus: string) => Promise<void>;
   luuNhomDamNhan: (taskId: string, ids: string[]) => Promise<void>;
+  duocGiaoViec: (task: ProjectTask) => boolean;
+  giaoCaNhom: (viec: ProjectTask[], uid: string) => Promise<void>;
 }) {
+  /** Ô «Giao cả nhóm» ở tiêu đề nhóm việc: chỉ đụng việc CHƯA có người nhận và
+   *  chưa xong (giao đè sẽ thay cả nhóm đảm nhận), chỉ giao việc người được chọn
+   *  thuộc đúng bộ phận. Không còn việc nào như vậy thì ẩn. */
+  // Chặn bấm chồng khi vòng giao cả nhóm đang chạy (tránh báo trùng / giao đè).
+  const [dangGiao, setDangGiao] = useState(false);
+  const oGiaoCaNhom = (nhan: string, dsViec: ProjectTask[]) => {
+    const trong = dsViec.filter(t => t.status !== 'done' && nhomDamNhan(t).length === 0 && duocGiaoViec(t));
+    if (trong.length === 0) return null;
+    const ungVien = users.filter(u => trong.some(t => canTakeTask(u, taskDeptOf(t))));
+    if (ungVien.length === 0) return null;
+    return (
+      <label className="inline-flex items-center gap-1 min-w-0 text-[10px] font-medium normal-case text-[var(--text-muted)]" onClick={e => e.stopPropagation()}>
+        <LineIcon name="users" size={12} color="currentColor" className="shrink-0" />
+        <select
+          className="min-w-0 max-w-[150px] text-[10px] px-1.5 py-1 rounded cursor-pointer border bg-transparent"
+          style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+          title="Giao tất cả việc chưa có người nhận trong nhóm này cho một người"
+          value=""
+          disabled={dangGiao}
+          onChange={e => {
+            if (dangGiao) return;
+            const u = ungVien.find(x => x.id === e.target.value);
+            if (!u) return;
+            const viec = trong.filter(t => canTakeTask(u, taskDeptOf(t)));
+            if (confirm(`Giao ${viec.length} việc chưa có người nhận ở «${nhan}» cho ${u.full_name}?
+${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
+              setDangGiao(true);
+              void giaoCaNhom(viec, u.id).finally(() => setDangGiao(false));
+            }
+          }}
+        >
+          <option value="">Giao cả nhóm ({trong.length})…</option>
+          {ungVien.map(u => (
+            <option key={u.id} value={u.id} style={{ background: 'var(--surface-1)', color: 'var(--text-primary)' }}>{u.full_name}</option>
+          ))}
+        </select>
+      </label>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]" onClick={() => setSelectedProject(null)}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -165,6 +212,16 @@ export default function ChiTietDuAn({
               <p><LineIcon name="user" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_name}</p>
               {selectedProject.client_phone && <p><LineIcon name="smartphone" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.client_phone}</p>}
               {selectedProject.address && <p className="md:col-span-2"><LineIcon name="pin" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{selectedProject.address}</p>}
+            </div>
+            <div className="mt-3">
+              <GuiLinkKhach
+                key={selectedProject.id}
+                layLink={() => api.getPortalLinkDuAn(selectedProject.id)}
+                phone={selectedProject.client_phone}
+                nhan="Gửi tiến độ cho khách"
+                choGoi
+                soanTin={link => `Chào anh/chị ${selectedProject.client_name}, công trình ${selectedProject.name} đang ở giai đoạn ${STAGE_LABELS[selectedProject.stage] || selectedProject.stage}, tiến độ ${Math.round(selectedProject.progress || 0)}%. Anh/chị xem ảnh và tiến độ tại: ${link}`}
+              />
             </div>
           </div>
 
@@ -318,8 +375,11 @@ export default function ChiTietDuAn({
                           </span>
                         )}
                       </h4>
-                      <div className="w-24 h-1 rounded-full bg-white/5">
-                        <div className="h-full rounded-full" style={{ width: `${group.pct}%`, background: group.color }} />
+                      <div className="flex items-center gap-2 min-w-0">
+                        {oGiaoCaNhom(group.label, group.tasks)}
+                        <div className="w-16 sm:w-24 h-1 rounded-full bg-white/5 shrink-0">
+                          <div className="h-full rounded-full" style={{ width: `${group.pct}%`, background: group.color }} />
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-1.5 pl-3">
@@ -347,10 +407,13 @@ export default function ChiTietDuAn({
                   if (stageTasks.length === 0) return null;
                   return (
                     <div key={stageKey} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                      <h4 className="text-xs font-bold text-[var(--gold-400)] uppercase mb-2 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--gold-500)]" />
-                        {STAGE_LABELS[stageKey]} ({stageTasks.length})
-                      </h4>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <h4 className="text-xs font-bold text-[var(--gold-400)] uppercase flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--gold-500)]" />
+                          {STAGE_LABELS[stageKey]} ({stageTasks.length})
+                        </h4>
+                        {oGiaoCaNhom(STAGE_LABELS[stageKey], stageTasks)}
+                      </div>
                       <div className="space-y-1.5 pl-3">
                         {stageTasks.map(task => {
                           const ts = taskStatusConfig[task.status] || { label: task.status, color: '#6B7280', icon: 'pin' };

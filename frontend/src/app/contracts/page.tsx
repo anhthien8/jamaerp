@@ -21,6 +21,28 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   cancelled: { label: 'Hủy', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
 };
 
+// Mẫu lịch thu điền sẵn (người dùng soát rồi mới bấm «Lưu lịch thu»).
+// moc = phần thời gian thi công (0..1) tính từ ngày ký để gợi ý hạn thu.
+// Luôn gửi milestone rõ ràng: backend ghép theo vị trí, thiếu thì mốc cũ còn sót.
+const MAU_LICH_THU: Array<{ nhan: string; dot: Array<{ name: string; percentage: number; moc: number; milestone: string }> }> = [
+  { nhan: '4 đợt 25%', dot: [
+    { name: 'Đợt 1 (Đặt cọc)', percentage: 25, moc: 0, milestone: 'signing' },
+    { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 25, moc: 0.4, milestone: 'rough_complete' },
+    { name: 'Đợt 3 (Nghiệm thu nội thất)', percentage: 25, moc: 0.8, milestone: 'interior_complete' },
+    { name: 'Đợt 4 (Bàn giao)', percentage: 25, moc: 1, milestone: 'handover' },
+  ] },
+  { nhan: '30-40-25-5', dot: [
+    { name: 'Đợt 1 (Đặt cọc)', percentage: 30, moc: 0, milestone: 'signing' },
+    { name: 'Đợt 2 (Nghiệm thu thô)', percentage: 40, moc: 0.4, milestone: 'rough_complete' },
+    { name: 'Đợt 3 (Nghiệm thu nội thất)', percentage: 25, moc: 0.8, milestone: 'interior_complete' },
+    { name: 'Đợt 4 (Bàn giao)', percentage: 5, moc: 1, milestone: 'handover' },
+  ] },
+  { nhan: '50-50 (thiết kế)', dot: [
+    { name: 'Đợt 1 (Đặt cọc thiết kế)', percentage: 50, moc: 0, milestone: 'signing' },
+    { name: 'Đợt 2 (Bàn giao hồ sơ)', percentage: 50, moc: 1, milestone: 'handover' },
+  ] },
+];
+
 function fmtVND(n?: number) {
   if (!n) return '—';
   return new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
@@ -136,6 +158,33 @@ export default function ContractsPage() {
     return () => clearTimeout(t);
   }, [user, load, timKiem]);
 
+  // Mở thẳng từ Phải thu (/pl): ?hd=<id HĐ>&dot=<vị trí đợt>&ten=<tên đợt>.
+  // Chỉ điền sẵn — vẫn phải tải sao kê + tích xác nhận; lịch thu đã đổi thì chỉ mở thẻ HĐ.
+  const daMoTuLink = useRef(false);
+  useEffect(() => {
+    if (!user || loadingData || daMoTuLink.current) return;
+    const q = new URLSearchParams(window.location.search);
+    const hd = q.get('hd');
+    if (!hd) return;
+    daMoTuLink.current = true;
+    router.replace('/contracts'); // F5 không mở lại
+    const c = contracts.find(x => x.id === hd);
+    void Promise.resolve().then(() => {
+      if (!c) { toast('Không tìm thấy hợp đồng này trong danh sách', 'error'); return; }
+      setSelected(c);
+      const dot = Number(q.get('dot') ?? NaN);
+      const inst = Number.isInteger(dot) ? c.payment_terms?.installments?.[dot] : undefined;
+      if (!canConfirmTT || !inst) return;
+      const ten = q.get('ten');
+      if ((inst.status === 'pending' || inst.status === 'partial') && (!ten || inst.name === ten)) {
+        setPaymentModal({ contractId: c.id, idx: dot });
+        setThuMotPhan(''); setProofUrl(''); setProofPreview(''); setConfirmChecked(false);
+      } else {
+        toast('Lịch thu đã thay đổi — chọn lại đợt cần ghi thu', 'info');
+      }
+    });
+  }, [user, loadingData, contracts, canConfirmTT, router, toast]);
+
   if (loading || !user) return null;
 
   const permissions = getPermissions(user.role as UserRole);
@@ -176,6 +225,20 @@ export default function ContractsPage() {
       name: i.name, percentage: String(i.percentage), due_date: (i.due_date || '').slice(0, 10),
       milestone: i.milestone || '', khoa: i.status === 'paid' || i.status === 'partial',
     })));
+  };
+  const apMauLichThu = (mau: typeof MAU_LICH_THU[number]) => {
+    if (!selected) return;
+    // Ngày gốc: ngày ký → ngày bắt đầu → hôm nay. Chưa có số ngày thi công thì chỉ điền hạn đợt đầu.
+    const goc = (selected.signed_date || selected.start_date || '').slice(0, 10);
+    const [y, m, d] = goc ? goc.split('-').map(Number) : [];
+    const soNgay = Number(selected.working_days) || 0;
+    const han = (moc: number) => {
+      if (moc > 0 && soNgay <= 0) return '';
+      const n = goc ? new Date(y, m - 1, d) : new Date();
+      n.setDate(n.getDate() + Math.round(soNgay * moc));
+      return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+    };
+    setLichThu(mau.dot.map(x => ({ name: x.name, percentage: String(x.percentage), due_date: han(x.moc), milestone: x.milestone, khoa: false })));
   };
   const tongPhanTram = (lichThu || []).reduce((t, d) => t + (Number(d.percentage) || 0), 0);
   const luuLichThu = async () => {
@@ -547,6 +610,25 @@ export default function ContractsPage() {
               {lichThu && (
                 <div className="rounded-xl p-3 mb-3 space-y-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                   <p className="text-xs text-[var(--text-muted)]">Đặt cọc, số đợt, % và hạn thu. Đợt đã có tiền về không xoá được. Hạn thu dùng để nhắc kế toán/sale.</p>
+                  {!selected.parent_contract_id && (() => {
+                    const daThu = lichThu.some(d => d.khoa);
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] text-[var(--text-muted)]">Mẫu nhanh:</span>
+                        {MAU_LICH_THU.map(mau => (
+                          <button key={mau.nhan} disabled={daThu} onClick={() => apMauLichThu(mau)}
+                            title={daThu ? 'Đã có đợt thu tiền — sửa tay' : 'Điền sẵn tên đợt, % và hạn thu gợi ý theo ngày ký + số ngày thi công'}
+                            className="text-xs px-3 py-1.5 rounded-full disabled:opacity-40"
+                            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                            {mau.nhan}
+                          </button>
+                        ))}
+                        <span className="text-[11px] text-[var(--text-muted)] basis-full">
+                          {daThu ? 'Đã có đợt thu tiền nên không áp mẫu được — sửa tay từng dòng.' : 'Mẫu chỉ điền sẵn, hạn thu là gợi ý — soát lại rồi bấm «Lưu lịch thu».'}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   {lichThu.map((d, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-center">
                       <input className="col-span-5 px-2 py-1.5 rounded-lg text-sm" value={d.name} placeholder="Tên đợt (VD: Đặt cọc)"

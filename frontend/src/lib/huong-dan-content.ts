@@ -211,6 +211,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "**Chuẩn SLA đầu việc** (Admin + Ban giám đốc): khai số ngày tiêu chuẩn cho từng đầu việc trong 19 đầu việc mẫu, số ngày chuẩn theo phòng (dùng cho việc tự thêm, không nằm trong 19 việc mẫu), và **số ngày trễ thì nhắc lên cấp trên**. Có công tắc tắt/bật toàn bộ việc nhắc, và nút **«▶️ Quét & nhắc ngay»** để chạy thử xem hệ thống đang thấy bao nhiêu việc quá hạn, bao nhiêu việc vượt SLA."
+      },
+      {
+        "type": "p",
+        "text": "**Cấu hình AI — model trả phí** (chỉ Admin): ô chọn model chia 2 nhóm «Miễn phí / dùng thử» và «Trả phí theo lượt». Nhóm trả phí có ChatGPT (gpt-5.4-nano, gpt-5.4-mini, gpt-5.5) và Claude (Haiku, Sonnet, Opus). Gói ChatGPT Plus/Pro hay Claude Pro/Max **không** dùng được — phải tạo API key trả theo lượt: OpenAI ở platform.openai.com/api-keys (khoá bắt đầu sk-), Claude ở console.anthropic.com (khoá bắt đầu sk-ant-). Dán nhầm khoá khác nhà thì app báo đỏ và bỏ qua model đó. Nên để model miễn phí làm chính, model trả phí làm dự phòng cuối để đỡ tốn tiền; bấm «Test thử» để thử từng model."
       }
     ]
   },
@@ -604,13 +608,40 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ]
   },
   {
+    "id": "nut-mot-cham",
+    "icon": "check",
+    "title": "Nút 1 chạm — máy soạn sẵn, bạn chỉ xác nhận",
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Những việc lặp lại giờ làm bằng 1 nút: app điền sẵn hoặc soạn sẵn tin nhắn, bạn soát lại rồi bấm. Việc dính tiền (ghi thu, duyệt, đặt hàng) vẫn cần người có quyền bấm xác nhận — nút chỉ điền sẵn, không tự duyệt."
+      },
+      {
+        "type": "list",
+        "items": [
+          "**Giám sát** — Vật tư → tab «Đặt – nhận»: tick các dòng về đủ của cùng dự án, chụp ảnh 1 lần, bấm «Nhận đủ N dòng đã chọn». Dòng thiếu vẫn nhận riêng.",
+          "**Sale/Thiết kế** — phiếu vật tư dự án: «Gửi khách duyệt giá» (chép tin giá bán, mở Zalo khách) và «Khách đồng ý N dòng đã chốt» (ghi rõ khách đồng ý qua kênh nào).",
+          "**Thu mua** — «Cần hỏi giá»: «Chốt giá · NCC» theo giá gần nhất còn hạn, «Dùng» ở Gợi ý NCC, tick dòng rồi «Sao chép tin hỏi giá» gửi NCC; phiếu dự án có «Đặt N dòng đúng báo giá». Trang Nhà cung cấp bấm số để gọi/Zalo.",
+          "**Mọi người** — bấm thông báo giao việc/quá hạn hoặc dòng ở «Việc của tôi» là mở thẳng đúng đầu việc.",
+          "**BGĐ, PIC, trưởng phòng/nhóm** — thẻ dự án, tiêu đề mỗi nhóm việc: «Giao cả nhóm (N)…» giao mọi việc chưa có người nhận cho 1 người.",
+          "**Kế toán** — Lãi lỗ → Phải thu: «Ghi thu» mở đúng đợt trong Hợp đồng, «Chép tin nhắc» gửi sale. Hợp đồng → «Sửa lịch thu»: mẫu nhanh (4×25%, 30-40-25-5, 50-50 thiết kế) điền sẵn % và hạn. Kế toán → khoản chi: «Nhân bản» cho khoản chi hằng tháng.",
+          "**Trưởng nhóm, kế toán, admin** — Chấm công, bấm tên nhân viên: «Xác nhận Xh» cho ca quên tan ca, hoặc «Xác nhận tất cả». Chốt sổ: «Gửi lại phiếu cho người chưa nhận».",
+          "**Người duyệt** — Phê duyệt: «Duyệt N đơn nghỉ phép» một lần, lý do từ chối bấm sẵn, «Ủy quyền khi vắng» (hết hôm nay / 3 ngày / 7 ngày).",
+          "**Mọi nhân viên** — Chấm công: chip «Nghỉ hôm nay», «Nghỉ ngày mai», nửa ngày điền sẵn đơn.",
+          "**Sale** — Báo giá tức thì: «Lưu thành báo giá nháp»; Copy Zalo lấy đúng phương án đang chọn. Báo giá: «Nhân bản» và «Copy gửi khách» (báo giá đã duyệt).",
+          "**Bot Telegram** — sau điểm danh, /duan hoặc báo cáo có sẵn nút Báo cáo / Sự cố / Vật tư / Tan ca đúng dự án. /vatlieu dán nhiều dòng một lần rồi bấm «Gửi N dòng». /nghiphep không kèm gì: chọn ngày và lý do bằng nút, kèm số phép còn lại."
+        ]
+      }
+    ]
+  },
+  {
     "id": "cong-khach",
     "icon": "send",
     "title": "Cổng tra cứu cho khách — khách tự xem tiến độ, khỏi hỏi đi hỏi lại",
     "blocks": [
       {
         "type": "p",
-        "text": "Mỗi khách hàng có thể được cấp **1 đường link riêng** dạng `crm.jamahome.vn/portal/...`. Khách mở link trên điện thoại là xem được tiến độ dự án của mình — **không cần tài khoản, không cần mật khẩu**. Ai tạo được link: chỉ **Giám đốc** và **Trưởng phòng** (người khác bấm sẽ báo lỗi không đủ quyền)."
+        "text": "Mỗi khách hàng có thể được cấp **1 đường link riêng** dạng `crm.jamahome.vn/portal/...`. Khách mở link trên điện thoại là xem được tiến độ dự án của mình — **không cần tài khoản, không cần mật khẩu**. Ai gửi được link: **Giám đốc**, **Trưởng phòng/Trưởng nhóm**, và **sale hoặc PM phụ trách** dự án của khách đó. Link đã gửi giữ nguyên, không bị chết khi người khác bấm lại."
       },
       {
         "type": "h3",
@@ -620,8 +651,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "Vào menu **«Khách hàng»** → bấm vào tên khách → cửa sổ chi tiết mở ra.",
-          "Ở phần **«📋 Dự án»**, bấm nút **«Tạo link portal»** (nếu đã tạo trước đó thì link hiện sẵn).",
-          "Bấm **«Copy»** rồi gửi link cho khách qua Zalo/Telegram/tin nhắn."
+          "Bấm **«Gửi link theo dõi qua Zalo»**: app chép sẵn tin nhắn kèm link rồi mở Zalo của khách — chỉ cần dán và gửi.",
+          "Trong thẻ dự án (khối Thông tin khách hàng) còn có nút **«Gửi tiến độ cho khách»** (tin tiến độ + link) và **«Gọi»**.",
+          "Chỉ khi link bị lộ mới bấm **«Tạo lại link»** — link cũ khách đang giữ sẽ hết dùng được."
         ]
       },
       {

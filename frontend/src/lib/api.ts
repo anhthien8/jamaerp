@@ -655,6 +655,19 @@ class ApiClient {
     return this.request<{ portal_token: string; portal_url: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
   }
 
+  /** Link portal ĐANG CÓ của khách (chỉ cấp mới khi chưa từng có) — gọi lại không làm chết link đã gửi. */
+  async getPortalLink(customerId: string) {
+    return this.request<PortalLink>(`/customers/${customerId}/portal-link`, { method: 'POST' });
+  }
+
+  async getPortalLinkDuAn(projectId: string) {
+    return this.request<PortalLink>(`/customers/portal-link-du-an/${projectId}`, { method: 'POST' });
+  }
+
+  async setPortalEnabled(customerId: string, enabled: boolean) {
+    return this.request<{ portal_enabled: boolean; portal_token: string | null }>(`/customers/${customerId}/portal`, { method: 'PATCH', body: { enabled } });
+  }
+
   // === ERP: Contracts ===
   async getContracts(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Contract>>('/contracts', { params });
@@ -1032,6 +1045,14 @@ class ApiClient {
   async cancelRequest(id: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/cancel`, { method: 'POST' });
   }
+  /** Ủy quyền duyệt khi vắng: trạng thái hiện tại + người có thể nhận (chỉ vai trò có quyền duyệt) */
+  async getApprovalDelegate() {
+    return this.request<ApprovalDelegateInfo>('/approvals/delegate');
+  }
+  /** delegate_to = null để tắt; until là ISO có múi giờ */
+  async setApprovalDelegate(delegate_to: string | null, until?: string) {
+    return this.request<{ delegate_to: string | null; until: string | null }>('/approvals/delegate', { method: 'POST', body: { delegate_to, until } });
+  }
 
   // === HR Phase 1: Nghỉ phép ===
   async createLeave(data: { leave_type: string; start_date: string; end_date: string; half_day?: boolean; reason: string }) {
@@ -1069,6 +1090,12 @@ class ApiClient {
   async payrollPay(period: string) {
     return this.request<{ period: string; paid_rows: number; sent: number; manual_delivery: string[] }>(
       `/payroll/${period}/pay`, { method: 'POST' }
+    );
+  }
+  /** Gửi lại phiếu lương cho người chưa nhận — không gửi trùng, không đụng trạng thái đã chi */
+  async payrollResendPayslips(period: string) {
+    return this.request<{ period: string; sent: number; manual_delivery: string[] }>(
+      `/payroll/${period}/resend-payslips`, { method: 'POST' }
     );
   }
 
@@ -1609,6 +1636,7 @@ export interface DongVatTu {
   gia_dat?: number | null; gia_cu?: boolean;
   gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
   lai?: number | null; bao_gia?: BaoGiaVatTu[]; gia_von_gan_nhat?: number | null; gia_tham_khao?: number | null;
+  ncc_gan_nhat_id?: string | null; ncc_gan_nhat_ten?: string | null; gia_von_cap_nhat_luc?: string | null; gia_gan_nhat_cu?: boolean;
 }
 export interface PhieuVatTu {
   items: DongVatTu[]; tong_gia_ban: number; tong_lai?: number; thay_gia_von: boolean; co_the_chot: boolean;
@@ -2043,6 +2071,12 @@ export interface AISuggestionHistory {
 
 // === ERP Types ===
 
+export interface PortalLink {
+  customer_id: string;
+  portal_token: string;
+  portal_enabled: boolean;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -2227,10 +2261,12 @@ export interface PnLProjectDetail {
 }
 
 export interface ReceivableInstallment {
+  idx: number; // vị trí đợt trong lịch thu gốc của HĐ
   name: string;
   percentage: number;
   amount: number;
   milestone?: string | null;
+  due_date?: string | null;
 }
 
 export interface ReceivableContract {
@@ -2363,6 +2399,7 @@ export interface InstantQuoteResult {
   material_options?: MaterialOption[];
   customer_budget: number | null;
   zalo_text: string;
+  zalo_texts?: Record<'basic' | 'standard' | 'premium', string>;
   disclaimer: string;
   parsed: { name?: string; phone?: string } | null;
 }
@@ -2394,7 +2431,7 @@ export interface AISettingsResponse {
   llm_fallback_api_key_set: boolean;
   fallbacks?: { model: string; api_key_masked: string; api_key_set: boolean }[];
   max_fallbacks?: number;
-  presets: { label: string; model: string }[];
+  presets: { label: string; model: string; tra_phi?: boolean }[];
 }
 
 // === Pagination ===
@@ -2528,6 +2565,14 @@ export interface ApprovalItem {
   created_at: string;
   resolved_at: string | null;
   delegated?: boolean;
+}
+
+export interface ApprovalDelegateInfo {
+  can_delegate: boolean;
+  delegate_to: string | null;
+  delegate_name: string | null;
+  until: string | null;
+  candidates: { id: string; full_name: string; role: string }[];
 }
 
 export interface LeaveItem {

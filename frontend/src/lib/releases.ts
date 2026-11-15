@@ -15,6 +15,36 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '15/11/2026',
+    title: 'Nút 1 chạm: máy soạn sẵn, bạn chỉ xác nhận',
+    tag: 'MỚI',
+    news: [
+      'Vật tư: Giám sát nhận cả chuyến hàng bằng 1 bộ ảnh; sale gửi khách duyệt giá qua Zalo và ghi khách đồng ý nhiều dòng một lần; Thu mua chốt theo giá gần nhất, chép tin hỏi giá gửi NCC, đặt cả loạt đúng báo giá.',
+      'Khách hàng và dự án: «Gửi link theo dõi qua Zalo» (link cũ không còn bị chết), «Gửi tiến độ cho khách», giao cả nhóm việc cho 1 người, thông báo mở thẳng đúng đầu việc.',
+      'Tiền: Phải thu có «Ghi thu» mở đúng đợt và «Chép tin nhắc»; mẫu lịch thu nhanh; nhân bản khoản chi hằng tháng. Việc dính tiền vẫn phải người có quyền xác nhận.',
+      'Nhân sự: xác nhận ca quên tan ca 1 chạm, duyệt nhiều đơn nghỉ một lần, ủy quyền duyệt khi vắng, gửi lại phiếu lương, chip xin nghỉ nhanh.',
+      'Báo giá: lưu Báo giá tức thì thành báo giá nháp, nhân bản và copy báo giá gửi khách.',
+      'Bot Telegram: nút làm tiếp ngay dưới tin điểm danh, /vatlieu nhiều dòng một lần, /nghiphep chọn ngày bằng nút.',
+    ],
+    test: [
+      'Vật tư → «Đặt – nhận» (tài khoản giám sát): tick 2 dòng cùng dự án, chọn 2 ảnh, bấm «Nhận đủ 2 dòng» → cả 2 dòng sang đã nhận.',
+      'Khách hàng → mở 1 khách → «Gửi link theo dõi qua Zalo» → tin được chép, Zalo mở; bấm lại lần 2 → link không đổi.',
+      'Bot: gõ /nghiphep không kèm gì → hiện số phép còn lại và nút chọn ngày.',
+    ],
+  },
+  {
+    date: '14/11/2026',
+    title: 'Cấu hình AI thêm ChatGPT và Claude (trả phí theo lượt)',
+    tag: 'MỚI',
+    news: [
+      'Admin chọn được model ChatGPT (gpt-5.4-nano/mini, gpt-5.5) và Claude (Haiku, Sonnet, Opus) làm model chính hoặc dự phòng — cần API key trả theo lượt, gói Plus/Pro không dùng được.',
+      'App tự nhận khoá của nhà nào và cảnh báo khi dán nhầm khoá; đọc CCCD và ảnh báo giá cũng chạy được bằng GPT/Claude.',
+    ],
+    test: [
+      'Cài đặt → Cấu hình AI: thêm 1 model Claude hoặc ChatGPT vào dự phòng kèm khoá → bấm Test thử → dòng đó báo ok.',
+    ],
+  },
+  {
     date: '13/11/2026',
     title: 'Giữ đăng nhập 7 ngày + đăng xuất các thiết bị khác',
     tag: 'MỚI',

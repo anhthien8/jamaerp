@@ -121,13 +121,13 @@ export default function AccountingPage() {
    *  Trước 12/08/2026 nút "Sửa" chỉ bật một biến `formOpen` không nối với gì —
    *  bấm vào là không có chuyện gì xảy ra, kế toán tưởng máy treo.
    */
-  const openTxForm = async (tx?: Transaction) => {
+  const openTxForm = async (tx?: Transaction, nhanBan = false) => {
     const today = new Date().toISOString().slice(0, 10);
-    setEditingTx(tx ?? null);
+    setEditingTx(nhanBan ? null : tx ?? null);
     setTxForm(tx
       ? {
           type: tx.type, category: tx.category, description: tx.description,
-          amount: String(tx.amount), date: (tx.date || today).slice(0, 10),
+          amount: String(tx.amount), date: nhanBan ? today : (tx.date || today).slice(0, 10),
           project_id: tx.project_id || '', user_id: tx.related_user_id || '',
         }
       : { type: 'expense', category: 'other', description: '', amount: '', date: today, project_id: '', user_id: '' });
@@ -137,8 +137,11 @@ export default function AccountingPage() {
     try {
       const result = extractItems(await api.getProjects({ status: 'active' }));
       setActiveProjects(result);
+      // Nhân bản: dự án đã đóng không còn trong ô chọn — bỏ gắn để khỏi cộng ngầm vào chi phí dự án
+      if (nhanBan && tx?.project_id && !result.some(p => p.id === tx.project_id)) setTxForm(f => ({ ...f, project_id: '' }));
     } catch {
       setActiveProjects([]);
+      if (nhanBan) setTxForm(f => ({ ...f, project_id: '' }));
     }
     try {
       setStaffList(extractItems(await api.getUsers()));
@@ -179,6 +182,16 @@ export default function AccountingPage() {
   /** Lấy câu báo lỗi của máy chủ nếu có (VD "Không có quyền..."), không thì dùng câu mặc định. */
   const loiThaoTac = (e: unknown, macDinh: string) =>
     e instanceof Error && e.message ? e.message : macDinh;
+
+  /** Nhân bản khoản chi lặp lại (thuê VP, điện, internet…): mở form TẠO MỚI điền sẵn,
+   *  ngày = hôm nay; kế toán soát rồi mới bấm «Tạo giao dịch». Cảnh báo nếu tháng này đã có khoản giống hệt. */
+  const nhanBanTx = (tx: Transaction) => {
+    const thang = new Date().toISOString().slice(0, 7);
+    const daCo = transactions.some(t => t.type === tx.type && t.description === tx.description
+      && Number(t.amount) === Number(tx.amount) && (t.date || '').slice(0, 7) === thang);
+    if (daCo && !confirm('Tháng này đã có giao dịch cùng mô tả và số tiền. Vẫn nhân bản?')) return;
+    openTxForm(tx, true);
+  };
 
   const handleCreateTransaction = async () => {
     if (!txForm.description.trim() || !txForm.amount || Number(txForm.amount) <= 0) {
@@ -617,7 +630,15 @@ export default function AccountingPage() {
                                 {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                               </span>
                             </div>
-                            <p className="text-[10px] text-[var(--text-muted)] mt-1">{formatDate(tx.date)}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className="text-[10px] text-[var(--text-muted)]">{formatDate(tx.date)}</p>
+                              {canEditAccounting && tx.type === 'expense' && !tx.code.startsWith('THU-') && (
+                                <button onClick={() => nhanBanTx(tx)} title="Mở form tạo mới điền sẵn nội dung giao dịch này, ngày hôm nay"
+                                  className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                  Nhân bản
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -672,6 +693,12 @@ export default function AccountingPage() {
                                       <button onClick={() => openTxForm(tx)}
                                         className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
                                         Sửa
+                                      </button>
+                                    )}
+                                    {canEditAccounting && tx.type === 'expense' && !tx.code.startsWith('THU-') && (
+                                      <button onClick={() => nhanBanTx(tx)} title="Mở form tạo mới điền sẵn nội dung giao dịch này, ngày hôm nay"
+                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                        Nhân bản
                                       </button>
                                     )}
                                     {user?.role === 'admin' && (
@@ -886,7 +913,7 @@ export default function AccountingPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTxForm(false)}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative glass-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold mb-4 gold-gradient">Tạo giao dịch mới</h3>
+              <h3 className="text-lg font-bold mb-4 gold-gradient">{editingTx ? 'Sửa giao dịch' : 'Tạo giao dịch mới'}</h3>
 
               {/* Type toggle */}
               <div className="flex gap-2 mb-4">
@@ -1020,7 +1047,7 @@ export default function AccountingPage() {
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
                 >
-                  {savingTx ? 'Đang lưu...' : 'Tạo giao dịch'}
+                  {savingTx ? 'Đang lưu...' : editingTx ? 'Lưu thay đổi' : 'Tạo giao dịch'}
                 </button>
               </div>
             </div>

@@ -249,12 +249,64 @@ async def _khach_portal_duoc_quan(db: AsyncSession, customer_id: str, user: User
         raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
     if user.role in ("admin", "executive") or is_team_lead(user) or la_truong_phong(user):
         return customer
+    # Dự án nối với khách trực tiếp hoặc qua lead (cùng luật với get_customer).
+    cua_khach = [Project.customer_id == customer.id]
+    if customer.lead_id:
+        cua_khach.append(Project.lead_id == customer.lead_id)
     phu_trach = (await db.execute(select(Project.id).where(
-        Project.customer_id == customer.id,
+        or_(*cua_khach),
         (Project.sales_id == user.id) | (Project.pm_id == user.id)).limit(1))).first()
     if not phu_trach:
         raise HTTPException(status_code=403, detail="Chỉ quản lý hoặc sale/PM phụ trách dự án của khách được quản lý link portal")
     return customer
+
+
+async def _portal_hien_co(db: AsyncSession, customer: Customer) -> dict:
+    """Trả link portal ĐANG CÓ; chỉ cấp token khi khách chưa từng có.
+
+    Không xoay token (link đã gửi khách vẫn sống) và không tự bật lại portal
+    đã bị tắt có chủ ý — bật lại là thao tác riêng qua PATCH /portal.
+    """
+    if not customer.portal_token:
+        customer.portal_token = str(uuid.uuid4())
+        customer.portal_enabled = True
+        await db.flush()
+    return {
+        "customer_id": customer.id,
+        "portal_token": customer.portal_token,
+        "portal_enabled": customer.portal_enabled,
+    }
+
+
+@router.post("/{customer_id}/portal-link")
+async def lay_link_portal(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lấy link portal hiện có của khách để gửi (gọi nhiều lần vẫn cùng một link)."""
+    customer = await _khach_portal_duoc_quan(db, customer_id, current_user)
+    return await _portal_hien_co(db, customer)
+
+
+@router.post("/portal-link-du-an/{project_id}")
+async def lay_link_portal_theo_du_an(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Như trên nhưng tra khách từ dự án — cho nút «Gửi tiến độ» trên thẻ dự án."""
+    project = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Dự án không tồn tại")
+    customer_id = project.customer_id
+    if not customer_id and project.lead_id:
+        customer_id = (await db.execute(
+            select(Customer.id).where(Customer.lead_id == project.lead_id).limit(1))).scalar_one_or_none()
+    if not customer_id:
+        raise HTTPException(status_code=404, detail="Dự án chưa gắn với khách hàng nào nên chưa có link portal")
+    customer = await _khach_portal_duoc_quan(db, customer_id, current_user)
+    return await _portal_hien_co(db, customer)
 
 
 class _PortalToggle(BaseModel):

@@ -151,7 +151,7 @@ async def _thong_bao_giao_viec(
             db, nguoi, "task_assigned",
             f"Bạn được giao việc: {task.title}",
             f"{ten_du_an}\nNgười giao: {nguoi_giao}{dong_han}",
-            link=f"/projects?id={task.project_id}",
+            link=f"/projects?id={task.project_id}&task={task.id}",
             ref_id=task.id,
         ):
             dem += 1

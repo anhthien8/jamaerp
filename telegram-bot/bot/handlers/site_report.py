@@ -23,6 +23,58 @@ class SiteReportState(StatesGroup):
 
 
 # ---------------------------------------------------------------------------
+# Nút «việc tiếp theo» cho đúng dự án vừa thao tác — khỏi chọn lại dự án
+# ---------------------------------------------------------------------------
+
+_VIEC_TIEP = (
+    ("baocao", "Báo cáo hôm nay"),
+    ("suco", "Báo sự cố"),
+    ("vatlieu", "Yêu cầu vật tư"),
+    ("checkout", "Tan ca"),
+)
+
+
+def nut_tiep_theo(code: str, message: types.Message | None = None, bo: tuple = ()) -> types.InlineKeyboardMarkup | None:
+    """Hàng nút `nx:<lệnh>:<MÃ>` gắn dưới thẻ dự án / tin điểm danh / tin báo cáo.
+    «Tan ca» xin vị trí GPS — Telegram chỉ cho ở chat riêng nên ẩn trong nhóm."""
+    if not code:
+        return None
+    if message is not None and message.chat.type != "private":
+        bo = (*bo, "checkout")
+    nut = [
+        types.InlineKeyboardButton(text=ten, callback_data=f"nx:{cmd}:{code}"[:64])
+        for cmd, ten in _VIEC_TIEP if cmd not in bo
+    ]
+    return types.InlineKeyboardMarkup(inline_keyboard=[nut[i:i + 2] for i in range(0, len(nut), 2)])
+
+
+@router.callback_query(F.data.startswith("nx:"))
+async def cb_tiep_theo(callback: types.CallbackQuery, state: FSMContext):
+    """Vào thẳng luồng của lệnh cho dự án ghi sẵn trên nút. KHÔNG sửa tin gốc
+    (thẻ dự án phải còn nguyên); người bấm là callback.from_user."""
+    parts = (callback.data or "").split(":", 2)
+    await callback.answer()
+    if len(parts) != 3 or not parts[2]:
+        return
+    _, cmd, code = parts
+    # import trong thân hàm: chon_du_an đã import cả bốn file → tránh vòng import
+    from bot.handlers.checkin_out import xin_vi_tri
+    from bot.handlers.incident import bat_dau_su_co
+    from bot.handlers.material_request import hoi_vat_tu
+
+    await state.clear()  # bấm việc mới = bỏ luồng dở dang trước đó
+    m = callback.message
+    if cmd == "baocao":
+        await bat_dau_bao_cao(m, state, code)
+    elif cmd == "suco":
+        await bat_dau_su_co(m, state, code)
+    elif cmd == "vatlieu":
+        await hoi_vat_tu(m, state, code)
+    elif cmd == "checkout":
+        await xin_vi_tri(m, state, code, ra_ca=True)
+
+
+# ---------------------------------------------------------------------------
 # /duan — Quick project lookup
 # ---------------------------------------------------------------------------
 
@@ -108,7 +160,10 @@ async def hien_du_an(message: types.Message, tg_id: int, project_code: str):
         if sales_name:
             lines.append(f"• Kinh doanh: {sales_name}")
 
-    await message.answer("\n".join(lines))
+    await message.answer(
+        "\n".join(lines),
+        reply_markup=nut_tiep_theo(project.get("code") or project_code, message),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -386,6 +441,7 @@ async def gui_bao_cao(message: types.Message, state: FSMContext, tg_id: int):
             f"🕐 Thời gian: {result.get('created_at', '—')}"
             f"{photo_info}{tep_info}{crm}",
             disable_web_page_preview=True,
+            reply_markup=nut_tiep_theo(code, message, bo=("baocao",)),
         )
     else:
         error_msg = result.get("error", "Không rõ lỗi") if result else "Không kết nối được server"
