@@ -15,6 +15,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '20/11/2026',
+    title: 'Mở trang nhẹ hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Mỗi lần mở một trang bất kỳ, app không còn tải ngầm danh sách lead và dự án cho khung thông báo nữa — chỉ tải khi bạn bấm chuông. Mạng yếu / 4G mở trang nhanh hơn rõ.',
+      'Chuông thông báo tự làm mới mỗi 2 phút thay vì mỗi phút, nhưng vẫn lấy bản mới nhất NGAY lúc bạn quay lại tab hoặc bấm vào chuông.',
+    ],
+    test: [
+      'Mở một trang bất kỳ → bấm chuông: danh sách thông báo (kể cả dòng «Lead quá hạn», «Tiến độ thấp») vẫn hiện đủ như cũ, số đỏ trên chuông không đổi.',
+    ],
+  },
+  {
     date: '15/11/2026',
     title: 'Nút 1 chạm: máy soạn sẵn, bạn chỉ xác nhận',
     tag: 'MỚI',

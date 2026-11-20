@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Lead, Project } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 import BatThongBaoMay from '@/components/BatThongBaoMay';
+import { cachedFetch } from '@/lib/fetch-cache';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -56,7 +57,6 @@ function daysSince(isoDate: string | undefined): number {
 }
 
 export function generateNotifications(leads: Lead[], projects: Project[], readIds: Set<string>): Notification[] {
-  const now = new Date();
   const notifs: Notification[] = [];
 
   // Overdue leads (not contacted in 3+ days)
@@ -171,57 +171,70 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const leads = leadsProp ?? internalLeads;
   const projects = projectsProp ?? internalProjects;
 
-  // Auto-fetch if not provided
+  // leads/projects CHỈ dùng để sinh mấy dòng «Lead quá hạn» / «Tiến độ thấp» hiện
+  // BÊN TRONG panel — số trên chuông chỉ đếm thông báo thật (srv-). Trước
+  // 20/11 chúng được tải ngay lúc mount, tức mọi lần mở MỖI trang lại kéo
+  // thêm hai danh sách (~50 bản ghi/danh sách) không ai nhìn. Nay đợi người
+  // dùng bấm chuông, và dùng lại trong 60s qua cachedFetch.
   useEffect(() => {
-    if (!leadsProp) {
-      import('@/lib/api').then(({ api, extractItems }) => {
-        Promise.all([
-          api.getLeads().then(r => setInternalLeads(extractItems(r))),
-          api.getProjects().then(r => setInternalProjects(extractItems(r))),
-        ]).catch((e) => console.warn('NotificationCenter: không tải được leads/projects', e));
-      });
-    }
-  }, [leadsProp]);
-
-  // Lấy thông báo thật từ backend (poll mỗi 60s)
-  useEffect(() => {
+    if (leadsProp || !open) return;
     let cancelled = false;
+    import('@/lib/api').then(({ api, extractItems }) => {
+      Promise.all([
+        cachedFetch('leads:all', 60_000, () => api.getLeads())
+          .then(r => { if (!cancelled) setInternalLeads(extractItems(r)); }),
+        cachedFetch('projects:all', 60_000, () => api.getProjects())
+          .then(r => { if (!cancelled) setInternalProjects(extractItems(r)); }),
+      ]).catch((e) => console.warn('NotificationCenter: không tải được leads/projects', e));
+    });
+    return () => { cancelled = true; };
+  }, [leadsProp, open]);
 
-    const fetchServer = () => {
-      import('@/lib/api').then(({ api }) => {
-        api.getNotifications().then(res => {
-          if (cancelled) return;
-          setServerNotifs(res.items.map(n => ({
-            id: `srv-${n.id}`,
-            group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
-            title: n.title,
-            description: n.body ? n.body.split('\n')[0] : '',
-            icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
-            href: n.link || '/',
-            timestamp: n.created_at,
-            read: n.read,
-            type: 'pending_approval' as const,
-          })));
-        }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
-      });
-    };
+  // Lấy thông báo thật từ backend. cachedFetch 4s gộp các lần gọi trùng nhau
+  // thành MỘT request: StrictMode (next dev) chạy effect hai lần, và việc quay
+  // lại tab / bấm chuông dễ trùng với nhịp đếm.
+  const fetchServer = useCallback(() => {
+    import('@/lib/api').then(({ api }) => {
+      cachedFetch('notifications', 4_000, () => api.getNotifications()).then(res => {
+        setServerNotifs(res.items.map(n => ({
+          id: `srv-${n.id}`,
+          group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
+          title: n.title,
+          description: n.body ? n.body.split('\n')[0] : '',
+          icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
+          href: n.link || '/',
+          timestamp: n.created_at,
+          read: n.read,
+          type: 'pending_approval' as const,
+        })));
+      }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
+    });
+  }, []);
 
+  useEffect(() => {
     fetchServer();
     // Spec 08 §1.2: tab nằm nền thì DỪNG poll (200 người × cả ngày = hàng trăm
     // nghìn request vô ích + tốn pin 4G); mở lại tab thì fetch ngay.
+    // 20/11: giãn 60s → 120s. Việc gấp đã đẩy qua Web Push + Telegram; badge
+    // vẫn được làm mới ngay lúc quay lại tab và lúc bấm chuông, nên không cần
+    // đếm dày lúc người ta đang làm việc khác.
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') fetchServer();
-    }, 60_000);
+    }, 120_000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') fetchServer();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      cancelled = true;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, []);
+  }, [fetchServer]);
+
+  // Bấm chuông thì lấy bản mới nhất ngay, không chờ hết nhịp 120s.
+  useEffect(() => {
+    if (open) fetchServer();
+  }, [open, fetchServer]);
 
   // Load read IDs on mount
   useEffect(() => {
