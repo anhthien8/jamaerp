@@ -16,6 +16,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
 import { Trong } from '@/components/dashboard/KhoiDashboard';
@@ -86,7 +87,7 @@ function DoiChieuNoiDung() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) { router.push(duongDangNhap()); return; }
     if (!duocDoiChieu(user)) { router.push('/'); return; }
     // Trưởng phòng mở link của phòng khác (vd. bấm nhầm link chuyển tiếp) → về phòng mình.
     if (!bgd && phongMinh && phongThamSo !== phongMinh) {

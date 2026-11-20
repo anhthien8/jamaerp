@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import MoneyInput from '@/components/ui/MoneyInput';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
@@ -259,7 +260,7 @@ function LeadsContent() {
   const [dangGhiNhan, setDangGhiNhan] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     if (!loading && user && !perms.canViewLeads) router.push('/');
   }, [user, loading, router, perms.canViewLeads]);
 

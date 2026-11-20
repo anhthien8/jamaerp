@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
@@ -142,7 +143,7 @@ export default function CustomersPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   // Fetch customer detail with projects when selected

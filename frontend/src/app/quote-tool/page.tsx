@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ApiError, InstantQuoteResult, PriceItemDTO } from '@/lib/api';
@@ -67,7 +68,7 @@ export default function QuoteToolPage() {
   const [priceItems, setPriceItems] = useState<PriceItemDTO[]>([]);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   const generate = async () => {

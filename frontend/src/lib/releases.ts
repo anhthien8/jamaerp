@@ -15,6 +15,27 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '21/11/2026',
+    title: 'Thông báo hiện ngay trong app + nhắc cài app, bật thông báo trên điện thoại',
+    tag: 'MỚI',
+    news: [
+      'Đang mở app mà có thông báo mới thì hiện ô nhỏ trên cùng màn hình (máy tính: góc trên phải): bấm «Mở» tới thẳng việc đó, tự ẩn sau 12 giây. Trước đây chỉ tăng con số đỏ trên chuông.',
+      'Trang mới «Cài app & thông báo» (menu Trợ giúp, hoặc bấm ảnh đại diện): cho biết máy đang mở dạng app hay trình duyệt, thông báo đã bật chưa; có nút «Cài ngay» khi trình duyệt cho cài, hướng dẫn 3 bước cho Android và iPhone/iPad, rồi bật thông báo.',
+      'Đã cài app mà chưa bật thông báo thì đầu trang có dòng nhắc «Bật thông báo để không lỡ việc được giao» — 1 chạm là bật, «Để sau» ẩn 7 ngày.',
+      'Trang Đối chiếu không còn giấu thanh «Cài JAMA HOME lên điện thoại»: thanh hiện ở đầu trang để không đè nút «Còn lại đều đúng — Xác nhận».',
+      'Bấm link trong tin nhắc (Telegram, thông báo máy) ở trình duyệt chưa đăng nhập: đăng nhập xong vào thẳng trang của link (vd danh sách Đối chiếu), không còn bị đưa về Tổng quan.',
+      'Dữ liệu chung (Ban giám đốc): dưới tên trưởng phòng có chip «Telegram» / «Thông báo máy» / «Chỉ nhận trong chuông»; bấm «Nhắc» xong biết tin đi qua kênh nào. Khối mới «Kênh nhận thông báo» đếm ai đã bật thông báo theo từng phòng và có nút «Nhắc cài app & bật thông báo».',
+      'Tin nhắc gửi người chưa bật thông báo máy có thêm link «Hướng dẫn 1 phút» để cài app.',
+    ],
+    test: [
+      'Tài khoản admin/executive: Dữ liệu chung → thẻ Thi công thấy chip kênh dưới tên trưởng phòng; khối «Kênh nhận thông báo» hiện số người đã bật / chỉ nhận trong chuông.',
+      'Bấm «Nhắc cài app & bật thông báo» → xác nhận → báo đã nhắc bao nhiêu người; bấm lần 2 cùng ngày → báo đã nhắc hôm nay rồi.',
+      'Tài khoản nhận nhắc: mở app, chờ tối đa 1 phút → ô thông báo hiện trên cùng; bấm «Mở» → tới đúng trang, chấm đỏ trên chuông giảm.',
+      'Mở link /doi-chieu?phong=OPS trong tab ẩn danh (chưa đăng nhập) → trang đăng nhập → đăng nhập xong vào thẳng Đối chiếu Thi công.',
+      'Điện thoại: menu Trợ giúp → Cài app & thông báo → làm theo hướng dẫn, mở app từ màn hình chính → bật thông báo → «Gửi thử» thấy tin hiện lên máy.',
+    ],
+  },
+  {
     date: '20/11/2026',
     title: 'Dữ liệu chung: CRM phản ánh thực tế tới đâu + trang Đối chiếu cho trưởng phòng',
     tag: 'MỚI',

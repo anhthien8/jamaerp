@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, SalesDashboard, SalesKpiCard, SalesPerson, SalesTargets } from '@/lib/api';
 import { formatCurrency, SOURCE_LABELS } from '@/lib/utils';
@@ -100,7 +101,7 @@ export default function SaleDashboardPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) { router.push(duongDangNhap()); return; }
     // Backend chặn cứng ở admin; chặn thêm ở đây để người khác không rơi vào
     // trang trắng kèm 403 mà không hiểu vì sao.
     if (!DUOC_XEM.includes(user.role)) router.push('/');

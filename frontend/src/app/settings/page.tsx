@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
@@ -1605,7 +1606,7 @@ export default function SettingsPage() {
   // Ai đăng nhập cũng vào được Cài đặt (liên kết Telegram, xem lại hướng dẫn, thông tin cá nhân).
   // Các mục quản trị (AI Model, Zalo, Backup, Automation) đã tự gate theo role bên trong.
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   if (loading || !user) return null;

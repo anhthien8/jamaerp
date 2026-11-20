@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/auth';
 import Avatar from '@/components/ui/Avatar';
 import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
+import NhacBatThongBao from '@/components/ui/NhacBatThongBao';
+import InstallBanner from '@/components/ui/InstallBanner';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
@@ -105,6 +107,8 @@ const ALL_ITEMS: NavItem[] = [
   { href: '/permissions', label: 'Phân quyền', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/users', label: 'Tài khoản', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/huong-dan', label: 'Sổ tay', icon: Icon.guide },
+  // Cài app + bật thông báo 21/11/2026 — mọi người đã đăng nhập
+  { href: '/cai-app', label: 'Cài app & thông báo', icon: <LineIcon name="smartphone" size={20} color="currentColor" /> },
   { href: '/changelog', label: 'Có gì mới', icon: Icon.bell },
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
@@ -120,7 +124,7 @@ const NAV_GROUPS: NavGroup[] = [
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
-  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/changelog', '/feedback', '/settings'] },
+  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/cai-app', '/changelog', '/feedback', '/settings'] },
 ];
 const NAV_OPEN_KEY = 'jama_nav_open';
 
@@ -395,6 +399,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <AccountItem href={`/hr/nhan-vien?id=${user.id}`} icon="user" label="Hồ sơ 360° của tôi" hint="Thông tin, giấy tờ, chấm công, lương" />
               <AccountItem href="/settings" icon="camera" label="Đổi ảnh đại diện" />
               <AccountItem href="/settings" icon="settings" label="Cài đặt tài khoản" hint="Mật khẩu, Telegram, thông báo" />
+              <AccountItem href="/cai-app" icon="download" label="Cài app & bật thông báo" hint="Nhận nhắc việc ngay trên điện thoại" />
               <AccountItem href="/huong-dan" icon="compass" label="Sổ tay hướng dẫn" />
               <div className="my-1 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
               <button
@@ -519,6 +524,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
           </div>
         </div>
+        {/* Đã cài app nhưng chưa bật thông báo → nhắc 1 dòng (21/11/2026) */}
+        <NhacBatThongBao />
+        {/* Chưa cài app, trang có thanh nút dính đáy (/doi-chieu) → mời cài ở đầu trang,
+            trong dòng nội dung (không đè tiêu đề như bản `fixed`). Các trang khác: bản đáy ở layout. */}
+        <InstallBanner trongTrang />
         {children}
         {dangChuyen && (
           <div

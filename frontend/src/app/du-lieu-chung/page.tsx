@@ -10,12 +10,15 @@
  * • `diem = null` (ít / không có hồ sơ) thì hiện nhãn, KHÔNG BAO GIỜ tự quy ra 0 hay 100.
  * • Lệch dữ liệu không trừ điểm; vắng dấu vết không bao giờ bị gọi là lệch.
  * • Màu chỉ qua biến theme, không dùng --danger.
+ * • 21/11/2026: mỗi trưởng phòng có chip kênh nhận tin (Telegram / Thông báo máy / Chỉ nhận
+ *   trong chuông) + khối «Kênh nhận thông báo» để nhắc người chưa cài app, chưa bật thông báo.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useToast } from '@/components/ui/Toast';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import LineIcon from '@/components/ui/LineIcon';
@@ -23,14 +26,15 @@ import { Khoi, Thanh, Trong } from '@/components/dashboard/KhoiDashboard';
 import {
   api, ApiError,
   DuLieuChung, DuLieuChungHoSo, DuLieuChungLech, DuLieuChungPhong, DuLieuChungThe,
-  LanNhac, NhacDuLieuChungBody, NhacDuLieuChungKetQua, PhongDuLieu, TrangThaiHoSo,
+  KenhThongBao, LanNhac, NhacCaiAppBody, NhacDuLieuChungBody, NhacDuLieuChungKetQua,
+  PhongDuLieu, PhongKenh, TrangThaiHoSo,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   GIAI_DOAN_PHAN_LOAI, NHAN_KET_QUA, NHAN_LECH, NHAN_MUC, NHAN_TRANG_THAI, PHONG_DU_LIEU,
   TEN_PHONG, THU_TU_TRANG_THAI, VAI_TRO_DU_LIEU_CHUNG,
   baoLau, gioPhut, laHomNay, linkHoSo, mauMuc, mauTrangThai, ngayThang,
-  nhanDauVet, nhanGiaiDoan, tomTatNhac,
+  nhanDauVet, nhanGiaiDoan, tomTatNhac, tomTatNhacCaiApp,
 } from '@/lib/du-lieu-chung';
 
 // Phải khớp VAI_TRO_BGD ở backend và mục /du-lieu-chung trong Sidebar.
@@ -55,6 +59,8 @@ function nhanLanNhac(n: LanNhac): string {
 }
 
 type ChoXacNhan = { id: string; ma: string; stage: string; message: string; soViec: number };
+/** Chờ BGĐ xác nhận trước khi gửi nhắc cài app hàng loạt. */
+type ChoNhacCaiApp = { body: NhacCaiAppBody; phamVi: string | null; so: number; khoa: string };
 
 export default function DuLieuChungPage() {
   const { user, loading } = useAuth();
@@ -80,6 +86,7 @@ export default function DuLieuChungPage() {
   const [tamDungId, setTamDungId] = useState<string | null>(null);
   const [lyDoTamDung, setLyDoTamDung] = useState('');
   const [choXacNhan, setChoXacNhan] = useState<ChoXacNhan | null>(null);
+  const [choNhacCaiApp, setChoNhacCaiApp] = useState<ChoNhacCaiApp | null>(null);
 
   const laAdmin = user?.role === 'admin';
 
@@ -90,7 +97,7 @@ export default function DuLieuChungPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) { router.push(duongDangNhap()); return; }
     // Backend chặn cứng ở BGĐ; chặn thêm ở đây để người khác không rơi vào trang trắng + 403.
     if (!DUOC_XEM.includes(user.role)) router.push('/');
   }, [user, loading, router]);
@@ -130,6 +137,26 @@ export default function DuLieuChungPage() {
       setDangGui(null);
     }
   }, [baoKetQua, baoLoiNhac, taiLai]);
+
+  /** Nhắc cài app & bật thông báo — cả công ty, theo phòng, hoặc theo danh sách id (bộ phận khác).
+   *  Mỗi lúc chỉ 1 lượt: lượt «cả công ty» chờ Telegram từng người khá lâu, bấm thêm
+   *  «Nhắc n» của 1 phòng lúc đó sẽ gửi chồng cho cùng những người ấy (backend cũng xếp hàng). */
+  const dangNhacCaiApp = useRef(false);
+  const nhacCaiApp = useCallback(async (body: NhacCaiAppBody, khoa: string) => {
+    if (dangNhacCaiApp.current) return;
+    dangNhacCaiApp.current = true;
+    setDangGui(khoa);
+    try {
+      const { chu, kieu } = tomTatNhacCaiApp(await api.nhacCaiApp(body));
+      toast(chu, kieu);
+      taiLai();
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : 'Không gửi được tin nhắc cài app', 'error');
+    } finally {
+      dangNhacCaiApp.current = false;
+      setDangGui(null);
+    }
+  }, [taiLai, toast]);
 
   /** Lệch: nhắc CẢ HAI phía liên quan, mỗi phòng một lượt. */
   const hoiLaiLech = useCallback(async (r: DuLieuChungLech) => {
@@ -370,6 +397,12 @@ export default function DuLieuChungPage() {
             ))}
           </div>
 
+          {/* ── 3b. Kênh nhận thông báo (21/11/2026) ─────────────────── */}
+          {data.kenh_thong_bao && (
+            <KhoiKenhThongBao kenh={data.kenh_thong_bao} dangGui={dangGui}
+              onNhac={(body, phamVi, so, khoa) => setChoNhacCaiApp({ body, phamVi, so, khoa })} />
+          )}
+
           {/* ── 4. Lệch dữ liệu ──────────────────────────────────────── */}
           <Khoi id="lech-du-lieu" tieuDe={`Lệch dữ liệu (${fmtSo(lechLoc.length)})`}
             phu="CRM ghi một đằng, bằng chứng trong hệ thống nói một nẻo. Không trừ điểm — «Hỏi lại» nhắc cả hai phía liên quan.">
@@ -609,6 +642,21 @@ export default function DuLieuChungPage() {
           if (c) void doiGiaiDoan(c.id, c.ma, c.stage, { force: true });
         }}
       />
+
+      <ConfirmDialog
+        open={!!choNhacCaiApp}
+        title="Nhắc cài app & bật thông báo"
+        message={choNhacCaiApp
+          ? `Gửi lời nhắc cài JAMA HOME lên điện thoại và bật thông báo tới ${fmtSo(choNhacCaiApp.so)} người${choNhacCaiApp.phamVi ? ` thuộc ${choNhacCaiApp.phamVi}` : ''} chưa bật thông báo trên máy?\n\nTin vào chuông (thêm Telegram nếu người đó đã liên kết), kèm link hướng dẫn 1 phút. Mỗi người tối đa 1 tin loại này mỗi ngày.`
+          : ''}
+        confirmLabel="Gửi nhắc"
+        onCancel={() => setChoNhacCaiApp(null)}
+        onConfirm={() => {
+          const c = choNhacCaiApp;
+          setChoNhacCaiApp(null);
+          if (c) void nhacCaiApp(c.body, c.khoa);
+        }}
+      />
     </div>
   );
 }
@@ -677,6 +725,8 @@ function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech
     .slice(0, 2);
   const nhacHomNay = !!p.lan_nhac_cuoi && laHomNay(p.lan_nhac_cuoi.luc);
   const khongCoTP = p.truong_phong.length === 0;
+  // Không trưởng phòng nào có Telegram hay thông báo máy → tin chỉ nằm trong chuông.
+  const chiChuong = !khongCoTP && p.truong_phong.every(t => !t.co_telegram && !t.co_thong_bao_may);
 
   return (
     <section className="glass-card p-5 flex flex-col gap-3 min-w-0">
@@ -684,9 +734,20 @@ function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{p.ten || TEN_PHONG[p.ma]}</h2>
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            {khongCoTP ? 'Chưa có trưởng phòng' : p.truong_phong.map(t => `${t.ten}${t.co_telegram ? '' : ' (chưa liên kết Telegram)'}`).join(', ')}
-            {' · '}{fmtSo(p.so_ho_so)} hồ sơ
+            {khongCoTP ? 'Chưa có trưởng phòng · ' : ''}{fmtSo(p.so_ho_so)} hồ sơ
           </p>
+          {!khongCoTP && (
+            <ul className="mt-1.5 space-y-1">
+              {p.truong_phong.map(t => (
+                <li key={t.id} className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="text-[var(--text-secondary)]">{t.ten}</span>
+                  {t.co_telegram && <ChipKenh loai="telegram" />}
+                  {t.co_thong_bao_may && <ChipKenh loai="may" />}
+                  {!t.co_telegram && !t.co_thong_bao_may && <ChipKenh loai="chuong" />}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="text-right shrink-0">
           {p.diem !== null ? (
@@ -745,6 +806,11 @@ function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech
         <span className="text-[11px] text-[var(--text-muted)]">
           {khongCoTP ? 'Chưa có ai để nhắc' : p.lan_nhac_cuoi ? nhanLanNhac(p.lan_nhac_cuoi) : 'Chưa nhắc lần nào'}
         </span>
+        {chiChuong && (
+          <p className="w-full text-[11px] leading-snug" style={{ color: 'var(--warning)' }}>
+            Trưởng phòng chỉ thấy tin khi tự mở app — tin nhắc có kèm lời mời cài app và bật thông báo.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -800,5 +866,142 @@ function DongCanXem({ r, nhanQuyTac, dangGui, onHoiLai }: {
         </Link>
       </div>
     </li>
+  );
+}
+
+// ── Chip kênh nhận tin ─────────────────────────────────────────────────
+const CHIP_KENH = {
+  telegram: { nhan: 'Telegram', icon: 'send', mau: 'var(--info)', nen: 'var(--info-bg)' },
+  may: { nhan: 'Thông báo máy', icon: 'smartphone', mau: 'var(--success)', nen: 'var(--success-bg)' },
+  chuong: { nhan: 'Chỉ nhận trong chuông', icon: 'bell', mau: 'var(--warning)', nen: 'var(--warning-bg)' },
+} as const;
+
+function ChipKenh({ loai }: { loai: keyof typeof CHIP_KENH }) {
+  const c = CHIP_KENH[loai];
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
+      style={{ color: c.mau, background: c.nen }}>
+      <LineIcon name={c.icon} size={11} color="currentColor" />
+      {c.nhan}
+    </span>
+  );
+}
+
+// ── Khối «Kênh nhận thông báo» ─────────────────────────────────────────
+const KHOA_TAT_CA = 'cai-app:tat-ca';
+
+function KhoiKenhThongBao({ kenh, dangGui, onNhac }: {
+  kenh: KenhThongBao;
+  dangGui: string | null;
+  onNhac: (body: NhacCaiAppBody, phamVi: string | null, so: number, khoa: string) => void;
+}) {
+  const [moDs, setMoDs] = useState(false);
+  const [soDs, setSoDs] = useState(MOI_TRANG);
+  const chuaBat = Math.max(kenh.tong - kenh.co_thong_bao_may, 0);
+  // Đang gửi bất kỳ lượt nhắc cài app nào → khoá MỌI nút nhắc cài app, không chỉ nút vừa bấm.
+  const dangNhac = !!dangGui?.startsWith('cai-app:');
+  const lan = kenh.lan_nhac_cai_app_cuoi;
+  const tenPhong = (ph: PhongKenh) =>
+    kenh.theo_phong.find(x => x.phong === ph)?.ten || (ph === 'KHAC' ? 'Bộ phận khác' : TEN_PHONG[ph]);
+
+  return (
+    <Khoi tieuDe="Kênh nhận thông báo"
+      phu="Ai thấy tin nhắc ngay trên điện thoại/máy tính, ai chỉ thấy khi tự mở chuông trong app. Tính người đang làm, không tính tài khoản quản trị.">
+      {kenh.tong === 0 ? <Trong chu="Chưa có nhân sự nào để đếm." /> : (
+        <>
+          <p className="text-base sm:text-lg font-semibold leading-snug">
+            <span className="gold-gradient text-2xl font-bold align-baseline">{fmtSo(kenh.co_thong_bao_may)}/{fmtSo(kenh.tong)}</span>{' '}
+            người đã bật thông báo trên máy
+            {' · '}
+            <span style={{ color: kenh.chi_chuong > 0 ? 'var(--warning)' : 'var(--text-secondary)' }}>
+              {fmtSo(kenh.chi_chuong)} chỉ nhận trong chuông
+            </span>
+          </p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            {fmtSo(kenh.co_telegram)} người đã liên kết Telegram. «Chỉ nhận trong chuông» = chưa bật thông báo máy, chưa liên kết Telegram: chỉ thấy tin khi tự mở app.
+          </p>
+
+          <ul className="mt-4 space-y-3">
+            {kenh.theo_phong.filter(ph => ph.tong > 0).map(ph => {
+              const pct = Math.round((ph.co_thong_bao_may / ph.tong) * 100);
+              const khoa = `cai-app:${ph.phong}`;
+              // 4 phòng lọc theo mã phòng; «Bộ phận khác» không có mã → gửi theo danh sách id.
+              const idsKhac = ph.phong === 'KHAC' ? kenh.chua_bat.filter(x => x.phong === 'KHAC').map(x => x.id) : [];
+              const body: NhacCaiAppBody = ph.phong === 'KHAC' ? { ids: idsKhac } : { phong: ph.phong };
+              const soNhac = ph.phong === 'KHAC' ? idsKhac.length : Math.max(ph.tong - ph.co_thong_bao_may, 0);
+              return (
+                <li key={ph.phong}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{ph.ten}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Thông báo máy {fmtSo(ph.co_thong_bao_may)}/{fmtSo(ph.tong)} · Telegram {fmtSo(ph.co_telegram)}
+                        {ph.chi_chuong > 0 && <> · <span style={{ color: 'var(--warning)' }}>chỉ chuông {fmtSo(ph.chi_chuong)}</span></>}
+                      </p>
+                    </div>
+                    <button type="button" className={`${NUT_PHU} shrink-0`}
+                      disabled={soNhac === 0 || dangNhac}
+                      aria-label={`Nhắc ${soNhac} người ${ph.ten} cài app và bật thông báo`}
+                      onClick={() => onNhac(body, ph.ten, soNhac, khoa)}>
+                      <LineIcon name="send" size={14} color="currentColor" />
+                      {dangGui === khoa ? 'Đang gửi…' : `Nhắc ${fmtSo(soNhac)}`}
+                    </button>
+                  </div>
+                  <div className="mt-1.5">
+                    <Thanh pct={pct} mau={mauPct(pct)} cao={4} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4">
+            <button type="button" className={`${NUT_CHINH} w-full sm:w-auto`}
+              disabled={chuaBat === 0 || dangNhac}
+              onClick={() => onNhac({}, null, chuaBat, KHOA_TAT_CA)}>
+              <LineIcon name="smartphone" size={14} color="currentColor" />
+              {dangGui === KHOA_TAT_CA ? 'Đang gửi…' : `Nhắc cài app & bật thông báo (${fmtSo(chuaBat)} người)`}
+            </button>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {lan
+                ? `Lần nhắc cuối: ${laHomNay(lan.luc) ? `hôm nay ${gioPhut(lan.luc)}` : `${ngayThang(lan.luc)} ${gioPhut(lan.luc)}`} · ${fmtSo(lan.so_nguoi)} người`
+                : 'Chưa nhắc cài app lần nào'}
+            </span>
+          </div>
+
+          {kenh.chua_bat.length > 0 && (
+            <div className="mt-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button type="button" onClick={() => setMoDs(v => !v)} aria-expanded={moDs}
+                className="flex w-full items-center justify-between gap-3 min-h-[44px] text-left">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                  Người chưa bật thông báo trên máy ({fmtSo(kenh.chua_bat.length)}{chuaBat > kenh.chua_bat.length ? `/${fmtSo(chuaBat)}` : ''})
+                </span>
+                <LineIcon name="chevronDown" size={18} color="var(--text-muted)"
+                  className={moDs ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+              {moDs && (
+                <>
+                  <ul className="divide-y divide-[var(--border-subtle)]">
+                    {kenh.chua_bat.slice(0, soDs).map(x => (
+                      <li key={x.id} className="flex items-center justify-between gap-2 py-2 text-xs">
+                        <span className="min-w-0 truncate text-[var(--text-primary)]">
+                          {x.ten}<span className="text-[var(--text-muted)]"> · {tenPhong(x.phong)}</span>
+                        </span>
+                        <ChipKenh loai={x.co_telegram ? 'telegram' : 'chuong'} />
+                      </li>
+                    ))}
+                  </ul>
+                  {kenh.chua_bat.length > soDs && (
+                    <button type="button" className={`${NUT_PHU} w-full mt-2`} onClick={() => setSoDs(n => n + MOI_TRANG)}>
+                      Xem thêm ({fmtSo(kenh.chua_bat.length - soDs)})
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </Khoi>
   );
 }

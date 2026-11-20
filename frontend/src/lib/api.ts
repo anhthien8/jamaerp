@@ -2,6 +2,8 @@
  * API client — communicate with FastAPI backend.
  */
 
+import { duongDangNhap } from '@/lib/dang-nhap';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 interface ApiOptions {
@@ -73,7 +75,8 @@ function xuLyHetPhien(endpoint: string, tokenDaGui?: string | null) {
   localStorage.removeItem('jama_token');
   localStorage.removeItem('jama_user');
   if (!window.location.pathname.startsWith('/login')) {
-    window.location.href = '/login?het_han=1';
+    // Giữ trang đang mở (vd link nhắc /doi-chieu?phong=OPS) để đăng nhập lại xong quay về đúng chỗ.
+    window.location.href = duongDangNhap(true);
   }
 }
 
@@ -631,6 +634,11 @@ class ApiClient {
 
   async guiDoiChieu(body: GuiDoiChieuBody) {
     return this.request<GuiDoiChieuKetQua>('/dashboard/du-lieu-chung/doi-chieu', { method: 'POST', body });
+  }
+
+  /** Nhắc cài app + bật thông báo (21/11/2026, BGĐ): người chưa bật thông báo máy; lọc theo phòng hoặc danh sách id. */
+  async nhacCaiApp(body: NhacCaiAppBody = {}) {
+    return this.request<NhacCaiAppKetQua>('/dashboard/du-lieu-chung/nhac-cai-app', { method: 'POST', body });
   }
 
   async suggestAction(leadId: string) {
@@ -2088,7 +2096,8 @@ export interface DuLieuChungQuyTac { ma: string; nhan: string; loai: 'du' | 'lec
 export interface DuLieuChungPhong {
   ma: PhongDuLieu;
   ten: string;
-  truong_phong: Array<{ id: string; ten: string; co_telegram: boolean }>;
+  /** co_thong_bao_may = có ≥1 máy đã bật thông báo đẩy (21/11/2026). */
+  truong_phong: Array<{ id: string; ten: string; co_telegram: boolean; co_thong_bao_may: boolean }>;
   so_ho_so: number;
   diem: number | null;
   muc: MucDuLieu;
@@ -2170,6 +2179,37 @@ export interface DuLieuChung {
     hd_da_ky: number;
     lan_cuoi: { task_activity: string | null; anh: string | null };
   };
+  /** Ai nhận nhắc qua kênh nào (21/11/2026). Tuỳ chọn để giao diện vẫn chạy khi backend chưa lên bản mới. */
+  kenh_thong_bao?: KenhThongBao;
+}
+
+/** Phòng dùng cho khối «Kênh nhận thông báo»: 4 phòng + 'KHAC' (BGĐ, Kế toán, HR…). */
+export type PhongKenh = PhongDuLieu | 'KHAC';
+
+export interface KenhThongBaoDem {
+  tong: number;
+  co_thong_bao_may: number;
+  co_telegram: number;
+  /** Không thông báo máy, không Telegram → chỉ thấy khi tự mở chuông. */
+  chi_chuong: number;
+}
+
+export interface KenhThongBao extends KenhThongBaoDem {
+  theo_phong: Array<KenhThongBaoDem & { phong: PhongKenh; ten: string }>;
+  /** Người chưa có máy nào bật thông báo (tối đa 200, sắp theo phòng rồi tên). */
+  chua_bat: Array<{ id: string; ten: string; phong: PhongKenh; co_telegram: boolean }>;
+  lan_nhac_cai_app_cuoi: { luc: string; so_nguoi: number } | null;
+}
+
+export interface NhacCaiAppBody {
+  phong?: PhongDuLieu | null;
+  ids?: string[];
+}
+
+export interface NhacCaiAppKetQua {
+  da_gui: number;
+  qua_telegram: number;
+  bo_qua_da_nhac: number;
 }
 
 export interface NhacDuLieuChungBody {
@@ -2179,7 +2219,7 @@ export interface NhacDuLieuChungBody {
 }
 
 export interface NhacDuLieuChungKetQua {
-  da_gui: Array<{ phong: string; nguoi: string; telegram: boolean }>;
+  da_gui: Array<{ phong: string; nguoi: string; telegram: boolean; thong_bao_may: boolean }>;
   bo_qua: Array<{ phong: string; ly_do: 'da_nhac_hom_nay' | 'khong_co_truong_phong' | 'vuot_2_tin' | string }>;
 }
 

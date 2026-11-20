@@ -23,6 +23,12 @@ Nguyên tắc không được phá:
 
 Không migration: ngưỡng ở SystemSetting `du_lieu_chung`, lịch sử đối chiếu và
 đổi giai đoạn ở `audit_logs` có sẵn.
+
+21/11/2026 — kênh nhận thông báo: đo prod chỉ 2/63 người bật thông báo trên máy,
+6 người liên kết Telegram; trưởng phòng Thi công chỉ thấy tin trong chuông. GET
+trả thêm `kenh_thong_bao` + `truong_phong[].co_thong_bao_may`; tin nhắc gửi người
+chưa bật thông báo kèm dòng mời cài app; `POST /nhac-cai-app` nhắc riêng việc cài
+app + bật thông báo (loại `nhac_cai_app`, 1 tin/người/ngày VN).
 """
 
 from __future__ import annotations
@@ -34,7 +40,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import and_, case, distinct, exists, func, or_, select
+from sqlalchemy import and_, case, distinct, exists, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import cache, cached
@@ -49,6 +55,7 @@ from app.models.lead import ACTIVE_LEAD_STAGES, Activity, Lead
 from app.models.media import MediaFile, ProjectDocument
 from app.models.notification import Notification
 from app.models.project import Project, Task, TaskActivity, TaskAssignee
+from app.models.push_subscription import PushSubscription
 from app.models.quotation import Quotation
 from app.models.user import User
 from app.models.vat_tu import DongPhieuVatTu
@@ -62,6 +69,11 @@ router = APIRouter(prefix="/dashboard/du-lieu-chung", tags=["du-lieu-chung"])
 
 KHOA_CAU_HINH = "du_lieu_chung"
 LOAI_THONG_BAO = "du_lieu_chung"
+# Nhắc cài app + bật thông báo trên điện thoại (21/11/2026). Loại riêng nên KHÔNG
+# tính vào giới hạn 2 tin `du_lieu_chung`/người/ngày.
+LOAI_NHAC_CAI_APP = "nhac_cai_app"
+DUONG_CAI_APP = "/cai-app"
+TOI_DA_CHUA_BAT = 200
 
 CAU_HINH_MAC_DINH: dict = {
     "moc_bat_dau": "2026-11-20",
@@ -86,6 +98,9 @@ TEN_PHONG = {
     "PURCHASING": "Dự toán – Thu mua",
     "OPS": "Thi công / Giám sát",
 }
+# Khối «Kênh nhận thông báo»: 4 phòng + mọi bộ phận khác (BGĐ, Kế toán, HR…)
+PHONG_KENH = (*PHONG_4, "KHAC")
+TEN_PHONG_KENH = {**TEN_PHONG, "KHAC": "Bộ phận khác"}
 
 TRANG_THAI_CHAY = ("active", "paused")
 GIAI_DOAN_LAM = ("design", "quotation", "procurement", "construction", "acceptance")
@@ -344,6 +359,8 @@ async def _nap(db: AsyncSession) -> _DuLieu:  # noqa: C901 — một lượt n�
     d.users = {u.id: u for u in (await db.execute(select(
         User.id, User.full_name, User.role, User.department, User.is_active, User.telegram_user_id,
     ))).all()}
+    # Ai đã bật «thông báo trên máy» (≥1 máy đăng ký Web Push) — 21/11/2026
+    d.co_push = await _nguoi_co_push(db)
 
     # Dự án đang chạy — cột nhẹ
     d.projects = list((await db.execute(select(
@@ -564,7 +581,28 @@ async def _nap(db: AsyncSession) -> _DuLieu:  # noqa: C901 — một lượt n�
     d.thong_bao = list((await db.execute(select(
         Notification.user_id, Notification.ref_id, Notification.read, Notification.created_at,
     ).where(Notification.type == LOAI_THONG_BAO))).all())
+    d.nhac_cai_app_cuoi = await _lan_nhac_cai_app_cuoi(db)
     return d
+
+
+async def _nguoi_co_push(db: AsyncSession) -> set[str]:
+    """user_id có ít nhất 1 máy đã bật Web Push (push_subscriptions)."""
+    return set((await db.execute(select(distinct(PushSubscription.user_id)))).scalars().all())
+
+
+async def _lan_nhac_cai_app_cuoi(db: AsyncSession) -> dict | None:
+    """Lần nhắc cài app gần nhất: giờ gửi cuối + số người nhận trong NGÀY VN đó."""
+    cuoi = (await db.execute(select(func.max(Notification.created_at)).where(
+        Notification.type == LOAI_NHAC_CAI_APP))).scalar()
+    if cuoi is None:
+        return None
+    ngay = _ngay_vn(cuoi)
+    so = (await db.execute(select(func.count(distinct(Notification.user_id))).where(
+        Notification.type == LOAI_NHAC_CAI_APP,
+        Notification.created_at >= _dau_ngay_vn_utc(ngay),
+        Notification.created_at < _dau_ngay_vn_utc(ngay + timedelta(days=1)),
+    ))).scalar() or 0
+    return {"luc": _iso(cuoi), "so_nguoi": int(so)}
 
 
 # ── Tính toán ───────────────────────────────────────────────────────────────
@@ -783,7 +821,8 @@ def _tinh(d: _DuLieu) -> dict:  # noqa: C901
 
     def _truong_phong(phong: str) -> list[dict]:
         return [
-            {"id": u.id, "ten": u.full_name, "co_telegram": bool(u.telegram_user_id)}
+            {"id": u.id, "ten": u.full_name, "co_telegram": bool(u.telegram_user_id),
+             "co_thong_bao_may": u.id in d.co_push}
             for u in d.users.values()
             if u.is_active and la_truong_phong_cua(u, phong)
         ]
@@ -1046,6 +1085,51 @@ def _tinh(d: _DuLieu) -> dict:  # noqa: C901
         "can_xem": can_xem_out,
         "cho_bgd": cho_bgd,
         "du_lieu_cu": du_lieu_cu,
+        "kenh_thong_bao": _kenh_thong_bao(d),
+    }
+
+
+def _phong_kenh(u) -> str:
+    """Phòng cho khối «Kênh nhận thông báo»: phong_cua (PM→OPS), ngoài 4 phòng → KHAC."""
+    p = phong_cua(u)
+    return p if p in PHONG_4 else "KHAC"
+
+
+def _kenh_thong_bao(d: _DuLieu) -> dict:
+    """Ai nhận được nhắc qua kênh nào — đo prod 21/11: 63 người, 2 người bật thông
+    báo máy, 6 liên kết Telegram → phần lớn chỉ thấy tin khi tự mở chuông.
+
+    Phạm vi: người thật đang làm (không tính admin). `chi_chuong` = không có máy
+    bật thông báo VÀ không liên kết Telegram.
+    """
+    def _dem() -> dict:
+        return {"tong": 0, "co_thong_bao_may": 0, "co_telegram": 0, "chi_chuong": 0}
+
+    tong = _dem()
+    theo_phong = {p: _dem() for p in PHONG_KENH}
+    chua_bat: list[tuple] = []
+    thu_tu = {p: i for i, p in enumerate(PHONG_KENH)}
+    for u in d.users.values():
+        if not la_nguoi_that(u):
+            continue
+        phong = _phong_kenh(u)
+        may = u.id in d.co_push
+        tg = bool(u.telegram_user_id)
+        for dem in (tong, theo_phong[phong]):
+            dem["tong"] += 1
+            dem["co_thong_bao_may"] += int(may)
+            dem["co_telegram"] += int(tg)
+            dem["chi_chuong"] += int(not may and not tg)
+        if not may:
+            chua_bat.append((thu_tu[phong], (u.full_name or "").lower(), u.id, {
+                "id": u.id, "ten": u.full_name, "phong": phong, "co_telegram": tg,
+            }))
+    chua_bat.sort(key=lambda x: x[:3])
+    return {
+        **tong,
+        "theo_phong": [{"phong": p, "ten": TEN_PHONG_KENH[p], **theo_phong[p]} for p in PHONG_KENH],
+        "chua_bat": [x[3] for x in chua_bat[:TOI_DA_CHUA_BAT]],
+        "lan_nhac_cai_app_cuoi": d.nhac_cai_app_cuoi,
     }
 
 
@@ -1110,6 +1194,20 @@ def _chan_neu_khong_phai_bgd(user: User) -> None:
         raise HTTPException(status_code=403, detail="Trang «Dữ liệu chung» chỉ dành cho Ban Giám đốc.")
 
 
+async def _xep_hang_gui(db: AsyncSession, khoa: str) -> None:
+    """Cho các lượt gửi nhắc CÙNG LOẠI chạy lần lượt (21/11/2026).
+
+    Chặn «1 tin/người/ngày» là SELECT tin hôm nay rồi mới INSERT: hai request chồng
+    nhau (2 tài khoản BGĐ bấm cùng lúc, hoặc bấm nút khác khi lượt trước còn đang chờ
+    Telegram) đều thấy «chưa nhắc» và cùng gửi → mỗi người nhận 2 tin. Postgres: khoá
+    advisory theo giao dịch — lượt sau đứng chờ tới khi lượt trước commit/rollback, rồi
+    câu SELECT chặn trùng (READ COMMITTED, chụp lại dữ liệu mỗi câu) thấy tin vừa ghi.
+    SQLite (test) bỏ qua: không có hàm này, mà ghi vốn đã tuần tự."""
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": khoa})
+
+
 def _phong_doi_chieu(user: User, phong: str | None) -> str:
     """Phòng người này được đối chiếu. BGĐ: mọi phòng; trưởng phòng: chỉ phòng mình."""
     if user.role in VAI_TRO_BGD:
@@ -1163,6 +1261,14 @@ def _link_tuyet_doi(duong: str) -> str:
     return get_settings().FRONTEND_URL.rstrip("/") + duong
 
 
+def _link_cai_app() -> str:
+    return f'<a href="{html.escape(_link_tuyet_doi(DUONG_CAI_APP), quote=True)}">Hướng dẫn 1 phút</a>'
+
+
+def _dong_moi_cai_app() -> str:
+    return f"Cài JAMA HOME lên điện thoại và bật thông báo để nhận nhắc ngay: {_link_cai_app()}"
+
+
 async def _gui_nhac(
     db: AsyncSession, d: _DuLieu, nguoi, *, phong: str, ref_id: str, tieu_de: str,
     dong: list[str], link: str, reply_markup: dict | None,
@@ -1187,15 +1293,20 @@ async def _gui_nhac(
     if da_nhan >= toi_da:
         bo_qua.append({"phong": phong, "ly_do": "vuot_2_tin"})
         return
-    noi_dung = "\n".join(
-        dong + [f'<a href="{html.escape(_link_tuyet_doi(link), quote=True)}">Mở danh sách đối chiếu (~2 phút)</a>']
-    )
+    may = nguoi.id in d.co_push
+    cuoi = [f'<a href="{html.escape(_link_tuyet_doi(link), quote=True)}">Mở danh sách đối chiếu (~2 phút)</a>']
+    if not may:
+        # Chưa bật thông báo trên máy → tin chỉ nằm trong chuông (và Telegram nếu có)
+        # tới khi người đó tự mở app. Mời cài app + bật thông báo ngay trong tin.
+        cuoi.append(_dong_moi_cai_app())
+    noi_dung = "\n".join(dong + cuoi)
     gui = await _notify(
         db, nguoi, LOAI_THONG_BAO, tieu_de, noi_dung, link=link, ref_id=ref_id,
         reply_markup=reply_markup,
     )
     if gui:
-        da_gui.append({"phong": phong, "nguoi": nguoi.full_name, "telegram": bool(nguoi.telegram_user_id)})
+        da_gui.append({"phong": phong, "nguoi": nguoi.full_name, "telegram": bool(nguoi.telegram_user_id),
+                       "thong_bao_may": may})
     else:
         bo_qua.append({"phong": phong, "ly_do": "da_nhac_hom_nay"})
 
@@ -1208,6 +1319,7 @@ async def nhac(
 ):
     """Nhắc trưởng phòng / nhờ nhận dự án cũ / hỏi lại 1 hồ sơ. Không có job tự động."""
     _chan_neu_khong_phai_bgd(current_user)
+    await _xep_hang_gui(db, "du_lieu_chung:nhac")
     d = await _nap(db)
     kq = _tinh(d)
     ngay = d.hom_nay.isoformat()
@@ -1304,6 +1416,79 @@ async def nhac(
     await db.commit()
     cache.clear_prefix("dashboard")
     return {"da_gui": da_gui, "bo_qua": bo_qua}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /dashboard/du-lieu-chung/nhac-cai-app
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NhacCaiAppIn(BaseModel):
+    phong: Literal["SALES", "DESIGN", "PURCHASING", "OPS"] | None = None
+    # Có truyền (kể cả danh sách rỗng) là lọc theo ids — danh sách rỗng KHÔNG có
+    # nghĩa «gửi tất cả», tránh lỡ tay nhắc cả công ty.
+    ids: list[Annotated[str, Field(max_length=64)]] | None = Field(None, max_length=200)
+
+
+@router.post("/nhac-cai-app")
+async def nhac_cai_app(
+    body: NhacCaiAppIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nhắc người CHƯA bật thông báo trên máy: cài JAMA HOME lên điện thoại + bật
+    thông báo. Mỗi người tối đa 1 tin loại này/ngày VN; không tính vào giới hạn
+    2 tin «Dữ liệu chung». Tin đi chuông + Telegram (nếu có liên kết)."""
+    from app.services.automation import _notify
+
+    _chan_neu_khong_phai_bgd(current_user)
+    # Xếp hàng TRƯỚC khi đọc «đã nhắc hôm nay» — xem _xep_hang_gui.
+    await _xep_hang_gui(db, "du_lieu_chung:nhac_cai_app")
+    hom_nay = vn_today()
+    co_push = await _nguoi_co_push(db)
+    nguoi = [
+        u for u in (await db.execute(select(User).where(User.is_active.is_(True)))).scalars()
+        if la_nguoi_that(u) and u.id not in co_push
+    ]
+    if body.phong:
+        nguoi = [u for u in nguoi if phong_cua(u) == body.phong]
+    if body.ids is not None:
+        chon = set(body.ids)
+        nguoi = [u for u in nguoi if u.id in chon]
+    thu_tu = {p: i for i, p in enumerate(PHONG_KENH)}
+    nguoi.sort(key=lambda u: (thu_tu[_phong_kenh(u)], (u.full_name or "").lower(), u.id))
+
+    da_nhac: set[str] = set()
+    if nguoi:
+        # Chặn theo ngày VN bằng created_at (dedupe của _notify chỉ xét tin CHƯA ĐỌC)
+        da_nhac = set((await db.execute(select(distinct(Notification.user_id)).where(
+            Notification.type == LOAI_NHAC_CAI_APP,
+            Notification.created_at >= _dau_ngay_vn_utc(hom_nay),
+            Notification.user_id.in_([u.id for u in nguoi]),
+        ))).scalars().all())
+
+    noi_dung = "\n".join([
+        "Anh/chị chưa bật thông báo JAMA HOME trên điện thoại nên dễ lỡ việc được giao và tin nhắc.",
+        "Cài app lên màn hình chính rồi bật thông báo, mất khoảng 1 phút.",
+        _link_cai_app(),
+    ])
+    da_gui = qua_telegram = bo_qua_da_nhac = 0
+    for u in nguoi:
+        if u.id in da_nhac:
+            bo_qua_da_nhac += 1
+            continue
+        gui = await _notify(
+            db, u, LOAI_NHAC_CAI_APP, "Cài JAMA HOME lên điện thoại", noi_dung,
+            link=DUONG_CAI_APP, ref_id=f"cai_app:{hom_nay.isoformat()}",
+        )
+        if not gui:
+            bo_qua_da_nhac += 1
+            continue
+        da_gui += 1
+        qua_telegram += int(bool(u.telegram_user_id))
+
+    await db.commit()
+    cache.clear_prefix("dashboard")
+    return {"da_gui": da_gui, "qua_telegram": qua_telegram, "bo_qua_da_nhac": bo_qua_da_nhac}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

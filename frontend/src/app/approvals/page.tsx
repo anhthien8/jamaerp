@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
@@ -65,7 +66,7 @@ export default function ApprovalsPage() {
   const [gop, setGop] = useState<Set<string> | null>(null); // đơn nghỉ đang tích trong hộp duyệt gộp
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     if (!loading && user && !getPermissions(user.role as UserRole).canViewApprovals) router.push('/');
   }, [user, loading, router]);
 

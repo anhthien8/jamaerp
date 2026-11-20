@@ -291,7 +291,8 @@ async def test_sales_id_admin_truot_k7_va_hoi_lai_gui_truong_phong(client, db_se
     r = await client.post(f"{URL}/nhac", headers=auth_header(admin_user),
                           json={"phong": "SALES", "id": p.id, "loai": "du_an"})
     assert r.status_code == 200, r.text
-    assert r.json()["da_gui"] == [{"phong": "SALES", "nguoi": "TP Kinh doanh", "telegram": True}]
+    assert r.json()["da_gui"] == [{"phong": "SALES", "nguoi": "TP Kinh doanh", "telegram": True,
+                                     "thong_bao_may": False}]
     nhan = (await db_session.execute(select(Notification.user_id).where(
         Notification.type == "du_lieu_chung"))).scalars().all()
     assert nhan == [tp["SALES"].id]
@@ -402,7 +403,8 @@ async def test_nhac_commit_chan_trung_va_gioi_han_2_tin(client, db_session, db_e
     h = auth_header(admin_user)
     r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "OPS"})
     assert r.status_code == 200, r.text
-    assert r.json() == {"da_gui": [{"phong": "OPS", "nguoi": "TP Giám sát", "telegram": True}], "bo_qua": []}
+    assert r.json() == {"da_gui": [{"phong": "OPS", "nguoi": "TP Giám sát", "telegram": True,
+                                    "thong_bao_may": False}], "bo_qua": []}
     assert "/doi-chieu?phong=OPS" in tele[0][1] and "<a href=" in tele[0][1]
 
     # Đọc lại bằng session MỚI → đã commit
@@ -439,7 +441,8 @@ async def test_hoi_lai_ops_co_giam_sat_gan_nut_baocao(client, db_session, admin_
     await db_session.commit()
     r = await client.post(f"{URL}/nhac", headers=auth_header(admin_user),
                           json={"phong": "OPS", "id": p.id, "loai": "du_an"})
-    assert r.json()["da_gui"] == [{"phong": "OPS", "nguoi": "Giám sát D", "telegram": True}]
+    assert r.json()["da_gui"] == [{"phong": "OPS", "nguoi": "Giám sát D", "telegram": True,
+                                     "thong_bao_may": False}]
     chat, _text, kw = tele[0]
     assert chat == 700099
     nut = [b["callback_data"] for hang in kw["reply_markup"]["inline_keyboard"] for b in hang]
@@ -962,3 +965,320 @@ async def test_l1_vat_tu_da_dat_cu_hon_30_ngay_khong_lech(client, db_session, ad
     data = await _get(client, admin_user)
     l1 = {r["id"] for r in data["lech"] if r["ma"] == "L1"}
     assert l1 == {moi.id}
+
+
+# ── Vòng 2 (21/11/2026): kênh nhận thông báo + nhắc cài app ─────────────────
+
+URL_CAI_APP = f"{URL}/nhac-cai-app"
+
+
+async def _push(db, u):
+    """Một máy đã bật «thông báo trên máy» cho user u."""
+    from app.models.push_subscription import PushSubscription
+    from app.services.web_push import bam_endpoint
+    ep = f"https://push.example/{_uid()}"
+    db.add(PushSubscription(user_id=u.id, endpoint=ep, endpoint_hash=bam_endpoint(ep), p256dh="k", auth="a"))
+    await db.flush()
+
+
+def _hang_doi_push(db_session) -> list[dict]:
+    from app.services.web_push import KHOA_HANG_DOI
+    return db_session.sync_session.info.get(KHOA_HANG_DOI, [])
+
+
+def _xoa_hang_doi_push(db_session) -> None:
+    from app.services.web_push import KHOA_HANG_DOI
+    db_session.sync_session.info.pop(KHOA_HANG_DOI, None)
+
+
+@pytest_asyncio.fixture
+async def nhom_kenh(db_session, admin_user, executive_user, tp):
+    """Đủ kiểu người cho khối «Kênh nhận thông báo».
+
+    - TP Giám sát (OPS): Telegram, chưa bật máy
+    - TP Thiết kế (DESIGN): Telegram + đã bật máy
+    - TP Kinh doanh (SALES): Telegram, chưa bật máy
+    - Giám sát PM (phòng 'PM' cũ → OPS): đã bật máy, không Telegram
+    - Giám sát L (OPS): không gì cả → chỉ chuông
+    - Kế toán M (ACCT → KHAC): không gì cả
+    - Giám đốc (EXEC → KHAC): không gì cả
+    - admin (có Telegram) và người đã nghỉ: KHÔNG tính
+    """
+    gs_pm = await _user(db_session, "Giám sát PM", "giam_sat_thi_cong", "PM")
+    gs = await _user(db_session, "Giám sát L", "giam_sat_thi_cong", "OPS")
+    kt = await _user(db_session, "Kế toán M", "accountant", "ACCT")
+    nghi = await _user(db_session, "Người đã nghỉ", "giam_sat_thi_cong", "OPS")
+    nghi.is_active = False
+    await _push(db_session, tp["DESIGN"])
+    await _push(db_session, gs_pm)
+    await db_session.commit()
+    return {"gs_pm": gs_pm, "gs": gs, "kt": kt, "nghi": nghi, "exec": executive_user, **tp}
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_co_thong_bao_may_va_co_telegram(client, db_session, admin_user, tp):
+    tp_ops_2 = await _user(db_session, "TP Thi công 2", "operation_leader", "OPS")   # không Telegram, không máy
+    await _push(db_session, tp["DESIGN"])
+    await _push(db_session, tp["DESIGN"])       # 2 máy vẫn là 1 người đã bật
+    await db_session.commit()
+    data = await _get(client, admin_user)
+    ops = {x["id"]: x for x in _phong(data, "OPS")["truong_phong"]}
+    assert ops[tp["OPS"].id] == {"id": tp["OPS"].id, "ten": "TP Giám sát", "co_telegram": True,
+                                 "co_thong_bao_may": False}
+    assert ops[tp_ops_2.id] == {"id": tp_ops_2.id, "ten": "TP Thi công 2", "co_telegram": False,
+                                "co_thong_bao_may": False}
+    tk = _phong(data, "DESIGN")["truong_phong"]
+    assert tk == [{"id": tp["DESIGN"].id, "ten": "TP Thiết kế", "co_telegram": True, "co_thong_bao_may": True}]
+    assert _phong(data, "PURCHASING")["truong_phong"] == []
+
+
+@pytest.mark.asyncio
+async def test_kenh_thong_bao_dem_dung(client, db_session, admin_user, nhom_kenh):
+    k = (await _get(client, admin_user))["kenh_thong_bao"]
+    assert set(k) == {"tong", "co_thong_bao_may", "co_telegram", "chi_chuong", "theo_phong", "chua_bat",
+                      "lan_nhac_cai_app_cuoi"}
+    # admin + người đã nghỉ không tính
+    assert (k["tong"], k["co_thong_bao_may"], k["co_telegram"], k["chi_chuong"]) == (7, 2, 3, 3)
+    theo = {x["phong"]: x for x in k["theo_phong"]}
+    assert [x["phong"] for x in k["theo_phong"]] == ["SALES", "DESIGN", "PURCHASING", "OPS", "KHAC"]
+    assert theo["SALES"] == {"phong": "SALES", "ten": "Kinh doanh", "tong": 1, "co_thong_bao_may": 0,
+                             "co_telegram": 1, "chi_chuong": 0}
+    assert theo["DESIGN"] == {"phong": "DESIGN", "ten": "Thiết kế", "tong": 1, "co_thong_bao_may": 1,
+                              "co_telegram": 1, "chi_chuong": 0}
+    assert theo["PURCHASING"]["tong"] == 0
+    # Phòng 'PM' cũ tính vào OPS
+    assert (theo["OPS"]["tong"], theo["OPS"]["co_thong_bao_may"], theo["OPS"]["co_telegram"],
+            theo["OPS"]["chi_chuong"]) == (3, 1, 1, 1)
+    assert (theo["KHAC"]["tong"], theo["KHAC"]["chi_chuong"]) == (2, 2)
+    assert theo["KHAC"]["ten"] == "Bộ phận khác"
+    # Chưa bật máy: sắp theo phòng rồi tên; không có người đã bật, admin, người nghỉ
+    n = nhom_kenh
+    assert k["chua_bat"] == [
+        {"id": n["SALES"].id, "ten": "TP Kinh doanh", "phong": "SALES", "co_telegram": True},
+        {"id": n["gs"].id, "ten": "Giám sát L", "phong": "OPS", "co_telegram": False},
+        {"id": n["OPS"].id, "ten": "TP Giám sát", "phong": "OPS", "co_telegram": True},
+        {"id": n["exec"].id, "ten": "Giám đốc", "phong": "KHAC", "co_telegram": False},
+        {"id": n["kt"].id, "ten": "Kế toán M", "phong": "KHAC", "co_telegram": False},
+    ]
+    assert k["lan_nhac_cai_app_cuoi"] is None
+
+
+@pytest.mark.asyncio
+async def test_nhac_them_dong_cai_app_khi_chua_bat_may(client, db_session, admin_user, tp, tele):
+    await _push(db_session, tp["DESIGN"])
+    await _du_an(db_session, "construction")
+    await _du_an(db_session, "design")
+    await db_session.commit()
+    _xoa_hang_doi_push(db_session)
+    h = auth_header(admin_user)
+
+    r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "OPS"})
+    assert r.json()["da_gui"] == [{"phong": "OPS", "nguoi": "TP Giám sát", "telegram": True,
+                                   "thong_bao_may": False}]
+    r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "DESIGN"})
+    assert r.json()["da_gui"] == [{"phong": "DESIGN", "nguoi": "TP Thiết kế", "telegram": True,
+                                   "thong_bao_may": True}]
+
+    than = dict((await db_session.execute(select(Notification.user_id, Notification.body).where(
+        Notification.type == "du_lieu_chung"))).all())
+    # Chưa bật máy → dòng cuối mời cài app, link tuyệt đối tới /cai-app
+    dong_cuoi = than[tp["OPS"].id].split("\n")[-1]
+    assert dong_cuoi.startswith('Cài JAMA HOME lên điện thoại và bật thông báo để nhận nhắc ngay: <a href="http')
+    assert '/cai-app">Hướng dẫn 1 phút</a>' in dong_cuoi
+    assert "Mở danh sách đối chiếu" in than[tp["OPS"].id]
+    # Đã bật máy → không thêm
+    assert "cai-app" not in than[tp["DESIGN"].id]
+    assert than[tp["DESIGN"].id].split("\n")[-1].endswith("Mở danh sách đối chiếu (~2 phút)</a>")
+    # Telegram nhận đúng thân tin
+    assert "/cai-app" in tele[0][1] and "/cai-app" not in tele[1][1]
+    # Notification vừa tạo được đưa vào hàng đợi Web Push (đẩy sau commit)
+    hang = _hang_doi_push(db_session)
+    assert {(x["user_id"], x["url"]) for x in hang} == {
+        (tp["OPS"].id, "/doi-chieu?phong=OPS"), (tp["DESIGN"].id, "/doi-chieu?phong=DESIGN")}
+    assert all("<a" not in x["body"] for x in hang)
+    _xoa_hang_doi_push(db_session)
+
+
+@pytest.mark.asyncio
+async def test_nhac_cai_app_chi_nguoi_chua_bat_loc_phong_ids_1_tin_ngay(
+        client, db_session, db_engine, admin_user, nhom_kenh, tele):
+    n = nhom_kenh
+    h = auth_header(admin_user)
+    _xoa_hang_doi_push(db_session)
+
+    # Lọc phòng OPS: TP Giám sát + Giám sát L; Giám sát PM đã bật máy → bỏ
+    r = await client.post(URL_CAI_APP, headers=h, json={"phong": "OPS"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"da_gui": 2, "qua_telegram": 1, "bo_qua_da_nhac": 0}
+    assert [c for c, _t, _k in tele] == [700001]
+    assert "/cai-app" in tele[0][1] and tele[0][1].startswith("<b>Cài JAMA HOME lên điện thoại</b>")
+
+    # Đã commit — đọc lại bằng session MỚI
+    hom_nay = vn_today().isoformat()
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as s2:
+        ds = (await s2.execute(select(Notification).where(Notification.type == "nhac_cai_app"))).scalars().all()
+        assert {x.user_id for x in ds} == {n["OPS"].id, n["gs"].id}
+        for x in ds:
+            assert x.link == "/cai-app"
+            assert x.ref_id == f"cai_app:{hom_nay}"
+            assert x.title == "Cài JAMA HOME lên điện thoại"
+            assert 2 <= len(x.body.split("\n")) <= 3
+            assert '<a href="http' in x.body and '/cai-app">' in x.body
+
+    # Được đưa vào hàng đợi Web Push
+    hang = _hang_doi_push(db_session)
+    assert sorted(x["user_id"] for x in hang) == sorted([n["OPS"].id, n["gs"].id])
+    assert all(x["url"] == "/cai-app" and x["tag"] == f"cai_app:{hom_nay}" for x in hang)
+    _xoa_hang_doi_push(db_session)
+
+    # Lần 2 trong ngày → bỏ qua, kể cả khi người nhận ĐÃ ĐỌC tin (chặn theo created_at)
+    await db_session.execute(Notification.__table__.update().where(
+        Notification.user_id == n["OPS"].id).values(read=True))
+    await db_session.commit()
+    r = await client.post(URL_CAI_APP, headers=h, json={"phong": "OPS"})
+    assert r.json() == {"da_gui": 0, "qua_telegram": 0, "bo_qua_da_nhac": 2}
+
+    # Lọc ids: người đã bật máy (TP Thiết kế), admin, người nghỉ, id lạ → không gửi
+    r = await client.post(URL_CAI_APP, headers=h, json={
+        "ids": [n["kt"].id, n["DESIGN"].id, admin_user.id, n["nghi"].id, "khong-ton-tai"]})
+    assert r.json() == {"da_gui": 1, "qua_telegram": 0, "bo_qua_da_nhac": 0}
+
+    # ids rỗng → không ai (không hiểu thành «gửi tất cả»)
+    r = await client.post(URL_CAI_APP, headers=h, json={"ids": []})
+    assert r.json() == {"da_gui": 0, "qua_telegram": 0, "bo_qua_da_nhac": 0}
+
+    # Không lọc → mọi người chưa bật còn lại: TP Kinh doanh + Giám đốc
+    r = await client.post(URL_CAI_APP, headers=h, json={})
+    assert r.json() == {"da_gui": 2, "qua_telegram": 1, "bo_qua_da_nhac": 3}
+    nhan = (await db_session.execute(select(Notification.user_id).where(
+        Notification.type == "nhac_cai_app"))).scalars().all()
+    assert sorted(nhan) == sorted([n["OPS"].id, n["gs"].id, n["kt"].id, n["SALES"].id, n["exec"].id])
+
+    # Không tính vào giới hạn 2 tin «Dữ liệu chung»/người/ngày
+    await _du_an(db_session, "construction")
+    a = await _du_an(db_session, "construction")
+    await db_session.commit()
+    r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "OPS"})
+    assert [x["nguoi"] for x in r.json()["da_gui"]] == ["TP Giám sát"]
+    r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "OPS", "id": a.id})
+    assert [x["nguoi"] for x in r.json()["da_gui"]] == ["TP Giám sát"]
+
+
+@pytest.mark.asyncio
+async def test_nhac_cai_app_chi_bgd_va_gioi_han_body(client, db_session, executive_user, sales_user,
+                                                     accountant_user, tp, tele):
+    for u in (sales_user, accountant_user, tp["OPS"], tp["DESIGN"]):
+        r = await client.post(URL_CAI_APP, headers=auth_header(u), json={"phong": "OPS"})
+        assert r.status_code == 403, (u.role, r.text)
+    for body in ({"ids": [_uid()] * 201}, {"ids": ["x" * 65]}, {"phong": "KHAC"}, {"phong": "chua_xep"}):
+        r = await client.post(URL_CAI_APP, headers=auth_header(executive_user), json=body)
+        assert r.status_code == 422, (body, r.text[:200])
+    assert (await db_session.execute(select(func.count(Notification.id)))).scalar() == 0
+    assert tele == []
+    # Executive (BGĐ) được nhắc
+    r = await client.post(URL_CAI_APP, headers=auth_header(executive_user), json={"phong": "DESIGN"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"da_gui": 1, "qua_telegram": 1, "bo_qua_da_nhac": 0}
+
+
+@pytest.mark.asyncio
+async def test_lan_nhac_cai_app_cuoi(client, db_session, admin_user, nhom_kenh, tele):
+    n = nhom_kenh
+    # Lần nhắc cũ 3 ngày trước — không tính vào số người của lần mới nhất
+    db_session.add(Notification(user_id=n["kt"].id, type="nhac_cai_app", title="x",
+                                ref_id="cai_app:cu", created_at=_truoc(3)))
+    await db_session.commit()
+    h = auth_header(admin_user)
+    cache.clear_prefix("dashboard")
+    cu = (await client.get(URL, headers=h)).json()["kenh_thong_bao"]["lan_nhac_cai_app_cuoi"]
+    assert cu["so_nguoi"] == 1
+    assert datetime.fromisoformat(cu["luc"]) < datetime.now(timezone.utc) - timedelta(days=2)
+
+    r = await client.post(URL_CAI_APP, headers=h, json={"phong": "OPS"})
+    assert r.json()["da_gui"] == 2
+    # POST xoá cache → GET kế tiếp (không tự xoá cache) thấy ngay lần nhắc mới
+    moi = (await client.get(URL, headers=h)).json()["kenh_thong_bao"]["lan_nhac_cai_app_cuoi"]
+    assert moi["so_nguoi"] == 2
+    assert datetime.fromisoformat(moi["luc"]) > datetime.now(timezone.utc) - timedelta(minutes=5)
+    # Nhắc thêm người trong cùng ngày → số người cộng dồn trong ngày
+    await client.post(URL_CAI_APP, headers=h, json={"ids": [n["kt"].id]})
+    moi = (await client.get(URL, headers=h)).json()["kenh_thong_bao"]["lan_nhac_cai_app_cuoi"]
+    assert moi["so_nguoi"] == 3
+    # Nhắc cài app không làm thay đổi «Nhắc trưởng phòng» của thẻ phòng
+    data = await _get(client, admin_user)
+    assert _phong(data, "OPS")["lan_nhac_cuoi"] is None
+
+
+# ── Xếp hàng lượt gửi nhắc (chống gửi trùng khi 2 request chồng nhau) ────────
+
+class _BindGia:
+    def __init__(self, ten):
+        self.dialect = type("D", (), {"name": ten})()
+
+
+class _DbGia:
+    def __init__(self, ten):
+        self._bind = _BindGia(ten)
+        self.cau: list[tuple[str, dict]] = []
+
+    def get_bind(self):
+        return self._bind
+
+    async def execute(self, cau, tham_so=None):
+        self.cau.append((str(cau), tham_so or {}))
+
+
+@pytest.mark.asyncio
+async def test_xep_hang_gui_khoa_advisory_tren_postgres_bo_qua_sqlite():
+    from app.api.du_lieu_chung import _xep_hang_gui
+
+    pg = _DbGia("postgresql")
+    await _xep_hang_gui(pg, "du_lieu_chung:nhac_cai_app")
+    assert pg.cau == [("SELECT pg_advisory_xact_lock(hashtext(:k))", {"k": "du_lieu_chung:nhac_cai_app"})]
+
+    lite = _DbGia("sqlite")
+    await _xep_hang_gui(lite, "du_lieu_chung:nhac_cai_app")
+    assert lite.cau == []
+
+
+@pytest.mark.asyncio
+async def test_nhac_va_nhac_cai_app_xep_hang_truoc_khi_doc_da_nhac(
+        client, db_session, admin_user, nhom_kenh, tele, monkeypatch):
+    """Khoá phải lấy TRƯỚC khi đọc «đã nhắc hôm nay» — lấy sau thì vẫn đua."""
+    import app.api.du_lieu_chung as m
+
+    thu_tu: list[str] = []
+
+    async def khoa_gia(db, khoa):
+        thu_tu.append(f"khoa:{khoa}")
+
+    goc_push, goc_nap = m._nguoi_co_push, m._nap
+
+    async def push_ghi(db):
+        thu_tu.append("doc_push")
+        return await goc_push(db)
+
+    async def nap_ghi(db):
+        thu_tu.append("nap")
+        return await goc_nap(db)
+
+    monkeypatch.setattr(m, "_xep_hang_gui", khoa_gia)
+    monkeypatch.setattr(m, "_nguoi_co_push", push_ghi)
+    monkeypatch.setattr(m, "_nap", nap_ghi)
+    h = auth_header(admin_user)
+
+    r = await client.post(URL_CAI_APP, headers=h, json={"phong": "OPS"})
+    assert r.status_code == 200, r.text
+    assert thu_tu[0] == "khoa:du_lieu_chung:nhac_cai_app" and "doc_push" in thu_tu[1:]
+
+    thu_tu.clear()
+    r = await client.post(f"{URL}/nhac", headers=h, json={"phong": "OPS"})
+    assert r.status_code == 200, r.text
+    assert thu_tu[0] == "khoa:du_lieu_chung:nhac" and "nap" in thu_tu[1:]
+
+    # Người không phải BGĐ bị chặn trước, không giữ khoá
+    thu_tu.clear()
+    r = await client.post(URL_CAI_APP, headers=auth_header(nhom_kenh["OPS"]), json={})
+    assert r.status_code == 403
+    assert thu_tu == []

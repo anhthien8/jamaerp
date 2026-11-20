@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, PnLProject, ReceivableContract, ReceivableInstallment } from '@/lib/api';
@@ -169,7 +170,7 @@ export default function PLPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   // Phải thu theo hợp đồng — các đợt thanh toán pending của HĐ đã ký

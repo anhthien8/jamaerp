@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { api, type AiBaiHoc, type AiHuong, type AiTienHoa } from '@/lib/api';
@@ -70,7 +71,7 @@ export default function AiTienHoaPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) router.push('/login');
+    if (!user) router.push(duongDangNhap());
     else if (!DUOC_XEM.includes(user.role)) router.push('/');
   }, [user, loading, router]);
 

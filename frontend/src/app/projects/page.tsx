@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { laTruongPhong, laTruongNhom } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
@@ -146,7 +147,7 @@ function ProjectsPageInner() {
   };
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   const fetchProjects = useCallback(async () => {

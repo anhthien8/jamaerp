@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import DiemJama from '@/components/hr/DiemJama';
@@ -100,7 +101,7 @@ function NhanVienContent() {
   const [limited, setLimited] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login');
+    if (!authLoading && !user) router.push(duongDangNhap());
   }, [authLoading, user, router]);
 
   const loadProfile = useCallback(async () => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
@@ -40,7 +41,7 @@ export default function InventoryPage() {
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   // ── CSV helpers: parse trên trình duyệt để xem trước (chạy cả demo lẫn work) ──

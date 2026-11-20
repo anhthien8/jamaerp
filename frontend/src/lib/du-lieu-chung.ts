@@ -9,7 +9,7 @@
  */
 
 import type {
-  MucDuLieu, NhacDuLieuChungKetQua, PhongDuLieu, TrangThaiHoSo,
+  MucDuLieu, NhacCaiAppKetQua, NhacDuLieuChungKetQua, PhongDuLieu, TrangThaiHoSo,
 } from '@/lib/api';
 import { laTruongPhong } from '@/lib/roles';
 import { STAGE_CONFIG } from '@/lib/utils';
@@ -224,11 +224,22 @@ const LY_DO_BO_QUA: Record<string, string> = {
   vuot_2_tin: 'người nhận đã đủ 2 tin hôm nay',
 };
 
-/** Câu báo kết quả sau khi gửi nhắc + kiểu toast tương ứng. */
+/** Kênh một tin nhắc đã đi: chuông luôn có; thêm Telegram / thông báo máy nếu người nhận đã bật. */
+export function kenhDaGui(g: { telegram: boolean; thong_bao_may?: boolean }): string {
+  const kenh = ['chuông'];
+  if (g.telegram) kenh.push('Telegram');
+  if (g.thong_bao_may) kenh.push('thông báo máy');
+  return kenh.join(' + ');
+}
+
+/** Câu báo kết quả sau khi gửi nhắc + kiểu toast tương ứng — ghi rõ từng người nhận qua kênh nào (21/11/2026). */
 export function tomTatNhac(kq: NhacDuLieuChungKetQua): { chu: string; kieu: 'success' | 'warning' } {
   const phan: string[] = [];
   if (kq.da_gui.length > 0) {
-    const ten = kq.da_gui.map(g => `${g.nguoi}${g.telegram ? '' : ' (chưa liên kết Telegram, chỉ báo trong app)'}`);
+    const ten = kq.da_gui.map(g => {
+      const chiChuong = !g.telegram && !g.thong_bao_may;
+      return `${g.nguoi} (${kenhDaGui(g)}${chiChuong ? ' — chỉ thấy khi mở app' : ''})`;
+    });
     phan.push(`Đã gửi cho ${ten.join(', ')}`);
   }
   for (const b of kq.bo_qua) {
@@ -237,4 +248,19 @@ export function tomTatNhac(kq: NhacDuLieuChungKetQua): { chu: string; kieu: 'suc
   }
   if (phan.length === 0) return { chu: 'Không có ai để nhắc', kieu: 'warning' };
   return { chu: phan.join(' · '), kieu: kq.da_gui.length > 0 ? 'success' : 'warning' };
+}
+
+/** Câu báo kết quả «Nhắc cài app & bật thông báo». */
+export function tomTatNhacCaiApp(kq: NhacCaiAppKetQua): { chu: string; kieu: 'success' | 'warning' } {
+  if (kq.da_gui === 0) {
+    return {
+      chu: kq.bo_qua_da_nhac > 0
+        ? `Hôm nay đã nhắc ${kq.bo_qua_da_nhac} người này rồi — mai nhắc tiếp.`
+        : 'Không còn ai cần nhắc cài app.',
+      kieu: 'warning',
+    };
+  }
+  const phan = [`Đã nhắc ${kq.da_gui} người cài app và bật thông báo (vào chuông${kq.qua_telegram > 0 ? `, ${kq.qua_telegram} người nhận thêm qua Telegram` : ''})`];
+  if (kq.bo_qua_da_nhac > 0) phan.push(`bỏ qua ${kq.bo_qua_da_nhac} người đã nhắc hôm nay`);
+  return { chu: phan.join(' · '), kieu: 'success' };
 }
