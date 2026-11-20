@@ -15,6 +15,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '20/11/2026',
+    title: 'Dữ liệu chung: CRM phản ánh thực tế tới đâu + trang Đối chiếu cho trưởng phòng',
+    tag: 'MỚI',
+    news: [
+      'Ban giám đốc có trang «Dữ liệu chung» (Việc hằng ngày → Dữ liệu chung): câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», dải quy trình 7 chặng, 4 thẻ phòng với 3 thanh Đủ / Tươi / Đối chiếu.',
+      '«Hôm nay» gợi ý tối đa 3 việc, mỗi việc 1 nút: nhờ trưởng phòng nhận dự án cũ chưa xếp giai đoạn, nhắc phòng đang thấp điểm. Nút «Nhắc trưởng phòng» gửi tin Telegram kèm link đối chiếu, hiện đã nhắc lúc mấy giờ và đã xem chưa.',
+      'Mục «Lệch dữ liệu» đặt CRM cạnh bằng chứng (vd. CRM ghi Báo giá nhưng đã có ảnh thi công), «Hỏi lại» nhắc cả hai phía; «Hồ sơ cần xem» lọc theo phòng và loại vấn đề.',
+      'Trưởng phòng có trang «Đối chiếu»: mỗi tuần sửa dòng sai (Sai giai đoạn / Tạm dừng / Đã xong), chọn người phụ trách nếu thiếu, rồi bấm «Còn lại đều đúng — Xác nhận». Thiết kế, Dự toán–Thu mua, Thi công tự nhận dự án cũ về phòng ở tab «Chưa xếp giai đoạn».',
+      'Chạy thử 60 ngày: chỉ đo, không tính thưởng/phạt. «Chưa cập nhật» chỉ có nghĩa CRM chưa có dấu vết, không có nghĩa phòng không làm.',
+    ],
+    test: [
+      'Tài khoản admin/executive: menu Việc hằng ngày → Dữ liệu chung → thấy câu «CRM phản ánh thực tế …%» và 4 thẻ phòng; trên điện thoại vuốt ngang được dải quy trình.',
+      'Bấm «Nhắc trưởng phòng» ở thẻ Thi công → trưởng phòng Thi công nhận tin Telegram có link; bấm lần 2 cùng ngày → nút đã khoá, ghi «Đã nhắc hh:mm».',
+      'Tài khoản trưởng phòng Thi công: mở link trong tin → chỉ thấy hồ sơ phòng mình, không thấy tiền; sửa 1 dòng «Sai giai đoạn» rồi bấm «Còn lại đều đúng — Xác nhận» → báo đã ghi, thanh Đối chiếu tăng ở lần tải sau.',
+      'Tài khoản sale thường: không thấy 2 mục mới trong menu.',
+    ],
+  },
+  {
     date: '15/11/2026',
     title: 'Nút 1 chạm: máy soạn sẵn, bạn chỉ xác nhận',
     tag: 'MỚI',

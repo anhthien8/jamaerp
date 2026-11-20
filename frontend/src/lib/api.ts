@@ -614,6 +614,25 @@ class ApiClient {
     });
   }
 
+  // Dữ liệu chung (20/11/2026) — BGĐ xem CRM phản ánh thực tế tới đâu, theo phòng.
+  async getDuLieuChung() {
+    return this.request<DuLieuChung>('/dashboard/du-lieu-chung');
+  }
+
+  /** Nhắc trưởng phòng / nhờ nhận dự án cũ (`phong:'chua_xep'`) / hỏi lại 1 hồ sơ (kèm `id`). */
+  async nhacDuLieuChung(body: NhacDuLieuChungBody) {
+    return this.request<NhacDuLieuChungKetQua>('/dashboard/du-lieu-chung/nhac', { method: 'POST', body });
+  }
+
+  /** Danh sách đối chiếu của 1 phòng — BGĐ mọi phòng, trưởng phòng chỉ phòng mình. */
+  async getDoiChieu(phong: PhongDuLieu, tab: 'ho_so' | 'chua_xep' = 'ho_so') {
+    return this.request<DoiChieu>('/dashboard/du-lieu-chung/doi-chieu', { params: { phong, tab } });
+  }
+
+  async guiDoiChieu(body: GuiDoiChieuBody) {
+    return this.request<GuiDoiChieuKetQua>('/dashboard/du-lieu-chung/doi-chieu', { method: 'POST', body });
+  }
+
   async suggestAction(leadId: string) {
     return this.request<AISuggestion>('/ai/suggest-action', {
       method: 'POST',
@@ -2029,6 +2048,185 @@ export interface SalesDashboard {
     muc: string; nhan: string; tong: number; phan_tram: number;
     ky_hd: number; pct_ky: number; gia_tri: number;
   }>;
+}
+
+// ── Dữ liệu chung (/du-lieu-chung, BGĐ) + Đối chiếu (/doi-chieu) — 20/11/2026 ──
+// Khớp hợp đồng JSON ở backend/app/api/du_lieu_chung.py. `diem=null` nghĩa là
+// phạm vi quá ít / rỗng: giao diện hiện nhãn, KHÔNG BAO GIỜ tự quy ra 0 hay 100.
+
+export type PhongDuLieu = 'SALES' | 'DESIGN' | 'PURCHASING' | 'OPS';
+export type MucDuLieu = 'sat' | 'can_bo_sung' | 'chua_phan_anh' | 'it_ho_so' | 'khong_co_ho_so';
+export type TrangThaiHoSo = 'co_dau_vet' | 'chua_cap_nhat' | 'chua_ro' | 'dang_cho' | 'lech';
+export type KetQuaDoiChieu = 'dung' | 'sai_giai_doan' | 'tam_dung' | 'da_xong';
+
+export interface DauVetCuoi { luc: string; loai: string; nguoi: string | null }
+/** Lần đối chiếu cuối — backend có thể kèm thêm trường; FE chỉ cần `luc` + `ket_qua`. */
+export interface DoiChieuCuoi { luc: string; ket_qua?: KetQuaDoiChieu | string; nguoi?: string | null }
+export interface LanNhac { luc: string; da_xem: boolean }
+
+export interface DuLieuChungThe {
+  ma: string;
+  phong: PhongDuLieu | 'chua_xep' | null;
+  tieu_de: string;
+  so_luong: number;
+  nut: { nhan: string; hanh_dong: 'nhac' | 'nhac_chua_xep' | 'mo'; phong: PhongDuLieu | 'chua_xep' | null; link: string | null };
+  da_nhac: LanNhac | null;
+}
+
+export interface DuLieuChungOQuyTrinh {
+  ma: 'lead_mo' | 'design' | 'quotation' | 'procurement' | 'construction' | 'acceptance' | 'hoan_thanh_30';
+  nhan: string;
+  so_luong: number;
+  tong_tien: number;
+  so_co_gia_tri: number;
+  phong: PhongDuLieu | null;
+  muc: MucDuLieu | null;
+}
+
+export interface DuLieuChungQuyTac { ma: string; nhan: string; loai: 'du' | 'lech'; dat: number; tong: number }
+
+export interface DuLieuChungPhong {
+  ma: PhongDuLieu;
+  ten: string;
+  truong_phong: Array<{ id: string; ten: string; co_telegram: boolean }>;
+  so_ho_so: number;
+  diem: number | null;
+  muc: MucDuLieu;
+  thanh_phan: {
+    du: { dat: number; tong: number };
+    tuoi: { dat: number; tong: number };
+    doi_chieu: { dat: number; tong: number; ap_dung: boolean };
+  };
+  trang_thai: Record<TrangThaiHoSo, number>;
+  quy_tac: DuLieuChungQuyTac[];
+  tre_han: number;
+  dau_vet_gan_nhat: DauVetCuoi | null;
+  lan_nhac_cuoi: LanNhac | null;
+}
+
+export interface DuLieuChungLech {
+  ma: 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  loai: 'du_an' | 'lead';
+  id: string;
+  /** null với lead (L3) — lead không có mã. */
+  ma_ho_so: string | null;
+  ten: string;
+  crm_ghi: string;
+  bang_chung: string;
+  phong_lien_quan: PhongDuLieu[];
+}
+
+export interface DuLieuChungHoSo {
+  loai: 'du_an' | 'lead';
+  id: string;
+  /** null với lead — lead không có mã. */
+  ma: string | null;
+  ten: string;
+  khach: string | null;
+  giai_doan: string;
+  gia_tri: number | null;
+  phong_giu: PhongDuLieu | null;
+  thieu: string[];
+  trang_thai: TrangThaiHoSo;
+  dau_vet_cuoi: DauVetCuoi | null;
+  doi_chieu_cuoi: DoiChieuCuoi | null;
+  da_hoi_hom_nay: boolean;
+}
+
+export interface DuLieuChung {
+  cap_nhat_luc: string;
+  chay_thu: boolean;
+  moc_bat_dau: string;
+  /** Ngày cuối chạy thử (YYYY-MM-DD) — backend tính từ moc_bat_dau + chay_thu_ngay cấu hình. */
+  chay_thu_den: string;
+  cau_hinh: {
+    cua_so: {
+      lead: { new: number; interested: number; surveyed: number; survey_scheduled: number; potential: number };
+      DESIGN: number; PURCHASING: number; OPS: number; OPS_ban_giao: number;
+    };
+    ngay_doi_chieu: number;
+    lead_treo_ngay: number;
+  };
+  phan_anh: { dat: number; tong: number; pct: number | null };
+  hom_nay: DuLieuChungThe[];
+  dai_quy_trinh: DuLieuChungOQuyTrinh[];
+  ngoai_dai: {
+    chua_xep: { so_luong: number; da_xep_tu_moc: number };
+    tam_dung: { so_luong: number; co_ly_do: number };
+    lead_treo: number;
+  };
+  phong: DuLieuChungPhong[];
+  lech: DuLieuChungLech[];
+  can_xem: DuLieuChungHoSo[];
+  cho_bgd: Array<{ id: string; ma: string; khach: string | null; boi: string | null; luc: string }>;
+  du_lieu_cu: Array<{ id: string; ma: string; ten: string; gia_tri: number | null; goi_y_giai_doan: string | null; ly_do_goi_y: string | null }>;
+  tin_hieu_30_ngay: {
+    task_activities: number;
+    anh: number;
+    du_an_co_anh: number;
+    viec_xong: { design: number; quotation: number; procurement: number; construction: number; acceptance: number };
+    phieu_vat_tu: number;
+    bao_gia: number;
+    hd_da_ky: number;
+    lan_cuoi: { task_activity: string | null; anh: string | null };
+  };
+}
+
+export interface NhacDuLieuChungBody {
+  phong: PhongDuLieu | 'chua_xep';
+  id?: string;
+  loai?: 'du_an' | 'lead';
+}
+
+export interface NhacDuLieuChungKetQua {
+  da_gui: Array<{ phong: string; nguoi: string; telegram: boolean }>;
+  bo_qua: Array<{ phong: string; ly_do: 'da_nhac_hom_nay' | 'khong_co_truong_phong' | 'vuot_2_tin' | string }>;
+}
+
+export interface DoiChieuHoSo {
+  id: string;
+  loai: 'du_an' | 'lead';
+  /** null với lead — lead không có mã. */
+  ma: string | null;
+  ten: string;
+  khach: string | null;
+  dia_chi: string | null;
+  giai_doan: string;
+  pic: { id: string; ten: string } | null;
+  han_ban_giao: string | null;
+  dau_vet_cuoi: DauVetCuoi | null;
+  doi_chieu_cuoi: DoiChieuCuoi | null;
+  /** Chỉ BGĐ mới nhận trường này — trưởng phòng không thấy tiền. */
+  gia_tri?: number | null;
+}
+
+export interface DoiChieu {
+  phong: PhongDuLieu;
+  ho_so: DoiChieuHoSo[];
+  chua_xep: DoiChieuHoSo[];
+  nguoi_trong_phong: Array<{ id: string; ten: string }>;
+}
+
+export interface DoiChieuMuc {
+  id: string;
+  loai: 'du_an' | 'lead';
+  ket_qua: KetQuaDoiChieu;
+  giai_doan_moi?: string;
+  pic_id?: string;
+  ly_do?: string;
+}
+
+export interface GuiDoiChieuBody {
+  phong: PhongDuLieu;
+  muc: DoiChieuMuc[];
+  tat_ca_con_lai_dung?: boolean;
+  ids_hien_thi: string[];
+}
+
+export interface GuiDoiChieuKetQua {
+  da_ghi: number;
+  da_doi_giai_doan: number;
+  loi: Array<{ id: string; ly_do: string }>;
 }
 
 export interface LeadParseResult {

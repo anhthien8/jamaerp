@@ -6,6 +6,7 @@ Theo Brief JAMA HOME:
 - Nhắc hẹn thanh toán hóa đơn (đợt thanh toán pending)
 """
 
+import html
 import logging
 from datetime import date, datetime, timedelta, timezone
 
@@ -64,8 +65,13 @@ async def _notify(
     link: str | None = None,
     ref_id: str | None = None,
     telegram: bool = True,
+    reply_markup: dict | None = None,
 ) -> bool:
-    """Create in-app notification (dedupe unread) + optional Telegram push."""
+    """Create in-app notification (dedupe unread) + optional Telegram push.
+
+    `reply_markup` (20/11/2026): nút inline gắn dưới tin Telegram. Chỉ truyền
+    sang `send_telegram` khi có, nên lời gọi cũ (và hàm giả trong test) y nguyên.
+    """
     if user is None:
         return False
 
@@ -95,7 +101,13 @@ async def _notify(
     await db.flush()
 
     if telegram and user.telegram_user_id:
-        await send_telegram(user.telegram_user_id, f"<b>{title}</b>\n{body}")
+        # Tiêu đề là chữ thường (trong app hiện nguyên văn) nhưng Telegram đọc
+        # parse_mode HTML → escape ở đây để tên khách có «&», «<» không làm hỏng tin.
+        tin = f"<b>{html.escape(title, quote=False)}</b>\n{body}"
+        if reply_markup:
+            await send_telegram(user.telegram_user_id, tin, reply_markup=reply_markup)
+        else:
+            await send_telegram(user.telegram_user_id, tin)
     return True
 
 

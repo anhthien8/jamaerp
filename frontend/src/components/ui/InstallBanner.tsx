@@ -31,6 +31,8 @@ function laIOS(): boolean {
 export default function InstallBanner() {
   const pathname = usePathname();
   const laTrangLogin = pathname === '/login';
+  // Trang có thanh nút dính ở đáy (đích của tin nhắc Telegram): banner sẽ đè đúng nút chính.
+  const coThanhNutDay = pathname === '/doi-chieu';
   const [sanSang, setSanSang] = useState(false); // đủ điều kiện hiện (mobile, chưa cài)
   const [hoan, setHoan] = useState(false);
   const [anPhienNay, setAnPhienNay] = useState(false);
@@ -87,7 +89,7 @@ export default function InstallBanner() {
     setMoHuongDan(true); // iOS, hoặc trình duyệt chưa cho hộp cài → hướng dẫn tay
   };
 
-  if (!sanSang) return null;
+  if (!sanSang || coThanhNutDay) return null;
   // Trang đăng nhập bỏ qua «Để sau» 7 ngày, chỉ ẩn khi vừa bấm ✕ trong phiên này.
   if (laTrangLogin ? anPhienNay : hoan) return null;
 

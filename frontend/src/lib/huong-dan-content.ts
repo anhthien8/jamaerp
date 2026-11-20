@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '25/10/2026';
+export const GUIDE_UPDATED = '20/11/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -563,6 +563,87 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "**Tạo / sửa dự án**: bấm nút vàng **«+ Dự án mới»** góc phải (trên điện thoại là nút tròn nổi góc dưới phải), hoặc nút **«Chỉnh sửa»** trong chi tiết dự án. Nhớ điền đủ 4 ô **«Phân công phụ trách (PIC)»** — PM/Giám sát, Thiết kế, Báo giá–Thu mua, Kinh doanh — để hệ thống giới hạn đúng phạm vi xem và báo đúng người (riêng ô tick «Công việc của tôi» hiện mới lọc theo PIC PM/Giám sát, Thiết kế và Kinh doanh — PIC Báo giá–Thu mua chưa được tính). Bắt buộc: tên dự án và tên khách hàng. Nên điền thêm **Ngày dự kiến hoàn thành** (để hệ thống nhắc hạn) và **Ngân sách kế hoạch** (để cảnh báo khi chi vượt)."
+      }
+    ]
+  },
+  {
+    "id": "du-lieu-chung",
+    "icon": "eye",
+    "title": "Dữ liệu chung và Đối chiếu",
+    "roles": [
+      "Ban giám đốc",
+      "Trưởng phòng"
+    ],
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Mỗi phòng vẫn báo cáo tuần theo cách riêng, nên cùng một khách có thể mang 3–4 trạng thái khác nhau. **Dữ liệu chung** (menu **Việc hằng ngày → Dữ liệu chung**, chỉ Ban giám đốc) cho biết CRM đang phản ánh thực tế tới đâu: câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», rồi dải quy trình 7 chặng (Lead đang mở → Thiết kế → Báo giá → Thu mua → Thi công → Bàn giao → Hoàn thành 30 ngày) và 4 thẻ phòng."
+      },
+      {
+        "type": "h3",
+        "text": "Ba thanh trên mỗi thẻ phòng"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Thanh",
+          "Đo cái gì"
+        ],
+        "rows": [
+          [
+            "Đủ",
+            "Hồ sơ đang ở giai đoạn của phòng đã có đủ thông tin phòng đó cần chưa (vd. Thi công: có giám sát, ngày khởi công, hạn bàn giao, việc đang làm có người nhận). Chỉ đòi khi hồ sơ đang ở giai đoạn của phòng."
+          ],
+          [
+            "Tươi",
+            "Hồ sơ có **dấu vết** trên CRM trong hạn của phòng: báo cáo /baocao, ảnh công trình, tệp bản vẽ, xong việc, phiếu vật tư, ghi chú lead… Hạn mặc định: Thiết kế 14 ngày, Dự toán–Thu mua 10, Thi công 7, Bàn giao 14; lead theo giai đoạn (3–14 ngày)."
+          ],
+          [
+            "Đối chiếu",
+            "Trưởng phòng đã xác nhận hồ sơ trong 7 ngày qua. Chỉ tính vào điểm sau khi phòng được nhắc lần đầu đủ 7 ngày; trước đó thanh ghi «Chưa bắt đầu đối chiếu»."
+          ]
+        ]
+      },
+      {
+        "type": "p",
+        "text": "Điểm phòng = trung bình các thanh đang áp dụng: **≥ 80 «Sát»**, 50–79 «Cần bổ sung», dưới 50 «Chưa phản ánh». Phòng dưới 3 hồ sơ ghi «Ít hồ sơ», không có hồ sơ ghi «Không có hồ sơ» — không hiện số giả."
+      },
+      {
+        "type": "warn",
+        "text": "**«Chưa cập nhật» ≠ «không làm».** Mục xám chỉ có nghĩa CRM chưa nhận dấu vết; phòng có thể vẫn làm và báo cáo ở chỗ khác. Màn này **chạy thử 60 ngày: chỉ đo, không tính thưởng/phạt**, không xếp hạng cá nhân và không đi vào lương, KPI hay chế độ thưởng."
+      },
+      {
+        "type": "h3",
+        "text": "Ban giám đốc dùng thế nào"
+      },
+      {
+        "type": "list",
+        "items": [
+          "**Hôm nay**: tối đa 3 việc nên làm ngay, mỗi việc 1 nút — ví dụ «Nhờ 3 trưởng phòng nhận» dự án cũ chưa xếp giai đoạn, hoặc nhắc phòng đang thấp điểm nhất.",
+          "**Nhắc trưởng phòng** trên thẻ phòng: gửi tin Telegram kèm link danh sách đối chiếu. Mỗi phòng 1 lần/ngày, mỗi người tối đa 2 tin/ngày; nút hiện «Đã nhắc hh:mm · đã xem/chưa xem».",
+          "**Lệch dữ liệu**: CRM ghi một đằng, bằng chứng nói một nẻo (vd. CRM ghi Báo giá nhưng đã có ảnh thi công). Lệch không trừ điểm; **«Hỏi lại»** nhắc cả hai phía liên quan.",
+          "**Hồ sơ cần xem**: lọc theo phòng và loại vấn đề, bấm **«Mở»** để vào hồ sơ, **«Hỏi lại»** để nhắc người phụ trách (chưa có thì nhắc trưởng phòng).",
+          "**Dữ liệu cũ chờ phân loại**: dự án nhập từ hệ thống cũ chưa có giai đoạn. Tài khoản quản trị bấm 1 chip giai đoạn là xếp xong (chip gợi ý đã tô sẵn).",
+          "**Đã xong chờ BGĐ**: trưởng phòng báo «Đã xong» thì hệ thống không tự đóng; quản trị bấm **«Hoàn thành»** để đóng dự án."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Trưởng phòng đối chiếu mỗi tuần (khoảng 2 phút)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Bấm link **«Mở danh sách đối chiếu»** trong tin Telegram (hoặc menu **Việc hằng ngày → Đối chiếu**). Trang chỉ hiện hồ sơ của phòng bạn, không hiện tiền.",
+          "Dòng nào CRM ghi sai thì chọn: **Sai giai đoạn** (rồi chọn giai đoạn thật), **Tạm dừng** (bắt buộc ghi lý do) hoặc **Đã xong**. Có thể chọn thêm người phụ trách nếu dự án chưa có.",
+          "Bấm nút cuối trang **«Còn lại đều đúng — Xác nhận»**: các dòng bạn không sửa được ghi là «Đúng».",
+          "Thiết kế, Dự toán–Thu mua, Thi công: tab **«Chưa xếp giai đoạn»** có ô tìm theo tên khách — thấy dự án cũ của phòng mình thì chọn giai đoạn để nhận về.",
+          "Phòng Kinh doanh chỉ đối chiếu lead chờ ký (Đã gửi báo giá, Đang đàm phán). Muốn chuyển lead sang «Mất» hay «Deal đã thắng» thì bấm **Mở** và làm ở trang Quy trình."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Trên điện thoại dải quy trình vuốt ngang được. Mỗi dòng đối chiếu xong là một dấu vết, nên lần sau thanh **Đối chiếu** và câu đầu trang tăng lên."
       }
     ]
   },

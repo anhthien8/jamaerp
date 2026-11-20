@@ -936,8 +936,21 @@ async def bulk_change_stage(
         elif old_stage == "lost":
             lead.lost_reason = None
         lead.updated_at = datetime.now(timezone.utc)
+        if old_stage != data.new_stage:
+            # Cùng dấu vết như chuyển từng lead (Dữ liệu chung 20/11): trước đây
+            # đổi hàng loạt không ghi gì nên lịch sử giai đoạn lead bị thủng.
+            content = (f"Chuyển stage: {STAGE_LABELS.get(old_stage)} → "
+                       f"{STAGE_LABELS.get(data.new_stage)} (đổi hàng loạt)")
+            if data.new_stage == "lost":
+                content += f" — Lý do: {ly_do_mat}"
+            db.add(Activity(
+                lead_id=lead.id, user_id=current_user.id,
+                type="stage_change", content=content,
+            ))
         updated += 1
     await db.flush()
+    if updated:
+        cache.clear_prefix("dashboard")
     return {"updated": updated, "skipped": len(leads) - updated}
 
 

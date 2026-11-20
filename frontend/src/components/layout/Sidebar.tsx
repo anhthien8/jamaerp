@@ -13,6 +13,7 @@ import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_SALES_DASHBOARD } from '@/lib/features';
+import { duocDoiChieu, VAI_TRO_DU_LIEU_CHUNG } from '@/lib/du-lieu-chung';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 import JamaLoader from '@/components/ui/JamaLoader';
@@ -68,6 +69,10 @@ const ALL_ITEMS: NavItem[] = [
   // Chốt V3 22/10/2026: báo giá tức thì mở cho MỌI người (bảng giá vẫn chỉ Admin sửa).
   { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
+  // Dữ liệu chung 20/11/2026 — khớp VAI_TRO_BGD backend (api/du_lieu_chung.py): chỉ BGĐ
+  { href: '/du-lieu-chung', label: 'Dữ liệu chung', icon: <LineIcon name="eye" size={20} color="currentColor" />, roles: VAI_TRO_DU_LIEU_CHUNG },
+  // Đối chiếu — BGĐ + trưởng phòng KD/Thiết kế/Dự toán–Thu mua/Thi công (chỉ phòng mình)
+  { href: '/doi-chieu', label: 'Đối chiếu', icon: <LineIcon name="clipboard" size={20} color="currentColor" />, check: duocDoiChieu },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
   { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
   { href: '/quotations', label: 'Báo giá', icon: Icon.quotations, perm: 'canViewQuotations' },
@@ -110,7 +115,7 @@ const ALL_ITEMS: NavItem[] = [
 // khối chỉ còn 1 mục thì hiện thẳng mục đó (khỏi bấm 2 lần).
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/kpi'] },
+  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/du-lieu-chung', '/doi-chieu', '/kpi'] },
   { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/ai-tien-hoa', '/tro-ly-zalo'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
