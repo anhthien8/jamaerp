@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Lead, Project } from '@/lib/api';
+import type { Lead, Project, ServerNotification } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 import BatThongBaoMay from '@/components/BatThongBaoMay';
 import { cachedFetch } from '@/lib/fetch-cache';
+import PopupThongBao, { dongDauThongBao, giaiMaThucThe, TOI_DA_POPUP, type MucPopup } from '@/components/ui/PopupThongBao';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -151,6 +152,9 @@ const SERVER_NOTIF_ICONS: Record<string, string> = {
   task_overdue: 'alarm',
   task_sla_breach: 'alert',
   task_escalated: 'megaphone',
+  // Dữ liệu chung (20–21/11/2026): BGĐ nhắc trưởng phòng đối chiếu; nhắc cài app + bật thông báo
+  du_lieu_chung: 'clipboard',
+  nhac_cai_app: 'smartphone',
 };
 
 // Nhóm «Cần xử lý» — đầu việc trễ hạn/vượt SLA phải nằm trên đầu danh sách,
@@ -158,7 +162,55 @@ const SERVER_NOTIF_ICONS: Record<string, string> = {
 const SERVER_ACTION_TYPES = new Set([
   'followup_reminder', 'lead_recalled', 'payment_reminder',
   'task_assigned', 'project_assigned', 'task_overdue', 'task_sla_breach', 'task_escalated',
+  'du_lieu_chung',
 ]);
+
+/** Link thông báo trỏ đúng trang đang mở — vd vừa bấm thông báo máy, app mở thẳng trang đó. */
+function laTrangDangXem(link: string | null): boolean {
+  if (!link) return false;
+  try {
+    const u = new URL(link, window.location.origin);
+    return u.origin === window.location.origin && u.pathname === window.location.pathname
+      && (!u.search || u.search === window.location.search);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * id các thông báo mà THÔNG BÁO MÁY (Web Push) của chính tin đó còn nằm trên khay của máy này
+ * → điện thoại/máy tính đã báo rồi, không bật popup trùng. sw.js luôn phải hiện thông báo máy
+ * khi có push (iOS thu hồi đăng ký nếu push «im lặng») nên chặn trùng ở phía app.
+ * So khớp như backend gửi push (services/web_push.py): tiêu đề đã giải mã + url = link hoặc «/».
+ */
+async function conTrenKhay(ds: ServerNotification[]): Promise<Set<string>> {
+  const co = new Set<string>();
+  try {
+    if (!('serviceWorker' in navigator)) return co;
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg || typeof reg.getNotifications !== 'function') return co;
+    const khay = await reg.getNotifications();
+    if (khay.length === 0) return co;
+    for (const n of ds) {
+      const tieuDe = giaiMaThucThe(n.title || '');
+      const url = n.link || '/';
+      if (khay.some(k => k.title === tieuDe && (k.data as { url?: string } | null)?.url === url)) co.add(n.id);
+    }
+  } catch {
+    /* trình duyệt không cho đọc khay → cứ bật popup */
+  }
+  return co;
+}
+
+function thanhPopup(n: ServerNotification): MucPopup {
+  return {
+    id: `srv-${n.id}`,
+    tieuDe: n.title,
+    dong: dongDauThongBao(n.body),
+    icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
+    link: n.link || null,
+  };
+}
 
 export default function NotificationCenter({ leads: leadsProp, projects: projectsProp, onCountChange }: NotificationCenterProps) {
   const router = useRouter();
@@ -167,6 +219,12 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   const [internalLeads, setInternalLeads] = useState<Lead[]>([]);
   const [internalProjects, setInternalProjects] = useState<Project[]>([]);
   const [serverNotifs, setServerNotifs] = useState<Notification[]>([]);
+  // Popup trong app (21/11/2026): id thông báo đã thấy kể từ lúc mở app. null = chưa tải
+  // lượt nào → lượt tải đầu chỉ ghi nhận, không bật popup cho tin cũ.
+  const daThayRef = useRef<Set<string> | null>(null);
+  // fetchServer nằm ngoài effect (hai effect cùng gọi) nên cờ huỷ phải là ref.
+  const huyRef = useRef(false);
+  const [popups, setPopups] = useState<MucPopup[]>([]);
 
   const leads = leadsProp ?? internalLeads;
   const projects = projectsProp ?? internalProjects;
@@ -192,24 +250,51 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
 
   // Lấy thông báo thật từ backend. cachedFetch 4s gộp các lần gọi trùng nhau
   // thành MỘT request: StrictMode (next dev) chạy effect hai lần, và việc quay
-  // lại tab / bấm chuông dễ trùng với nhịp đếm.
+  // lại tab / bấm chuông dễ trùng với nhịp đếm. Dùng chung một phản hồi KHÔNG
+  // làm popup hiện hai lần: daThayRef đã ghi id ngay lượt đầu.
   const fetchServer = useCallback(() => {
     import('@/lib/api').then(({ api }) => {
       cachedFetch('notifications', 4_000, () => api.getNotifications()).then(res => {
+        if (huyRef.current) return;
+        const daThay = daThayRef.current;
+        let vuaDen: ServerNotification[] = [];
+        if (daThay === null) {
+          daThayRef.current = new Set(res.items.map(n => `srv-${n.id}`));
+        } else {
+          vuaDen = res.items.filter(n => !n.read && !daThay.has(`srv-${n.id}`));
+          for (const n of res.items) daThay.add(`srv-${n.id}`);
+        }
+        // Tin mới trỏ đúng trang đang mở (vd vừa bấm thông báo máy → app mở thẳng tới đó):
+        // người dùng đang xem rồi → đánh dấu đã đọc, không bật popup trùng.
+        const dangXem = new Set(vuaDen.filter(n => laTrangDangXem(n.link)).map(n => n.id));
+        for (const id of dangXem) {
+          api.markNotificationRead(id).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e));
+        }
+        const canPopup = vuaDen.filter(n => !dangXem.has(n.id));
+        if (canPopup.length > 0) {
+          void conTrenKhay(canPopup).then(khay => {
+            if (huyRef.current) return;
+            const moi = canPopup.filter(n => !khay.has(n.id)).map(thanhPopup);
+            if (moi.length === 0) return;
+            setPopups(prev => [...moi, ...prev.filter(p => !moi.some(m => m.id === p.id))].slice(0, TOI_DA_POPUP));
+          });
+        }
         setServerNotifs(res.items.map(n => ({
           id: `srv-${n.id}`,
           group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
           title: n.title,
-          description: n.body ? n.body.split('\n')[0] : '',
+          description: dongDauThongBao(n.body),
           icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
           href: n.link || '/',
           timestamp: n.created_at,
-          read: n.read,
+          read: n.read || dangXem.has(n.id),
           type: 'pending_approval' as const,
         })));
       }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
     });
   }, []);
+
+  useEffect(() => () => { huyRef.current = true; }, []);
 
   useEffect(() => {
     fetchServer();
@@ -276,6 +361,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     for (const n of notifications) allIds.add(n.id);
     setReadIdsState(allIds);
     setReadIds(allIds);
+    setPopups([]);
     // Also mark server notifications read
     if (serverNotifs.some(n => !n.read)) {
       setServerNotifs(prev => prev.map(n => ({ ...n, read: true })));
@@ -297,11 +383,31 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     // Server notification: mark read on backend
     if (notifId?.startsWith('srv-')) {
       const serverId = notifId.slice(4);
+      setPopups(prev => prev.filter(p => p.id !== notifId));
       setServerNotifs(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
       import('@/lib/api').then(({ api }) => api.markNotificationRead(serverId).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e)));
     }
     router.push(href);
   }, [router]);
+
+  // Popup chỉ còn hiện khi thông báo vẫn chưa đọc (đọc ở khung chuông / máy khác thì tự rút).
+  const popupsHien = useMemo(() => {
+    const chuaDoc = new Set(serverNotifs.filter(n => !n.read).map(n => n.id));
+    return popups.filter(p => chuaDoc.has(p.id));
+  }, [popups, serverNotifs]);
+
+  const dongPopup = useCallback((id: string) => {
+    setPopups(prev => prev.filter(p => p.id !== id));
+  }, []);
+
+  const moPopup = useCallback((m: MucPopup) => {
+    dongPopup(m.id);
+    if (m.link) {
+      handleNavigate(m.link, m.id); // giống bấm trong chuông: đánh dấu đã đọc rồi mở trang
+      return;
+    }
+    setOpen(true); // tin không có link → mở khung chuông để đọc đủ
+  }, [dongPopup, handleNavigate]);
 
   // Close on escape
   useEffect(() => {
@@ -387,6 +493,9 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
     <>
       {/* Bell button — rendered inline */}
       {bellButton}
+
+      {/* Popup thông báo mới (21/11/2026) — nằm dưới khung chuông (z thấp hơn) */}
+      <PopupThongBao ds={popupsHien} onMo={moPopup} onDong={dongPopup} />
 
       {/* ── Mobile: Bottom Sheet ── */}
       {open && (

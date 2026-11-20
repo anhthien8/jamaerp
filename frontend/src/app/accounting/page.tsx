@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems } from '@/lib/api';
@@ -53,7 +54,7 @@ export default function AccountingPage() {
   const [txAmountDisplay, setTxAmountDisplay] = useState('');
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   // Chỉ Giám đốc + Kế toán được xem bảng lương; các vai trò khác gọi /payroll sẽ bị 403.

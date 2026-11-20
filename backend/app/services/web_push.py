@@ -12,8 +12,10 @@ iPhone/iPad chỉ nhận push khi đã «Thêm vào MH chính» (iOS 16.4+).
 
 import asyncio
 import hashlib
+import html
 import json
 import logging
+import re
 
 from sqlalchemy import delete, event, select
 from sqlalchemy.orm import Session
@@ -25,6 +27,9 @@ from app.models.push_subscription import PushSubscription
 logger = logging.getLogger(__name__)
 
 KHOA_HANG_DOI = "web_push"
+# Thân thông báo có thể chứa thẻ HTML dành cho Telegram (vd link «Mở danh sách
+# đối chiếu» của Dữ liệu chung, 20/11/2026) — màn hình khoá điện thoại hiện chữ thô.
+_THE_HTML = re.compile(r"<[^>]+>")
 _viec_nen: set[asyncio.Task] = set()
 
 
@@ -45,7 +50,10 @@ def _gom_thong_bao(session: Session, _ctx) -> None:
     hang = session.info.setdefault(KHOA_HANG_DOI, [])
     for n in moi:
         hang.append({
-            "user_id": n.user_id, "title": n.title, "body": (n.body or "")[:300],
+            # Bỏ thẻ rồi giải mã thực thể: thân/tiêu đề Telegram đã html.escape tên khách
+            # (vd «A &amp; B») — màn hình khoá phải hiện «A & B».
+            "user_id": n.user_id, "title": html.unescape(n.title or ""),
+            "body": html.unescape(_THE_HTML.sub("", n.body or ""))[:300],
             "url": n.link or "/", "tag": n.ref_id or n.id,
         })
 

@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '25/10/2026';
+export const GUIDE_UPDATED = '21/11/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -76,11 +76,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Trên **máy tính**: menu nằm cột trái, chia **2 tầng**: dưới **Tổng quan** là các khối **Việc hằng ngày** (Phê duyệt, Chấm công, Dự án, KPI), **Kinh doanh** (Quy trình, Khách hàng, Báo giá, Hợp đồng…), **Kho hàng**, **Tài chính**, **Nhân sự**, **Trợ giúp** (Sổ tay, Có gì mới, Góp ý, Cài đặt). Bấm tên khối để mở/đóng; con số xám cạnh khối là số mục bên trong. Khối chứa trang bạn đang xem tự mở sẵn, và app nhớ khối nào bạn đã mở/đóng. Bạn chỉ thấy mục mình có quyền dùng. Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án."
+        "text": "Trên **máy tính**: menu nằm cột trái, chia **2 tầng**: dưới **Tổng quan** là các khối **Việc hằng ngày** (Phê duyệt, Chấm công, Dự án, KPI), **Kinh doanh** (Quy trình, Khách hàng, Báo giá, Hợp đồng…), **Kho hàng**, **Tài chính**, **Nhân sự**, **Trợ giúp** (Sổ tay, Cài app & thông báo, Có gì mới, Góp ý, Cài đặt). Bấm tên khối để mở/đóng; con số xám cạnh khối là số mục bên trong. Khối chứa trang bạn đang xem tự mở sẵn, và app nhớ khối nào bạn đã mở/đóng. Bạn chỉ thấy mục mình có quyền dùng. Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án."
       },
       {
         "type": "p",
-        "text": "**Bấm vào ảnh đại diện + tên của bạn ở góc dưới cột menu** để mở menu tài khoản: **Hồ sơ 360° của tôi** (thông tin cá nhân, giấy tờ, hợp đồng, chấm công, lương, nghỉ phép của chính bạn), **Đổi ảnh đại diện**, **Cài đặt tài khoản** (mật khẩu, Telegram, thông báo), **Sổ tay hướng dẫn**, **Đăng xuất các thiết bị khác** và **Đăng xuất**."
+        "text": "**Bấm vào ảnh đại diện + tên của bạn ở góc dưới cột menu** để mở menu tài khoản: **Hồ sơ 360° của tôi** (thông tin cá nhân, giấy tờ, hợp đồng, chấm công, lương, nghỉ phép của chính bạn), **Đổi ảnh đại diện**, **Cài đặt tài khoản** (mật khẩu, Telegram, thông báo), **Cài app & bật thông báo**, **Sổ tay hướng dẫn**, **Đăng xuất các thiết bị khác** và **Đăng xuất**."
       },
       {
         "type": "p",
@@ -96,7 +96,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Nút chuông ở **góc trên phải**. Có việc mới thì hiện chấm đỏ kèm con số. Bấm vào sẽ mở bảng thông báo chia 2 nhóm: **Cần xử lý** (việc đang chờ bạn) và **Gần đây** (tin tức chung). Bấm 1 dòng để nhảy thẳng tới việc đó (lead hoặc dự án tự mở ra, cả trên điện thoại); bấm **Đánh dấu đã đọc** để xóa chấm đỏ."
+        "text": "Nút chuông ở **góc trên phải**. Có việc mới thì hiện chấm đỏ kèm con số. Bấm vào sẽ mở bảng thông báo chia 2 nhóm: **Cần xử lý** (việc đang chờ bạn) và **Gần đây** (tin tức chung). Bấm 1 dòng để nhảy thẳng tới việc đó (lead hoặc dự án tự mở ra, cả trên điện thoại); bấm **Đánh dấu đã đọc** để xóa chấm đỏ. Đang mở app mà có thông báo mới thì một **ô nhỏ hiện trên cùng màn hình** (máy tính: góc trên phải, dưới nút chuông): bấm **Mở** để tới thẳng việc đó (tự tính là đã đọc), bấm dấu X để đóng; ô tự ẩn sau 12 giây, tối đa 3 ô một lúc."
       },
       {
         "type": "h3",
@@ -116,7 +116,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Cài app ra màn hình chính:** mở web bằng điện thoại, ngay trang đăng nhập sẽ có thanh dưới «Cài JAMA HOME lên điện thoại». Android/Samsung: bấm **Cài đặt** là xong. iPhone/iPad: bấm **Thêm** để xem 3 bước — nút **Chia sẻ ⬆️** của Safari → **Thêm vào MH chính** → **Thêm**. Lỡ bấm ✕ thì 7 ngày sau thanh nhắc lại, hoặc đăng xuất ra trang đăng nhập là thấy. Sau đó mở app 1 chạm như Zalo, khỏi gõ địa chỉ."
+        "text": "**Cài app ra màn hình chính:** mở web bằng điện thoại, ngay trang đăng nhập sẽ có thanh dưới «Cài JAMA HOME lên điện thoại». Android/Samsung: bấm **Cài đặt** là xong. iPhone/iPad: bấm **Thêm** để xem 3 bước — nút **Chia sẻ** (ô vuông có mũi tên lên) của Safari → **Thêm vào MH chính** → **Thêm**. Lỡ bấm dấu X (Để sau) thì 7 ngày sau thanh nhắc lại, hoặc đăng xuất ra trang đăng nhập là thấy. Sau đó mở app 1 chạm như Zalo, khỏi gõ địa chỉ. Hướng dẫn đủ 4 bước (cài + bật thông báo): menu **Trợ giúp → Cài app & thông báo**."
       }
     ]
   },
@@ -215,6 +215,57 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "**Cấu hình AI — model trả phí** (chỉ Admin): ô chọn model chia 2 nhóm «Miễn phí / dùng thử» và «Trả phí theo lượt». Nhóm trả phí có ChatGPT (gpt-5.4-nano, gpt-5.4-mini, gpt-5.5) và Claude (Haiku, Sonnet, Opus). Gói ChatGPT Plus/Pro hay Claude Pro/Max **không** dùng được — phải tạo API key trả theo lượt: OpenAI ở platform.openai.com/api-keys (khoá bắt đầu sk-), Claude ở console.anthropic.com (khoá bắt đầu sk-ant-). Dán nhầm khoá khác nhà thì app báo đỏ và bỏ qua model đó. Nên để model miễn phí làm chính, model trả phí làm dự phòng cuối để đỡ tốn tiền; bấm «Test thử» để thử từng model."
+      }
+    ]
+  },
+  {
+    "id": "cai-app",
+    "icon": "smartphone",
+    "title": "Cài app lên điện thoại và bật thông báo",
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Cài JAMA HOME ra màn hình chính rồi bật thông báo thì việc được giao, nhắc hạn, tin của Ban giám đốc hiện lên điện thoại **ngay**, kể cả khi bạn không mở app. Chưa bật thì tin chỉ nằm trong chuông — phải tự mở app mới thấy. Mở menu **Trợ giúp → Cài app & thông báo** (hoặc bấm ảnh đại diện → **Cài app & bật thông báo**): trang này cho biết máy bạn đang mở dạng app hay trình duyệt, thông báo đã bật chưa, rồi dắt từng bước."
+      },
+      {
+        "type": "h3",
+        "text": "Android / Samsung (Chrome hoặc Samsung Internet)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Mở **crm.jamahome.vn** bằng Chrome hoặc Samsung Internet (không mở trong Zalo/Telegram/Facebook). Trình duyệt cho cài tự động thì trang có nút vàng **Cài ngay** — bấm rồi chọn **Cài đặt** là xong.",
+          "Không có nút đó: bấm **⋮** (Chrome, góc trên phải) hoặc **≡** (Samsung Internet, góc dưới phải) → **Cài đặt ứng dụng** / **Thêm vào màn hình chính**.",
+          "Bấm **Cài đặt** / **Thêm** — icon JAMA HOME hiện ngoài màn hình chính. Từ nay mở app bằng icon này."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "iPhone / iPad (Safari)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Mở **crm.jamahome.vn** bằng **Safari** (đang ở Zalo/Telegram/Chrome thì chọn «Mở bằng Safari» trước).",
+          "Bấm nút **Chia sẻ** (ô vuông có mũi tên lên) → kéo xuống chọn **Thêm vào MH chính** → **Thêm**.",
+          "Đóng Safari, mở JAMA HOME **từ icon ngoài màn hình chính**. iPhone/iPad chỉ nhận được thông báo khi mở theo cách này (iOS 16.4 trở lên)."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Bước 4: Bật thông báo"
+      },
+      {
+        "type": "p",
+        "text": "Ngay trang Cài app & thông báo (hoặc **Cài đặt → Thông báo trên máy này**) bấm **Bật thông báo trên máy này** → chọn **Cho phép**. Bấm **Gửi thử** để kiểm: vài giây sau điện thoại hiện tin là được. Mỗi máy (điện thoại, máy tính bảng, laptop) bật riêng một lần."
+      },
+      {
+        "type": "tip",
+        "text": "Đã cài app mà chưa bật thông báo thì đầu mỗi trang có dòng nhỏ **«Bật thông báo để không lỡ việc được giao»** — bấm **Bật thông báo** là xong, hoặc **Để sau** (7 ngày sau nhắc lại). Ban giám đốc có thể gửi tin **«Cài JAMA HOME lên điện thoại»** vào chuông của bạn — bấm vào là mở đúng trang hướng dẫn này."
+      },
+      {
+        "type": "warn",
+        "text": "Lỡ bấm **Chặn** khi điện thoại hỏi quyền thì app không tự hỏi lại được. Android: Cài đặt điện thoại → Ứng dụng → JAMA HOME (hoặc Chrome) → Thông báo → Cho phép. iPhone/iPad: Cài đặt → Thông báo → JAMA HOME → Cho phép thông báo."
       }
     ]
   },
@@ -563,6 +614,88 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "p",
         "text": "**Tạo / sửa dự án**: bấm nút vàng **«+ Dự án mới»** góc phải (trên điện thoại là nút tròn nổi góc dưới phải), hoặc nút **«Chỉnh sửa»** trong chi tiết dự án. Nhớ điền đủ 4 ô **«Phân công phụ trách (PIC)»** — PM/Giám sát, Thiết kế, Báo giá–Thu mua, Kinh doanh — để hệ thống giới hạn đúng phạm vi xem và báo đúng người (riêng ô tick «Công việc của tôi» hiện mới lọc theo PIC PM/Giám sát, Thiết kế và Kinh doanh — PIC Báo giá–Thu mua chưa được tính). Bắt buộc: tên dự án và tên khách hàng. Nên điền thêm **Ngày dự kiến hoàn thành** (để hệ thống nhắc hạn) và **Ngân sách kế hoạch** (để cảnh báo khi chi vượt)."
+      }
+    ]
+  },
+  {
+    "id": "du-lieu-chung",
+    "icon": "eye",
+    "title": "Dữ liệu chung và Đối chiếu",
+    "roles": [
+      "Ban giám đốc",
+      "Trưởng phòng"
+    ],
+    "blocks": [
+      {
+        "type": "p",
+        "text": "Mỗi phòng vẫn báo cáo tuần theo cách riêng, nên cùng một khách có thể mang 3–4 trạng thái khác nhau. **Dữ liệu chung** (menu **Việc hằng ngày → Dữ liệu chung**, chỉ Ban giám đốc) cho biết CRM đang phản ánh thực tế tới đâu: câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», rồi dải quy trình 7 chặng (Lead đang mở → Thiết kế → Báo giá → Thu mua → Thi công → Bàn giao → Hoàn thành 30 ngày) và 4 thẻ phòng."
+      },
+      {
+        "type": "h3",
+        "text": "Ba thanh trên mỗi thẻ phòng"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Thanh",
+          "Đo cái gì"
+        ],
+        "rows": [
+          [
+            "Đủ",
+            "Hồ sơ đang ở giai đoạn của phòng đã có đủ thông tin phòng đó cần chưa (vd. Thi công: có giám sát, ngày khởi công, hạn bàn giao, việc đang làm có người nhận). Chỉ đòi khi hồ sơ đang ở giai đoạn của phòng."
+          ],
+          [
+            "Tươi",
+            "Hồ sơ có **dấu vết** trên CRM trong hạn của phòng: báo cáo /baocao, ảnh công trình, tệp bản vẽ, xong việc, phiếu vật tư, ghi chú lead… Hạn mặc định: Thiết kế 14 ngày, Dự toán–Thu mua 10, Thi công 7, Bàn giao 14; lead theo giai đoạn (3–14 ngày)."
+          ],
+          [
+            "Đối chiếu",
+            "Trưởng phòng đã xác nhận hồ sơ trong 7 ngày qua. Chỉ tính vào điểm sau khi phòng được nhắc lần đầu đủ 7 ngày; trước đó thanh ghi «Chưa bắt đầu đối chiếu»."
+          ]
+        ]
+      },
+      {
+        "type": "p",
+        "text": "Điểm phòng = trung bình các thanh đang áp dụng: **≥ 80 «Sát»**, 50–79 «Cần bổ sung», dưới 50 «Chưa phản ánh». Phòng dưới 3 hồ sơ ghi «Ít hồ sơ», không có hồ sơ ghi «Không có hồ sơ» — không hiện số giả."
+      },
+      {
+        "type": "warn",
+        "text": "**«Chưa cập nhật» ≠ «không làm».** Mục xám chỉ có nghĩa CRM chưa nhận dấu vết; phòng có thể vẫn làm và báo cáo ở chỗ khác. Màn này **chạy thử 60 ngày: chỉ đo, không tính thưởng/phạt**, không xếp hạng cá nhân và không đi vào lương, KPI hay chế độ thưởng."
+      },
+      {
+        "type": "h3",
+        "text": "Ban giám đốc dùng thế nào"
+      },
+      {
+        "type": "list",
+        "items": [
+          "**Hôm nay**: tối đa 3 việc nên làm ngay, mỗi việc 1 nút — ví dụ «Nhờ 3 trưởng phòng nhận» dự án cũ chưa xếp giai đoạn, hoặc nhắc phòng đang thấp điểm nhất.",
+          "**Nhắc trưởng phòng** trên thẻ phòng: gửi tin vào chuông của trưởng phòng, thêm **Telegram** nếu đã liên kết và **thông báo máy** nếu đã bật, kèm link danh sách đối chiếu. Dưới tên mỗi trưởng phòng có chip kênh: «Telegram», «Thông báo máy», hoặc «Chỉ nhận trong chuông» (màu vàng cam: người đó chỉ thấy tin khi tự mở app — tin nhắc tự kèm lời mời cài app). Bấm xong, dòng báo ghi rõ từng người nhận qua kênh nào. Mỗi phòng 1 lần/ngày, mỗi người tối đa 2 tin/ngày; nút hiện «Đã nhắc hh:mm · đã xem/chưa xem».",
+          "**Kênh nhận thông báo** (dưới 4 thẻ phòng): câu «N/T người đã bật thông báo trên máy · M chỉ nhận trong chuông», thanh theo từng phòng và danh sách người chưa bật. Nút **«Nhắc cài app & bật thông báo (N người)»** gửi mỗi người chưa bật 1 tin kèm link hướng dẫn 1 phút; nút **Nhắc** cạnh từng phòng để nhắc riêng phòng đó. Mỗi người tối đa 1 tin loại này mỗi ngày; dòng cạnh nút ghi lần nhắc cuối.",
+          "**Lệch dữ liệu**: CRM ghi một đằng, bằng chứng nói một nẻo (vd. CRM ghi Báo giá nhưng đã có ảnh thi công). Lệch không trừ điểm; **«Hỏi lại»** nhắc cả hai phía liên quan.",
+          "**Hồ sơ cần xem**: lọc theo phòng và loại vấn đề, bấm **«Mở»** để vào hồ sơ, **«Hỏi lại»** để nhắc người phụ trách (chưa có thì nhắc trưởng phòng).",
+          "**Dữ liệu cũ chờ phân loại**: dự án nhập từ hệ thống cũ chưa có giai đoạn. Tài khoản quản trị bấm 1 chip giai đoạn là xếp xong (chip gợi ý đã tô sẵn).",
+          "**Đã xong chờ BGĐ**: trưởng phòng báo «Đã xong» thì hệ thống không tự đóng; quản trị bấm **«Hoàn thành»** để đóng dự án."
+        ]
+      },
+      {
+        "type": "h3",
+        "text": "Trưởng phòng đối chiếu mỗi tuần (khoảng 2 phút)"
+      },
+      {
+        "type": "steps",
+        "items": [
+          "Bấm link **«Mở danh sách đối chiếu»** trong tin Telegram, trong thông báo hiện trên máy hoặc trong chuông (hoặc menu **Việc hằng ngày → Đối chiếu**). Link mở ra trang đăng nhập thì đăng nhập — xong sẽ vào thẳng danh sách đối chiếu. Trang chỉ hiện hồ sơ của phòng bạn, không hiện tiền.",
+          "Dòng nào CRM ghi sai thì chọn: **Sai giai đoạn** (rồi chọn giai đoạn thật), **Tạm dừng** (bắt buộc ghi lý do) hoặc **Đã xong**. Có thể chọn thêm người phụ trách nếu dự án chưa có.",
+          "Bấm nút cuối trang **«Còn lại đều đúng — Xác nhận»**: các dòng bạn không sửa được ghi là «Đúng».",
+          "Thiết kế, Dự toán–Thu mua, Thi công: tab **«Chưa xếp giai đoạn»** có ô tìm theo tên khách — thấy dự án cũ của phòng mình thì chọn giai đoạn để nhận về.",
+          "Phòng Kinh doanh chỉ đối chiếu lead chờ ký (Đã gửi báo giá, Đang đàm phán). Muốn chuyển lead sang «Mất» hay «Deal đã thắng» thì bấm **Mở** và làm ở trang Quy trình."
+        ]
+      },
+      {
+        "type": "tip",
+        "text": "Trên điện thoại dải quy trình vuốt ngang được. Mỗi dòng đối chiếu xong là một dấu vết, nên lần sau thanh **Đối chiếu** và câu đầu trang tăng lên."
       }
     ]
   },

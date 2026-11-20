@@ -1,71 +1,71 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import LineIcon from '@/components/ui/LineIcon';
+import { useAuth } from '@/lib/auth';
+import { dangChayDangApp, laIOS, laMayDiDong, moHopCai, useCoHopCai, useVuaCaiApp } from '@/lib/cai-app';
 
 /**
- * InstallBanner — thanh dưới «Lưu JAMA HOME ra màn hình chính» (22/07, làm lại 23/10/2026).
+ * InstallBanner — thanh «Cài JAMA HOME lên điện thoại» (22/07, làm lại 23/10/2026).
  * - Bấm cả thanh là cài: Android/Samsung (Chrome, Samsung Internet) gọi hộp cài THẬT qua
  *   beforeinstallprompt; iOS/iPadOS không có API → mở bảng hướng dẫn 3 bước có hình nút.
  * - Trang đăng nhập: hiện NGAY, sát đáy (không có thanh menu dưới), kể cả khi trước đó
  *   đã bấm «Để sau» ở trong app — đây là lúc người mới mở web lần đầu.
  * - Trong app: «Để sau» ẩn 7 ngày (bản cũ ẩn vĩnh viễn nên nhân viên lỡ bấm là mất luôn).
  * - Ẩn hẳn khi đang chạy dạng app (standalone) hoặc trên máy tính.
+ * - 21/11/2026: /doi-chieu (đích của tin nhắc, có thanh nút dính đáy) KHÔNG ẩn nữa mà hiện
+ *   ở ĐẦU TRANG, trong dòng nội dung (bản `trongTrang` gắn ở AppShell, ngay trên nội dung
+ *   trang) — không `fixed` nên không đè tiêu đề «Đối chiếu …» / ô «Chọn phòng», cuộn là qua.
+ *   /cai-app thì ẩn (trang đó đã có nút cài). Hộp cài thật bắt chung ở lib/cai-app.ts.
+ *   Link «Xem hướng dẫn» (→ /cai-app, trang cần đăng nhập) chỉ hiện cho người ĐÃ đăng nhập
+ *   ở trang trong app — không hiện cho khách ở /portal, /bao-gia hay ở /login.
  */
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
 
 const KEY_HOAN = 'jama_install_snooze_until';
 const KEY_AN_PHIEN = 'jama_install_an_phien';
 const BAY_NGAY = 7 * 24 * 60 * 60 * 1000;
 
-function laIOS(): boolean {
-  const ua = navigator.userAgent;
-  // iPadOS 13+ tự xưng «Macintosh» — nhận ra bằng màn cảm ứng.
-  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-}
+/** Trang có thanh nút dính ở đáy → banner nằm ở đầu trang (trong dòng nội dung) thay vì đáy. */
+const TRANG_BANNER_TREN = ['/doi-chieu'];
+/** Trang không có khung app (khớp KHONG_KHUNG ở components/layout/Sidebar.tsx). */
+const TRANG_NGOAI_APP = ['/login', '/portal', '/bao-gia'];
 
-export default function InstallBanner() {
+/**
+ * `trongTrang`: bản vẽ trong dòng nội dung, AppShell gắn ở đầu <main> — chỉ hiện ở
+ * TRANG_BANNER_TREN. Bản mặc định (root layout) là thanh `fixed` ở đáy, ẩn ở các trang đó.
+ */
+export default function InstallBanner({ trongTrang = false }: { trongTrang?: boolean }) {
   const pathname = usePathname();
+  const { user } = useAuth();
   const laTrangLogin = pathname === '/login';
+  const oTren = TRANG_BANNER_TREN.includes(pathname);
+  const moiXemHuongDan = !!user && !TRANG_NGOAI_APP.some(p => pathname.startsWith(p));
   const [sanSang, setSanSang] = useState(false); // đủ điều kiện hiện (mobile, chưa cài)
   const [hoan, setHoan] = useState(false);
   const [anPhienNay, setAnPhienNay] = useState(false);
   const [moHuongDan, setMoHuongDan] = useState(false);
   const [ios, setIos] = useState(false);
-  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
-  const [coHopCai, setCoHopCai] = useState(false);
+  const coHopCai = useCoHopCai();
+  const vuaCai = useVuaCaiApp();
 
   useEffect(() => {
-    const daCai = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as unknown as { standalone?: boolean }).standalone === true;
-    if (daCai) return;
-    const iosMay = laIOS();
-    const mobile = iosMay || /Android|Mobi/i.test(navigator.userAgent);
-    if (!mobile) return;
-
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      deferredPrompt.current = e as BeforeInstallPromptEvent;
-      setCoHopCai(true);
-    };
-    const onInstalled = () => setSanSang(false);
-    window.addEventListener('beforeinstallprompt', onBip);
-    window.addEventListener('appinstalled', onInstalled);
+    if (dangChayDangApp() || !laMayDiDong()) return;
     void Promise.resolve().then(() => {
-      setIos(iosMay);
-      setHoan(Number(localStorage.getItem(KEY_HOAN) || 0) > Date.now());
-      setAnPhienNay(sessionStorage.getItem(KEY_AN_PHIEN) === '1');
+      setIos(laIOS());
       setSanSang(true);
     });
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBip);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
   }, []);
+
+  // Đọc lại «Để sau» mỗi lần đổi trang: có 2 bản (đầu trang /doi-chieu và đáy các trang khác),
+  // bấm «Để sau» ở bản này thì bản kia cũng phải ẩn khi chuyển trang.
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      setHoan(Number(localStorage.getItem(KEY_HOAN) || 0) > Date.now());
+      setAnPhienNay(sessionStorage.getItem(KEY_AN_PHIEN) === '1');
+    });
+  }, [pathname]);
 
   const deSau = () => {
     setHoan(true);
@@ -75,36 +75,35 @@ export default function InstallBanner() {
   };
 
   const cai = async () => {
-    const ev = deferredPrompt.current;
-    if (ev) {
-      await ev.prompt();
-      const kq = await ev.userChoice;
-      deferredPrompt.current = null;
-      setCoHopCai(false);
-      if (kq.outcome === 'accepted') setSanSang(false);
-      return;
-    }
-    setMoHuongDan(true); // iOS, hoặc trình duyệt chưa cho hộp cài → hướng dẫn tay
+    const kq = await moHopCai();
+    if (kq === 'accepted') setSanSang(false);
+    else if (kq === 'khong-co') setMoHuongDan(true); // iOS, hoặc trình duyệt chưa cho hộp cài → hướng dẫn tay
   };
 
-  if (!sanSang) return null;
-  // Trang đăng nhập bỏ qua «Để sau» 7 ngày, chỉ ẩn khi vừa bấm ✕ trong phiên này.
+  if (oTren !== trongTrang) return null; // mỗi trang chỉ 1 bản: đầu trang hoặc đáy
+  if (!sanSang || vuaCai || pathname === '/cai-app') return null;
+  // Trang đăng nhập bỏ qua «Để sau» 7 ngày, chỉ ẩn khi vừa bấm «Để sau» trong phiên này.
   if (laTrangLogin ? anPhienNay : hoan) return null;
 
   return (
     <>
       <div
-        className={`fixed left-0 right-0 z-[45] px-3 pt-3 animate-in ${laTrangLogin ? 'bottom-0' : 'bottom-16'}`}
-        style={{
-          paddingBottom: laTrangLogin ? 'calc(12px + env(safe-area-inset-bottom))' : 12,
-          background: '#14161C',
-          borderTop: '1px solid rgba(201,169,110,0.35)',
-        }}
+        className={trongTrang
+          // Trong dòng nội dung, ngay trên trang — đẩy nội dung xuống chứ không đè.
+          ? 'mx-4 mt-3 px-3 py-3 rounded-2xl animate-in'
+          : `fixed left-0 right-0 z-[45] px-3 pt-3 animate-in ${laTrangLogin ? 'bottom-0' : 'bottom-16'}`}
+        style={trongTrang
+          ? { background: '#14161C', border: '1px solid rgba(201,169,110,0.35)' }
+          : {
+            paddingBottom: laTrangLogin ? 'calc(12px + env(safe-area-inset-bottom))' : 12,
+            background: '#14161C',
+            borderTop: '1px solid rgba(201,169,110,0.35)',
+          }}
       >
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <button
             type="button"
-            onClick={cai}
+            onClick={() => void cai()}
             className="flex-1 min-w-0 flex items-center gap-3 text-left"
             aria-label="Lưu JAMA HOME thành app trên màn hình chính"
           >
@@ -113,26 +112,26 @@ export default function InstallBanner() {
             <span className="flex-1 min-w-0">
               <span className="block text-[13px] font-semibold text-white">Cài JAMA HOME lên điện thoại</span>
               <span className="block text-[11px] leading-snug" style={{ color: '#B8B0A0' }}>
-                Có icon ngoài màn hình chính, mở nhanh như app
+                Có icon ngoài màn hình chính, nhận nhắc việc ngay trên máy
               </span>
             </span>
           </button>
           <button
             type="button"
-            onClick={cai}
+            onClick={() => void cai()}
             className="flex-shrink-0 text-[13px] font-semibold px-4 rounded-full"
-            style={{ background: '#C9A96E', color: '#0B0D11', minHeight: 36 }}
+            style={{ background: '#C9A96E', color: '#0B0D11', minHeight: 44 }}
           >
             {coHopCai ? 'Cài đặt' : 'Thêm'}
           </button>
           <button
             type="button"
             onClick={deSau}
-            className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ color: '#B8B0A0', border: '1px solid rgba(255,255,255,0.12)' }}
+            className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ border: '1px solid rgba(255,255,255,0.12)' }}
             aria-label="Để sau"
           >
-            ✕
+            <LineIcon name="x" size={16} color="#B8B0A0" />
           </button>
         </div>
       </div>
@@ -183,10 +182,23 @@ export default function InstallBanner() {
                 </>
               )}
             </ol>
+            {/* Trang /cai-app cần đăng nhập → chỉ mời người đã đăng nhập đang ở trong app
+                (khách ở /portal, /bao-gia hay người ở /login bấm vào sẽ bị đá về trang đăng nhập). */}
+            {moiXemHuongDan && (
+              <Link
+                href="/cai-app"
+                onClick={() => setMoHuongDan(false)}
+                className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-full text-sm font-medium"
+                style={{ color: '#C9A96E', border: '1px solid rgba(201,169,110,0.35)', minHeight: 44 }}
+              >
+                <LineIcon name="compass" size={16} color="currentColor" />
+                Xem hướng dẫn
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setMoHuongDan(false)}
-              className="w-full mt-5 rounded-full text-sm font-semibold"
+              className={`w-full ${moiXemHuongDan ? 'mt-3' : 'mt-5'} rounded-full text-sm font-semibold`}
               style={{ background: '#C9A96E', color: '#0B0D11', minHeight: 44 }}
             >
               Đã hiểu

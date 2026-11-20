@@ -8,11 +8,14 @@ import { useAuth } from '@/lib/auth';
 import Avatar from '@/components/ui/Avatar';
 import SearchModal from '@/components/ui/SearchModal';
 import NotificationCenter from '@/components/ui/NotificationCenter';
+import NhacBatThongBao from '@/components/ui/NhacBatThongBao';
+import InstallBanner from '@/components/ui/InstallBanner';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_SALES_DASHBOARD } from '@/lib/features';
+import { duocDoiChieu, VAI_TRO_DU_LIEU_CHUNG } from '@/lib/du-lieu-chung';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 import JamaLoader from '@/components/ui/JamaLoader';
@@ -68,6 +71,10 @@ const ALL_ITEMS: NavItem[] = [
   // Chốt V3 22/10/2026: báo giá tức thì mở cho MỌI người (bảng giá vẫn chỉ Admin sửa).
   { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
+  // Dữ liệu chung 20/11/2026 — khớp VAI_TRO_BGD backend (api/du_lieu_chung.py): chỉ BGĐ
+  { href: '/du-lieu-chung', label: 'Dữ liệu chung', icon: <LineIcon name="eye" size={20} color="currentColor" />, roles: VAI_TRO_DU_LIEU_CHUNG },
+  // Đối chiếu — BGĐ + trưởng phòng KD/Thiết kế/Dự toán–Thu mua/Thi công (chỉ phòng mình)
+  { href: '/doi-chieu', label: 'Đối chiếu', icon: <LineIcon name="clipboard" size={20} color="currentColor" />, check: duocDoiChieu },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },
   { href: '/contracts', label: 'Hợp đồng', icon: Icon.contracts, perm: 'canViewContracts' },
   { href: '/quotations', label: 'Báo giá', icon: Icon.quotations, perm: 'canViewQuotations' },
@@ -100,6 +107,8 @@ const ALL_ITEMS: NavItem[] = [
   { href: '/permissions', label: 'Phân quyền', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/users', label: 'Tài khoản', icon: Icon.users, perm: 'canManageUsers' },
   { href: '/huong-dan', label: 'Sổ tay', icon: Icon.guide },
+  // Cài app + bật thông báo 21/11/2026 — mọi người đã đăng nhập
+  { href: '/cai-app', label: 'Cài app & thông báo', icon: <LineIcon name="smartphone" size={20} color="currentColor" /> },
   { href: '/changelog', label: 'Có gì mới', icon: Icon.bell },
   { href: '/settings', label: 'Cài đặt', icon: Icon.settings },
 ];
@@ -110,12 +119,12 @@ const ALL_ITEMS: NavItem[] = [
 // khối chỉ còn 1 mục thì hiện thẳng mục đó (khỏi bấm 2 lần).
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/kpi'] },
+  { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/du-lieu-chung', '/doi-chieu', '/kpi'] },
   { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/ai-tien-hoa', '/tro-ly-zalo'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
-  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/changelog', '/feedback', '/settings'] },
+  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/cai-app', '/changelog', '/feedback', '/settings'] },
 ];
 const NAV_OPEN_KEY = 'jama_nav_open';
 
@@ -390,6 +399,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <AccountItem href={`/hr/nhan-vien?id=${user.id}`} icon="user" label="Hồ sơ 360° của tôi" hint="Thông tin, giấy tờ, chấm công, lương" />
               <AccountItem href="/settings" icon="camera" label="Đổi ảnh đại diện" />
               <AccountItem href="/settings" icon="settings" label="Cài đặt tài khoản" hint="Mật khẩu, Telegram, thông báo" />
+              <AccountItem href="/cai-app" icon="download" label="Cài app & bật thông báo" hint="Nhận nhắc việc ngay trên điện thoại" />
               <AccountItem href="/huong-dan" icon="compass" label="Sổ tay hướng dẫn" />
               <div className="my-1 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
               <button
@@ -514,6 +524,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>— Dữ liệu thật từ hệ thống</span>
           </div>
         </div>
+        {/* Đã cài app nhưng chưa bật thông báo → nhắc 1 dòng (21/11/2026) */}
+        <NhacBatThongBao />
+        {/* Chưa cài app, trang có thanh nút dính đáy (/doi-chieu) → mời cài ở đầu trang,
+            trong dòng nội dung (không đè tiêu đề như bản `fixed`). Các trang khác: bản đáy ở layout. */}
+        <InstallBanner trongTrang />
         {children}
         {dangChuyen && (
           <div

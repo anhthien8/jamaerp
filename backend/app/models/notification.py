@@ -23,6 +23,8 @@ NOTIFICATION_TYPES = [
     "task_sla_breach",     # vượt CHUẨN NỘI BỘ (tasks.sla_due_at)
     "task_escalated",      # trễ quá lâu → leo thang lên trưởng phòng + PM
     "bod_report",          # báo cáo BOD
+    "du_lieu_chung",       # BGĐ nhắc trưởng phòng đối chiếu dữ liệu (20/11/2026)
+    "nhac_cai_app",        # nhắc cài app + bật thông báo trên điện thoại (21/11/2026)
     "system",
 ]
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, FeedbackItem, laLoiThieuQuyen } from '@/lib/api';
@@ -33,7 +34,7 @@ export default function FeedbackPage() {
   const [replyText, setReplyText] = useState('');
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     if (!loading && user && !getPermissions(user.role as UserRole).canViewFeedback) router.push('/');
   }, [user, loading, router]);
 

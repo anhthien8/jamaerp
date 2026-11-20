@@ -79,8 +79,15 @@ async def _ghi_loi(chat_id: int, ly_do: str | None) -> None:
         logger.debug("Không ghi được trạng thái gửi Telegram: %s", exc)
 
 
-async def send_telegram(chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
-    """Send a Telegram message. Returns True on success, False otherwise."""
+async def send_telegram(
+    chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: dict | None = None,
+) -> bool:
+    """Send a Telegram message. Returns True on success, False otherwise.
+
+    `reply_markup` (20/11/2026): bàn phím nút inline kiểu Bot API, ví dụ
+    {"inline_keyboard": [[{"text": "...", "callback_data": "nx:baocao:PRJ-..."}]]}.
+    Không truyền thì payload y như cũ.
+    """
     settings = get_settings()
     token = settings.TELEGRAM_BOT_TOKEN
     if not token or not chat_id:
@@ -90,10 +97,10 @@ async def send_telegram(chat_id: int, text: str, parse_mode: str = "HTML") -> bo
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             for _ in range(2):  # lần 2 chỉ khi nhóm vừa đổi sang supergroup
-                resp = await client.post(
-                    _TELEGRAM_API.format(token=token),
-                    json={"chat_id": chat_id, "text": text, "parse_mode": parse_mode},
-                )
+                payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+                if reply_markup:
+                    payload["reply_markup"] = reply_markup
+                resp = await client.post(_TELEGRAM_API.format(token=token), json=payload)
                 if resp.status_code == 200:
                     if int(chat_id) > 0:
                         await _ghi_loi(chat_id, None)

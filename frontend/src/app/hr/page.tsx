@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, User, Team, extractItems, type EmployeeProfileData } from '@/lib/api';
@@ -100,7 +101,7 @@ export default function HRPage() {
   const [autoDistribute, setAutoDistribute] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     // Gate theo quyền HIỆU LỰC + đợi permsReady — vai trò tùy chỉnh (sale_leader,
     // admin_cskh) chỉ có quyền đúng sau khi backend trả /permissions/me.
     // permsError = tải quyền lỗi tạm: KHÔNG đá về trang chủ (banner «Thử lại» lo).
