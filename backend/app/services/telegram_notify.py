@@ -131,6 +131,8 @@ async def send_telegram(
 ) -> bool:
     """Gửi 1 tin Telegram (kèm nút bấm `reply_markup` nếu có). True khi gửi được.
 
+    `reply_markup`: bàn phím nút inline kiểu Bot API, ví dụ
+    {"inline_keyboard": [[{"text": "...", "callback_data": "nx:baocao:PRJ-..."}]]}.
     Nút bị Telegram từ chối (URL/callback sai) thì gửi lại KHÔNG nút — tin vẫn phải tới.
     """
     settings = get_settings()

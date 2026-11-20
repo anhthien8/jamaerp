@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, DashboardExecutive, AccountingSummary } from '@/lib/api';
@@ -22,7 +23,7 @@ export default function ReportsPage() {
   const [failed, setFailed] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   useEffect(() => {

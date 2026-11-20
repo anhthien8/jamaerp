@@ -247,6 +247,39 @@ async def tg_reject(
 # Ủy quyền duyệt khi vắng mặt
 # ---------------------------------------------------------------------------
 
+def _duoc_uy_quyen(user: User) -> bool:
+    """Vai trò có quyền duyệt — vừa là người được đặt ủy quyền, vừa là người được nhận."""
+    return user.role in ("admin", "leader", "accountant", "supervisor") or la_truong_phong(user)
+
+
+def _con_han(until: datetime | None) -> bool:
+    """delegate_until lưu naive UTC."""
+    return bool(until) and until.replace(tzinfo=None) >= datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+@router.get("/delegate")
+async def get_delegate(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ủy quyền hiện tại của tôi + danh sách người có thể nhận (chỉ vai trò có quyền duyệt)."""
+    if not _duoc_uy_quyen(current_user):
+        return {"can_delegate": False, "delegate_to": None, "delegate_name": None, "until": None, "candidates": []}
+    users = (await db.execute(
+        select(User).where(User.is_active.is_(True), User.id != current_user.id).order_by(User.full_name)
+    )).scalars().all()
+    candidates = [{"id": u.id, "full_name": u.full_name, "role": u.role} for u in users if _duoc_uy_quyen(u)]
+    active = bool(current_user.delegate_to) and _con_han(current_user.delegate_until)
+    target = await db.get(User, current_user.delegate_to) if active else None
+    return {
+        "can_delegate": True,
+        "delegate_to": target.id if target else None,
+        "delegate_name": target.full_name if target else None,
+        "until": current_user.delegate_until.replace(tzinfo=None).isoformat() + "Z" if target else None,
+        "candidates": candidates,
+    }
+
+
 @router.post("/delegate")
 async def set_delegate(
     body: DelegateBody,
@@ -254,25 +287,46 @@ async def set_delegate(
     current_user: User = Depends(get_current_user),
 ):
     """Đặt/tắt ủy quyền duyệt (leader, accountant, pm, admin)."""
-    if current_user.role not in ("admin", "leader", "accountant", "supervisor") and not la_truong_phong(current_user):
+    if not _duoc_uy_quyen(current_user):
         raise HTTPException(status_code=403, detail="Vai trò của bạn không có quyền duyệt để ủy quyền")
 
+    # Cột delegate_until là DateTime naive (UTC) — Postgres từ chối giá trị có múi giờ
+    until = body.until
+    if until and until.tzinfo is not None:
+        until = until.astimezone(timezone.utc).replace(tzinfo=None)
+    target = None
     if body.delegate_to:
         if body.delegate_to == current_user.id:
             raise HTTPException(status_code=400, detail="Không thể ủy quyền cho chính mình")
         target = await db.get(User, body.delegate_to)
         if not target or not target.is_active:
             raise HTTPException(status_code=404, detail="Người nhận ủy quyền không hợp lệ")
-        if not body.until:
+        # Ủy quyền gồm cả đơn tiền (tạm ứng, bảng lương) — không được trao cho vai trò không có quyền duyệt
+        if not _duoc_uy_quyen(target):
+            raise HTTPException(status_code=400, detail="Chỉ ủy quyền được cho người có vai trò duyệt (Trưởng phòng, Kế toán, Giám sát, BGĐ)")
+        if not until:
             raise HTTPException(status_code=400, detail="Cần thời hạn ủy quyền (until)")
+        if not _con_han(until):
+            raise HTTPException(status_code=400, detail="Thời hạn ủy quyền phải ở tương lai")
+    else:
+        until = None
 
     before = {"delegate_to": current_user.delegate_to}
     current_user.delegate_to = body.delegate_to
-    current_user.delegate_until = body.until
+    current_user.delegate_until = until
     await db.flush()
     await log_action(
         db, actor=current_user, action="approval.delegate", entity_type="user",
         entity_id=current_user.id, before=before,
-        after={"delegate_to": body.delegate_to, "until": str(body.until)},
+        after={"delegate_to": body.delegate_to, "until": str(until)},
     )
-    return {"delegate_to": body.delegate_to, "until": str(body.until) if body.until else None}
+    if target:
+        # Người nhận phải được báo, không thì họ không biết mở «Chờ tôi»
+        from zoneinfo import ZoneInfo
+        han = until.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%H:%M %d/%m")
+        await approval_engine._notify_user(
+            db, target, "Bạn được ủy quyền duyệt",
+            f"{current_user.full_name} ủy quyền cho bạn duyệt thay đến {han}. Đơn chờ nằm ở mục Phê duyệt.",
+            "/approvals", f"delegate:{current_user.id}:{until.isoformat()}",
+        )
+    return {"delegate_to": body.delegate_to, "until": until.isoformat() + "Z" if until else None}

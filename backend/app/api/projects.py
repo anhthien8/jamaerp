@@ -683,6 +683,7 @@ async def update_project(
             )
 
     pic_cu = {cot: getattr(project, cot, None) for cot in NHAN_PIC}
+    giai_doan_cu = {"stage": project.stage, "status": project.status}
 
     for k, v in data.model_dump(exclude_unset=True).items():
         if k == "khach_rieng" and v is None:
@@ -690,6 +691,8 @@ async def update_project(
         setattr(project, k, v)
     project.updated_at = datetime.now(timezone.utc)
     await db.flush()
+    # Đường sửa chung này cũng đổi được stage/status → cùng ghi lịch sử giai đoạn
+    await _ghi_doi_giai_doan(db, current_user, project, giai_doan_cu)
 
     await _thong_bao_gan_pic(db, project, pic_cu, current_user)
 
@@ -827,6 +830,14 @@ async def create_task(
     return TaskResponse.model_validate(task)
 
 
+def duoc_doi_giai_doan(nguoi: User) -> bool:
+    """Ai được đổi giai đoạn dự án — admin, trưởng phòng (kể cả TP Giám sát), supervisor cũ.
+
+    Executive CHƯA được (chờ chủ dự án quyết, spec Dữ liệu chung 20/11 mục D).
+    """
+    return nguoi.role in ("admin", "supervisor", "leader") or la_truong_phong(nguoi)
+
+
 @router.put("/{project_id}/stage", response_model=ProjectResponse)
 async def update_project_stage(
     project_id: str,
@@ -835,19 +846,46 @@ async def update_project_stage(
     current_user: User = Depends(require_project_access),
 ):
     """Update project current stage — admin, trưởng phòng (kể cả TP Giám sát), supervisor cũ."""
-    if current_user.role not in ("admin", "supervisor", "leader") and not la_truong_phong(current_user):
+    if not duoc_doi_giai_doan(current_user):
         raise HTTPException(status_code=403, detail="Không có quyền cập nhật giai đoạn dự án")
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Dự án không tồn tại")
 
-    if project.status == "completed" and data.stage != "completed":
+    await doi_giai_doan_du_an(
+        db, project, data.stage, actor=current_user,
+        pause_reason=data.pause_reason, force=data.force,
+    )
+    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
+
+
+async def doi_giai_doan_du_an(
+    db: AsyncSession,
+    project: Project,
+    stage: str,
+    *,
+    actor: User,
+    pause_reason: str | None = None,
+    force: bool = False,
+) -> Project:
+    """Đổi giai đoạn MỘT dự án — dùng chung cho PUT /{id}/stage, trang «Đối chiếu»
+    và chip phân loại dữ liệu cũ (Dữ liệu chung, 20/11/2026).
+
+    Giữ nguyên mọi chốt của PUT stage: mở lại dự án đã hoàn thành chỉ admin (403),
+    hoàn thành khi còn việc mở → 409 `con_viec_mo` trừ khi `force`. Không kiểm
+    VAI TRÒ người đổi — chỗ gọi tự kiểm (`duoc_doi_giai_doan`).
+
+    Ghi `audit_logs` action='doi_giai_doan' (trước/sau {stage,status}) — đây là
+    lịch sử giai đoạn duy nhất của dự án. Chỉ flush, chỗ gọi tự commit.
+    """
+    truoc = {"stage": project.stage, "status": project.status}
+    if project.status == "completed" and stage != "completed":
         # Audit 27/10: mở lại dự án đã hoàn thành — chỉ admin, và về «đang chạy»
-        if current_user.role != "admin":
+        if actor.role != "admin":
             raise HTTPException(status_code=403, detail="Dự án đã hoàn thành — chỉ admin mở lại được")
         project.status = "active"
-    if data.stage == "completed" and project.status != "completed" and not data.force:
+    if stage == "completed" and project.status != "completed" and not force:
         # Audit 27/10: hoàn thành khi còn việc/sự cố mở → kích nghiệm thu + hoa hồng sớm
         con_mo = (await db.execute(select(Task.title).where(
             Task.project_id == project.id, Task.status.notin_(("done", "completed"))
@@ -861,23 +899,23 @@ async def update_project_stage(
             })
 
     project.updated_at = datetime.now(timezone.utc)
-    if data.stage == "paused":
+    if stage == "paused":
         # Tạm dừng = trạng thái, GIỮ giai đoạn đang làm (27/10/2026) — trước đây ghi đè
         # stage="paused" nên chạy lại không biết dự án dừng ở Thiết kế hay Thi công.
         project.status = "paused"
         if project.stage == "paused":
             project.stage = "design"
-        project.pause_reason = getattr(data, "pause_reason", None) or project.pause_reason
+        project.pause_reason = pause_reason or project.pause_reason
         project.paused_at = datetime.now(timezone.utc)
     else:
-        project.stage = data.stage
+        project.stage = stage
         if project.status == "paused":
             project.status = "active"
         project.pause_reason = None
         project.paused_at = None
 
     # ── Customer lifecycle: post-completion actions ────────────────────────
-    if data.stage == "completed":
+    if stage == "completed":
         project.status = "completed"
         # Hoàn thành mà chưa ghi ngày bàn giao → lấy hôm nay, để kỳ bảo hành chạy
         if project.handover_date is None:
@@ -898,7 +936,7 @@ async def update_project_stage(
             project.warranty_end_date = hd + timedelta(days=project.warranty_months * 30)
         # Notify admin to run satisfaction survey & set warranty reminder
         notif = Notification(
-            user_id=current_user.id,
+            user_id=actor.id,
             type="system",
             title="Dự án đã hoàn thành",
             body=f"Dự án {project.code} đã hoàn thành. Cần khảo sát mức hài lòng và nhắc bảo hành.",
@@ -908,12 +946,24 @@ async def update_project_stage(
         db.add(notif)
 
     await db.flush()
+    await _ghi_doi_giai_doan(db, actor, project, truoc)
 
     # Invalidate caches affected by project stage changes
     cache.clear_prefix("pl")
     cache.clear_prefix("dashboard")
+    return project
 
-    return _mask_project_response(ProjectResponse.model_validate(project), current_user)
+
+async def _ghi_doi_giai_doan(db: AsyncSession, actor: User, project: Project, truoc: dict) -> None:
+    """Ghi audit `doi_giai_doan` khi stage/status THỰC SỰ đổi (Dữ liệu chung 20/11)."""
+    sau = {"stage": project.stage, "status": project.status}
+    if sau == truoc:
+        return
+    from app.services.audit import log_action
+    await log_action(
+        db, actor=actor, action="doi_giai_doan", entity_type="project",
+        entity_id=project.id, before=truoc, after=sau,
+    )
 
 
 @router.get("/tasks/{task_id}/activities", response_model=list[TaskActivityResponse])

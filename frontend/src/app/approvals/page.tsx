@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import { getPermissions, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ApprovalItem } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import LineIcon from '@/components/ui/LineIcon';
+import { UyQuyenDuyet } from '@/components/attendance/UyQuyenDuyet';
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
   pending: { label: 'Chờ duyệt', color: '#fbbf24' },
@@ -27,6 +29,17 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 type Tab = 'pending' | 'mine' | 'handled';
+
+// Lý do từ chối bấm sẵn — vẫn sửa được chữ sau khi bấm
+const LY_DO_NGHI = ['Trùng lịch công trình', 'Team thiếu người ngày đó', 'Hết phép năm — đổi sang không lương', 'Thiếu chứng từ'];
+const LY_DO_TIEN = ['Thiếu chứng từ', 'Sai số tiền'];
+
+/** Tách "{loại} {n} ngày (YYYY-MM-DD → YYYY-MM-DD) — {tên}" (leaves.py) → số ngày + khoảng ngày; không khớp → null */
+function tachDonNghi(title: string): { days: string; tu: string; den: string } | null {
+  const m = title.match(/(\d+(?:\.\d+)?) ngày \((\d{4}-\d{2}-\d{2}) → (\d{4}-\d{2}-\d{2})\)/);
+  return m ? { days: m[1], tu: m[2], den: m[3] } : null;
+}
+const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 /** ISO -> "dd/MM HH:mm" kiểu Việt, giữ nguyên giờ đã lưu (không lệch múi giờ). */
 function fmtDateVN(s?: string | null): string {
@@ -50,9 +63,10 @@ export default function ApprovalsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [gop, setGop] = useState<Set<string> | null>(null); // đơn nghỉ đang tích trong hộp duyệt gộp
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     if (!loading && user && !getPermissions(user.role as UserRole).canViewApprovals) router.push('/');
   }, [user, loading, router]);
 
@@ -79,11 +93,41 @@ export default function ApprovalsPage() {
     setBusy(true);
     try {
       await api.approveRequest(item.id);
-      toast(`✅ Đã duyệt: ${item.title}`, 'success');
+      toast(`Đã duyệt: ${item.title}`, 'success');
       await load();
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
     } finally { setBusy(false); }
+  };
+
+  // Duyệt gộp — CHỈ đơn nghỉ phép (loại có tiền vẫn duyệt từng đơn). Bỏ đơn của chính mình (server trả 403).
+  const donNghiGop = pending.filter(i => i.type === 'leave' && i.status === 'pending' && i.requester_id !== user?.id);
+  const doApproveGop = async () => {
+    if (!gop || gop.size === 0) return;
+    const ds = donNghiGop.filter(i => gop.has(i.id));
+    setBusy(true);
+    let chot = 0, chuyenCap = 0, boQua = 0;
+    const loi: string[] = [];
+    try {
+      // Tuần tự: mỗi lần duyệt cuối ghi bảng chấm công + khoá hàng
+      for (const it of ds) {
+        try {
+          const r = await api.approveRequest(it.id);
+          if (r.request?.status === 'pending') chuyenCap++; else chot++;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '';
+          if (msg.includes('đã được xử lý')) boQua++;
+          else loi.push(`${it.requester_name || it.title}: ${msg || 'lỗi'}`);
+        }
+      }
+    } finally {
+      setBusy(false);
+      setGop(null);
+      await load();
+    }
+    const tom = [`Đã duyệt ${chot} đơn`, chuyenCap ? `${chuyenCap} đơn chuyển cấp duyệt tiếp` : '', boQua ? `${boQua} đơn đã được xử lý trước đó` : '']
+      .filter(Boolean).join(' · ');
+    toast(loi.length ? `${tom}. Lỗi: ${loi.join('; ')}` : tom, loi.length ? 'error' : 'success');
   };
 
   const doReject = async () => {
@@ -227,6 +271,17 @@ export default function ApprovalsPage() {
           </div>
         </div>
 
+        <UyQuyenDuyet />
+
+        {tab === 'pending' && !loadingData && donNghiGop.length >= 2 && (
+          <button onClick={() => setGop(new Set(donNghiGop.map(i => i.id)))} disabled={busy}
+            className="w-full mb-3 px-4 rounded-full text-sm font-semibold disabled:opacity-40"
+            style={{ background: 'var(--gold-400)', color: '#000', minHeight: 44 }}>
+            <LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
+            Duyệt {donNghiGop.length} đơn nghỉ phép
+          </button>
+        )}
+
         <div className="space-y-3">
           {loadingData ? (
             [0, 1, 2].map(i => (
@@ -245,11 +300,73 @@ export default function ApprovalsPage() {
           )}
         </div>
 
+        {/* Duyệt gộp đơn nghỉ */}
+        {gop && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="rounded-2xl p-5 w-full max-w-md border max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Duyệt cấp của bạn cho {gop.size} đơn nghỉ</div>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                Bỏ tích đơn chưa muốn duyệt. Đơn nhiều cấp sẽ chuyển tiếp cho người duyệt cấp sau.
+              </p>
+              <div className="space-y-2 mb-4">
+                {donNghiGop.map(it => {
+                  const t = tachDonNghi(it.title);
+                  const trung = !!t && donNghiGop.some(o => {
+                    if (o.id === it.id) return false;
+                    const u = tachDonNghi(o.title);
+                    return !!u && u.tu <= t.den && t.tu <= u.den;
+                  });
+                  return (
+                    <label key={it.id} className="flex items-start gap-3 rounded-xl p-3 border text-sm cursor-pointer"
+                      style={{ borderColor: trung ? '#fbbf24' : 'var(--border-subtle)', minHeight: 44 }}>
+                      <input type="checkbox" className="mt-1" checked={gop.has(it.id)}
+                        onChange={e => {
+                          const on = e.target.checked;
+                          setGop(s => {
+                            const n = new Set(s);
+                            if (on) n.add(it.id); else n.delete(it.id);
+                            return n;
+                          });
+                        }} />
+                      <span style={{ color: 'var(--text-primary)' }}>
+                        <b>{it.requester_name || ''}</b>
+                        {t ? ` · ${t.days} ngày (${ddmm(t.tu)}${t.tu !== t.den ? ` → ${ddmm(t.den)}` : ''})` : ` · ${it.title}`}
+                        {it.delegated && <span className="ml-1 text-xs" style={{ color: 'var(--text-muted)' }}>(duyệt thay)</span>}
+                        {trung && <span className="block text-xs" style={{ color: '#fbbf24' }}>Trùng ngày với đơn khác trong danh sách</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setGop(null)} disabled={busy} className="px-4 rounded-full text-sm border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', minHeight: 44 }}>
+                  Đóng
+                </button>
+                <button onClick={doApproveGop} disabled={busy || gop.size === 0} className="px-4 rounded-full text-sm font-semibold disabled:opacity-40"
+                  style={{ background: 'var(--gold-400)', color: '#000', minHeight: 44 }}>
+                  {busy ? 'Đang duyệt…' : `Duyệt ${gop.size} đơn`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Reject modal */}
         {rejectTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
             <div className="rounded-2xl p-5 w-full max-w-md border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
               <div className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Từ chối: {rejectTarget.title}</div>
+              {['leave', 'advance', 'expense'].includes(rejectTarget.type) && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(rejectTarget.type === 'leave' ? LY_DO_NGHI : LY_DO_TIEN).map(c => (
+                    <button key={c} type="button" onClick={() => setRejectReason(c)}
+                      className="px-3 py-1.5 rounded-full text-xs border"
+                      style={{ borderColor: rejectReason === c ? 'var(--gold-400)' : 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
                 autoFocus
                 rows={3}

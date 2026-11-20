@@ -15,7 +15,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: '14/11/2026',
+    date: '21/11/2026',
     title: 'Làm việc ngay trên tin Telegram: nút bấm + hẹn tiếp',
     tag: 'MỚI',
     news: [
@@ -30,6 +30,75 @@ export const RELEASES: Release[] = [
     test: [
       'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',
       'Trên tin nhắc chăm khách của bot: bấm «Đã gặp/Zoom» → «Zoom/online», rồi mở thẻ khách trên web → lịch sử có dòng «Đã tư vấn khách qua Zoom/online», «Liên hệ lần cuối» là giờ vừa bấm, thông báo về khách đó đã đọc.',
+    ],
+  },
+  {
+    date: '21/11/2026',
+    title: 'Thông báo hiện ngay trong app + nhắc cài app, bật thông báo trên điện thoại',
+    tag: 'MỚI',
+    news: [
+      'Đang mở app mà có thông báo mới thì hiện ô nhỏ trên cùng màn hình (máy tính: góc trên phải): bấm «Mở» tới thẳng việc đó, tự ẩn sau 12 giây. Trước đây chỉ tăng con số đỏ trên chuông.',
+      'Trang mới «Cài app & thông báo» (menu Trợ giúp, hoặc bấm ảnh đại diện): cho biết máy đang mở dạng app hay trình duyệt, thông báo đã bật chưa; có nút «Cài ngay» khi trình duyệt cho cài, hướng dẫn 3 bước cho Android và iPhone/iPad, rồi bật thông báo.',
+      'Đã cài app mà chưa bật thông báo thì đầu trang có dòng nhắc «Bật thông báo để không lỡ việc được giao» — 1 chạm là bật, «Để sau» ẩn 7 ngày.',
+      'Trang Đối chiếu không còn giấu thanh «Cài JAMA HOME lên điện thoại»: thanh hiện ở đầu trang để không đè nút «Còn lại đều đúng — Xác nhận».',
+      'Bấm link trong tin nhắc (Telegram, thông báo máy) ở trình duyệt chưa đăng nhập: đăng nhập xong vào thẳng trang của link (vd danh sách Đối chiếu), không còn bị đưa về Tổng quan.',
+      'Dữ liệu chung (Ban giám đốc): dưới tên trưởng phòng có chip «Telegram» / «Thông báo máy» / «Chỉ nhận trong chuông»; bấm «Nhắc» xong biết tin đi qua kênh nào. Khối mới «Kênh nhận thông báo» đếm ai đã bật thông báo theo từng phòng và có nút «Nhắc cài app & bật thông báo».',
+      'Tin nhắc gửi người chưa bật thông báo máy có thêm link «Hướng dẫn 1 phút» để cài app.',
+    ],
+    test: [
+      'Tài khoản admin/executive: Dữ liệu chung → thẻ Thi công thấy chip kênh dưới tên trưởng phòng; khối «Kênh nhận thông báo» hiện số người đã bật / chỉ nhận trong chuông.',
+      'Bấm «Nhắc cài app & bật thông báo» → xác nhận → báo đã nhắc bao nhiêu người; bấm lần 2 cùng ngày → báo đã nhắc hôm nay rồi.',
+      'Tài khoản nhận nhắc: mở app, chờ tối đa 1 phút → ô thông báo hiện trên cùng; bấm «Mở» → tới đúng trang, chấm đỏ trên chuông giảm.',
+      'Mở link /doi-chieu?phong=OPS trong tab ẩn danh (chưa đăng nhập) → trang đăng nhập → đăng nhập xong vào thẳng Đối chiếu Thi công.',
+      'Điện thoại: menu Trợ giúp → Cài app & thông báo → làm theo hướng dẫn, mở app từ màn hình chính → bật thông báo → «Gửi thử» thấy tin hiện lên máy.',
+    ],
+  },
+  {
+    date: '20/11/2026',
+    title: 'Dữ liệu chung: CRM phản ánh thực tế tới đâu + trang Đối chiếu cho trưởng phòng',
+    tag: 'MỚI',
+    news: [
+      'Ban giám đốc có trang «Dữ liệu chung» (Việc hằng ngày → Dữ liệu chung): câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», dải quy trình 7 chặng, 4 thẻ phòng với 3 thanh Đủ / Tươi / Đối chiếu.',
+      '«Hôm nay» gợi ý tối đa 3 việc, mỗi việc 1 nút: nhờ trưởng phòng nhận dự án cũ chưa xếp giai đoạn, nhắc phòng đang thấp điểm. Nút «Nhắc trưởng phòng» gửi tin Telegram kèm link đối chiếu, hiện đã nhắc lúc mấy giờ và đã xem chưa.',
+      'Mục «Lệch dữ liệu» đặt CRM cạnh bằng chứng (vd. CRM ghi Báo giá nhưng đã có ảnh thi công), «Hỏi lại» nhắc cả hai phía; «Hồ sơ cần xem» lọc theo phòng và loại vấn đề.',
+      'Trưởng phòng có trang «Đối chiếu»: mỗi tuần sửa dòng sai (Sai giai đoạn / Tạm dừng / Đã xong), chọn người phụ trách nếu thiếu, rồi bấm «Còn lại đều đúng — Xác nhận». Thiết kế, Dự toán–Thu mua, Thi công tự nhận dự án cũ về phòng ở tab «Chưa xếp giai đoạn».',
+      'Chạy thử 60 ngày: chỉ đo, không tính thưởng/phạt. «Chưa cập nhật» chỉ có nghĩa CRM chưa có dấu vết, không có nghĩa phòng không làm.',
+    ],
+    test: [
+      'Tài khoản admin/executive: menu Việc hằng ngày → Dữ liệu chung → thấy câu «CRM phản ánh thực tế …%» và 4 thẻ phòng; trên điện thoại vuốt ngang được dải quy trình.',
+      'Bấm «Nhắc trưởng phòng» ở thẻ Thi công → trưởng phòng Thi công nhận tin Telegram có link; bấm lần 2 cùng ngày → nút đã khoá, ghi «Đã nhắc hh:mm».',
+      'Tài khoản trưởng phòng Thi công: mở link trong tin → chỉ thấy hồ sơ phòng mình, không thấy tiền; sửa 1 dòng «Sai giai đoạn» rồi bấm «Còn lại đều đúng — Xác nhận» → báo đã ghi, thanh Đối chiếu tăng ở lần tải sau.',
+      'Tài khoản sale thường: không thấy 2 mục mới trong menu.',
+    ],
+  },
+  {
+    date: '15/11/2026',
+    title: 'Nút 1 chạm: máy soạn sẵn, bạn chỉ xác nhận',
+    tag: 'MỚI',
+    news: [
+      'Vật tư: Giám sát nhận cả chuyến hàng bằng 1 bộ ảnh; sale gửi khách duyệt giá qua Zalo và ghi khách đồng ý nhiều dòng một lần; Thu mua chốt theo giá gần nhất, chép tin hỏi giá gửi NCC, đặt cả loạt đúng báo giá.',
+      'Khách hàng và dự án: «Gửi link theo dõi qua Zalo» (link cũ không còn bị chết), «Gửi tiến độ cho khách», giao cả nhóm việc cho 1 người, thông báo mở thẳng đúng đầu việc.',
+      'Tiền: Phải thu có «Ghi thu» mở đúng đợt và «Chép tin nhắc»; mẫu lịch thu nhanh; nhân bản khoản chi hằng tháng. Việc dính tiền vẫn phải người có quyền xác nhận.',
+      'Nhân sự: xác nhận ca quên tan ca 1 chạm, duyệt nhiều đơn nghỉ một lần, ủy quyền duyệt khi vắng, gửi lại phiếu lương, chip xin nghỉ nhanh.',
+      'Báo giá: lưu Báo giá tức thì thành báo giá nháp, nhân bản và copy báo giá gửi khách.',
+      'Bot Telegram: nút làm tiếp ngay dưới tin điểm danh, /vatlieu nhiều dòng một lần, /nghiphep chọn ngày bằng nút.',
+    ],
+    test: [
+      'Vật tư → «Đặt – nhận» (tài khoản giám sát): tick 2 dòng cùng dự án, chọn 2 ảnh, bấm «Nhận đủ 2 dòng» → cả 2 dòng sang đã nhận.',
+      'Khách hàng → mở 1 khách → «Gửi link theo dõi qua Zalo» → tin được chép, Zalo mở; bấm lại lần 2 → link không đổi.',
+      'Bot: gõ /nghiphep không kèm gì → hiện số phép còn lại và nút chọn ngày.',
+    ],
+  },
+  {
+    date: '14/11/2026',
+    title: 'Cấu hình AI thêm ChatGPT và Claude (trả phí theo lượt)',
+    tag: 'MỚI',
+    news: [
+      'Admin chọn được model ChatGPT (gpt-5.4-nano/mini, gpt-5.5) và Claude (Haiku, Sonnet, Opus) làm model chính hoặc dự phòng — cần API key trả theo lượt, gói Plus/Pro không dùng được.',
+      'App tự nhận khoá của nhà nào và cảnh báo khi dán nhầm khoá; đọc CCCD và ảnh báo giá cũng chạy được bằng GPT/Claude.',
+    ],
+    test: [
+      'Cài đặt → Cấu hình AI: thêm 1 model Claude hoặc ChatGPT vào dự phòng kèm khoá → bấm Test thử → dòng đó báo ok.',
     ],
   },
   {

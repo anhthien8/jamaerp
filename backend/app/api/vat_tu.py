@@ -259,6 +259,11 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
             "bao_gia": [_bao_gia_dict(b, m.gia_shopee if m else None) for b in bao_gia],
             "gia_von_gan_nhat": (m.gia_von_gan_nhat if m else None),
             "gia_tham_khao": (m.gia_tham_khao if m else None),
+            # NCC của lần mua gần nhất + giá khung đã quá hạn chưa — để Thu mua chốt một chạm
+            "ncc_gan_nhat_id": (m.ncc_gan_nhat_id if m else None),
+            "ncc_gan_nhat_ten": (m.ncc_gan_nhat_ten if m else None),
+            "gia_von_cap_nhat_luc": (m.gia_von_cap_nhat_luc.isoformat() if m and m.gia_von_cap_nhat_luc else None),
+            "gia_gan_nhat_cu": bool(m and m.gia_von_gan_nhat) and gia_da_cu(m.gia_von_cap_nhat_luc),
         })
     return out
 

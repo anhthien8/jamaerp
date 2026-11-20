@@ -389,3 +389,31 @@ async def test_doi_nguoi_giua_duong_khong_lam_sla_dem_lai(
     await db_session.refresh(task)
     assert task.started_at == moc_dau, "đổi người không được dịch mốc bắt đầu"
     assert task.sla_due_at == han_dau
+
+
+async def test_thong_bao_viec_mo_thang_dung_dau_viec(
+    client, db_session, admin_user, sales_user, designer_user, project
+):
+    """Link thông báo giao việc / quá hạn kèm &task=<id> để mở thẳng đúng việc."""
+    task = await _mot_task(db_session, project)
+    resp = await client.put(
+        f"/api/v1/projects/{project.id}/tasks/{task.id}/assign",
+        json={"assignee_ids": [sales_user.id]},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    mong_doi = f"/projects?id={project.id}&task={task.id}"
+    links = (await db_session.execute(select(Notification.link).where(
+        Notification.user_id == sales_user.id, Notification.type == "task_assigned"))).scalars().all()
+    assert links == [mong_doi]
+
+    task.status = "in_progress"
+    task.department = "design"
+    task.started_at = datetime.now(timezone.utc) - timedelta(days=20)
+    task.due_date = datetime.now(timezone.utc) - timedelta(days=5)
+    await db_session.commit()
+    await run_task_overdue_alerts(db_session)
+    await db_session.commit()
+    links = (await db_session.execute(select(Notification.link).where(
+        Notification.user_id == sales_user.id, Notification.type == "task_overdue"))).scalars().all()
+    assert links == [mong_doi]

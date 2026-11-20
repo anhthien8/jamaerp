@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { api, SalaryGrade, Team, TelegramContact, User } from '@/lib/api';
 import { getPermissions, getEffectivePermissions, getRoleLabel, ALL_PERMISSION_KEYS, UserRole } from '@/lib/roles';
 import { labelOf, ROLE_LABELS, DEPARTMENT_LABELS } from '@/lib/labels';
@@ -135,7 +136,7 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     // Gate theo quyền HIỆU LỰC (backend) và chỉ sau khi quyền đã chốt (permsReady) —
     // vai trò tùy chỉnh lúc mới vào chỉ có mặc định cục bộ, redirect sớm là đá nhầm.
     // Trang này mở cho ai có «Quản lý Users» hoặc «Xem Nhân sự» (khớp gate GET /users).

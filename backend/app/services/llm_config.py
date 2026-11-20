@@ -11,6 +11,16 @@ Thứ tự ưu tiên API key khi gọi (13/08/2026): key CÁ NHÂN của user đ
 key Groq nên CHỈ dùng khi model là groq/ — không gửi sang provider khác.
 Fallback flow: model chính lỗi → thử model fallback → raise để agent
 dùng rule-based fallback của riêng nó.
+
+Thêm 14/11/2026 — OpenAI (ChatGPT) và Claude: dùng API key trả theo lượt lấy ở
+platform.openai.com và console.anthropic.com. Gói ChatGPT Plus/Pro hay Claude Pro/Max
+là gói chat cho người dùng, KHÔNG phải API key, không cắm vào đây được. Khoá được
+nhận diện theo tiền tố (ncc_cua_khoa) và chỉ gửi cho đúng nhà cung cấp: gsk_ → Groq,
+sk-ant- → Anthropic, sk-or- → OpenRouter, AIza → Gemini, sk- còn lại → OpenAI/OpenCode.
+Claude không nhận temperature và không có chế độ JSON → tham_so_goi bỏ các tham số đó,
+_chuan_json_tra_ve bóc JSON ra. Đọc ảnh (CCCD, ảnh báo giá) đi theo chuỗi model bằng
+khoá hệ thống (ds_lan_thu_anh), bỏ qua OpenCode/OpenRouter vì ảnh có dữ liệu cá nhân
+của khách.
 """
 
 import json
@@ -44,12 +54,24 @@ FREE_MODEL_PRESETS = [
     {"label": "Groq — GPT-OSS 120B (free tier)", "model": "groq/openai/gpt-oss-120b"},
     {"label": "Groq — GPT-OSS 20B (free, nhanh)", "model": "groq/openai/gpt-oss-20b"},
     {"label": "OpenCode — DeepSeek V4.1 Flash (free có thời hạn)", "model": "opencode/deepseek-v4.1-flash-free"},
-    {"label": "OpenCode — DeepSeek V4.1 Flash (trả phí, rẻ)", "model": "opencode/deepseek-v4.1-flash"},
-    {"label": "OpenCode — DeepSeek V4 Pro (trả phí)", "model": "opencode/deepseek-v4-pro"},
+    {"label": "OpenCode — DeepSeek V4.1 Flash (trả phí, rẻ)", "model": "opencode/deepseek-v4.1-flash", "tra_phi": True},
+    {"label": "OpenCode — DeepSeek V4 Pro (trả phí)", "model": "opencode/deepseek-v4-pro", "tra_phi": True},
     {"label": "Google Gemini 2.0 Flash (free tier)", "model": "gemini/gemini-2.0-flash"},
     {"label": "OpenRouter — Llama 3.3 70B (free)", "model": "openrouter/meta-llama/llama-3.3-70b-instruct:free"},
     {"label": "Ollama — Llama 3.2 (local, không cần key)", "model": "ollama/llama3.2"},
 ]
+
+# Trả phí theo lượt dùng — cần API key riêng (gói ChatGPT Plus / Claude Pro không dùng được)
+PAID_MODEL_PRESETS = [
+    {"label": "OpenAI — GPT-5.4 nano (rẻ nhất)", "model": "openai/gpt-5.4-nano", "tra_phi": True},
+    {"label": "OpenAI — GPT-5.4 mini (cân bằng)", "model": "openai/gpt-5.4-mini", "tra_phi": True},
+    {"label": "OpenAI — GPT-5.5 (mạnh nhất)", "model": "openai/gpt-5.5", "tra_phi": True},
+    {"label": "Claude — Haiku 5.5 (rẻ nhất)", "model": "anthropic/claude-haiku-5-5", "tra_phi": True},
+    {"label": "Claude — Sonnet 5.5 (cân bằng)", "model": "anthropic/claude-sonnet-5-5", "tra_phi": True},
+    {"label": "Claude — Opus 5.5 (mạnh nhất)", "model": "anthropic/claude-opus-5-5", "tra_phi": True},
+]
+
+MODEL_PRESETS = FREE_MODEL_PRESETS + PAID_MODEL_PRESETS
 
 # Groq đã tắt các model này (07–08/2026) — cấu hình cũ trong DB/env tự đổi sang model thay thế Groq khuyên dùng
 MODEL_DA_TAT = {
@@ -65,7 +87,15 @@ OPENCODE_API_BASE = "https://opencode.ai/inference/openai/v1"
 
 
 def chuan_model(model: str) -> str:
-    return MODEL_DA_TAT.get((model or "").strip(), (model or "").strip())
+    """Đổi model Groq đã tắt sang model thay thế; tên trần claude-…/gpt-… gắn tiền tố nhà cung cấp."""
+    m = (model or "").strip()
+    m = MODEL_DA_TAT.get(m, m)
+    if m and "/" not in m:
+        if m.startswith("claude-"):
+            return "anthropic/" + m
+        if m.startswith(("gpt-", "chatgpt-", "o1", "o3", "o4")):
+            return "openai/" + m
+    return m
 
 
 def tham_so_model(model: str) -> dict[str, str]:
@@ -139,7 +169,7 @@ async def get_llm_config(db=None) -> dict[str, str]:
 
 
 def nha_cung_cap(model: str) -> str:
-    return (model or "").split("/")[0]
+    return chuan_model(model).split("/")[0]
 
 
 def ds_du_phong(config: dict) -> list[dict[str, str]]:
@@ -153,7 +183,7 @@ def ds_du_phong(config: dict) -> list[dict[str, str]]:
         for x in ds if isinstance(x, dict) and x.get("model")
     ]
     if not kq and config.get("llm_fallback_model"):
-        kq = [{"model": config["llm_fallback_model"], "api_key": config.get("llm_fallback_api_key") or ""}]
+        kq = [{"model": chuan_model(config["llm_fallback_model"]), "api_key": config.get("llm_fallback_api_key") or ""}]
     return kq[:MAX_FALLBACKS]
 
 
@@ -162,9 +192,40 @@ def _needs_no_key(model: str) -> bool:
     return model.startswith("ollama")
 
 
+def ncc_cua_khoa(key: str) -> str | None:
+    """Nhà cung cấp suy từ tiền tố khoá; None = không nhận ra."""
+    key = (key or "").strip()
+    if key.startswith("gsk_"):
+        return "groq"
+    if key.startswith("sk-ant-"):
+        return "anthropic"
+    if key.startswith("sk-or-"):
+        return "openrouter"
+    if key.startswith("AIza"):
+        return "gemini"
+    if key.startswith("sk-"):
+        return "openai"
+    return None
+
+
+# Nhà cung cấp của model → loại khoá được phép gửi tới (None = khoá không rõ tiền tố)
+_KHOA_CHO_PHEP: dict[str, set[str | None]] = {
+    "groq": {"groq"},
+    "anthropic": {"anthropic"},
+    "openai": {"openai", None},
+    "opencode": {"openai", None},
+    "openrouter": {"openrouter", None},
+    "gemini": {"gemini", None},
+}
+
+
 def _khoa_hop(model: str, key: str) -> bool:
-    """Chặn rõ ràng nhất: khoá Groq (gsk_) chỉ đi với model groq/ và ngược lại."""
-    return key.startswith("gsk_") == model.startswith("groq/")
+    """Khoá chỉ đi với đúng nhà cung cấp của nó — gửi nhầm là lộ khoá cho bên thứ ba.
+
+    Khoá nhận ra được của nhà A (gsk_, sk-ant-, sk-or-, AIza, sk-) không bao giờ gửi
+    sang model nhà B; khoá không rõ tiền tố chỉ đi với nhà có khoá không cố định.
+    """
+    return ncc_cua_khoa(key) in _KHOA_CHO_PHEP.get(nha_cung_cap(model), {"openai", None})
 
 
 def _user_key_applies(model: str) -> bool:
@@ -218,6 +279,123 @@ def ds_lan_thu(config: dict, user_key: str = "") -> list[tuple[str, str]]:
     return attempts
 
 
+_TOI_THIEU_TOKEN_SUY_LUAN = 4000
+_NCC_DOC_ANH = ("openai", "anthropic", "gemini")
+
+
+def _la_model_suy_luan(model: str) -> bool:
+    """GPT-5 / o-series: không nhận temperature, cần chỗ cho token suy luận."""
+    ten = model.split("/", 1)[-1]
+    return ten.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def tham_so_goi(
+    model: str,
+    messages: list,
+    temperature: float = 0.2,
+    max_tokens: int = 800,
+    api_key: str = "",
+    response_format: dict | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Bộ tham số acompletion đã chỉnh theo nhà cung cấp của model."""
+    params: dict[str, Any] = {
+        **tham_so_model(model),
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        **kwargs,
+    }
+    if api_key:
+        params["api_key"] = api_key
+    ncc = nha_cung_cap(model)
+    if ncc == "anthropic":
+        # Claude đời mới từ chối temperature/top_p và không có chế độ JSON
+        for k in ("temperature", "top_p", "top_k", "reasoning_effort", "thinking"):
+            params.pop(k, None)
+        params["max_tokens"] = max(int(params.get("max_tokens") or 0), _TOI_THIEU_TOKEN_SUY_LUAN)
+        params["drop_params"] = True
+        return params
+    if response_format:
+        params["response_format"] = response_format
+    if ncc == "openai":
+        params["drop_params"] = True
+        if _la_model_suy_luan(params["model"]):
+            params.pop("temperature", None)
+            params.setdefault("reasoning_effort", "low")
+            params["max_tokens"] = max(int(params.get("max_tokens") or 0), _TOI_THIEU_TOKEN_SUY_LUAN)
+    return params
+
+
+def boc_json(text: str) -> str:
+    """Lấy khối JSON từ câu trả lời có thể kèm rào markdown hoặc lời dẫn."""
+    s = (text or "").strip()
+    if s.startswith("~~~") or s.startswith("```"):
+        s = s.split(chr(10), 1)[1] if chr(10) in s else ""
+        s = s.rstrip().rstrip("`~").rstrip()
+    try:
+        json.loads(s)
+        return s
+    except Exception:
+        pass
+    vt = [i for i in (s.find("{"), s.find("[")) if i >= 0]
+    if not vt:
+        return s
+    dau = min(vt)
+    cuoi = max(s.rfind("}"), s.rfind("]"))
+    if cuoi > dau:
+        doan = s[dau:cuoi + 1]
+        try:
+            json.loads(doan)
+            return doan
+        except Exception:
+            return s
+    return s
+
+
+def _chuan_json_tra_ve(resp) -> None:
+    try:
+        msg = resp.choices[0].message
+        if isinstance(msg.content, str):
+            msg.content = boc_json(msg.content)
+    except Exception:
+        pass
+
+
+def _kiem_tu_choi(resp) -> None:
+    """Model từ chối / bị lọc / trả rỗng → raise để thử model kế tiếp."""
+    try:
+        ch = resp.choices[0]
+    except Exception:
+        return
+    ly_do = getattr(ch, "finish_reason", None)
+    noi_dung = getattr(getattr(ch, "message", None), "content", None)
+    if ly_do in ("refusal", "content_filter"):
+        raise RuntimeError(f"Model từ chối trả lời ({ly_do})")
+    if ly_do == "length" and not (noi_dung or "").strip():
+        raise RuntimeError("Model hết token trước khi trả lời")
+
+
+def ds_lan_thu_anh(config: dict, model_anh_groq: str) -> list[tuple[str, str]]:
+    """Chuỗi model đọc ảnh bằng khoá hệ thống.
+
+    Groq → model đọc ảnh của Groq; OpenAI/Claude/Gemini giữ model (đều đọc được ảnh);
+    OpenCode/OpenRouter/Ollama bị bỏ qua — ảnh CCCD là dữ liệu cá nhân của khách.
+    """
+    kq: list[tuple[str, str]] = []
+    for model, key in ds_lan_thu(config, ""):
+        ncc = nha_cung_cap(model)
+        if ncc == "groq":
+            m = chuan_model(model_anh_groq)
+        elif ncc in _NCC_DOC_ANH:
+            m = chuan_model(model)
+        else:
+            continue
+        if key and _khoa_hop(m, key) and (m, key) not in kq:
+            kq.append((m, key))
+    return kq
+
+
 async def llm_complete(
     messages: list[dict[str, str]],
     temperature: float = 0.2,
@@ -238,18 +416,12 @@ async def llm_complete(
     last_error: Exception | None = None
     for model, api_key in attempts:
         try:
-            params: dict[str, Any] = {
-                **tham_so_model(model),
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                **kwargs,
-            }
-            if api_key:
-                params["api_key"] = api_key
+            resp = await acompletion(**tham_so_goi(
+                model, messages, temperature, max_tokens, api_key, response_format, **kwargs))
+            _kiem_tu_choi(resp)
             if response_format:
-                params["response_format"] = response_format
-            return await acompletion(**params)
+                _chuan_json_tra_ve(resp)
+            return resp
         except Exception as exc:
             logger.warning("LLM call failed on %s: %s — trying next", model, exc)
             last_error = exc

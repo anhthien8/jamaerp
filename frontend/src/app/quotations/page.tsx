@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Quotation, Project, extractItems } from '@/lib/api';
@@ -9,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { getPermissions, canApproveQuotation, UserRole } from '@/lib/roles';
 import AccessDenied from '@/components/ui/AccessDenied';
 import MoneyInput from '@/components/ui/MoneyInput';
+import LineIcon from '@/components/ui/LineIcon';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Nháp', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -75,6 +77,26 @@ function parseLineItems(items: unknown): LineItemForm[] {
   });
 }
 
+/** Hạng mục thô đúng như lưu trong DB, số đã ép kiểu — dùng cho xem chi tiết, nhân bản, copy gửi khách. */
+function rawLineItems(items: unknown) {
+  const raw = (items as { line_items?: unknown } | null)?.line_items;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(r => {
+    const o = (r || {}) as Record<string, unknown>;
+    const quantity = Number(o.quantity) || 0;
+    const unit_price = Number(o.unit_price) || 0;
+    return {
+      name: o.name != null ? String(o.name) : '',
+      description: o.description != null ? String(o.description) : undefined,
+      category: o.category != null ? String(o.category) : undefined,
+      unit: o.unit != null ? String(o.unit) : '',
+      quantity,
+      unit_price,
+      total: o.total != null ? Number(o.total) || 0 : quantity * unit_price,
+    };
+  });
+}
+
 export default function QuotationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -101,7 +123,7 @@ export default function QuotationsPage() {
   const canApprove = canApproveQuotation(user);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   const load = useCallback(async () => {
@@ -128,6 +150,54 @@ export default function QuotationsPage() {
       setQuotations(prev => prev.map(q => q.id === updated.id ? updated : q));
       setSelected(updated);
     } catch { toast('Duyệt báo giá thất bại', 'error'); }
+  };
+
+  // Nhân bản: bản sao luôn là NHÁP (backend ép status=draft), phải duyệt lại; bản gốc giữ nguyên.
+  const handleDuplicate = async (q: Quotation) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const han = new Date();
+      han.setDate(han.getDate() + 15);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const created = await api.createQuotation({
+        title: `${q.title} (bản sao)`,
+        type: q.type,
+        project_id: q.project_id || undefined,
+        lead_id: q.lead_id || undefined,
+        items: rawLineItems(q.items),
+        total_amount: q.total_amount ?? undefined,
+        tax_amount: q.tax_amount ?? undefined,
+        valid_until: `${han.getFullYear()}-${pad(han.getMonth() + 1)}-${pad(han.getDate())}`,
+        notes: q.notes || undefined,
+      });
+      setQuotations(prev => [created, ...prev]);
+      setSelected(null);
+      openEditForm(created);
+      toast('Đã nhân bản — bản sao là nháp, cần duyệt lại', 'success');
+    } catch {
+      toast('Nhân bản báo giá thất bại', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Copy nội dung báo giá ĐÃ DUYỆT để dán gửi khách (chỉ giá bán; không kèm phiên bản/trạng thái nội bộ).
+  const copyForCustomer = (q: Quotation) => {
+    const lines = [q.title, `Mã báo giá: ${q.code} (${TYPE_MAP[q.type] || q.type})`, ''];
+    for (const li of rawLineItems(q.items)) {
+      lines.push(`- ${li.name}: ${li.quantity} ${li.unit} x ${fmtVND(li.unit_price)} = ${fmtVND(li.total)}`);
+    }
+    lines.push('', `Tổng giá: ${fmtVND(q.total_amount)}`);
+    if (q.tax_amount) lines.push(`Thuế: ${fmtVND(q.tax_amount)}`);
+    if (q.valid_until) lines.push(`Hiệu lực đến: ${new Date(q.valid_until).toLocaleDateString('vi-VN')}`);
+    const hetHan = !!q.valid_until && q.valid_until.slice(0, 10) < new Date().toLocaleDateString('en-CA');
+    navigator.clipboard.writeText(lines.join('\n')).then(
+      () => (hetHan
+        ? toast('Đã copy — lưu ý báo giá này đã quá hạn hiệu lực', 'warning')
+        : toast('Đã copy — dán vào Zalo gửi khách', 'success')),
+      () => toast('Không copy được', 'error'),
+    );
   };
 
   const openCreateForm = () => {
@@ -345,7 +415,43 @@ export default function QuotationsPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            {rawLineItems(selected.items).length > 0 && (
+              <div className="rounded-xl p-3 mb-4" style={{ background: 'var(--surface-2)' }}>
+                <p className="text-xs text-[var(--text-muted)] mb-2">Hạng mục</p>
+                <div className="space-y-1.5">
+                  {rawLineItems(selected.items).map((li, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3 text-xs">
+                      <span className="text-[var(--text-secondary)] min-w-0">
+                        {li.name}
+                        <span className="text-[var(--text-muted)]"> · {li.quantity} {li.unit} x {fmtVND(li.unit_price)}</span>
+                      </span>
+                      <span className="font-mono whitespace-nowrap text-[var(--text-primary)]">{fmtVND(li.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 flex-wrap">
+              {(selected.status === 'approved' || selected.status === 'sent') && (
+                <button
+                  onClick={() => copyForCustomer(selected)}
+                  className="flex-1 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <LineIcon name="clipboard" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Copy gửi khách
+                </button>
+              )}
+              {canCreate && (
+                <button
+                  onClick={() => handleDuplicate(selected)}
+                  disabled={saving}
+                  className="flex-1 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all whitespace-nowrap disabled:opacity-50"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <LineIcon name="copy" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{saving ? 'Đang nhân bản...' : 'Nhân bản'}
+                </button>
+              )}
               {selected.status === 'draft' && canApprove && (
                 <button
                   onClick={() => handleApprove(selected.id)}

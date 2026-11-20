@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
@@ -851,10 +852,44 @@ function BackupSection() {
   );
 }
 
-// Khoá Groq bắt đầu gsk_ — dán nhầm nhà cung cấp thì backend bỏ qua model đó
+// Nhận nhà cung cấp từ tiền tố khoá — dán nhầm nhà thì backend bỏ qua model đó
+function nccKhoa(masked: string): string | null {
+  if (masked.startsWith('gsk_')) return 'Groq';
+  if (masked.startsWith('sk-ant-')) return 'Claude (Anthropic)';
+  if (masked.startsWith('sk-or-')) return 'OpenRouter';
+  if (masked.startsWith('AIza')) return 'Gemini';
+  if (masked.startsWith('sk-')) return 'OpenAI';
+  return null;
+}
+function nccModel(model: string): string | null {
+  if (model.startsWith('groq/')) return 'Groq';
+  if (model.startsWith('anthropic/') || model.startsWith('claude-')) return 'Claude (Anthropic)';
+  if (model.startsWith('openrouter/')) return 'OpenRouter';
+  if (model.startsWith('gemini/')) return 'Gemini';
+  if (model.startsWith('openai/') || model.startsWith('gpt-')) return 'OpenAI';
+  return null;
+}
 function lechKhoa(model: string, masked: string): boolean {
   if (!model || !masked || model.startsWith('ollama')) return false;
-  return masked.startsWith('gsk_') !== model.startsWith('groq/');
+  const k = nccKhoa(masked), m = nccModel(model);
+  if (!m) return k === 'Groq' || k === 'Claude (Anthropic)';
+  return k !== m;
+}
+type Preset = { label: string; model: string; tra_phi?: boolean };
+function PresetOptions({ presets }: { presets: Preset[] }) {
+  const free = presets.filter(p => !p.tra_phi), paid = presets.filter(p => p.tra_phi);
+  return (
+    <>
+      <optgroup label="Miễn phí / dùng thử">
+        {free.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}
+      </optgroup>
+      {paid.length > 0 && (
+        <optgroup label="Trả phí theo lượt — cần API key riêng">
+          {paid.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}
+        </optgroup>
+      )}
+    </>
+  );
 }
 
 function AISettingsSection() {
@@ -967,9 +1002,7 @@ function AISettingsSection() {
             }}
             className={inputCls}
           >
-            {data.presets.map(p => (
-              <option key={p.model} value={p.model}>{p.label}</option>
-            ))}
+            <PresetOptions presets={data.presets} />
             <option value="_custom">Tùy chỉnh (nhập bên dưới)</option>
           </select>
           <input
@@ -989,16 +1022,19 @@ function AISettingsSection() {
             type="password"
             value={form.llm_api_key}
             onChange={e => setForm(f => ({ ...f, llm_api_key: e.target.value }))}
-            placeholder={data.llm_api_key_set ? 'Nhập key mới để thay đổi' : 'Dán API key (Groq/OpenCode/Gemini...)'}
+            placeholder={data.llm_api_key_set ? 'Nhập key mới để thay đổi' : 'Dán API key (Groq gsk_ / OpenAI sk- / Claude sk-ant- ...)'}
             className={inputCls}
           />
         </div>
 
         {lechKhoa(form.llm_model, data.llm_api_key_masked) && (
           <p className="text-xs" style={{ color: 'var(--danger, #f87171)' }}>
-            Khoá chính đang là khoá {data.llm_api_key_masked.startsWith('gsk_') ? 'Groq' : 'không phải Groq'} nhưng model chính {form.llm_model.startsWith('groq/') ? 'là Groq' : 'không phải Groq'} — dán khoá đúng nhà cung cấp, nếu không model chính sẽ bị bỏ qua.
+            Khoá chính là khoá {nccKhoa(data.llm_api_key_masked) ?? 'không rõ nhà'} nhưng model chính thuộc {nccModel(form.llm_model) ?? 'nhà khác'} — dán khoá đúng nhà cung cấp, nếu không model chính sẽ bị bỏ qua.
           </p>
         )}
+        <p className="text-xs text-[var(--text-muted)]">
+          ChatGPT Plus/Pro và Claude Pro/Max là gói chat, không cắm vào app được. Muốn dùng GPT hoặc Claude cần API key trả theo lượt: OpenAI tạo ở platform.openai.com/api-keys, Claude tạo ở console.anthropic.com. Ảnh CCCD chỉ gửi tới Groq, OpenAI, Claude, Gemini.
+        </p>
 
         <div>
           <label className="text-sm block mb-1">Chuỗi model dự phòng — thử lần lượt từ trên xuống</label>
@@ -1012,7 +1048,7 @@ function AISettingsSection() {
                     onChange={e => { const v = e.target.value; if (v !== '_custom') setDuPhong(d => d.map((y, j) => j === i ? { ...y, model: v } : y)); }}
                     className={inputCls}
                   >
-                    {data.presets.map(p => <option key={p.model} value={p.model}>{p.label}</option>)}
+                    <PresetOptions presets={data.presets} />
                     <option value="_custom">Tùy chỉnh (nhập bên dưới)</option>
                   </select>
                   <button
@@ -1570,7 +1606,7 @@ export default function SettingsPage() {
   // Ai đăng nhập cũng vào được Cài đặt (liên kết Telegram, xem lại hướng dẫn, thông tin cá nhân).
   // Các mục quản trị (AI Model, Zalo, Backup, Automation) đã tự gate theo role bên trong.
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   if (loading || !user) return null;

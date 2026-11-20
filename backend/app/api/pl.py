@@ -303,7 +303,7 @@ async def receivables(
         total_value = float(contract.total_value or 0)
         pending = []
         pending_amount = 0.0
-        for inst in installments:
+        for idx, inst in enumerate(installments):
             st = (inst or {}).get("status")
             if st in ("pending", "partial"):
                 pct = float(inst.get("percentage") or 0)
@@ -311,6 +311,8 @@ async def receivables(
                 if st == "partial":  # còn lại sau phần đã thu
                     amount = max(0.0, amount - float(inst.get("amount") or 0))
                 pending.append({
+                    # Vị trí đợt trong lịch thu gốc — FE mở thẳng đúng đợt để ghi thu
+                    "idx": idx,
                     "name": inst.get("name") or "Đợt thanh toán",
                     "percentage": pct,
                     "amount": amount,

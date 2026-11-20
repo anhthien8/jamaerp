@@ -5,6 +5,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, AttendanceRecord } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/lib/auth';
+import LineIcon from '@/components/ui/LineIcon';
 
 const o = { background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' };
 
@@ -27,6 +29,7 @@ export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
   const [ds, setDs] = useState<AttendanceRecord[]>([]);
   const [sua, setSua] = useState<{ id: string; ngay: string; vao: string; ra: string; note: string } | null>(null);
   const [luu, setLuu] = useState(false);
+  const { user } = useAuth();
 
   const tai = useCallback(async () => {
     try { setDs((await api.myAttendance(period, userId)).records); }
@@ -44,6 +47,28 @@ export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
     } catch (e) { toast(e instanceof Error ? e.message : 'Sửa thất bại', 'error'); } finally { setLuu(false); }
   };
 
+  // Xác nhận 1 chạm CHỈ cho ca job đêm tự đóng (note «auto-close»). Ca cần xác nhận vì rút đơn nghỉ
+  // phải sửa giờ thật nên không có nút này. Server không cho tự sửa công của mình → ẩn nút.
+  const tuDong = (r: AttendanceRecord) => r.needs_review && (r.note || '').includes('auto-close');
+  const choXacNhan = userId === user?.id ? [] : ds.filter(tuDong);
+  const xacNhan = async (list: AttendanceRecord[]) => {
+    if (luu || list.length === 0) return;
+    if (list.length > 1 && !confirm(`Xác nhận giữ nguyên giờ công của ${list.length} ca tự đóng của ${ten}?\n` +
+      list.map(r => `- ${new Date(r.work_date).toLocaleDateString('vi-VN')}: vào ${gioVN(r.check_in) || '—'} · ${r.work_hours}h`).join('\n'))) return;
+    setLuu(true);
+    let xong = 0;
+    try {
+      // Tuần tự, dừng ở lỗi đầu tiên (kỳ đã khoá lương, ngoài phạm vi team…)
+      for (const r of list) {
+        await api.editAttendance(r.id, { note: `Xác nhận ca tự đóng ${r.work_hours}h (quên tan ca)` });
+        xong++;
+      }
+      toast(`Đã xác nhận ${xong} ca`, 'success');
+    } catch (e) {
+      toast(`${xong > 0 ? `Đã xác nhận ${xong}/${list.length} ca. ` : ''}${e instanceof Error ? e.message : 'Xác nhận thất bại'}`, 'error');
+    } finally { setLuu(false); tai(); if (xong > 0) onSaved(); }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[6vh] px-3" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
@@ -53,18 +78,36 @@ export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
           <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Công của {ten}</h3>
           <button onClick={onClose} className="text-sm" style={{ color: 'var(--text-muted)' }}>Đóng</button>
         </div>
+        {choXacNhan.length >= 2 && (
+          <button className="w-full mb-3 text-sm px-3 py-2.5 rounded-full font-medium disabled:opacity-50" disabled={luu}
+            style={{ background: 'var(--gold-400)', color: '#000' }} onClick={() => xacNhan(choXacNhan)}>
+            <LineIcon name="check" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
+            {luu ? 'Đang xác nhận…' : `Xác nhận tất cả ${choXacNhan.length} ca tự đóng`}
+          </button>
+        )}
         {ds.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Chưa có ngày công nào trong kỳ.</p>}
         <div className="space-y-2">
           {ds.map(r => (
             <div key={r.id} className="rounded-xl p-3" style={{ background: 'var(--surface-1)', border: `1px solid ${r.needs_review ? '#fbbf24' : 'var(--border-subtle)'}` }}>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span style={{ color: 'var(--text-primary)' }}>{new Date(r.work_date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
                 <span style={{ color: 'var(--text-secondary)' }}>{gioVN(r.check_in) || '—'} → {gioVN(r.check_out) || '—'} · {r.work_hours}h</span>
                 {sua?.id !== r.id && (
-                  <button className="text-xs px-3 py-1 rounded-full" style={{ border: '1px solid var(--border-subtle)', color: 'var(--gold-400)' }}
-                    onClick={() => setSua({ id: r.id, ngay: r.work_date.slice(0, 10), vao: gioVN(r.check_in), ra: gioVN(r.check_out), note: '' })}>Sửa</button>
+                  <span className="flex gap-2">
+                    {choXacNhan.includes(r) && (
+                      <button className="text-xs px-3 py-1 rounded-full font-medium disabled:opacity-50" disabled={luu}
+                        style={{ background: 'var(--gold-400)', color: '#000' }} onClick={() => xacNhan([r])}>Xác nhận {r.work_hours}h</button>
+                    )}
+                    <button className="text-xs px-3 py-1 rounded-full" style={{ border: '1px solid var(--border-subtle)', color: 'var(--gold-400)' }}
+                      onClick={() => setSua({ id: r.id, ngay: r.work_date.slice(0, 10), vao: gioVN(r.check_in), ra: gioVN(r.check_out), note: '' })}>Sửa</button>
+                  </span>
                 )}
               </div>
+              {r.needs_review && (
+                <div className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                  {tuDong(r) ? 'Quên tan ca — hệ thống tự đóng ca (tối đa 8h). Giờ đúng thì bấm «Xác nhận», sai thì «Sửa».' : (r.note || 'Cần xác nhận')}
+                </div>
+              )}
               {sua?.id === r.id && (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Giờ vào

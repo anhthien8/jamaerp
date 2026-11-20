@@ -191,6 +191,9 @@ class TestBudgetAndReceivables:
         assert body["total_receivable"] == 700_000_000
         codes = [c["contract_code"] for c in body["contracts"]]
         assert "HD-RECV-001" in codes
+        # idx = vị trí trong lịch thu gốc (đợt 1 đã thu nên đợt chờ bắt đầu từ 1)
+        hd = next(c for c in body["contracts"] if c["contract_code"] == "HD-RECV-001")
+        assert [i["idx"] for i in hd["pending_installments"]] == [1, 2]
 
     async def test_receivables_requires_clevel(
         self, client: AsyncClient, sales_user: User

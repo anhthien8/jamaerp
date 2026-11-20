@@ -108,6 +108,22 @@ class TestGenerateAPI:
         assert body["suggested_tier"] in ("basic", "standard", "premium")
         assert "zalo_text" in body
 
+    async def test_generate_zalo_text_tung_phuong_an(self, client: AsyncClient, sales_user):
+        """Copy Zalo phải đúng phương án sale đang chọn, không chỉ phương án gợi ý."""
+        resp = await client.post(
+            "/api/v1/instant-quote/generate",
+            json={"area_sqm": 75, "property_type": "apartment", "bedrooms": 2},
+            headers=auth_header(sales_user),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        texts = body["zalo_texts"]
+        assert set(texts) == {"basic", "standard", "premium"}
+        for tier in texts:
+            assert f"Phương án {body['tiers'][tier]['label']}:" in texts[tier]
+        assert len(set(texts.values())) == 3
+        assert texts[body["suggested_tier"]] == body["zalo_text"]
+
     async def test_generate_with_raw_text(self, client: AsyncClient, sales_user):
         resp = await client.post(
             "/api/v1/instant-quote/generate",

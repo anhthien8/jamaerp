@@ -312,7 +312,7 @@ async def _gui_canh_bao(
     for nguoi in lam_viec:
         if await _notify(
             db, nguoi, loai, tieu_de, noi_dung,
-            link=f"/projects?id={task.project_id}", ref_id=task.id,
+            link=f"/projects?id={task.project_id}&task={task.id}", ref_id=task.id,
         ):
             da_gui += 1
 
@@ -327,7 +327,7 @@ async def _gui_canh_bao(
             db, cap_tren, "task_escalated",
             f"Việc trễ {so_ngay_tre} ngày cần can thiệp: {task.title}",
             f"{noi_dung}\nNgười đảm nhận: {ten_nguoi_lam}",
-            link=f"/projects?id={task.project_id}", ref_id=task.id,
+            link=f"/projects?id={task.project_id}&task={task.id}", ref_id=task.id,
         ):
             da_gui += 1
     return da_gui

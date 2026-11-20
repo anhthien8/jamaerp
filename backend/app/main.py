@@ -298,6 +298,10 @@ app.include_router(estimations_router, prefix="/api/v1")
 from app.api.sales_dashboard import router as sales_dashboard_router
 app.include_router(sales_dashboard_router, prefix="/api/v1")
 
+# Dữ liệu chung + Đối chiếu (20/11/2026) — cũng SAU dashboard_router như trên.
+from app.api.du_lieu_chung import router as du_lieu_chung_router
+app.include_router(du_lieu_chung_router, prefix="/api/v1")
+
 # Kho ảnh công trình (Đợt 2, 23/10/2026).
 from app.api.media import router as media_router
 app.include_router(media_router, prefix="/api/v1")

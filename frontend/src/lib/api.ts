@@ -2,6 +2,8 @@
  * API client — communicate with FastAPI backend.
  */
 
+import { duongDangNhap } from '@/lib/dang-nhap';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 interface ApiOptions {
@@ -73,7 +75,8 @@ function xuLyHetPhien(endpoint: string, tokenDaGui?: string | null) {
   localStorage.removeItem('jama_token');
   localStorage.removeItem('jama_user');
   if (!window.location.pathname.startsWith('/login')) {
-    window.location.href = '/login?het_han=1';
+    // Giữ trang đang mở (vd link nhắc /doi-chieu?phong=OPS) để đăng nhập lại xong quay về đúng chỗ.
+    window.location.href = duongDangNhap(true);
   }
 }
 
@@ -614,6 +617,30 @@ class ApiClient {
     });
   }
 
+  // Dữ liệu chung (20/11/2026) — BGĐ xem CRM phản ánh thực tế tới đâu, theo phòng.
+  async getDuLieuChung() {
+    return this.request<DuLieuChung>('/dashboard/du-lieu-chung');
+  }
+
+  /** Nhắc trưởng phòng / nhờ nhận dự án cũ (`phong:'chua_xep'`) / hỏi lại 1 hồ sơ (kèm `id`). */
+  async nhacDuLieuChung(body: NhacDuLieuChungBody) {
+    return this.request<NhacDuLieuChungKetQua>('/dashboard/du-lieu-chung/nhac', { method: 'POST', body });
+  }
+
+  /** Danh sách đối chiếu của 1 phòng — BGĐ mọi phòng, trưởng phòng chỉ phòng mình. */
+  async getDoiChieu(phong: PhongDuLieu, tab: 'ho_so' | 'chua_xep' = 'ho_so') {
+    return this.request<DoiChieu>('/dashboard/du-lieu-chung/doi-chieu', { params: { phong, tab } });
+  }
+
+  async guiDoiChieu(body: GuiDoiChieuBody) {
+    return this.request<GuiDoiChieuKetQua>('/dashboard/du-lieu-chung/doi-chieu', { method: 'POST', body });
+  }
+
+  /** Nhắc cài app + bật thông báo (21/11/2026, BGĐ): người chưa bật thông báo máy; lọc theo phòng hoặc danh sách id. */
+  async nhacCaiApp(body: NhacCaiAppBody = {}) {
+    return this.request<NhacCaiAppKetQua>('/dashboard/du-lieu-chung/nhac-cai-app', { method: 'POST', body });
+  }
+
   async suggestAction(leadId: string) {
     return this.request<AISuggestion>('/ai/suggest-action', {
       method: 'POST',
@@ -653,6 +680,19 @@ class ApiClient {
 
   async generatePortalLink(customerId: string) {
     return this.request<{ portal_token: string; portal_url: string }>(`/customers/${customerId}/generate-portal-link`, { method: 'POST' });
+  }
+
+  /** Link portal ĐANG CÓ của khách (chỉ cấp mới khi chưa từng có) — gọi lại không làm chết link đã gửi. */
+  async getPortalLink(customerId: string) {
+    return this.request<PortalLink>(`/customers/${customerId}/portal-link`, { method: 'POST' });
+  }
+
+  async getPortalLinkDuAn(projectId: string) {
+    return this.request<PortalLink>(`/customers/portal-link-du-an/${projectId}`, { method: 'POST' });
+  }
+
+  async setPortalEnabled(customerId: string, enabled: boolean) {
+    return this.request<{ portal_enabled: boolean; portal_token: string | null }>(`/customers/${customerId}/portal`, { method: 'PATCH', body: { enabled } });
   }
 
   // === ERP: Contracts ===
@@ -1032,6 +1072,14 @@ class ApiClient {
   async cancelRequest(id: string) {
     return this.request<{ request: ApprovalItem }>(`/approvals/${id}/cancel`, { method: 'POST' });
   }
+  /** Ủy quyền duyệt khi vắng: trạng thái hiện tại + người có thể nhận (chỉ vai trò có quyền duyệt) */
+  async getApprovalDelegate() {
+    return this.request<ApprovalDelegateInfo>('/approvals/delegate');
+  }
+  /** delegate_to = null để tắt; until là ISO có múi giờ */
+  async setApprovalDelegate(delegate_to: string | null, until?: string) {
+    return this.request<{ delegate_to: string | null; until: string | null }>('/approvals/delegate', { method: 'POST', body: { delegate_to, until } });
+  }
 
   // === HR Phase 1: Nghỉ phép ===
   async createLeave(data: { leave_type: string; start_date: string; end_date: string; half_day?: boolean; reason: string }) {
@@ -1069,6 +1117,12 @@ class ApiClient {
   async payrollPay(period: string) {
     return this.request<{ period: string; paid_rows: number; sent: number; manual_delivery: string[] }>(
       `/payroll/${period}/pay`, { method: 'POST' }
+    );
+  }
+  /** Gửi lại phiếu lương cho người chưa nhận — không gửi trùng, không đụng trạng thái đã chi */
+  async payrollResendPayslips(period: string) {
+    return this.request<{ period: string; sent: number; manual_delivery: string[] }>(
+      `/payroll/${period}/resend-payslips`, { method: 'POST' }
     );
   }
 
@@ -1611,6 +1665,7 @@ export interface DongVatTu {
   gia_dat?: number | null; gia_cu?: boolean;
   gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
   lai?: number | null; bao_gia?: BaoGiaVatTu[]; gia_von_gan_nhat?: number | null; gia_tham_khao?: number | null;
+  ncc_gan_nhat_id?: string | null; ncc_gan_nhat_ten?: string | null; gia_von_cap_nhat_luc?: string | null; gia_gan_nhat_cu?: boolean;
 }
 export interface PhieuVatTu {
   items: DongVatTu[]; tong_gia_ban: number; tong_lai?: number; thay_gia_von: boolean; co_the_chot: boolean;
@@ -2005,6 +2060,217 @@ export interface SalesDashboard {
   }>;
 }
 
+// ── Dữ liệu chung (/du-lieu-chung, BGĐ) + Đối chiếu (/doi-chieu) — 20/11/2026 ──
+// Khớp hợp đồng JSON ở backend/app/api/du_lieu_chung.py. `diem=null` nghĩa là
+// phạm vi quá ít / rỗng: giao diện hiện nhãn, KHÔNG BAO GIỜ tự quy ra 0 hay 100.
+
+export type PhongDuLieu = 'SALES' | 'DESIGN' | 'PURCHASING' | 'OPS';
+export type MucDuLieu = 'sat' | 'can_bo_sung' | 'chua_phan_anh' | 'it_ho_so' | 'khong_co_ho_so';
+export type TrangThaiHoSo = 'co_dau_vet' | 'chua_cap_nhat' | 'chua_ro' | 'dang_cho' | 'lech';
+export type KetQuaDoiChieu = 'dung' | 'sai_giai_doan' | 'tam_dung' | 'da_xong';
+
+export interface DauVetCuoi { luc: string; loai: string; nguoi: string | null }
+/** Lần đối chiếu cuối — backend có thể kèm thêm trường; FE chỉ cần `luc` + `ket_qua`. */
+export interface DoiChieuCuoi { luc: string; ket_qua?: KetQuaDoiChieu | string; nguoi?: string | null }
+export interface LanNhac { luc: string; da_xem: boolean }
+
+export interface DuLieuChungThe {
+  ma: string;
+  phong: PhongDuLieu | 'chua_xep' | null;
+  tieu_de: string;
+  so_luong: number;
+  nut: { nhan: string; hanh_dong: 'nhac' | 'nhac_chua_xep' | 'mo'; phong: PhongDuLieu | 'chua_xep' | null; link: string | null };
+  da_nhac: LanNhac | null;
+}
+
+export interface DuLieuChungOQuyTrinh {
+  ma: 'lead_mo' | 'design' | 'quotation' | 'procurement' | 'construction' | 'acceptance' | 'hoan_thanh_30';
+  nhan: string;
+  so_luong: number;
+  tong_tien: number;
+  so_co_gia_tri: number;
+  phong: PhongDuLieu | null;
+  muc: MucDuLieu | null;
+}
+
+export interface DuLieuChungQuyTac { ma: string; nhan: string; loai: 'du' | 'lech'; dat: number; tong: number }
+
+export interface DuLieuChungPhong {
+  ma: PhongDuLieu;
+  ten: string;
+  /** co_thong_bao_may = có ≥1 máy đã bật thông báo đẩy (21/11/2026). */
+  truong_phong: Array<{ id: string; ten: string; co_telegram: boolean; co_thong_bao_may: boolean }>;
+  so_ho_so: number;
+  diem: number | null;
+  muc: MucDuLieu;
+  thanh_phan: {
+    du: { dat: number; tong: number };
+    tuoi: { dat: number; tong: number };
+    doi_chieu: { dat: number; tong: number; ap_dung: boolean };
+  };
+  trang_thai: Record<TrangThaiHoSo, number>;
+  quy_tac: DuLieuChungQuyTac[];
+  tre_han: number;
+  dau_vet_gan_nhat: DauVetCuoi | null;
+  lan_nhac_cuoi: LanNhac | null;
+}
+
+export interface DuLieuChungLech {
+  ma: 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  loai: 'du_an' | 'lead';
+  id: string;
+  /** null với lead (L3) — lead không có mã. */
+  ma_ho_so: string | null;
+  ten: string;
+  crm_ghi: string;
+  bang_chung: string;
+  phong_lien_quan: PhongDuLieu[];
+}
+
+export interface DuLieuChungHoSo {
+  loai: 'du_an' | 'lead';
+  id: string;
+  /** null với lead — lead không có mã. */
+  ma: string | null;
+  ten: string;
+  khach: string | null;
+  giai_doan: string;
+  gia_tri: number | null;
+  phong_giu: PhongDuLieu | null;
+  thieu: string[];
+  trang_thai: TrangThaiHoSo;
+  dau_vet_cuoi: DauVetCuoi | null;
+  doi_chieu_cuoi: DoiChieuCuoi | null;
+  da_hoi_hom_nay: boolean;
+}
+
+export interface DuLieuChung {
+  cap_nhat_luc: string;
+  chay_thu: boolean;
+  moc_bat_dau: string;
+  /** Ngày cuối chạy thử (YYYY-MM-DD) — backend tính từ moc_bat_dau + chay_thu_ngay cấu hình. */
+  chay_thu_den: string;
+  cau_hinh: {
+    cua_so: {
+      lead: { new: number; interested: number; surveyed: number; survey_scheduled: number; potential: number };
+      DESIGN: number; PURCHASING: number; OPS: number; OPS_ban_giao: number;
+    };
+    ngay_doi_chieu: number;
+    lead_treo_ngay: number;
+  };
+  phan_anh: { dat: number; tong: number; pct: number | null };
+  hom_nay: DuLieuChungThe[];
+  dai_quy_trinh: DuLieuChungOQuyTrinh[];
+  ngoai_dai: {
+    chua_xep: { so_luong: number; da_xep_tu_moc: number };
+    tam_dung: { so_luong: number; co_ly_do: number };
+    lead_treo: number;
+  };
+  phong: DuLieuChungPhong[];
+  lech: DuLieuChungLech[];
+  can_xem: DuLieuChungHoSo[];
+  cho_bgd: Array<{ id: string; ma: string; khach: string | null; boi: string | null; luc: string }>;
+  du_lieu_cu: Array<{ id: string; ma: string; ten: string; gia_tri: number | null; goi_y_giai_doan: string | null; ly_do_goi_y: string | null }>;
+  tin_hieu_30_ngay: {
+    task_activities: number;
+    anh: number;
+    du_an_co_anh: number;
+    viec_xong: { design: number; quotation: number; procurement: number; construction: number; acceptance: number };
+    phieu_vat_tu: number;
+    bao_gia: number;
+    hd_da_ky: number;
+    lan_cuoi: { task_activity: string | null; anh: string | null };
+  };
+  /** Ai nhận nhắc qua kênh nào (21/11/2026). Tuỳ chọn để giao diện vẫn chạy khi backend chưa lên bản mới. */
+  kenh_thong_bao?: KenhThongBao;
+}
+
+/** Phòng dùng cho khối «Kênh nhận thông báo»: 4 phòng + 'KHAC' (BGĐ, Kế toán, HR…). */
+export type PhongKenh = PhongDuLieu | 'KHAC';
+
+export interface KenhThongBaoDem {
+  tong: number;
+  co_thong_bao_may: number;
+  co_telegram: number;
+  /** Không thông báo máy, không Telegram → chỉ thấy khi tự mở chuông. */
+  chi_chuong: number;
+}
+
+export interface KenhThongBao extends KenhThongBaoDem {
+  theo_phong: Array<KenhThongBaoDem & { phong: PhongKenh; ten: string }>;
+  /** Người chưa có máy nào bật thông báo (tối đa 200, sắp theo phòng rồi tên). */
+  chua_bat: Array<{ id: string; ten: string; phong: PhongKenh; co_telegram: boolean }>;
+  lan_nhac_cai_app_cuoi: { luc: string; so_nguoi: number } | null;
+}
+
+export interface NhacCaiAppBody {
+  phong?: PhongDuLieu | null;
+  ids?: string[];
+}
+
+export interface NhacCaiAppKetQua {
+  da_gui: number;
+  qua_telegram: number;
+  bo_qua_da_nhac: number;
+}
+
+export interface NhacDuLieuChungBody {
+  phong: PhongDuLieu | 'chua_xep';
+  id?: string;
+  loai?: 'du_an' | 'lead';
+}
+
+export interface NhacDuLieuChungKetQua {
+  da_gui: Array<{ phong: string; nguoi: string; telegram: boolean; thong_bao_may: boolean }>;
+  bo_qua: Array<{ phong: string; ly_do: 'da_nhac_hom_nay' | 'khong_co_truong_phong' | 'vuot_2_tin' | string }>;
+}
+
+export interface DoiChieuHoSo {
+  id: string;
+  loai: 'du_an' | 'lead';
+  /** null với lead — lead không có mã. */
+  ma: string | null;
+  ten: string;
+  khach: string | null;
+  dia_chi: string | null;
+  giai_doan: string;
+  pic: { id: string; ten: string } | null;
+  han_ban_giao: string | null;
+  dau_vet_cuoi: DauVetCuoi | null;
+  doi_chieu_cuoi: DoiChieuCuoi | null;
+  /** Chỉ BGĐ mới nhận trường này — trưởng phòng không thấy tiền. */
+  gia_tri?: number | null;
+}
+
+export interface DoiChieu {
+  phong: PhongDuLieu;
+  ho_so: DoiChieuHoSo[];
+  chua_xep: DoiChieuHoSo[];
+  nguoi_trong_phong: Array<{ id: string; ten: string }>;
+}
+
+export interface DoiChieuMuc {
+  id: string;
+  loai: 'du_an' | 'lead';
+  ket_qua: KetQuaDoiChieu;
+  giai_doan_moi?: string;
+  pic_id?: string;
+  ly_do?: string;
+}
+
+export interface GuiDoiChieuBody {
+  phong: PhongDuLieu;
+  muc: DoiChieuMuc[];
+  tat_ca_con_lai_dung?: boolean;
+  ids_hien_thi: string[];
+}
+
+export interface GuiDoiChieuKetQua {
+  da_ghi: number;
+  da_doi_giai_doan: number;
+  loi: Array<{ id: string; ly_do: string }>;
+}
+
 export interface LeadParseResult {
   name?: string;
   phone?: string;
@@ -2044,6 +2310,12 @@ export interface AISuggestionHistory {
 }
 
 // === ERP Types ===
+
+export interface PortalLink {
+  customer_id: string;
+  portal_token: string;
+  portal_enabled: boolean;
+}
 
 export interface Customer {
   id: string;
@@ -2229,10 +2501,12 @@ export interface PnLProjectDetail {
 }
 
 export interface ReceivableInstallment {
+  idx: number; // vị trí đợt trong lịch thu gốc của HĐ
   name: string;
   percentage: number;
   amount: number;
   milestone?: string | null;
+  due_date?: string | null;
 }
 
 export interface ReceivableContract {
@@ -2365,6 +2639,7 @@ export interface InstantQuoteResult {
   material_options?: MaterialOption[];
   customer_budget: number | null;
   zalo_text: string;
+  zalo_texts?: Record<'basic' | 'standard' | 'premium', string>;
   disclaimer: string;
   parsed: { name?: string; phone?: string } | null;
 }
@@ -2396,7 +2671,7 @@ export interface AISettingsResponse {
   llm_fallback_api_key_set: boolean;
   fallbacks?: { model: string; api_key_masked: string; api_key_set: boolean }[];
   max_fallbacks?: number;
-  presets: { label: string; model: string }[];
+  presets: { label: string; model: string; tra_phi?: boolean }[];
 }
 
 // === Pagination ===
@@ -2530,6 +2805,14 @@ export interface ApprovalItem {
   created_at: string;
   resolved_at: string | null;
   delegated?: boolean;
+}
+
+export interface ApprovalDelegateInfo {
+  can_delegate: boolean;
+  delegate_to: string | null;
+  delegate_name: string | null;
+  until: string | null;
+  candidates: { id: string; full_name: string; role: string }[];
 }
 
 export interface LeaveItem {

@@ -71,14 +71,21 @@ async def _notify(
     ref_id: str | None = None,
     telegram: bool = True,
     nut: list[list[dict]] | None = None,
+    reply_markup: dict | None = None,
     nhac_lai_sau_gio: float = NHAC_LAI_SAU_GIO,
+    body_html: bool = False,
 ) -> bool:
     """Thông báo trong app + đẩy Telegram (kèm nút).
 
     Chống trùng (R00, 14/11/2026): cùng người + loại + ref đã gửi trong `nhac_lai_sau_gio`
     giờ thì bỏ qua — KHÔNG còn xét «đã đọc chưa». Trước đây người không mở app chỉ được
     nhắc đúng một lần, người chăm đọc lại bị nhắc mỗi sáng; giờ ai cũng theo một nhịp.
-    Tin Telegram có các hàng nút `nut` + nút «Mở ERP» trỏ thẳng `link`.
+
+    Nút Telegram: các hàng `nut` + nút «Mở ERP» trỏ thẳng `link`. `reply_markup`
+    (20/11/2026) là bàn phím dựng sẵn, dùng nguyên văn thay cho `nut`.
+    Tiêu đề và thân tin là chữ thường (trong app hiện nguyên văn), escape khi đẩy Telegram
+    kẻo tên khách có «&», «<» làm Telegram từ chối cả tin. `body_html=True`: thân tin đã là
+    HTML Telegram (người gọi tự escape dữ liệu ngoài), gửi nguyên văn.
     """
     if user is None:
         return False
@@ -109,13 +116,13 @@ async def _notify(
     await db.flush()
 
     if telegram and user.telegram_user_id:
-        # Tiêu đề/nội dung là chữ thường (cũng hiện trong app) — thoát HTML khi đẩy Telegram,
-        # kẻo tên khách có «&» hay «<» làm Telegram từ chối cả tin.
-        await send_telegram(
-            user.telegram_user_id,
-            f"<b>{html.escape(title, quote=False)}</b>\n{html.escape(body, quote=False)}",
-            reply_markup=ban_phim(nut, link),
-        )
+        than = body if body_html else html.escape(body, quote=False)
+        tin = f"<b>{html.escape(title, quote=False)}</b>\n{than}"
+        ban = reply_markup or ban_phim(nut, link)
+        if ban:
+            await send_telegram(user.telegram_user_id, tin, reply_markup=ban)
+        else:
+            await send_telegram(user.telegram_user_id, tin)
     return True
 
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import { getPermissions, isSalesCoordinator, UserRole } from '@/lib/roles';
 import Sidebar from '@/components/layout/Sidebar';
@@ -90,7 +91,7 @@ export default function KpiPage() {
   );
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
     if (!loading && user && !getPermissions(user.role as UserRole).canViewKPI) router.push('/');
   }, [user, loading, router]);
 

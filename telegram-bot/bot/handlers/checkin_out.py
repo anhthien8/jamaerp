@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.api_client import api
+from bot.handlers.site_report import nut_tiep_theo
 from bot.keyboards import hien_ban_phim
 
 router = Router()
@@ -160,7 +161,8 @@ async def process_checkin_location(message: types.Message, state: FSMContext):
         f"👤 Nhân viên: {result.get('user', '—')}\n"
         f"📍 Vị trí: ({result.get('latitude', latitude)}, {result.get('longitude', longitude)})\n"
         f"🕐 Thời gian: {result.get('checkin_time', '—')}\n\n"
-        f"📝 {result.get('message', '')}"
+        f"📝 {result.get('message', '')}",
+        reply_markup=nut_tiep_theo(result.get("project_code") or project_code, message),
     )
     await state.clear()
 

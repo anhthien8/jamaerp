@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, InstantQuoteResult, PriceItemDTO } from '@/lib/api';
+import { api, ApiError, InstantQuoteResult, PriceItemDTO } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
+import Link from 'next/link';
+import { getPermissions, UserRole } from '@/lib/roles';
 
 const PROPERTY_TYPES = [
   { value: 'apartment', label: 'Căn hộ' },
@@ -46,6 +49,7 @@ export default function QuoteToolPage() {
     setQuoteMode(m);
     setResult(null);
     setMessage('');
+    setSavedDraft('');
   };
   const [area, setArea] = useState('');
   const [ptype, setPtype] = useState('apartment');
@@ -58,16 +62,19 @@ export default function QuoteToolPage() {
   const [activeTier, setActiveTier] = useState<'basic' | 'standard' | 'premium'>('standard');
   const [activeRenoCat, setActiveRenoCat] = useState<string>('');
   const [message, setMessage] = useState('');
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [savedDraft, setSavedDraft] = useState(''); // mã báo giá nháp vừa lưu
   const [showPriceBook, setShowPriceBook] = useState(false);
   const [priceItems, setPriceItems] = useState<PriceItemDTO[]>([]);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/login');
+    if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
   const generate = async () => {
     setGenerating(true);
     setMessage('');
+    setSavedDraft('');
     setResult(null);
     try {
       const payload: Record<string, unknown> = {
@@ -105,10 +112,49 @@ export default function QuoteToolPage() {
 
   const copyZalo = () => {
     if (!result) return;
-    navigator.clipboard.writeText(result.zalo_text).then(
+    // Xây mới: lấy text của phương án đang chọn (không phải lúc nào cũng là phương án gợi ý).
+    navigator.clipboard.writeText(result.zalo_texts?.[activeTier] ?? result.zalo_text).then(
       () => setMessage('✅ Đã copy — dán vào Zalo gửi khách ngay!'),
       () => setMessage('❌ Không copy được'),
     );
+  };
+
+  // Lưu kết quả đang xem thành báo giá NHÁP ở /quotations — vẫn phải qua nút Duyệt như mọi báo giá.
+  const saveDraft = async () => {
+    if (!result || savingDraft) return;
+    const reno = result.mode === 'renovation';
+    const tier = reno ? null : result.tiers?.[activeTier];
+    const items = reno
+      ? Object.entries(result.categories ?? {}).flatMap(([cat, list]) =>
+          list.map(i => ({ name: i.name, description: i.note || undefined, category: cat, unit: i.unit, quantity: i.qty, unit_price: i.unit_price, total: i.total })))
+      : (tier?.items ?? []).map(i => ({ name: i.name, category: i.category, unit: i.unit, quantity: i.qty, unit_price: i.unit_price, total: i.total }));
+    if (!items.length) return;
+    const loai = reno
+      ? `cải tạo nhà phố ${result.floors} tầng`
+      : (PROPERTY_TYPES.find(t => t.value === result.property_type)?.label ?? 'công trình').toLowerCase();
+    const han = new Date();
+    han.setDate(han.getDate() + 15);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setSavingDraft(true);
+    setMessage('');
+    try {
+      // Không gửi total_amount: backend tự cộng các dòng nên tổng luôn khớp hạng mục.
+      const created = await api.createQuotation({
+        type: 'construction',
+        title: `Báo giá sơ bộ ${loai} ${result.area_sqm}m²${tier ? ` - ${tier.label}` : ''}${result.parsed?.name ? ` - ${result.parsed.name}` : ''}`,
+        items,
+        valid_until: `${han.getFullYear()}-${pad(han.getMonth() + 1)}-${pad(han.getDate())}`,
+        notes: result.disclaimer,
+      });
+      setSavedDraft(created.code);
+    } catch (e) {
+      setSavedDraft('');
+      setMessage(e instanceof ApiError && e.status === 403
+        ? 'Bạn chưa có quyền tạo báo giá — nhờ quản lý cấp quyền.'
+        : `Không lưu được báo giá nháp: ${e instanceof Error ? e.message : 'lỗi không rõ'}`);
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const loadPriceBook = useCallback(() => {
@@ -117,6 +163,23 @@ export default function QuoteToolPage() {
 
   if (loading || !user) return <Sidebar><div className="p-6 space-y-4"><div className="skeleton h-8 w-48 rounded-xl" /><div className="skeleton h-48 rounded-xl" /></div></Sidebar>;
   const canEditPrices = user.role === 'admin';
+  const canCreateQuotations = getPermissions(user.role as UserRole).canCreateQuotations;
+  const saveDraftButton = canCreateQuotations && (
+    <button onClick={saveDraft} disabled={savingDraft} className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
+      <LineIcon name="save" size={16} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{savingDraft ? 'Đang lưu...' : 'Lưu thành báo giá nháp'}
+    </button>
+  );
+  const savedDraftNote = (savedDraft || (message && result)) && (
+    <p className="text-sm text-[var(--text-secondary)]">
+      {savedDraft ? (
+        <>
+          <LineIcon name="check" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
+          Đã lưu báo giá nháp {savedDraft} — cần duyệt trước khi gửi khách.{' '}
+          <Link href="/quotations" className="underline text-[#C9A96E]">Mở danh sách Báo giá</Link>
+        </>
+      ) : message}
+    </p>
+  );
   const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
 
   return (
@@ -400,7 +463,9 @@ export default function QuoteToolPage() {
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
                     <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
                   </button>
+                  {saveDraftButton}
                 </div>
+                {savedDraftNote}
                 <p className="text-xs text-[var(--text-muted)]">{result.disclaimer}</p>
               </>
             ) : (
@@ -436,7 +501,9 @@ export default function QuoteToolPage() {
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
                     <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
                   </button>
+                  {saveDraftButton}
                 </div>
+                {savedDraftNote}
 
                 {/* Detail table */}
                 <div className="glass-card p-5 overflow-x-auto">

@@ -68,7 +68,7 @@ export default function ViecCuaToiPage() {
 
   const theViec = (t: ViecCuaToi) => (
     <div key={t.id} className="rounded-2xl p-3 flex items-center gap-3" style={the}>
-      <Link href={`/projects?id=${t.project_id}`} className="flex-1 min-w-0">
+      <Link href={`/projects?id=${t.project_id}&task=${t.id}`} className="flex-1 min-w-0">
         <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{t.title}</div>
         <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
           {t.project_code} · {t.project_name}{t.han ? ` · hạn ${ngay(t.han).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` : ''}

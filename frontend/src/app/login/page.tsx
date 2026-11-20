@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { diemDenSauDangNhap } from '@/lib/dang-nhap';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 
@@ -49,7 +50,11 @@ function LoginForm() {
   };
 
   // Bị đá về đây do phiên hết hạn — nói rõ lý do thay vì để người dùng ngơ ngác
-  const hetHan = useSearchParams().get('het_han') === '1';
+  const thamSo = useSearchParams();
+  const hetHan = thamSo.get('het_han') === '1';
+  // Trang đang mở dở trước khi bị đá về đây (link nhắc Telegram, thông báo máy…) —
+  // đăng nhập xong đi tiếp tới đó thay vì về Tổng quan. Xem lib/dang-nhap.ts.
+  const next = thamSo.get('next');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +63,7 @@ function LoginForm() {
 
     try {
       await login(email, password);
-      router.push('/');
+      router.push(diemDenSauDangNhap(next));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
     } finally {

@@ -20,10 +20,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, SalesDashboard, SalesKpiCard, SalesPerson, SalesTargets } from '@/lib/api';
 import { formatCurrency, SOURCE_LABELS } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
+import { Khoi, Thanh, Trong } from '@/components/dashboard/KhoiDashboard';
 
 // Phải khớp `VAI_TRO_XEM` ở backend và `VAI_TRO_SALE_DASHBOARD` ở Sidebar.
 const DUOC_XEM = ['admin'];
@@ -64,32 +66,6 @@ function mucTieuKpi(k: SalesKpiCard): string {
   return `/ ${mt}`;
 }
 
-function Thanh({ pct, mau, cao = 6 }: { pct: number; mau: string; cao?: number }) {
-  return (
-    <div className="rounded-full overflow-hidden w-full" style={{ height: cao, background: 'var(--surface-3)' }}>
-      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(Math.max(pct, 0), 100)}%`, background: mau }} />
-    </div>
-  );
-}
-
-function Khoi({ tieuDe, phu, children, className }: {
-  tieuDe: string; phu?: string; children: React.ReactNode; className?: string;
-}) {
-  return (
-    <section className={`glass-card p-5 ${className || ''}`}>
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{tieuDe}</h2>
-        {phu && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{phu}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Trong({ chu }: { chu: string }) {
-  return <p className="text-xs text-[var(--text-muted)] py-6 text-center">{chu}</p>;
-}
-
 /** Mũi tên so với kỳ trước. null = kỳ trước bằng 0 nên không chia được. */
 function Delta({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-[11px] text-[var(--text-disabled)]">kỳ trước chưa có số</span>;
@@ -125,7 +101,7 @@ export default function SaleDashboardPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) { router.push(duongDangNhap()); return; }
     // Backend chặn cứng ở admin; chặn thêm ở đây để người khác không rơi vào
     // trang trắng kèm 403 mà không hiểu vì sao.
     if (!DUOC_XEM.includes(user.role)) router.push('/');

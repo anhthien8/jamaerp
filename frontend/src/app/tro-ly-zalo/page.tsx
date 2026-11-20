@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { duongDangNhap } from '@/lib/dang-nhap';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, ZaloDigestList, ZaloOverview, ZaloSignalInfo } from '@/lib/api';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
@@ -72,7 +73,7 @@ export default function TroLyZaloPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push('/login'); return; }
+    if (!user) { router.push(duongDangNhap()); return; }
     if (!duocXem) router.push('/');
   }, [user, loading, duocXem, router]);
 
