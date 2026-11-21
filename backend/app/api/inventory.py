@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -179,8 +180,10 @@ async def import_materials(
         raise HTTPException(status_code=400, detail="Tối đa 500 dòng mỗi lần import")
 
     existing = (await db.execute(select(Material))).scalars().all()
-    by_code = {m.code.strip().upper(): m for m in existing if m.code}
-    by_name = {m.name.strip().lower(): m for m in existing}
+    # NFC cả 2 phía (21/11/2026): file Excel gõ dạng tổ hợp vẫn khớp vật tư đã có theo mã/tên
+    # và khớp nhãn danh mục tiếng Việt («Gỗ», «Đá»…) — không tạo bản trùng, không báo sai danh mục
+    by_code = {nfc(m.code).strip().upper(): m for m in existing if m.code}
+    by_name = {nfc(m.name).strip().lower(): m for m in existing}
     # Sinh mã mới tiếp nối dãy VT-xxx hiện có
     max_num = 0
     for c in by_code:
@@ -190,19 +193,19 @@ async def import_materials(
     created, updated, errors = 0, 0, []
     now = datetime.now(timezone.utc)
     for i, row in enumerate(data.rows, start=2):  # dòng 1 của file là tiêu đề
-        name = (row.name or "").strip()
+        name = nfc(row.name or "").strip()
         if not name:
             errors.append(f"Dòng {i}: thiếu Tên vật tư")
             continue
         category = None
         if row.category:
-            raw = row.category.strip().lower()
+            raw = nfc(row.category).strip().lower()
             category = raw if raw in VALID_CATEGORIES else CATEGORY_VN_MAP.get(raw)
             if category is None:
                 errors.append(f"Dòng {i}: danh mục '{row.category}' không hợp lệ (dùng: Gỗ, Đá, Kim loại, Sơn, Điện, Nước, Phụ kiện nội thất, Vải, Kính, Khác)")
                 continue
 
-        code_key = (row.code or "").strip().upper()
+        code_key = nfc(row.code or "").strip().upper()
         target = by_code.get(code_key) if code_key else by_name.get(name.lower())
         if target:
             if category is not None:

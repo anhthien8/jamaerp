@@ -1,5 +1,7 @@
 """Lead intake handler — parse Zalo messages + confirm + save."""
 
+import unicodedata
+
 from aiogram import Router, types, F
 from aiogram.filters import Command, StateFilter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -196,7 +198,9 @@ async def auto_parse_message(message: types.Message, state: FSMContext):
     """Auto-detect lead info from any non-command text message."""
 
     # Check if message looks like a lead (has phone or name patterns)
-    text = message.text
+    # NFC trước khi dò (21/11/2026): bộ gõ «Unicode tổ hợp» gửi «Chị» thành «Chi» + dấu nặng rời
+    # → regex «Chị» trượt, tin lead bị báo «không nhận diện được»
+    text = unicodedata.normalize("NFC", message.text or "")
     import re
     has_phone = bool(re.search(r'0\d{9,10}', text))
     has_name = bool(re.search(r'(?:Anh|Chị|A\.|C\.)', text))

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -58,7 +59,8 @@ async def _tim_du_an(db: AsyncSession, project_id: str | None, project_code: str
         project = await db.get(Project, project_id)
     elif project_code:
         project = (await db.execute(
-            select(Project).where(Project.code == project_code.strip().upper())
+            # NFC (21/11/2026): mã từ form/bot gõ dạng tổ hợp vẫn khớp
+            select(Project).where(Project.code == nfc(project_code).strip().upper())
         )).scalar_one_or_none()
     else:
         raise HTTPException(status_code=400, detail="Thiếu dự án")

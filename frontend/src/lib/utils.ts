@@ -104,6 +104,18 @@ export function cn(...classes: (string | undefined | false | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }
 
+/**
+ * Chuẩn hoá chữ để SO KHỚP khi tìm/lọc trên trình duyệt (21/11/2026): NFC + viết thường.
+ * Chữ tiếng Việt có 2 kiểu mã hoá trông y hệt nhau — dựng sẵn (NFC, «ệ» = 1 ký tự) và tổ hợp
+ * (NFD, «e» + dấu mũ + dấu nặng; bàn phím kiểu Unikey «Unicode tổ hợp» gõ ra) — máy coi là
+ * khác nhau nên `includes()` trượt. Gọi cho CẢ HAI phía: chữ người dùng gõ và dữ liệu đem so.
+ * CHỈ dùng lúc so — KHÔNG gán ngược vào ô nhập khi đang gõ (Unikey xoá lùi theo số ký tự đã gõ,
+ * sửa giữa chừng làm hỏng chữ và phá IME). Ô lọc đã bỏ dấu (`boDau` ở users, vat-tu) tự đúng sẵn.
+ */
+export function chuanHoaTim(s?: string | null): string {
+  return (s ?? '').normalize('NFC').toLowerCase();
+}
+
 export function formatPricePerSqm(value?: number | null): string {
   if (value == null) return '—';
   return `${value.toLocaleString('vi-VN')} đ/m²`;

@@ -15,6 +15,7 @@ import type { User, Team } from '@/lib/api';
 import { mediaUrl } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 import { capBac, deptLabel, DEPT_ORDER, type RoleStyle } from '@/lib/nhan-su';
+import { chuanHoaTim } from '@/lib/utils';
 
 interface Props {
   users: User[];
@@ -183,14 +184,14 @@ export default function SoDoMangLuoi({ users, teams, roleOf, meId, tim }: Props)
     return () => { huy = true; };
   }, [data, coToi, meId, router]);
 
-  // Tìm tên → tô sáng + căn giữa người khớp đầu tiên
+  // Tìm tên → tô sáng + căn giữa người khớp đầu tiên (so bản NFC: tên gõ kiểu «Unicode tổ hợp» vẫn khớp)
   useEffect(() => {
     const chart = chartRef.current;
-    const q = tim.trim().toLowerCase();
+    const q = chuanHoaTim(tim.trim());
     if (!chart || dangTai) return;
     chart.clearHighlighting();
     if (!q) return;
-    const n = data.find(x => x.loai === 'nguoi' && x.ten.toLowerCase().includes(q));
+    const n = data.find(x => x.loai === 'nguoi' && chuanHoaTim(x.ten).includes(q));
     if (n) chart.setUpToTheRootHighlighted(n.id).setCentered(n.id).render();
   }, [tim, data, dangTai]);
 

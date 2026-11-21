@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { GUIDE_SECTIONS, GUIDE_UPDATED, type GuideBlock } from '@/lib/huong-dan-content';
+import { chuanHoaTim } from '@/lib/utils';
 
 /**
  * Sổ tay sử dụng — bản đầy đủ trong app (sau đăng nhập), thay cho file guide
@@ -105,15 +106,16 @@ export default function HuongDanPage() {
     if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
-  const q = query.trim().toLowerCase();
+  // So bản NFC cả hai phía — từ khoá gõ kiểu «Unicode tổ hợp» vẫn khớp nội dung (21/11/2026)
+  const q = chuanHoaTim(query.trim());
   const visibleSections = useMemo(() => {
     if (!q) return GUIDE_SECTIONS;
     return GUIDE_SECTIONS.filter(s => {
-      if (s.title.toLowerCase().includes(q)) return true;
+      if (chuanHoaTim(s.title).includes(q)) return true;
       return s.blocks.some(b =>
-        (b.text || '').toLowerCase().includes(q) ||
-        (b.items || []).some(it => it.toLowerCase().includes(q)) ||
-        (b.rows || []).some(r => r.some(c => c.toLowerCase().includes(q)))
+        chuanHoaTim(b.text).includes(q) ||
+        (b.items || []).some(it => chuanHoaTim(it).includes(q)) ||
+        (b.rows || []).some(r => r.some(c => chuanHoaTim(c).includes(q)))
       );
     });
   }, [q]);

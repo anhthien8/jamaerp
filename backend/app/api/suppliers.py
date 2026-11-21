@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -228,7 +229,8 @@ async def compare_prices(
         q = (
             select(SupplierQuote, Supplier.name.label("supplier_name"))
             .join(Supplier, SupplierQuote.supplier_id == Supplier.id)
-            .where(SupplierQuote.material_name == mat_name)
+            # NFC (21/11/2026): tên vật tư trong body gõ dạng tổ hợp vẫn khớp báo giá đã lưu
+            .where(SupplierQuote.material_name == nfc(mat_name))
             .where(Supplier.is_active == True)
             .order_by(desc(SupplierQuote.quote_date))
         )
@@ -286,7 +288,8 @@ async def price_history(
     q = (
         select(SupplierQuote, Supplier.name.label("supplier_name"))
         .join(Supplier, SupplierQuote.supplier_id == Supplier.id)
-        .where(SupplierQuote.material_name == material_name)
+        # Path không qua middleware query string → NFC tại chỗ (21/11/2026)
+        .where(SupplierQuote.material_name == nfc(material_name))
         .order_by(desc(SupplierQuote.quote_date))
     )
     result = await db.execute(q)

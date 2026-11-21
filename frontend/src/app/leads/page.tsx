@@ -8,7 +8,7 @@ import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
-import { STAGE_CONFIG, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
+import { STAGE_CONFIG, chuanHoaTim, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
 import KhaoSatThang from '@/components/leads/KhaoSatThang';
 import ThanhThaoTacHangLoat from '@/components/leads/ThanhThaoTacHangLoat';
 import BangKanbanLead from '@/components/leads/BangKanbanLead';
@@ -684,11 +684,12 @@ function LeadsContent() {
       if (!key || key < dateRange.from || key > dateRange.to) return false;
     }
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!lead.name.toLowerCase().includes(q) && !(lead.phone || '').includes(q)
-        && !(lead.email || '').toLowerCase().includes(q) && !(lead.address || '').toLowerCase().includes(q)
-        && !(lead.property_type || '').toLowerCase().includes(q) && !(lead.needs || '').toLowerCase().includes(q)
-        && !(lead.region || '').toLowerCase().includes(q) && !(lead.channel || '').toLowerCase().includes(q)) return false;
+      // So bản NFC cả hai phía — tên/địa chỉ gõ hoặc lưu kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026)
+      const q = chuanHoaTim(searchQuery);
+      if (!chuanHoaTim(lead.name).includes(q) && !(lead.phone || '').includes(q)
+        && !chuanHoaTim(lead.email).includes(q) && !chuanHoaTim(lead.address).includes(q)
+        && !chuanHoaTim(lead.property_type).includes(q) && !chuanHoaTim(lead.needs).includes(q)
+        && !chuanHoaTim(lead.region).includes(q) && !chuanHoaTim(lead.channel).includes(q)) return false;
     }
     return true;
   });

@@ -27,6 +27,10 @@ export const RELEASES: Release[] = [
       'Dữ liệu chung (Ban giám đốc): dưới tên trưởng phòng có chip «Telegram» / «Thông báo máy» / «Chỉ nhận trong chuông»; bấm «Nhắc» xong biết tin đi qua kênh nào. Khối mới «Kênh nhận thông báo» đếm ai đã bật thông báo theo từng phòng và có nút «Nhắc cài app & bật thông báo».',
       'Tin nhắc gửi người chưa bật thông báo máy có thêm link «Hướng dẫn 1 phút» để cài app.',
     ],
+    fixes: [
+      'Tìm kiếm tên tiếng Việt: chữ gõ bằng bộ gõ kiểu «Unicode tổ hợp» (Unikey) và kiểu «dựng sẵn» nay khớp nhau. Trước đây gõ «Trịnh» không ra một số nhân viên, khách, lead dù tên trông y hệt. Hệ thống đã thống nhất 285 dòng dữ liệu cũ và tự thống nhất mọi chữ lưu mới; cách gõ của mỗi người giữ nguyên.',
+      'Vật tư: gõ tên NCC, nhóm vật tư bằng bộ gõ «tổ hợp» không còn tạo trùng một NCC/nhóm đã có.',
+    ],
     test: [
       'Tài khoản admin/executive: Dữ liệu chung → thẻ Thi công thấy chip kênh dưới tên trưởng phòng; khối «Kênh nhận thông báo» hiện số người đã bật / chỉ nhận trong chuông.',
       'Bấm «Nhắc cài app & bật thông báo» → xác nhận → báo đã nhắc bao nhiêu người; bấm lần 2 cùng ngày → báo đã nhắc hôm nay rồi.',

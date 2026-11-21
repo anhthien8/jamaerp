@@ -23,6 +23,7 @@ from typing import Any
 
 import httpx
 
+from app.chuan_hoa_unicode import nfc
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -336,8 +337,9 @@ async def trich_tu_anh(anh: bytes, mime: str | None, prompt: str | None = None, 
 
 def chuan_ma(ma: str | None) -> str:
     """So mã bỏ khoảng trắng/dấu chấm/gạch, không phân biệt hoa thường:
-    «TM 76006» ≡ «TM-76006» ≡ «tm76006»."""
-    return re.sub(r"[\s\.\-_/]", "", (ma or "")).upper()
+    «TM 76006» ≡ «TM-76006» ≡ «tm76006». NFC trước (21/11/2026): mã có chữ Việt gõ dạng
+    tổ hợp (tệp Excel, bot) vẫn khớp mã lưu dạng dựng sẵn."""
+    return re.sub(r"[\s\.\-_/]", "", nfc(ma or "")).upper()
 
 
 def khop_ma(items: list[dict], dong: list[dict]) -> tuple[list[dict], list[dict]]:

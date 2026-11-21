@@ -12,6 +12,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.models.supplier import Supplier
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,9 @@ TEN_KHONG_RO = "ncc chưa rõ"
 
 
 def chuan_ten(s: str | None) -> str:
-    return re.sub(r"\s+", " ", (s or "").strip()).lower()
+    # NFC trước (21/11/2026): tên gõ bằng bộ gõ «Unicode tổ hợp» phải khớp NCC đã lưu dạng
+    # dựng sẵn — không thì BoNcc.lay tạo NCC trùng tên (trông y hệt)
+    return re.sub(r"\s+", " ", nfc(s or "").strip()).lower()
 
 
 def chuan_mst(s: str | None) -> str | None:

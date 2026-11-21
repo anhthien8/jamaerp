@@ -34,6 +34,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.chuan_hoa_unicode import nfc
 from app.middleware.rbac import VAI_TRO_TRUONG_PHONG
 from app.models.notification import SystemSetting
 from app.models.project import Project, Task, TaskAssignee, task_department_for_stage
@@ -162,15 +163,17 @@ async def luu_cau_hinh_sla(
         else:
             db.add(SystemSetting(key=key, value=value))
 
+    # Khoá = tên đầu việc / phòng: NFC (21/11/2026) để tên gõ dạng tổ hợp vẫn so được với mặc
+    # định (bằng mặc định thì không lưu) và khớp `tasks.title` đã lưu dạng dựng sẵn
     if dau_viec is not None:
         khac = {
-            k: int(v) for k, v in dau_viec.items()
+            k: int(v) for k, v in ((nfc(k), v) for k, v in dau_viec.items())
             if int(v) > 0 and SLA_MAC_DINH_DAU_VIEC.get(k) != int(v)
         }
         await _ghi(KEY_SLA_DAU_VIEC, json.dumps(khac, ensure_ascii=False))
     if phong_ban is not None:
         khac = {
-            k: int(v) for k, v in phong_ban.items()
+            k: int(v) for k, v in ((nfc(k), v) for k, v in phong_ban.items())
             if int(v) > 0 and SLA_MAC_DINH_PHONG_BAN.get(k) != int(v)
         }
         await _ghi(KEY_SLA_PHONG_BAN, json.dumps(khac, ensure_ascii=False))

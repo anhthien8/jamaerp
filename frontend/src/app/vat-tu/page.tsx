@@ -13,6 +13,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { tien } from '@/lib/tien-gon';
 import { compressImage } from '@/lib/nhan-su';
+import { chuanHoaTim } from '@/lib/utils';
 
 // Bỏ dấu + thường hoá để tìm dự án không cần gõ dấu
 const boDau = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
@@ -1026,7 +1027,8 @@ function CanHoiGia({ laThuMua, bao }: { laThuMua: boolean; bao: (l: 'ok' | 'loi'
     const text = ['JAMA HOME xin báo giá các mã sau:', ...dong, 'Anh/chị báo giúp đơn giá, tình trạng còn hàng và thời gian giao. Cảm ơn anh/chị!'].join('\n');
     let phone: string | null = null;
     if (nccHoi.trim()) {
-      try { const r = await api.getSuppliers({ search: nccHoi.trim() }); const s = r.items.find(x => x.name.toLowerCase() === nccHoi.trim().toLowerCase()); phone = s?.zalo || s?.phone || null; }
+      // So tên NCC bản NFC cả hai phía — tên gõ kiểu «Unicode tổ hợp» vẫn ra đúng số Zalo (21/11/2026)
+      try { const r = await api.getSuppliers({ search: nccHoi.trim() }); const s = r.items.find(x => chuanHoaTim(x.name) === chuanHoaTim(nccHoi.trim())); phone = s?.zalo || s?.phone || null; }
       catch { phone = null; } // không xem được danh bạ NCC → chỉ chép tin
     }
     setTin({ tieuDe: `Tin hỏi giá · ${dong.length} mã`, text, chep: await chepTin(text), phone, nhanZalo: nccHoi.trim() || undefined });
@@ -1179,7 +1181,13 @@ function CaiGia({ bao }: { bao: (l: 'ok' | 'loi', t: string) => void }) {
       ))}
       <div className="flex gap-2">
         <input className={inp} placeholder="Thêm nhóm mới (vd Thiết bị vệ sinh)" value={moi} onChange={e => setMoi(e.target.value)} />
-        <button className={btnGhost} onClick={() => { if (moi.trim() && !ds.some(x => x.nhom === moi.trim())) { setDs([...ds, { nhom: moi.trim(), phan_tram_lai: 15 }]); setMoi(''); } }}><LineIcon name="plus" size={14} /></button>
+        <button className={btnGhost} onClick={() => {
+          // So + giữ bản NFC (21/11/2026): tên nhóm gõ kiểu «Unicode tổ hợp» trùng nhóm đã có thì không thêm
+          // dòng thứ hai trông y hệt (backend lưu NFC → hai dòng đụng khoá chính khi bấm Lưu). Chỉ chuẩn hoá
+          // lúc bấm thêm, không sửa ô đang gõ; giữ phân biệt hoa/thường như khoá nhóm ở backend.
+          const ten = moi.trim().normalize('NFC');
+          if (ten && !ds.some(x => x.nhom.normalize('NFC') === ten)) { setDs([...ds, { nhom: ten, phan_tram_lai: 15 }]); setMoi(''); }
+        }}><LineIcon name="plus" size={14} /></button>
       </div>
       <button className={btnGold} disabled={saving} onClick={luu}><LineIcon name="check" size={14} color="currentColor" /> {saving ? 'Đang lưu…' : 'Lưu'}</button>
     </div>
