@@ -364,7 +364,8 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
                     {"role": "user", "content": boi_canh},
                 ],
                 temperature=0.3,
-                max_tokens=400,
+                # gpt-oss suy nghĩ ngầm trừ vào trần này; 400 hết token trước khi viết xong JSON
+                max_tokens=1200,
                 response_format={"type": "json_object"},
             )
             goi_y = _chuan_hoa(json.loads(response.choices[0].message.content))
