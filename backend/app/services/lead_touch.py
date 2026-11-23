@@ -55,6 +55,37 @@ def nhan_gio_hen(moc: datetime) -> str:
     return moc.strftime("%H:%M %d/%m/%Y")
 
 
+THU_VN = ("thứ Hai", "thứ Ba", "thứ Tư", "thứ Năm", "thứ Sáu", "thứ Bảy", "Chủ nhật")
+
+# Nhãn ngắn của việc vừa ghi — server trả sẵn cho bot (`nhan` ở /touch, `tom_tat` ở /doan).
+NHAN_VIEC: dict[str, str] = {
+    "goi": "Đã gọi",
+    "gap": "Đã gặp trực tiếp",
+    "zoom": "Đã Zoom/online",
+    "vp": "Khách lên văn phòng",
+    "ghi_chu": "Ghi chú",
+}
+
+
+def nhan_hen_ngan(moc: datetime, now_vn: datetime | None = None) -> str:
+    """«09:00 thứ Hai 16/11» — kèm thứ để sale soát nhanh bot hiểu đúng ngày."""
+    nam = "" if moc.year == (now_vn or gio_vn_naive()).year else f"/{moc.year}"
+    return f"{moc:%H:%M} {THU_VN[moc.weekday()]} {moc:%d/%m}{nam}"
+
+
+def nhan_viec(
+    viec: str | None, hen_luc: datetime | None = None, plan_type: str | None = None,
+    now_vn: datetime | None = None,
+) -> str:
+    """«Đã gặp trực tiếp · hẹn lại 09:00 thứ Ba 17/11», «Hẹn tư vấn offline 14:00 thứ Bảy 21/11»."""
+    phan = [NHAN_VIEC[viec]] if viec in NHAN_VIEC else []
+    if hen_luc is not None:
+        loai = NHAN_LOAI_HEN.get(plan_type or "")
+        phan.append(f"hẹn {loai.lower() if loai else 'lại'} {nhan_hen_ngan(hen_luc, now_vn)}")
+    s = " · ".join(phan)
+    return s[:1].upper() + s[1:]
+
+
 def moc_hen_sau(so_ngay: int, now_vn: datetime | None = None) -> datetime:
     """Mốc hẹn «sau N ngày»: 09:00 giờ VN của ngày đó (naive, như cột hen_tiep_luc)."""
     ngay = (now_vn or gio_vn_naive()).date() + timedelta(days=so_ngay)

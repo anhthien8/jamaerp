@@ -208,8 +208,11 @@ async def auto_parse_message(message: types.Message, state: FSMContext):
         await process_lead_text(message, state)
     else:
         await message.answer(
-            "💬 Tin nhắn không nhận diện được là lead.\n"
-            "Sử dụng /lead để nhập lead hoặc /help để xem lệnh."
+            "Bot chưa hiểu tin này.\n"
+            "• Khách mới: gõ /lead hoặc dán tên + SĐT khách.\n"
+            "• Khách đang chăm: trả lời (reply) vào tin bot về khách đó để ghi chú, "
+            "hoặc gõ kiểu «gặp anh Nam Vinhomes xong, khách xin 3 ngày».\n"
+            "• /help xem các lệnh."
         )
 
 

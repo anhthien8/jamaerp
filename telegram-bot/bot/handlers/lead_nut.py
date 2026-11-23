@@ -1,4 +1,4 @@
-"""Nút trên tin nhắc việc về lead (R00 mục 4, 14/11/2026).
+"""Làm việc với lead ngay trên tin bot (R00 mục 4, 7, 8 — 14-21/11/2026).
 
 Sale hiếm khi mở app: tin bot nhắc chăm khách / báo được giao lead kèm nút, một chạm là
 ghi xong vào ERP — cùng lõi với web (POST /telegram/lead/{id}/touch, server chỉ nhận
@@ -14,13 +14,26 @@ callback_data `ld:<việc>:<lead_id>` (≤64 byte):
   mat            mở danh sách lý do mất
   m0..m4         chuyển lead sang «Mất» với lý do tương ứng (PUT /leads/{id}/stage)
   bk             quay lại hàng nút chính
+
+Trả lời (reply) bằng chữ vào tin bot về một lead = ghi chú vào đúng lead đó (mục 7).
+
+Gõ tự do «gặp anh Nam Vinhomes xong, khách xin 3 ngày» (mục 8): server đoán việc + hẹn +
+lead trong số lead CỦA CHÍNH người gõ (POST /telegram/lead/doan), bot hỏi lại — không ghi mù:
+  lt:<v>:<hẹn>:<p>:<lead_id>   Đúng / chọn lead này → ghi
+  lk:<v>:<hẹn>:<p>:<lead_id>   Chọn lead khác
+  lx                           Huỷ
+  v: g gọi · m gặp · z Zoom · v khách lên VP · n ghi chú · h chỉ hẹn
+  hẹn: YYMMDDHHMM giờ VN hoặc «-» · p: o online · f offline · s khảo sát · «-»
 """
 
 import html
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 from aiogram import F, Router, types
+from aiogram.dispatcher.event.bases import SkipHandler
+from aiogram.filters import StateFilter
 
 from bot.api_client import api
 
@@ -128,13 +141,28 @@ def _the_tg(message: types.Message | None) -> dict:
     return {"telegram_message_id": message.message_id, "telegram_chat_id": message.chat.id}
 
 
-async def _bao_loi(callback: types.CallbackQuery, kq: dict | None) -> None:
+def _loi(kq: dict | None) -> str:
     if kq is None:
-        loi = "Không kết nối được ERP, thử lại sau ít phút"
-    else:
-        loi = kq.get("error")
-        loi = loi if isinstance(loi, str) else "Không ghi được, mở ERP để làm tiếp"
-    await callback.answer(loi[:190], show_alert=True)
+        return "Không kết nối được ERP, thử lại sau ít phút"
+    loi = kq.get("error")
+    return loi if isinstance(loi, str) else "Không ghi được, mở ERP để làm tiếp"
+
+
+async def _bao_loi(callback: types.CallbackQuery, kq: dict | None) -> None:
+    await callback.answer(_loi(kq)[:190], show_alert=True)
+
+
+def _tin_cua_nut(callback: types.CallbackQuery) -> types.Message | None:
+    """Tin chứa nút; None khi Telegram không còn cho sửa (tin quá cũ)."""
+    m = callback.message
+    return None if m is None or isinstance(m, types.InaccessibleMessage) else m
+
+
+def _ban_phim_lead(hang: Hang, lead: dict) -> types.InlineKeyboardMarkup | None:
+    """Các hàng nút + «Mở ERP» trỏ thẳng lead (server trả `mo_erp`)."""
+    url = lead.get("mo_erp")
+    tat_ca = [*hang, *([[types.InlineKeyboardButton(text="Mở ERP", url=url)]] if url else [])]
+    return types.InlineKeyboardMarkup(inline_keyboard=tat_ca) if tat_ca else None
 
 
 def _gio_hen(iso: str | None) -> str:
@@ -170,7 +198,7 @@ async def bam_nut_lead(callback: types.CallbackQuery):
     except ValueError:
         await callback.answer("Nút không hợp lệ", show_alert=True)
         return
-    msg = callback.message if isinstance(callback.message, types.Message) else None
+    msg = _tin_cua_nut(callback)
     tg_id = callback.from_user.id
 
     if viec in HANG_CON or viec == "kh":
@@ -222,3 +250,193 @@ async def bam_nut_lead(callback: types.CallbackQuery):
         return
 
     await callback.answer("Nút này không còn dùng nữa", show_alert=True)
+
+
+# ── Trả lời tin bot = ghi chú (mục 7) ────────────────────────────────────────
+
+_LINK_LEAD = re.compile(r"/leads\?id=([0-9a-fA-F-]{36})")
+
+
+def lead_cua_tin(message) -> str | None:
+    """Lead mà một tin của bot nói tới: nút `ld:` (id ở cuối) hoặc link «Mở ERP» `leads?id=`.
+
+    Không đọc nút `lt:`/`lk:` của câu hỏi «Ghi vào lead nào?» — lead đó chưa được xác nhận.
+    """
+    mk = getattr(message, "reply_markup", None)
+    for hang in mk.inline_keyboard if mk else []:
+        for b in hang:
+            if (b.callback_data or "").startswith("ld:"):
+                return b.callback_data.rsplit(":", 1)[-1]
+            m = _LINK_LEAD.search(b.url or "")
+            if m:
+                return m.group(1)
+    return None
+
+
+@router.message(
+    StateFilter(None), F.chat.type == "private", F.text & ~F.text.startswith("/"), F.reply_to_message,
+)
+async def tra_loi_tin_lead(message: types.Message):
+    lead_id = lead_cua_tin(message.reply_to_message)
+    if not lead_id:
+        raise SkipHandler()
+    kq = await api.lead_touch(
+        message.from_user.id, lead_id, {"viec": "ghi_chu", "noi_dung": message.text, **_the_tg(message)},
+    )
+    if not kq or kq.get("error"):
+        await message.reply(_loi(kq))
+        return
+    if not kq.get("moi_ghi"):
+        await message.reply("Ghi chú này đã ghi rồi.")
+        return
+    lead = kq.get("lead") or {}
+    await message.reply(
+        f"<b>Đã ghi chú</b> vào lead {html.escape(lead.get('name') or '')}\n{HOI_HEN}",
+        reply_markup=_ban_phim_lead(hang_hen(lead_id, sau_khi_ghi=True), lead),
+    )
+
+
+# ── Gõ tự do → hỏi lại → ghi (mục 8) ─────────────────────────────────────────
+
+MA_VIEC = {"goi": "g", "gap": "m", "zoom": "z", "vp": "v", "ghi_chu": "n", "hen": "h"}
+VIEC_CUA_MA = {ma: viec for viec, ma in MA_VIEC.items()}
+MA_LOAI_HEN = {"online": "o", "offline": "f", "survey": "s"}
+LOAI_HEN_CUA_MA = {ma: loai for loai, ma in MA_LOAI_HEN.items()}
+HOI_CHON = "Ghi vào lead nào?"
+SO_LEAD_CHON = 6
+
+
+def ma_viec(kq: dict) -> str:
+    """`<v>:<hẹn>:<p>` — việc server đoán, gói vào callback_data."""
+    hen = "-"
+    if kq.get("hen_tiep_luc"):
+        hen = datetime.fromisoformat(kq["hen_tiep_luc"]).strftime("%y%m%d%H%M")
+    return f"{MA_VIEC[kq['viec']]}:{hen}:{MA_LOAI_HEN.get(kq.get('plan_type') or '', '-')}"
+
+
+def _nut_cb(text: str, data: str) -> types.InlineKeyboardButton:
+    return types.InlineKeyboardButton(text=text, callback_data=data)
+
+
+def ban_phim_chon(ma: str, leads: list[dict]) -> types.InlineKeyboardMarkup:
+    hang, da = [], set()
+    for ld in leads:
+        if ld["id"] in da or len(hang) >= SO_LEAD_CHON:
+            continue
+        da.add(ld["id"])
+        ten = ld["name"] if len(ld["name"]) <= 40 else ld["name"][:39] + "…"
+        hang.append([_nut_cb(f"{ten} · …{ld.get('duoi_sdt') or ''}", f"lt:{ma}:{ld['id']}")])
+    hang.append([_nut_cb("Huỷ", "lx")])
+    return types.InlineKeyboardMarkup(inline_keyboard=hang)
+
+
+@router.message(StateFilter(None), F.chat.type == "private", F.text & ~F.text.startswith("/"))
+async def cau_tu_do(message: types.Message):
+    kq = await api.lead_doan(message.from_user.id, message.text)
+    if not kq or kq.get("error") or not kq.get("la_bao_cham") or kq.get("viec") not in MA_VIEC:
+        raise SkipHandler()  # không phải báo chăm khách → luồng nhập lead mới lo
+    ma = ma_viec(kq)
+    tom_tat = html.escape(kq.get("tom_tat") or "")
+    ung = kq.get("ung_vien") or []
+    if kq.get("chac_chan") and ung:
+        u = ung[0]
+        await message.reply(
+            f"{tom_tat}\nGhi vào lead <b>{html.escape(u['name'])}</b> "
+            f"({html.escape(u.get('stage_label') or '')}, SĐT đuôi {u.get('duoi_sdt') or ''})?",
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
+                [_nut_cb("Đúng", f"lt:{ma}:{u['id']}"), _nut_cb("Chọn lead khác", f"lk:{ma}:{u['id']}")],
+                [_nut_cb("Huỷ", "lx")],
+            ]),
+        )
+        return
+    leads = [*ung, *(kq.get("goi_y") or [])]
+    if not leads:
+        raise SkipHandler()
+    await message.reply(f"{tom_tat}\n{HOI_CHON}", reply_markup=ban_phim_chon(ma, leads))
+
+
+def _gio_hen_tu_ma(hen: str) -> datetime | None:
+    if hen == "-":
+        return None
+    try:
+        return datetime.strptime(hen, "%y%m%d%H%M")
+    except ValueError:
+        return None
+
+
+@router.callback_query(F.data.startswith(("lt:", "lk:")) | (F.data == "lx"))
+async def bam_xac_nhan_lead(callback: types.CallbackQuery):
+    msg = _tin_cua_nut(callback)
+    if callback.data == "lx":
+        if msg:
+            try:
+                await msg.edit_text("Đã huỷ, không ghi gì.", reply_markup=None)
+            except Exception as e:
+                logger.info("Không sửa được tin huỷ: %s", e)
+        await callback.answer("Đã huỷ")
+        return
+    try:
+        kieu, v, hen, p, lead_id = callback.data.split(":", 4)
+        viec = VIEC_CUA_MA[v]
+    except (ValueError, KeyError):
+        await callback.answer("Nút không hợp lệ", show_alert=True)
+        return
+    goc = getattr(msg, "reply_to_message", None) if msg else None
+    cau = (getattr(goc, "text", None) or "").strip()
+    tg_id = callback.from_user.id
+
+    if kieu == "lk":
+        kq = await api.lead_doan(tg_id, cau, dung_ai=False)
+        if not kq or kq.get("error"):
+            await _bao_loi(callback, kq)
+            return
+        khac = [ld for ld in [*(kq.get("ung_vien") or []), *(kq.get("goi_y") or [])] if ld["id"] != lead_id]
+        if not khac or msg is None:
+            await callback.answer("Không còn lead nào khác đang chăm. Mở ERP để chọn.", show_alert=True)
+            return
+        dong_dau = (msg.html_text or "").split("\n", 1)[0]
+        try:
+            await msg.edit_text(f"{dong_dau}\n{HOI_CHON}", reply_markup=ban_phim_chon(f"{v}:{hen}:{p}", khac))
+        except Exception as e:
+            logger.info("Không đổi được danh sách lead: %s", e)
+        await callback.answer()
+        return
+
+    # lt: ghi vào lead đã chọn
+    hen_luc = _gio_hen_tu_ma(hen)
+    qua_gio = hen_luc is not None and hen_luc <= datetime.now(VN).replace(tzinfo=None)
+    if qua_gio:
+        hen_luc = None
+    if viec == "hen" and hen_luc is None:
+        await callback.answer("Giờ hẹn đã qua — gõ lại giờ hẹn mới giúp nhé.", show_alert=True)
+        return
+    if viec == "ghi_chu" and not cau:
+        await callback.answer("Không thấy câu gốc để ghi — gõ lại giúp nhé.", show_alert=True)
+        return
+    payload = {"viec": viec, **_the_tg(goc)}
+    if cau:
+        payload["noi_dung"] = cau
+    if hen_luc is not None:
+        payload["hen_tiep_luc"] = hen_luc.isoformat()
+        if p in LOAI_HEN_CUA_MA:
+            payload["plan_type"] = LOAI_HEN_CUA_MA[p]
+    kq = await api.lead_touch(tg_id, lead_id, payload)
+    if not kq or kq.get("error"):
+        await _bao_loi(callback, kq)
+        return
+    await callback.answer("Đã ghi vào ERP" if kq.get("moi_ghi") else "Đã ghi rồi")
+    if msg is None:
+        return
+    lead = kq.get("lead") or {}
+    text = f"<b>Đã ghi</b> vào lead {html.escape(lead.get('name') or '')}: {html.escape(kq.get('nhan') or '')}"
+    if qua_gio:
+        text += "\nGiờ hẹn trong câu đã qua nên chưa đặt hẹn."
+    hoi_hen = hen_luc is None
+    if hoi_hen:
+        text += f"\n{HOI_HEN}"
+    try:
+        await msg.edit_text(
+            text, reply_markup=_ban_phim_lead(hang_hen(lead_id, sau_khi_ghi=True) if hoi_hen else [], lead),
+        )
+    except Exception as e:
+        logger.info("Không sửa được tin xác nhận lead: %s", e)

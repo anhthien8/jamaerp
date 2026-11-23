@@ -21,6 +21,8 @@ export const RELEASES: Release[] = [
     news: [
       'Mọi tin nhắc việc của bot có nút «Mở ERP»: bấm là mở thẳng đúng khách, dự án hoặc việc đó trên điện thoại.',
       'Tin nhắc chăm khách và tin báo được giao lead có nút «Đã gọi» · «Đã gặp/Zoom» · «Hẹn lại» (Mai / 3 ngày / 1 tuần): một chạm là ghi vào lịch sử khách y như trên web, không cần mở app. Số điện thoại khách nằm ngay trong tin, chạm là gọi. Chỉ khách mình phụ trách mới bấm được; lỡ bấm hai lần không bị ghi đôi.',
+      'Trả lời (reply) bằng chữ vào tin bot về một khách = ghi chú vào đúng khách đó, bot hỏi luôn «Hẹn lại khi nào?».',
+      'Gõ tự do cho bot, ví dụ «gặp anh Nam Vinhomes xong, khách xin 3 ngày»: bot tìm trong khách của chính bạn rồi hỏi lại «Ghi vào lead Anh Nam – Vinhomes?» kèm việc và ngày hẹn bot hiểu (có thứ trong tuần để soát). Bấm «Đúng» mới ghi; «Chọn lead khác» hoặc «Huỷ» thì không ghi gì. Gõ có dấu hay không dấu đều được.',
     ],
     fixes: [
       'Nhắc việc không còn «im» khi bạn chưa mở thông báo cũ: việc chưa xong thì mỗi sáng nhắc một lần (HĐLĐ sắp hết hạn: mỗi tuần; bảo hành: mỗi mốc một lần).',
@@ -30,6 +32,8 @@ export const RELEASES: Release[] = [
     test: [
       'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',
       'Trên tin nhắc chăm khách của bot: bấm «Đã gặp/Zoom» → «Zoom/online», rồi mở thẻ khách trên web → lịch sử có dòng «Đã tư vấn khách qua Zoom/online», «Liên hệ lần cuối» là giờ vừa bấm, thông báo về khách đó đã đọc.',
+      'Trả lời vào tin nhắc chăm khách bằng một câu ghi chú → lịch sử khách trên web có đúng câu đó.',
+      'Gõ cho bot «gọi anh <tên khách của bạn> rồi, hẹn thứ 3 tuần sau» → bot hỏi lại đúng khách và đúng ngày; bấm «Huỷ» thì lịch sử không đổi, bấm «Đúng» thì có dòng «Đã gọi» và hẹn tiếp.',
     ],
   },
   {

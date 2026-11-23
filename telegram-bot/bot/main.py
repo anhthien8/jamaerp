@@ -187,10 +187,12 @@ async def main():
     dp.include_router(start.router)
     dp.include_router(help_cmd.router)
     dp.include_router(vat_tu_nhap.router)  # /nhapmau, /baogia (Thu mua)
+    # lead_nut TRƯỚC lead_intake: trả lời tin bot / gõ tự do về khách cũ được hỏi lại rồi ghi;
+    # không phải báo chăm khách thì SkipHandler → lead_intake nhận như khách mới (R00 mục 7-8).
+    dp.include_router(lead_nut.router)
     dp.include_router(lead_intake.router)
     dp.include_router(pipeline.router)
     dp.include_router(briefing.router)
-    dp.include_router(lead_nut.router)     # nút ld:… trên tin nhắc việc lead (R00)
     dp.include_router(site_report.router)
     dp.include_router(material_request.router)
     dp.include_router(incident.router)

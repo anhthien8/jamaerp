@@ -215,6 +215,13 @@ class APIClient:
             tg_user_id, f"/telegram/lead/{lead_id}/touch", payload, error_default="Không ghi được",
         )
 
+    async def lead_doan(self, tg_user_id: int, text: str, dung_ai: bool = True) -> dict | None:
+        """Câu sale gõ tự do → server đoán việc + hẹn + lead của chính người gõ. Chỉ đoán, không ghi."""
+        return await self._post(
+            tg_user_id, "/telegram/lead/doan", {"text": text, "dung_ai": dung_ai},
+            error_default="Không đọc được câu", timeout=20.0,
+        )
+
     # ── Telegram workflow endpoints ──────────────────────────────────────────
 
     async def get_project(self, tg_user_id: int, project_code: str) -> dict | None:

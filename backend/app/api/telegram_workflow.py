@@ -28,7 +28,9 @@ from app.middleware.rbac import duoc_xem_lead
 from app.models.lead import Lead
 from app.schemas.lead import _ngay_naive_vn
 from app.services.automation import gio_vn_naive
-from app.services.lead_touch import VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
+from app.services.hieu_cau_sale import doan_cau_sale
+from app.services.lead_touch import VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau, nhan_viec
+from app.services.telegram_notify import erp_url
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy model: MaterialRequest (pending approval workflow)
@@ -989,6 +991,7 @@ def tom_tat_lead_cho_bot(lead: Lead) -> dict:
         "stage_label": STAGE_LABELS.get(lead.stage, lead.stage),
         "plan_type": lead.plan_type,
         "hen_tiep_luc": lead.hen_tiep_luc.isoformat() if lead.hen_tiep_luc else None,
+        "mo_erp": erp_url(f"/leads?id={lead.id}"),
     }
 
 
@@ -1050,5 +1053,26 @@ async def lead_touch(
         "activity_id": act.id,
         "loai": act.type,
         "noi_dung": act.content,
+        "nhan": nhan_viec(data.viec, hen_luc, data.plan_type),
         "lead": tom_tat_lead_cho_bot(lead),
     }
+
+
+class LeadDoanRequest(BaseModel):
+    text: str = Field(default="", max_length=2000)
+    dung_ai: bool = True
+
+
+@router.post("/lead/doan")
+async def lead_doan(
+    data: LeadDoanRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Đoán câu sale gõ tự do cho bot (R00 mục 8): việc gì, hẹn khi nào, lead nào.
+
+    Chỉ dò trong lead CỦA CHÍNH người gõ và CHỈ ĐOÁN, không ghi: bot hỏi lại «Ghi vào lead
+    X: …?», sale bấm «Đúng» thì bot mới gọi `/lead/{id}/touch`. Chữ rỗng → vài lead đang
+    chăm để chọn.
+    """
+    return await doan_cau_sale(db, current_user, data.text, dung_ai=data.dung_ai)

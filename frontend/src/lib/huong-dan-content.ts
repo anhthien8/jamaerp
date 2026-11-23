@@ -1659,6 +1659,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "text": "**Ghi chăm khách ngay trên tin bot (Kinh doanh):** tin nhắc chăm khách và tin báo được giao lead có nút **«Đã gọi»**, **«Đã gặp/Zoom»** (chọn tiếp Gặp trực tiếp / Zoom-online / Khách lên văn phòng) và **«Hẹn lại»** (Mai / 3 ngày / 1 tuần, hẹn lúc 9:00); số điện thoại khách nằm ngay trong tin, chạm vào số là gọi. Bấm nút là ghi xong vào lịch sử khách y như ghi trên web, thông báo về khách đó tự chuyển sang đã đọc. Ghi xong bot hỏi luôn «Hẹn lại khi nào?» — có hẹn ở phía trước thì bot thôi nhắc khách đó. Chỉ bấm được trên khách mình đang phụ trách; lỡ bấm hai lần cũng không bị ghi đôi."
       },
       {
+        "type": "tip",
+        "text": "**Ghi chú bằng cách trả lời tin:** giữ (hoặc vuốt) tin bot về một khách → **Trả lời** → gõ ghi chú → gửi. Ghi chú vào đúng khách đó, bot hỏi luôn «Hẹn lại khi nào?»."
+      },
+      {
+        "type": "tip",
+        "text": "**Gõ tự do cho bot:** nhắn kiểu «gặp anh Nam Vinhomes xong, khách xin 3 ngày», «đã gọi chị Mai, hẹn thứ 3 tuần sau khảo sát» hoặc «đuôi 678 hẹn mai». Bot chỉ tìm trong **khách của chính bạn**, rồi hỏi lại «Ghi vào lead …?» kèm việc và ngày hẹn (có thứ trong tuần để soát). Bot **không tự ghi**: bấm **«Đúng»** mới ghi, **«Chọn lead khác»** để chọn khách khác, **«Huỷ»** là thôi. Gõ có dấu hay không dấu đều được; gửi SĐT của khách chưa có thì bot hiểu là khách mới như trước."
+      },
+      {
         "type": "h3",
         "text": "Gõ /help để bot tự hướng dẫn"
       },
