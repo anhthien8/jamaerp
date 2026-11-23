@@ -148,6 +148,14 @@ class APIClient:
         except Exception:
             return None
 
+    async def ban_tin(self, tg_user_id: int) -> dict | None:
+        """Bản tin «Hôm nay của bạn» (HTML + bàn phím) — /briefing dùng cùng nội dung tin 07:00."""
+        return await self._get(tg_user_id, "/telegram/ban-tin")
+
+    async def lead_the(self, tg_user_id: int, lead_id: str) -> dict | None:
+        """Thẻ khách (tên, giai đoạn, SĐT, hẹn, link ERP) — chỉ lead mình phụ trách."""
+        return await self._get(tg_user_id, f"/telegram/lead/{lead_id}/the")
+
     async def get_personal_dashboard(self, tg_user_id: int) -> dict | None:
         """Get personal dashboard for daily briefing."""
         try:

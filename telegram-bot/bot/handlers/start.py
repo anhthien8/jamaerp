@@ -78,22 +78,11 @@ async def cb_pipeline(callback: types.CallbackQuery):
 
 @router.callback_query(lambda c: c.data == "cmd_briefing")
 async def cb_briefing(callback: types.CallbackQuery):
-    await callback.message.edit_text("📋 Đang tạo briefing...")
-    result = await api.get_personal_dashboard(callback.from_user.id)
-    if result:
-        lines = [
-            "📋 <b>Briefing hôm nay:</b>\n",
-            f"👥 Leads đang quản lý: {result.get('total_active_leads', 0)}",
-            f"💰 Giá trị pipeline: {result.get('pipeline_value', 0):,}đ",
-        ]
-        overdue = result.get("overdue_followup", [])
-        if overdue:
-            lines.append(f"\n⚠️ <b>Cần follow-up ({len(overdue)} leads):</b>")
-            for item in overdue[:3]:
-                lines.append(f"  • {item['name']} — {item.get('phone', '')}")
-        await callback.message.edit_text("\n".join(lines))
-    else:
-        await callback.message.edit_text("❌ Không thể tải briefing")
+    """Nút «Briefing» ở /start — cùng bản tin «Hôm nay của bạn» với /briefing (R00 mục 10)."""
+    from bot.handlers.briefing import ban_tin_hom_nay
+
+    text, mk = await ban_tin_hom_nay(callback.from_user.id)
+    await callback.message.answer(text, reply_markup=mk)
     await callback.answer()
 
 

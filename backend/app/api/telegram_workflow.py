@@ -29,6 +29,7 @@ from app.models.lead import Lead
 from app.schemas.lead import _ngay_naive_vn
 from app.services.automation import gio_vn_naive
 from app.services.hieu_cau_sale import doan_cau_sale
+from app.services.nhip_sale import cac_hen, dung_ban_tin
 from app.services.lead_touch import VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau, nhan_viec
 from app.services.telegram_notify import erp_url
 
@@ -980,6 +981,24 @@ class LeadTouchRequest(BaseModel):
     _hen = field_validator("hen_tiep_luc")(_ngay_naive_vn)
 
 
+async def _lead_cua_toi(db: AsyncSession, lead_id: str, user: User) -> Lead:
+    """Lead người gọi đang phụ trách — nút Telegram chỉ làm việc trên khách của mình."""
+    if not duoc_xem_lead(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ bộ phận Kinh doanh và Ban Giám Đốc được xem dữ liệu lead",
+        )
+    lead = await db.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead không tồn tại")
+    if lead.assigned_to != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Lead này không do bạn phụ trách",
+        )
+    return lead
+
+
 def tom_tat_lead_cho_bot(lead: Lead) -> dict:
     """Vài trường bot cần để vẽ lại tin sau khi bấm (không có giá, không có SĐT)."""
     from app.api.leads import STAGE_LABELS
@@ -1008,19 +1027,7 @@ async def lead_touch(
     «liên hệ lần cuối» (trừ hẹn lịch), thông báo về lead này của người bấm → đã đọc.
     Bấm lặp trong 2 phút trả lại bản ghi cũ (`moi_ghi=false`).
     """
-    if not duoc_xem_lead(current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chỉ bộ phận Kinh doanh và Ban Giám Đốc được xem dữ liệu lead",
-        )
-    lead = await db.get(Lead, lead_id)
-    if lead is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead không tồn tại")
-    if lead.assigned_to != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Lead này không do bạn phụ trách",
-        )
+    lead = await _lead_cua_toi(db, lead_id, current_user)
 
     hen_luc = data.hen_tiep_luc
     if hen_luc is None and data.hen_sau_ngay:
@@ -1076,3 +1083,34 @@ async def lead_doan(
     chăm để chọn.
     """
     return await doan_cau_sale(db, current_user, data.text, dung_ai=data.dung_ai)
+
+
+@router.get("/lead/{lead_id}/the")
+async def lead_the(
+    lead_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Thẻ khách cho bot (bấm một dòng của bản tin sáng): tên, giai đoạn, SĐT, các hẹn.
+
+    Chỉ người đang phụ trách lead; không có giá.
+    """
+    lead = await _lead_cua_toi(db, lead_id, current_user)
+    return {"lead": {
+        **tom_tat_lead_cho_bot(lead),
+        "phone": lead.phone,
+        "hen": [{"luc": moc.isoformat(), "loai": loai} for moc, loai in cac_hen(lead)],
+    }}
+
+
+@router.get("/ban-tin")
+async def ban_tin(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bản tin «Hôm nay của bạn» cho /briefing của bot — cùng nội dung tin 07:00 (R00 mục 10).
+
+    `text` là HTML Telegram, `reply_markup` là bàn phím nút; không có việc → cả hai None.
+    """
+    bt = await dung_ban_tin(db, current_user)
+    return {"text": bt["text"] if bt else None, "reply_markup": bt["reply_markup"] if bt else None}

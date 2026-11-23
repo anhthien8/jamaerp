@@ -190,6 +190,32 @@ async def trigger_payments(
     return result
 
 
+@router.post("/run/ban-tin-sang")
+async def trigger_ban_tin_sang(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_admin),
+):
+    """Chạy tay bản tin sáng «Hôm nay của bạn» (mỗi người vẫn chỉ nhận 1 bản/ngày)."""
+    from app.services.nhip_sale import run_ban_tin_sang
+
+    result = await run_ban_tin_sang(db)
+    await db.commit()
+    return result
+
+
+@router.post("/run/hoi-ket-qua-hen")
+async def trigger_hoi_ket_qua_hen(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_admin),
+):
+    """Chạy tay câu hỏi kết quả buổi hẹn (chỉ trong 08:00-21:00; mỗi buổi hẹn hỏi 1 lần)."""
+    from app.services.nhip_sale import run_hoi_ket_qua_hen
+
+    result = await run_hoi_ket_qua_hen(db)
+    await db.commit()
+    return result
+
+
 @router.post("/run/all")
 async def trigger_all(
     db: AsyncSession = Depends(get_db),

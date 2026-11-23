@@ -112,6 +112,27 @@ def nut_lead(lead_id: str) -> list[list[dict]]:
     ]
 
 
+def nut_ket_qua_hen(lead_id: str) -> list[list[dict]]:
+    """Hàng nút trên câu hỏi «Buổi hẹn với {khách} thế nào?» (R00 mục 9).
+
+    Khớp `hang_ket_qua()` của bot (lead_nut.py): «Chốt được» mở thẳng form Deal thắng của
+    lead trên web (`/leads?id=…&chot=1`); tt = cần theo tiếp (chọn hẹn), ho = khách hoãn,
+    mk = mất (chọn lý do).
+    """
+    hang: list[dict] = []
+    url = erp_url(f"/leads?id={lead_id}&chot=1")
+    if url:
+        hang.append({"text": "Chốt được", "url": url})
+    hang.append({"text": "Cần theo tiếp", "callback_data": f"ld:tt:{lead_id}"})
+    return [
+        hang,
+        [
+            {"text": "Khách hoãn", "callback_data": f"ld:ho:{lead_id}"},
+            {"text": "Mất", "callback_data": f"ld:mk:{lead_id}"},
+        ],
+    ]
+
+
 def ban_phim(nut: list[list[dict]] | None = None, link: str | None = None) -> dict | None:
     """InlineKeyboardMarkup: các hàng nút `nut` + hàng «Mở ERP» cuối cùng (khi có link)."""
     hang = [list(h) for h in (nut or []) if h]

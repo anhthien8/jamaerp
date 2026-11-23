@@ -179,41 +179,53 @@ async def _lan_giao_cuoi(db: AsyncSession) -> dict[str, datetime]:
 # 1. Follow-up reminders — nhắc CSKH mỗi 3-5 ngày
 # ---------------------------------------------------------------------------
 
-async def run_followup_reminders(db: AsyncSession) -> dict:
-    """Notify assigned sales about leads not contacted for N days."""
+async def ds_lead_can_goi(db: AsyncSession, user_id: str | None = None) -> list[tuple[Lead, int]]:
+    """Lead quá hạn chăm: không có hẹn tới, mốc chăm cũ hơn `followup_reminder_days` ngày.
+
+    Trả [(lead, số ngày chưa chạm)], lâu nhất trước. MỘT luật cho nhắc trong chuông
+    (run_followup_reminders) và mục «Cần gọi» của bản tin sáng (services/nhip_sale).
+    """
     settings = await get_automation_settings(db)
     days = _int_setting(settings, "followup_reminder_days", 3)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
-    result = await db.execute(
-        select(Lead).where(
-            Lead.stage.in_(ACTIVE_LEAD_STAGES),
-            Lead.assigned_to.is_not(None),
-        )
-    )
-    leads = result.scalars().all()
+    bay_gio = datetime.now(timezone.utc)
+    cutoff = bay_gio - timedelta(days=days)
+    q = select(Lead).where(Lead.stage.in_(ACTIVE_LEAD_STAGES), Lead.assigned_to.is_not(None))
+    if user_id:
+        q = q.where(Lead.assigned_to == user_id)
+    leads = (await db.execute(q)).scalars().all()
     now_vn = gio_vn_naive()
     giao = await _lan_giao_cuoi(db)
-
-    reminded = 0
+    ra: list[tuple[Lead, int]] = []
     for lead in leads:
         if co_hen_toi(lead, now_vn):
             continue  # có hẹn tương lai = đang chăm, không nhắc
         moc = _moc_cham(lead, giao.get(lead.id), now_vn)
-        if moc > cutoff:
-            continue
+        if moc <= cutoff:
+            ra.append((lead, (bay_gio - moc).days))
+    ra.sort(key=lambda x: -x[1])
+    return ra
+
+
+async def run_followup_reminders(db: AsyncSession) -> dict:
+    """Nhắc TRONG CHUÔNG cho sale về lead lâu chưa liên hệ.
+
+    Telegram không còn gửi lẻ từng lead (R00 mục 10, 21/11/2026): các lead này nằm ở mục
+    «Cần gọi» của bản tin sáng «Hôm nay của bạn», mỗi dòng một nút mở thẻ khách.
+    """
+    settings = await get_automation_settings(db)
+    days = _int_setting(settings, "followup_reminder_days", 3)
+    reminded = 0
+    for lead, overdue_days in await ds_lead_can_goi(db):
         user = await db.get(User, lead.assigned_to)
-        overdue_days = (datetime.now(timezone.utc) - moc).days
         sent = await _notify(
             db,
             user,
             "followup_reminder",
             f"Nhắc chăm sóc KH: {lead.name}",
-            f"Lead \"{lead.name}\" — SĐT {lead.phone} — đã {overdue_days} ngày chưa được liên hệ. "
-            f"Liên hệ xong bấm nút bên dưới để ghi, khỏi mở web.",
+            f"Lead \"{lead.name}\" — SĐT {lead.phone} — đã {overdue_days} ngày chưa được liên hệ.",
             link=f"/leads?id={lead.id}",
             ref_id=lead.id,
-            nut=nut_lead(lead.id),
+            telegram=False,
         )
         if sent:
             reminded += 1

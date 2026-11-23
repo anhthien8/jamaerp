@@ -14,6 +14,14 @@ callback_data `ld:<việc>:<lead_id>` (≤64 byte):
   mat            mở danh sách lý do mất
   m0..m4         chuyển lead sang «Mất» với lý do tương ứng (PUT /leads/{id}/stage)
   bk             quay lại hàng nút chính
+Kết quả buổi hẹn (R00 mục 9 — câu hỏi «Buổi hẹn với {khách} thế nào?»; «Chốt được» là nút url):
+  tt             cần theo tiếp → chọn hẹn (Mai / 3 ngày / 1 tuần)
+  ho             khách hoãn → ghi chú «Khách hoãn buổi hẹn», hỏi hẹn lại khi nào
+  mk             mất → chọn lý do (quay lại = kq)
+  kq             quay lại hàng nút kết quả
+Bản tin sáng (R00 mục 10 — một tin nhiều khách, mỗi dòng một nút):
+  bt             gửi thẻ khách kèm hàng nút chính
+  bq             gửi thẻ khách kèm hàng nút kết quả buổi hẹn (hẹn hôm qua chưa có kết quả)
 
 Trả lời (reply) bằng chữ vào tin bot về một lead = ghi chú vào đúng lead đó (mục 7).
 
@@ -53,7 +61,16 @@ LY_DO_MAT = [
 
 HOI_HEN = "Hẹn lại khi nào?"
 SO_NGAY_HEN = {"h1": 1, "h3": 3, "h7": 7}
-VIEC_GHI = {"goi", "gap", "zoom", "vp"}
+# Nút ghi ngay một dòng vào lịch sử khách → payload gửi /telegram/lead/{id}/touch.
+GHI_NHANH: dict[str, dict] = {
+    "goi": {"viec": "goi"},
+    "gap": {"viec": "gap"},
+    "zoom": {"viec": "zoom"},
+    "vp": {"viec": "vp"},
+    "ho": {"viec": "ghi_chu", "noi_dung": "Khách hoãn buổi hẹn"},
+}
+MA_BAN_TIN = {"bt", "bq"}  # nút một dòng của bản tin sáng (tin nhiều khách)
+THU_VN = ("thứ Hai", "thứ Ba", "thứ Tư", "thứ Năm", "thứ Sáu", "thứ Bảy", "Chủ nhật")
 
 Hang = list[list[types.InlineKeyboardButton]]
 
@@ -70,10 +87,10 @@ def hang_nut_chinh(lead_id: str) -> Hang:
     ]
 
 
-def hang_hen(lead_id: str, *, sau_khi_ghi: bool = False) -> Hang:
+def hang_hen(lead_id: str, *, sau_khi_ghi: bool = False, quay_lai: str = "bk") -> Hang:
     """Chọn ngày hẹn. Ngay sau khi ghi một lần chạm: «Không hẹn» khép lại tin;
-    mở từ hàng chính: «Quay lại» (chưa ghi gì, đổi ý thì về hàng chính)."""
-    cuoi = _nut("Không hẹn", "kh", lead_id) if sau_khi_ghi else _nut("Quay lại", "bk", lead_id)
+    mở từ hàng nút: «Quay lại» (chưa ghi gì, đổi ý thì về hàng `quay_lai`)."""
+    cuoi = _nut("Không hẹn", "kh", lead_id) if sau_khi_ghi else _nut("Quay lại", quay_lai, lead_id)
     return [
         [_nut("Mai", "h1", lead_id), _nut("3 ngày", "h3", lead_id), _nut("1 tuần", "h7", lead_id)],
         [cuoi],
@@ -94,7 +111,29 @@ def hang_ly_do_mat(lead_id: str, quay_lai: str = "bk") -> Hang:
     return hang
 
 
-HANG_CON = {"gz": hang_gap, "hl": hang_hen, "mat": hang_ly_do_mat, "bk": hang_nut_chinh}
+def hang_ket_qua(lead_id: str, url_lead: str | None = None) -> Hang:
+    """Kết quả buổi hẹn — khớp `nut_ket_qua_hen()` phía server. «Chốt được» mở thẳng form
+    Deal thắng của lead trên web (cần link lead dạng .../leads?id=<id>)."""
+    chot = (
+        [types.InlineKeyboardButton(text="Chốt được", url=f"{url_lead}&chot=1")]
+        if url_lead and "leads?id=" in url_lead else []
+    )
+    return [
+        [*chot, _nut("Cần theo tiếp", "tt", lead_id)],
+        [_nut("Khách hoãn", "ho", lead_id), _nut("Mất", "mk", lead_id)],
+    ]
+
+
+HANG_CON = {
+    "gz": hang_gap, "hl": hang_hen, "mat": hang_ly_do_mat, "bk": hang_nut_chinh,
+    "tt": lambda lead_id: hang_hen(lead_id, quay_lai="kq"),
+    "mk": lambda lead_id: hang_ly_do_mat(lead_id, quay_lai="kq"),
+}
+
+
+def _url_mo_erp(message: types.Message) -> str | None:
+    hang = _nut_mo_erp(message)
+    return hang[0][0].url if hang else None
 
 
 def _nut_mo_erp(message: types.Message) -> Hang:
@@ -184,10 +223,47 @@ async def _doi_ban_phim(callback: types.CallbackQuery, msg: types.Message | None
             # «Không hẹn» sau khi ghi: bỏ câu hỏi, chỉ còn «Mở ERP».
             goc, _ = _bo_cau_hoi_hen(msg.html_text or "")
             await msg.edit_text(goc, reply_markup=_ban_phim(msg, []))
+        elif viec == "kq":
+            await msg.edit_reply_markup(reply_markup=_ban_phim(msg, hang_ket_qua(lead_id, _url_mo_erp(msg))))
         else:
             await msg.edit_reply_markup(reply_markup=_ban_phim(msg, HANG_CON[viec](lead_id)))
     except Exception as e:
         logger.info("Không đổi được bàn phím lead: %s", e)
+    await callback.answer()
+
+
+def _hen_ngan(iso: str | None) -> str:
+    """«09:00 thứ Ba 24/11» — như nhãn hẹn phía server (lead_touch.nhan_hen_ngan)."""
+    try:
+        m = datetime.fromisoformat(iso or "")
+    except ValueError:
+        return iso or ""
+    nam = "" if m.year == datetime.now(VN).year else f"/{m.year}"
+    return f"{m:%H:%M} {THU_VN[m.weekday()]} {m:%d/%m}{nam}"
+
+
+async def _gui_the_khach(callback: types.CallbackQuery, msg: types.Message | None, viec: str, lead_id: str):
+    """Bấm một dòng của bản tin sáng → gửi thẻ khách (SĐT bấm gọi được) kèm nút làm việc."""
+    if msg is None:
+        await callback.answer("Bản tin đã quá cũ — gõ /briefing để lấy bản mới", show_alert=True)
+        return
+    kq = await api.lead_the(callback.from_user.id, lead_id)
+    if not kq or kq.get("error"):
+        await _bao_loi(callback, kq)
+        return
+    lead = kq.get("lead") or {}
+
+    def e(x):
+        return html.escape(x or "")
+
+    dong = [f"<b>{e(lead.get('name'))}</b> · {e(lead.get('stage_label'))}", f"SĐT {e(lead.get('phone'))}"]
+    dong += [f"{e(h.get('loai'))}: {_hen_ngan(h.get('luc'))}" for h in lead.get("hen") or []]
+    if viec == "bq":
+        dong.append("Buổi hẹn hôm qua thế nào?")
+        hang = hang_ket_qua(lead_id, lead.get("mo_erp"))
+    else:
+        hang = hang_nut_chinh(lead_id)
+    await msg.answer("\n".join(dong), reply_markup=_ban_phim_lead(hang, lead))
     await callback.answer()
 
 
@@ -201,13 +277,17 @@ async def bam_nut_lead(callback: types.CallbackQuery):
     msg = _tin_cua_nut(callback)
     tg_id = callback.from_user.id
 
-    if viec in HANG_CON or viec == "kh":
+    if viec in HANG_CON or viec in ("kh", "kq"):
         await _doi_ban_phim(callback, msg, viec, lead_id)
         return
 
+    if viec in MA_BAN_TIN:
+        await _gui_the_khach(callback, msg, viec, lead_id)
+        return
+
     # Ghi một lần chạm khách → hỏi luôn hẹn lại khi nào.
-    if viec in VIEC_GHI:
-        kq = await api.lead_touch(tg_id, lead_id, {"viec": viec, **_the_tg(msg)})
+    if viec in GHI_NHANH:
+        kq = await api.lead_touch(tg_id, lead_id, {**GHI_NHANH[viec], **_the_tg(msg)})
         if not kq or kq.get("error"):
             await _bao_loi(callback, kq)
             return
@@ -263,14 +343,19 @@ def lead_cua_tin(message) -> str | None:
     Không đọc nút `lt:`/`lk:` của câu hỏi «Ghi vào lead nào?» — lead đó chưa được xác nhận.
     """
     mk = getattr(message, "reply_markup", None)
+    ids: set[str] = set()
     for hang in mk.inline_keyboard if mk else []:
         for b in hang:
-            if (b.callback_data or "").startswith("ld:"):
-                return b.callback_data.rsplit(":", 1)[-1]
+            d = b.callback_data or ""
+            if d.startswith("ld:"):
+                _, ma, lead_id = d.split(":", 2)
+                if ma in MA_BAN_TIN:
+                    return None  # bản tin sáng nói về nhiều khách → không đoán
+                ids.add(lead_id)
             m = _LINK_LEAD.search(b.url or "")
             if m:
-                return m.group(1)
-    return None
+                ids.add(m.group(1))
+    return ids.pop() if len(ids) == 1 else None
 
 
 @router.message(

@@ -7,17 +7,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.api_client import api
+from bot.nhan_giai_doan import NHAN_GIAI_DOAN
 
 router = Router()
 
-STAGE_LABELS = {
-    "new": "Mới tiếp nhận",
-    "interested": "Có nhu cầu",
-    "surveyed": "Đã khảo sát",
-    "survey_scheduled": "Đã hẹn khảo sát",
-    "potential": "KH tiềm năng",
-    "signed_design": "Ký thiết kế",
-}
+STAGE_LABELS = NHAN_GIAI_DOAN  # một bảng nhãn với backend/web (R00 §E)
 
 
 class LeadIntakeState(StatesGroup):

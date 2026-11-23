@@ -163,7 +163,8 @@ def _hang_lead(lead_id: str) -> list[list[dict]]:
 
 
 @pytest.mark.asyncio
-async def test_nhac_cham_soc_kem_nut_lead_va_sdt_trong_chu(db_session, sales_user, monkeypatch):
+async def test_nhac_cham_soc_chi_trong_chuong_telegram_do_ban_tin_sang_lo(db_session, sales_user, monkeypatch):
+    """R00 mục 10: nhắc chăm khách lẻ không đẩy Telegram nữa — nằm ở mục «Cần gọi» của bản tin sáng."""
     gui = _bat_tin(monkeypatch)
     sales_user.telegram_user_id = 555002
     lead = _lead_qua_han(sales_user.id, so_ngay=5)
@@ -171,13 +172,11 @@ async def test_nhac_cham_soc_kem_nut_lead_va_sdt_trong_chu(db_session, sales_use
     await db_session.commit()
 
     assert (await automation.run_followup_reminders(db_session))["reminded"] == 1
-    chat, text, mk = gui[0]
-    assert chat == 555002
-    assert "0909000111" in text  # SĐT nằm trong chữ — Telegram tự biến thành số bấm gọi
-    assert mk["inline_keyboard"] == _hang_lead(lead.id)
-    # callback_data của Telegram tối đa 64 byte — lead id là uuid 36 ký tự
-    assert all(len(b["callback_data"].encode()) <= 64
-               for h in mk["inline_keyboard"] for b in h if "callback_data" in b)
+    assert gui == []
+    n = (await db_session.execute(
+        select(Notification).where(Notification.type == "followup_reminder", Notification.ref_id == lead.id)
+    )).scalar_one()
+    assert "0909000111" in n.body and n.link == f"/leads?id={lead.id}"
 
 
 @pytest.mark.asyncio

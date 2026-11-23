@@ -95,6 +95,8 @@ class BackgroundWorker:
         self._last_zalo_unanswered: float = 0.0  # Trợ lý Zalo: quét khách chờ, mỗi 10 phút
         self._last_zalo_digest_date: str = ""    # "YYYY-MM-DD" (VN time) — tóm tắt cuối ngày + xóa tin thô
         self._last_che_do_thuong: float = 0.0  # Chế độ thưởng: báo mốc hũ, chụp số Zalo, tự chốt — mỗi giờ
+        self._last_hoi_ket_qua_hen: float = 0.0  # R00 mục 9: hỏi kết quả buổi hẹn — mỗi 15 phút
+        self._last_ban_tin_date: str = ""        # R00 mục 10: bản tin sáng «Hôm nay của bạn» — 07:00 VN
         self._start_time: float = 0.0
         self._tasks_processed: int = 0
         self._tasks_failed: int = 0
@@ -247,6 +249,25 @@ class BackgroundWorker:
                     "cskh_automation",
                     process_automation,
                     priority=TaskPriority.HIGH,
+                )
+
+            # Bản tin sáng «Hôm nay của bạn» cho sale (R00 mục 10). Cờ RAM mất khi khởi
+            # động lại — chống gửi đôi nằm ở DB (thông báo ban_tin_sang theo ngày).
+            if vn_now.hour >= 7 and self._last_ban_tin_date != today_str:
+                self._last_ban_tin_date = today_str
+                self.enqueue_task(
+                    "ban_tin_sang",
+                    process_ban_tin_sang,
+                    priority=TaskPriority.HIGH,
+                )
+
+            # Hỏi kết quả buổi hẹn (R00 mục 9) — job tự bỏ qua ngoài 08:00-21:00.
+            if now - self._last_hoi_ket_qua_hen >= 900:
+                self._last_hoi_ket_qua_hen = now
+                self.enqueue_task(
+                    "hoi_ket_qua_hen",
+                    process_hoi_ket_qua_hen,
+                    priority=TaskPriority.NORMAL,
                 )
 
             # Daily backup at configured hour (default 05:00 VN)
@@ -710,6 +731,36 @@ async def process_automation() -> dict[str, Any]:
         return {"status": "completed", "result": result}
     except Exception as exc:
         logger.exception("CSKH automation failed: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_ban_tin_sang() -> dict[str, Any]:
+    """Bản tin sáng «Hôm nay của bạn» (R00 mục 10)."""
+    try:
+        from app.database import async_session
+        from app.services.nhip_sale import run_ban_tin_sang
+
+        async with async_session() as session:
+            result = await run_ban_tin_sang(session)
+            await session.commit()
+        return {"status": "completed", "result": result}
+    except Exception as exc:
+        logger.exception("Bản tin sáng lỗi: %s", exc)
+        return {"status": "failed", "error": str(exc)}
+
+
+async def process_hoi_ket_qua_hen() -> dict[str, Any]:
+    """Hỏi kết quả buổi hẹn 2 tiếng sau giờ hẹn (R00 mục 9)."""
+    try:
+        from app.database import async_session
+        from app.services.nhip_sale import run_hoi_ket_qua_hen
+
+        async with async_session() as session:
+            result = await run_hoi_ket_qua_hen(session)
+            await session.commit()
+        return {"status": "completed", "result": result}
+    except Exception as exc:
+        logger.exception("Hỏi kết quả buổi hẹn lỗi: %s", exc)
         return {"status": "failed", "error": str(exc)}
 
 

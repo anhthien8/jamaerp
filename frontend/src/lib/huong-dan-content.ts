@@ -1657,7 +1657,15 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Ghi chăm khách ngay trên tin bot (Kinh doanh):** tin nhắc chăm khách và tin báo được giao lead có nút **«Đã gọi»**, **«Đã gặp/Zoom»** (chọn tiếp Gặp trực tiếp / Zoom-online / Khách lên văn phòng) và **«Hẹn lại»** (Mai / 3 ngày / 1 tuần, hẹn lúc 9:00); số điện thoại khách nằm ngay trong tin, chạm vào số là gọi. Bấm nút là ghi xong vào lịch sử khách y như ghi trên web, thông báo về khách đó tự chuyển sang đã đọc. Ghi xong bot hỏi luôn «Hẹn lại khi nào?» — có hẹn ở phía trước thì bot thôi nhắc khách đó. Chỉ bấm được trên khách mình đang phụ trách; lỡ bấm hai lần cũng không bị ghi đôi."
+        "text": "**Bản tin sáng «Hôm nay của bạn» (Kinh doanh):** khoảng 7 giờ sáng bot gửi **một tin** gom việc trong ngày: hẹn hôm nay, hẹn hôm qua chưa có kết quả, khách cần gọi (lâu chưa liên hệ), đợt thu cần nhắc khách (hạn trong 3 ngày hoặc đã quá). Mỗi dòng có nút số: bấm vào khách là bot gửi **thẻ khách** có số điện thoại (chạm là gọi) và nút ghi việc; bấm vào đợt thu là mở hợp đồng trên ERP. Tin này thay cho các tin nhắc chăm khách lẻ trước đây (nhắc lẻ giờ chỉ còn trong chuông của app). Muốn xem lại lúc khác thì gõ **/briefing**."
+      },
+      {
+        "type": "tip",
+        "text": "**Bot hỏi kết quả buổi hẹn:** khoảng 2 tiếng sau giờ hẹn (trong 8:00-21:00) bot hỏi **«Buổi hẹn với … thế nào?»**: **«Chốt được»** mở thẳng hộp «Deal đã thắng» của khách đó trên ERP (đã điền sẵn, soát rồi xác nhận) · **«Cần theo tiếp»** chọn ngày hẹn tiếp · **«Khách hoãn»** ghi lại rồi hỏi hẹn lại khi nào · **«Mất»** chọn 1 trong 5 lý do. Mỗi buổi hẹn bot chỉ hỏi một lần; chưa trả lời thì sáng hôm sau buổi hẹn đó nằm ở mục «Hẹn hôm qua chưa có kết quả» của bản tin, không hỏi thêm. Đã ghi gì vào khách sau giờ hẹn (gọi, ghi chú, đổi giai đoạn…) thì bot không hỏi."
+      },
+      {
+        "type": "tip",
+        "text": "**Ghi chăm khách ngay trên tin bot (Kinh doanh):** thẻ khách (bấm một dòng của bản tin sáng) và tin báo được giao lead có nút **«Đã gọi»**, **«Đã gặp/Zoom»** (chọn tiếp Gặp trực tiếp / Zoom-online / Khách lên văn phòng) và **«Hẹn lại»** (Mai / 3 ngày / 1 tuần, hẹn lúc 9:00); số điện thoại khách nằm ngay trong tin, chạm vào số là gọi. Bấm nút là ghi xong vào lịch sử khách y như ghi trên web, thông báo về khách đó tự chuyển sang đã đọc. Ghi xong bot hỏi luôn «Hẹn lại khi nào?» — có hẹn ở phía trước thì bot thôi nhắc khách đó. Chỉ bấm được trên khách mình đang phụ trách; lỡ bấm hai lần cũng không bị ghi đôi."
       },
       {
         "type": "tip",
@@ -1743,7 +1751,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "`/pipeline` · `/briefing`",
-            "Xem khách mình đang chăm theo từng giai đoạn · tóm tắt việc hôm nay"
+            "Xem khách mình đang chăm theo từng giai đoạn · bản tin «Hôm nay của bạn» (hẹn hôm nay, hẹn hôm qua chưa có kết quả, khách cần gọi, đợt thu cần nhắc), mỗi dòng một nút"
           ],
           [
             "`/lead`",

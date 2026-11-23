@@ -4,6 +4,7 @@ from aiogram import Router, types
 from aiogram.filters import Command
 
 from bot.api_client import api
+from bot.nhan_giai_doan import NHAN_GIAI_DOAN
 
 router = Router()
 
@@ -11,23 +12,14 @@ STAGE_EMOJIS = {
     "new": "🆕",
     "interested": "💡",
     "surveyed": "📐",
-    "survey_scheduled": "📅",
+    "survey_scheduled": "📤",
     "potential": "⭐",
     "signed_design": "✍️",
     "lost": "❌",
     "dormant": "😴",
 }
 
-STAGE_LABELS = {
-    "new": "Mới tiếp nhận",
-    "interested": "Có nhu cầu",
-    "surveyed": "Đã khảo sát",
-    "survey_scheduled": "Đã gửi báo giá",
-    "potential": "Đang đàm phán",
-    "signed_design": "Ký thiết kế",
-    "lost": "Mất",
-    "dormant": "Ngủ đông",
-}
+STAGE_LABELS = NHAN_GIAI_DOAN  # một bảng nhãn với backend/web (R00 §E)
 
 
 @router.message(Command("pipeline"))

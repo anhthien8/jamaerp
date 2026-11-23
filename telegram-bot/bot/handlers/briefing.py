@@ -1,4 +1,9 @@
-"""/briefing handler — daily personal briefing."""
+"""/briefing — bản tin «Hôm nay của bạn» (R00 mục 10, 21/11/2026).
+
+Cùng nội dung tin bot gửi lúc 07:00 (server dựng: services/nhip_sale.dung_ban_tin):
+hẹn hôm nay, hẹn hôm qua chưa có kết quả, khách cần gọi, đợt thu cần nhắc. Mỗi dòng một
+nút: bấm là bot gửi thẻ khách có nút ghi việc (lead_nut: ld:bt / ld:bq).
+"""
 
 from aiogram import Router, types
 from aiogram.filters import Command
@@ -7,57 +12,25 @@ from bot.api_client import api
 
 router = Router()
 
+KHONG_CO_VIEC = "Hôm nay chưa có hẹn, khách cần gọi hay đợt thu nào cần nhắc."
+LOI_TAI = "Không tải được bản tin, thử lại sau ít phút (hoặc /start để đăng nhập lại)."
+
+
+async def ban_tin_hom_nay(tg_user_id: int) -> tuple[str, types.InlineKeyboardMarkup | None]:
+    """(chữ HTML, bàn phím) của bản tin — dùng cho /briefing và nút «Briefing» ở /start."""
+    kq = await api.ban_tin(tg_user_id)
+    if not kq or kq.get("error"):
+        return LOI_TAI, None
+    if not kq.get("text"):
+        return KHONG_CO_VIEC, None
+    mk = kq.get("reply_markup")
+    return kq["text"], types.InlineKeyboardMarkup.model_validate(mk) if mk else None
+
 
 @router.message(Command("briefing"))
 async def cmd_briefing(message: types.Message):
-    """Send personal daily briefing."""
-    data = await api.get_personal_dashboard(message.from_user.id)
-
-    if not data:
-        await message.answer("❌ Không thể tải briefing. Hãy /start để đăng nhập lại.")
-        return
-
-    lines = [
-        f"☀️ <b>Briefing — {data.get('user_name', 'N/A')}</b>\n",
-        f"📊 <b>Tổng lead đang xử lý:</b> {data.get('total_active_leads', 0)}",
-    ]
-
-    # By stage breakdown
-    by_stage = data.get("by_stage", {})
-    if by_stage:
-        lines.append("\n<b>Theo giai đoạn:</b>")
-        stage_labels = {
-            "new": "🆕 Mới",
-            "interested": "💡 Có nhu cầu",
-            "surveyed": "📐 Đã khảo sát",
-            "survey_scheduled": "📅 Hẹn khảo sát",
-            "potential": "⭐ Tiềm năng",
-        }
-        for key, label in stage_labels.items():
-            count = by_stage.get(key, 0)
-            if count:
-                lines.append(f"  {label}: {count}")
-
-    # Pipeline value
-    lines.append(f"\n💰 <b>Giá trị pipeline:</b> {_format_value(data.get('pipeline_value', 0))}")
-
-    # Overdue follow-ups
-    overdue = data.get("overdue_followup", [])
-    if overdue:
-        lines.append(f"\n🚨 <b>Cần liên hệ ngay ({len(overdue)}):</b>")
-        for lead in overdue[:5]:
-            lines.append(f"  ⚠️ {lead.get('name', '—')} — {lead.get('last_contact', 'Chưa LH')}")
-
-    # AI suggestions
-    suggestions = data.get("ai_suggestions", [])
-    if suggestions:
-        lines.append("\n🤖 <b>Gợi ý AI:</b>")
-        for s in suggestions[:3]:
-            lines.append(f"  💡 {s.get('action', '')}")
-
-    lines.append(f"\n🔗 /pipeline để xem chi tiết")
-
-    await message.answer("\n".join(lines))
+    text, mk = await ban_tin_hom_nay(message.from_user.id)
+    await message.answer(text, reply_markup=mk)
 
 
 @router.message(Command("suggest"))
@@ -70,14 +43,3 @@ async def cmd_suggest(message: types.Message):
         "Ví dụ: <code>/suggest abc12345</code>\n\n"
         "Bot sẽ phân tích và đề xuất hành động tiếp theo."
     )
-
-
-def _format_value(value) -> str:
-    if not value:
-        return "0 ₫"
-    v = float(value)
-    if v >= 1_000_000_000:
-        return f"{v / 1_000_000_000:.1f} tỷ ₫"
-    elif v >= 1_000_000:
-        return f"{v / 1_000_000:.0f}tr ₫"
-    return f"{v:,.0f} ₫"
