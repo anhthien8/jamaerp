@@ -1,6 +1,6 @@
 """Leads API — CRUD, pipeline, activities."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import base64
 import binascii
@@ -25,7 +25,7 @@ from app.models.lead import (
     NGAN_SACH_KHOANG,
 )
 from app.services.media_gateway import MediaError, normalize_image
-from app.services.lead_touch import dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
+from app.services.lead_touch import HEN_XA_NHAT_NGAY, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
 from app.services.automation import gio_vn_naive
 from app.models.customer import Customer
 from app.cache import cache
@@ -44,6 +44,11 @@ def _escape_like(term: str) -> str:
 
 
 router = APIRouter(prefix="/leads", tags=["leads"])
+
+# Loại hoạt động người dùng ghi tay được (web: chip + ô ghi chú; email/sms/survey: dữ liệu cũ).
+LOAI_HOAT_DONG_GHI_TAY = frozenset(
+    {"call", "meeting", "zoom", "office_visit", "note", "email", "sms", "survey", CSKH_ACTIVITY_TYPE}
+)
 
 STAGE_LABELS = {
     "new": "Tiếp nhận mới",
@@ -637,6 +642,8 @@ async def hen_tiep_lead(
         raise HTTPException(status_code=422, detail="Thiếu giờ hẹn")
     if hen_luc <= gio_vn_naive():
         raise HTTPException(status_code=422, detail="Giờ hẹn phải ở phía trước")
+    if hen_luc > gio_vn_naive() + timedelta(days=HEN_XA_NHAT_NGAY):
+        raise HTTPException(status_code=422, detail=f"Giờ hẹn quá xa (tối đa {HEN_XA_NHAT_NGAY} ngày)")
     await dat_hen_tiep(db, lead, current_user, hen_luc, plan_type=data.plan_type, ghi_them=data.ghi_chu)
     return _lead_response(lead, current_user=current_user)
 
@@ -1047,7 +1054,7 @@ async def list_activities(
     current_user: User = Depends(get_current_user),
 ):
     """Get activity history for a lead (paginated)."""
-    _chan_neu_khong_duoc_xem_lead(current_user)
+    await _lead_xem_duoc(db, current_user, lead_id)  # đúng phạm vi lead, không chỉ phòng ban
     base_q = (
         select(Activity, User.full_name.label("user_name"))
         .outerjoin(User, Activity.user_id == User.id)
@@ -1096,6 +1103,12 @@ async def create_activity(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not await duoc_sua_lead_nay(db, current_user, lead):
+        raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
+    # Loại do hệ thống tự ghi (giao lead, đổi giai đoạn, hẹn…) không nhận từ ngoài: «assignment»
+    # ghi tay sẽ đặt lại đồng hồ chăm khách, «hen» phải đi qua /hen để có giờ hẹn thật.
+    if data.type not in LOAI_HOAT_DONG_GHI_TAY:
+        raise HTTPException(status_code=422, detail="Loại hoạt động không hợp lệ")
 
     is_cskh = data.type == CSKH_ACTIVITY_TYPE
     if is_cskh and not can_write_cskh_note(current_user):

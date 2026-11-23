@@ -30,7 +30,9 @@ from app.schemas.lead import _ngay_naive_vn
 from app.services.automation import gio_vn_naive
 from app.services.hieu_cau_sale import doan_cau_sale
 from app.services.nhip_sale import cac_hen, dung_ban_tin
-from app.services.lead_touch import VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau, nhan_viec
+from app.services.lead_touch import (
+    HEN_XA_NHAT_NGAY, VIEC_TIEP_XUC, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau, nhan_viec,
+)
 from app.services.telegram_notify import erp_url
 
 # ---------------------------------------------------------------------------
@@ -969,7 +971,7 @@ class LeadTouchRequest(BaseModel):
     """Một lần bấm nút trên tin bot về một lead."""
 
     viec: Literal["goi", "gap", "zoom", "vp", "ghi_chu", "hen"]
-    noi_dung: str | None = Field(default=None, max_length=2000)
+    noi_dung: str | None = Field(default=None, max_length=4000)  # tin Telegram tối đa 4096
     # Hẹn tiếp: mốc cụ thể (giờ VN) HOẶC «sau N ngày» (09:00 giờ VN của ngày đó).
     # Đi kèm việc chạm khách thì vừa ghi lần chạm vừa đặt hẹn (bot xác nhận câu tự do).
     hen_tiep_luc: datetime | None = None
@@ -1036,6 +1038,8 @@ async def lead_touch(
         raise HTTPException(status_code=422, detail="Thiếu giờ hẹn")
     if hen_luc is not None and hen_luc <= gio_vn_naive():
         raise HTTPException(status_code=422, detail="Giờ hẹn phải ở phía trước")
+    if hen_luc is not None and hen_luc > gio_vn_naive() + timedelta(days=HEN_XA_NHAT_NGAY):
+        raise HTTPException(status_code=422, detail=f"Giờ hẹn quá xa (tối đa {HEN_XA_NHAT_NGAY} ngày)")
 
     tg = {"tg_message_id": data.telegram_message_id, "tg_chat_id": data.telegram_chat_id}
     if data.viec == "hen":

@@ -33,6 +33,9 @@ export const RELEASES: Release[] = [
       'Thu hồi lead không còn ghi đè «Liên hệ lần cuối». Người vừa nhận lead (được giao tay hoặc nhận lại sau thu hồi) có đủ thời hạn chăm sóc tính từ lúc nhận, không bị nhắc hay trừ điểm SLA ngay.',
       'Bấm chip ghi nhanh trên web hai lần liền (mạng chậm) không còn bị ghi đôi.',
       'Bot dùng đúng tên giai đoạn như web (vd «Đã gửi báo giá», «Deal đã thắng») ở /pipeline và khi đọc lead mới.',
+      'Lịch sử hoạt động của một khách chỉ người được xem khách đó mới xem và ghi được (trước đây người phòng Kinh doanh biết mã khách là ghi được vào khách của người khác).',
+      'Tin sự kiện lần thứ hai trong ngày (bị yêu cầu sửa lại lần 2, đặt lại vật tư sau khi bị từ chối, được giao lại việc…) vẫn tới, không bị gộp mất khi tin trước chưa đọc.',
+      'Nút «Mở ERP» trên tin nhắc thanh toán (kế toán) mở đúng hợp đồng thay vì chỉ mở danh sách.',
     ],
     test: [
       'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',

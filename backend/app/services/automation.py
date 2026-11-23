@@ -72,7 +72,7 @@ async def _notify(
     telegram: bool = True,
     nut: list[list[dict]] | None = None,
     reply_markup: dict | None = None,
-    nhac_lai_sau_gio: float = NHAC_LAI_SAU_GIO,
+    nhac_lai_sau_gio: float | None = NHAC_LAI_SAU_GIO,
     body_html: bool = False,
 ) -> bool:
     """Thông báo trong app + đẩy Telegram (kèm nút).
@@ -80,6 +80,8 @@ async def _notify(
     Chống trùng (R00, 14/11/2026): cùng người + loại + ref đã gửi trong `nhac_lai_sau_gio`
     giờ thì bỏ qua — KHÔNG còn xét «đã đọc chưa». Trước đây người không mở app chỉ được
     nhắc đúng một lần, người chăm đọc lại bị nhắc mỗi sáng; giờ ai cũng theo một nhịp.
+    `nhac_lai_sau_gio=None`: tin SỰ KIỆN (duyệt, vật tư, giao việc…) — mỗi lần là một việc
+    mới, nơi gọi tự chặn theo trạng thái → không chặn trùng (21/11/2026).
 
     Nút Telegram: các hàng `nut` + nút «Mở ERP» trỏ thẳng `link`. `reply_markup`
     (20/11/2026) là bàn phím dựng sẵn, dùng nguyên văn thay cho `nut`.
@@ -95,7 +97,7 @@ async def _notify(
     if len(title) > 255:
         title = title[:254] + "…"
 
-    if ref_id:
+    if ref_id and nhac_lai_sau_gio is not None:
         moc = datetime.now(timezone.utc) - timedelta(hours=nhac_lai_sau_gio)
         existing = await db.execute(
             select(func.count(Notification.id)).where(
@@ -440,7 +442,7 @@ async def run_payment_reminders(db: AsyncSession) -> dict:
                 "payment_reminder",
                 f"💰 Nhắc thanh toán: HĐ {contract.code}",
                 body,
-                link=f"/contracts?id={contract.id}",
+                link=f"/contracts?hd={contract.id}",  # trang Hợp đồng mở thẻ theo ?hd=
                 ref_id=contract.id,
             )
             if sent:

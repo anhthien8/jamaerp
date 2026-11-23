@@ -49,6 +49,9 @@ CHONG_BAM_LAP_GIAY = 120
 # «Mai / 3 ngày / 1 tuần» = 09:00 giờ VN của ngày đó.
 GIO_HEN_MAC_DINH = 9
 
+# Hẹn xa hơn coi như nhầm: một ngày hẹn quá xa sẽ miễn nhắc/thu hồi lead rất lâu.
+HEN_XA_NHAT_NGAY = 180
+
 
 def nhan_gio_hen(moc: datetime) -> str:
     """09:00 15/11/2026 — mốc naive giờ VN."""

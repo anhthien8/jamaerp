@@ -153,6 +153,7 @@ async def _thong_bao_giao_viec(
             f"{ten_du_an}\nNgười giao: {nguoi_giao}{dong_han}",
             link=f"/projects?id={task.project_id}&task={task.id}",
             ref_id=task.id,
+            nhac_lai_sau_gio=None,  # tin sự kiện: giao lại trong ngày vẫn báo
         ):
             dem += 1
     return dem

@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '21/11/2026';
+export const GUIDE_UPDATED = '24/11/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -492,7 +492,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "items": [
           "Bấm vào thẻ lead, cuộn xuống «Lịch sử hoạt động».",
           "Vội thì bấm **chip 1 chạm**: «Không nghe máy», «Đã gặp khách», «Đã Zoom», «Khách lên văn phòng», «Đã gửi báo giá» — một cái bấm là ghi xong, đúng loại việc như nút trên tin Telegram. Gặp khách, Zoom, khách lên văn phòng tính là đã liên hệ khách. Chip «Đã gửi báo giá» chỉ ghi lịch sử, không tự chuyển cột.",
-          "Hẹn lại thì bấm **«Hẹn gọi lại…»** hoặc **«Hẹn khảo sát…»** rồi chọn **«Mai»**, **«3 ngày»** hoặc **«1 tuần»** (9 giờ sáng hôm đó); muốn giờ khác thì bấm **«Chọn ngày»**, chọn giờ rồi bấm **«Lưu hẹn»**. Giờ đã hẹn hiện ở dòng **«Đang hẹn: …»** ngay trên các chip; chưa tới giờ hẹn thì bot không nhắc, không thu hồi khách và thẻ không bị nhãn «Quá hạn».",
+          "Hẹn lại thì bấm **«Hẹn gọi lại…»** hoặc **«Hẹn khảo sát…»** rồi chọn **«Mai»**, **«3 ngày»** hoặc **«1 tuần»** (9 giờ sáng hôm đó); muốn giờ khác thì bấm **«Chọn ngày»**, chọn giờ rồi bấm **«Lưu hẹn»** (hẹn xa nhất 6 tháng). Giờ đã hẹn hiện ở dòng **«Đang hẹn: …»** ngay trên các chip; chưa tới giờ hẹn thì bot không nhắc, không thu hồi khách và thẻ không bị nhãn «Quá hạn».",
           "Muốn ghi kỹ hơn: gõ vào ô **«Thêm ghi chú...»** rồi bấm **«Gửi»** (hoặc phím Enter). Có ảnh (ảnh nhà khách, ảnh chụp tin nhắn...) thì bấm **📷** cạnh ô ghi chú hoặc dán ảnh thẳng vào ô, tối đa 6 ảnh mỗi ghi chú; ảnh hiện ngay trong lịch sử, bấm để phóng to. Ảnh lead chỉ người xem được lead mới thấy.",
           "Gọi khách ngay trên bảng: bấm **biểu tượng điện thoại** trên thẻ — máy gọi thật và hệ thống tự ghi nhận cuộc gọi kèm giờ."
         ]
@@ -1661,7 +1661,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Bot hỏi kết quả buổi hẹn:** khoảng 2 tiếng sau giờ hẹn (trong 8:00-21:00) bot hỏi **«Buổi hẹn với … thế nào?»**: **«Chốt được»** mở thẳng hộp «Deal đã thắng» của khách đó trên ERP (đã điền sẵn, soát rồi xác nhận) · **«Cần theo tiếp»** chọn ngày hẹn tiếp · **«Khách hoãn»** ghi lại rồi hỏi hẹn lại khi nào · **«Mất»** chọn 1 trong 5 lý do. Mỗi buổi hẹn bot chỉ hỏi một lần; chưa trả lời thì sáng hôm sau buổi hẹn đó nằm ở mục «Hẹn hôm qua chưa có kết quả» của bản tin, không hỏi thêm. Đã ghi gì vào khách sau giờ hẹn (gọi, ghi chú, đổi giai đoạn…) thì bot không hỏi."
+        "text": "**Bot hỏi kết quả buổi hẹn:** khoảng 2 tiếng sau giờ hẹn (trong 8:00-21:00) bot hỏi **«Buổi hẹn với … thế nào?»**: **«Chốt được»** mở thẳng hộp «Deal đã thắng» của khách đó trên ERP (đã điền sẵn, soát rồi xác nhận) · **«Cần theo tiếp»** chọn ngày hẹn tiếp · **«Khách hoãn»** ghi lại rồi hỏi hẹn lại khi nào · **«Mất»** chọn 1 trong 5 lý do. Mỗi buổi hẹn bot chỉ hỏi một lần; chưa trả lời thì sáng hôm sau buổi hẹn đó nằm ở mục «Hẹn hôm qua chưa có kết quả» của bản tin, không hỏi thêm. Đã ghi gì vào khách sau giờ hẹn (gọi, ghi chú, đổi giai đoạn…) thì bot không hỏi. Khảo sát chỉ chọn ngày ở ô «Ngày khảo sát» (không có giờ) thì bot hỏi vào khoảng 19 giờ tối hôm đó; muốn được hỏi sát giờ thì đặt hẹn bằng chip «Hẹn khảo sát…» → «Chọn ngày» kèm giờ."
       },
       {
         "type": "tip",

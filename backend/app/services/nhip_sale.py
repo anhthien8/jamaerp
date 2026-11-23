@@ -27,14 +27,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.contract import Contract
 from app.models.lead import ACTIVE_LEAD_STAGES, Activity, Lead
 from app.models.project import Project
+from app.middleware.rbac import duoc_xem_lead
 from app.models.user import User
 from app.services.automation import VN, _notify, ds_lead_can_goi, gio_vn_naive
-from app.services.lead_touch import NHAN_LOAI_HEN, THU_VN
+from app.services.lead_touch import THU_VN
 from app.services.telegram_notify import erp_url, nut_ket_qua_hen, send_telegram
 
 logger = logging.getLogger(__name__)
 
 GIO_HOI_TU, GIO_HOI_DEN = 8, 21          # chỉ hỏi kết quả hẹn trong 08:00-21:00
+GIO_BAN_TIN_TU, GIO_BAN_TIN_DEN = 7, 10  # bản tin sáng chỉ gửi buổi sáng (khởi động lại tối không gửi)
+GIO_HOI_CA_NGAY = 17                     # khảo sát chỉ có ngày (00:00): hỏi từ 19:00
 HOI_SAU = timedelta(hours=2)             # hỏi 2 tiếng sau giờ hẹn
 LOAI_HOI = "hoi_ket_qua_hen"             # ref hen:<lead_id>:<YYYYMMDDHHMM> (lead_touch đánh dấu đã đọc)
 LOAI_BAN_TIN = "ban_tin_sang"
@@ -50,13 +53,29 @@ TOI_DA = {"hen_nay": 8, "hen_qua": 6, "can_goi": 10, "dot_thu": 5}
 
 
 def cac_hen(lead: Lead) -> list[tuple[datetime, str]]:
-    """Các mốc hẹn của lead (naive giờ VN) kèm nhãn loại: hẹn tiếp và ngày khảo sát."""
+    """Các mốc hẹn của lead (naive giờ VN) kèm nhãn: hẹn tiếp và ngày khảo sát.
+
+    Hẹn tiếp ghi chung «Hẹn»: `plan_type` là kế hoạch tư vấn của lead, không đổi khi sale
+    hẹn gọi lại, nên không dùng làm nhãn buổi hẹn. Ngày khảo sát trùng ngày với hẹn tiếp là
+    cùng một buổi (chip «Hẹn khảo sát…» + ô «Ngày khảo sát») → chỉ tính một lần.
+    """
     ra: list[tuple[datetime, str]] = []
     if lead.hen_tiep_luc:
-        ra.append((lead.hen_tiep_luc, NHAN_LOAI_HEN.get(lead.plan_type or "", "Hẹn")))
-    if lead.survey_date and lead.survey_date != lead.hen_tiep_luc:
-        ra.append((lead.survey_date, "Khảo sát"))
+        ra.append((lead.hen_tiep_luc, "Hẹn"))
+    ks = lead.survey_date
+    if ks and not (lead.hen_tiep_luc and lead.hen_tiep_luc.date() == ks.date()):
+        ra.append((ks, "Khảo sát"))
     return ra
+
+
+def chi_co_ngay(moc: datetime) -> bool:
+    """Ô «Ngày khảo sát» trên web chỉ chọn NGÀY → lưu 00:00, không có giờ hẹn."""
+    return moc.time() == time()
+
+
+def _gio(moc: datetime, ngay: str) -> str:
+    """«lúc 09:00 hôm nay» / «hôm nay» (chỉ có ngày)."""
+    return ngay if chi_co_ngay(moc) else f"lúc {moc:%H:%M} {ngay}"
 
 
 def ma_hen(lead_id: str, moc: datetime) -> str:
@@ -97,12 +116,14 @@ async def run_hoi_ket_qua_hen(db: AsyncSession, now_vn: datetime | None = None) 
         if user is None or not user.is_active:
             continue
         for moc, loai in cac_hen(lead):
-            if not (dau_ngay <= moc <= den) or await da_co_ket_qua(db, lead.id, moc):
+            # Chỉ có ngày (khảo sát chọn trên web): không có «2 tiếng sau giờ hẹn» → hỏi buổi tối.
+            moc_hoi = moc.replace(hour=GIO_HOI_CA_NGAY) if chi_co_ngay(moc) else moc
+            if not (dau_ngay <= moc_hoi <= den) or await da_co_ket_qua(db, lead.id, moc):
                 continue
             gui = await _notify(
                 db, user, LOAI_HOI,
                 f"Buổi hẹn với {lead.name} thế nào?",
-                f"{loai} lúc {moc:%H:%M} hôm nay · SĐT {lead.phone}\n"
+                f"{loai} {_gio(moc, 'hôm nay')} · SĐT {lead.phone}\n"
                 "Bấm một nút để ghi kết quả, khỏi mở web.",
                 link=f"/leads?id={lead.id}", ref_id=ma_hen(lead.id, moc),
                 nut=nut_ket_qua_hen(lead.id), nhac_lai_sau_gio=HOI_MOT_LAN_GIO,
@@ -158,6 +179,8 @@ async def dung_ban_tin(db: AsyncSession, user: User, now_vn: datetime | None = N
 
     None khi không có việc gì. Chỉ lead người đó đang phụ trách và hợp đồng dự án của họ.
     """
+    if not duoc_xem_lead(user):
+        return None  # chỉ Kinh doanh & BGĐ thấy dữ liệu lead
     now = now_vn or gio_vn_naive()
     hom_nay = now.date()
     hom_qua = hom_nay - timedelta(days=1)
@@ -206,10 +229,12 @@ async def dung_ban_tin(db: AsyncSession, user: User, now_vn: datetime | None = N
         return lambda x, n: {"text": f"{n}. {_ngan(lay(x).name)}", "callback_data": f"ld:{ma}:{lay(x).id}"}
 
     muc("Hẹn hôm nay", hen_nay, "hen_nay",
-        lambda x: f"{x[0]:%H:%M} · <b>{e(x[2].name)}</b> · {e(x[1])} · {e(x[2].phone)}",
+        lambda x: f"{'Trong ngày' if chi_co_ngay(x[0]) else format(x[0], '%H:%M')} · <b>{e(x[2].name)}</b>"
+                  f" · {e(x[1])} · {e(x[2].phone)}",
         nut_khach("bt", lambda x: x[2]), "hẹn")
     muc("Hẹn hôm qua chưa có kết quả", hen_qua, "hen_qua",
-        lambda x: f"{x[0]:%H:%M} hôm qua · <b>{e(x[2].name)}</b> · {e(x[1])} · {e(x[2].phone)}",
+        lambda x: f"{_gio(x[0], 'hôm qua').removeprefix('lúc ').capitalize()} · <b>{e(x[2].name)}</b>"
+                  f" · {e(x[1])} · {e(x[2].phone)}",
         nut_khach("bq", lambda x: x[2]), "hẹn")
     muc("Cần gọi", can_goi, "can_goi",
         lambda x: f"<b>{e(x[0].name)}</b> · {x[1]} ngày chưa liên hệ · {e(x[0].phone)}",
@@ -221,7 +246,7 @@ async def dung_ban_tin(db: AsyncSession, user: User, now_vn: datetime | None = N
         return f"HĐ {e(d['hd'].code)} · {e(d['ten'])} · {_tien(d['so_tien'])} · {han}{them}"
 
     def nut_dot(d: dict, n: int) -> dict:
-        url = erp_url(f"/contracts?id={d['hd'].id}")
+        url = erp_url(f"/contracts?hd={d['hd'].id}")  # trang Hợp đồng mở thẻ theo ?hd=
         return {"text": f"{n}. HĐ {_ngan(d['hd'].code, 18)}", "url": url} if url else {}
 
     muc("Đợt thu cần nhắc", dot_thu, "dot_thu", ve_dot, nut_dot, "đợt")
@@ -242,8 +267,13 @@ async def dung_ban_tin(db: AsyncSession, user: User, now_vn: datetime | None = N
 
 
 async def run_ban_tin_sang(db: AsyncSession, now_vn: datetime | None = None) -> dict:
-    """Gửi bản tin sáng cho mọi người đang phụ trách lead / dự án có đợt thu. Mỗi ngày 1 lần."""
+    """Gửi bản tin sáng cho mọi người đang phụ trách lead / dự án có đợt thu. Mỗi ngày 1 lần.
+
+    Chỉ trong 07:00-10:00: khởi động lại server buổi tối không bắn «Hôm nay của bạn» lúc đêm.
+    """
     now = now_vn or gio_vn_naive()
+    if not (GIO_BAN_TIN_TU <= now.hour < GIO_BAN_TIN_DEN):
+        return {"status": "skipped", "ly_do": "ngoai_gio", "gui": 0, "telegram": 0}
     ids = set((await db.execute(
         select(Lead.assigned_to).where(Lead.assigned_to.is_not(None), Lead.stage.in_(ACTIVE_LEAD_STAGES)).distinct()
     )).scalars().all())

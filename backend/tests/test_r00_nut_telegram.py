@@ -216,3 +216,19 @@ async def test_ten_khach_co_ky_tu_html_van_gui_duoc(db_session, sales_user, monk
     # Trong app vẫn lưu chữ gốc, không bị thoát
     n = (await db_session.execute(select(Notification).where(Notification.ref_id == "L9"))).scalar_one()
     assert n.title == "Lead mới: A&B <VIP>"
+
+
+
+@pytest.mark.asyncio
+async def test_tin_su_kien_khong_bi_chan_trung(db_session, sales_user, monkeypatch):
+    """Tin sự kiện (duyệt, vật tư, giao việc) lần 2 trong ngày vẫn phải tới dù lần 1 đã đọc."""
+    gui = _bat_tin(monkeypatch)
+    sales_user.telegram_user_id = 555009
+    await db_session.commit()
+    for _ in range(2):
+        assert await automation._notify(db_session, sales_user, "approval", "Cần sửa lại", "Sai số tiền",
+                                        ref_id="AP-1-changes", nhac_lai_sau_gio=None) is True
+    assert len(gui) == 2
+    # Nhắc định kỳ (mặc định 20 giờ) vẫn chặn trùng
+    assert await automation._notify(db_session, sales_user, "task_overdue", "Quá hạn", "x", ref_id="T1") is True
+    assert await automation._notify(db_session, sales_user, "task_overdue", "Quá hạn", "x", ref_id="T1") is False

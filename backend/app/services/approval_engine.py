@@ -74,7 +74,9 @@ async def _notify_user(db: AsyncSession, user: User | None, title: str, body: st
     if user is None:
         return
     from app.services.automation import _notify
-    await _notify(db, user, type_="approval", title=title, body=body, link=link, ref_id=ref_id)
+    # Tin sự kiện: yêu cầu sửa / nộp lại lần 2 trong ngày vẫn phải tới (không chặn trùng).
+    await _notify(db, user, type_="approval", title=title, body=body, link=link, ref_id=ref_id,
+                  nhac_lai_sau_gio=None)
 
 
 async def create_request(

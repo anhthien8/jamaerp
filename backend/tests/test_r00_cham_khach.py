@@ -296,3 +296,29 @@ async def test_web_chip_bam_hai_lan_khong_ghi_doi(client, db_session, sales_user
         assert r.status_code in (200, 201), r.text
     acts = await _hoat_dong(db_session, lead)
     assert [a.type for a in acts] == ["zoom"]
+
+
+
+@pytest.mark.asyncio
+async def test_web_hen_qua_xa_bi_tu_choi(client, db_session, sales_user):
+    lead = await _lead(db_session, sales_user)
+    xa = (gio_vn_naive() + timedelta(days=200)).replace(microsecond=0).isoformat()
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={"hen_tiep_luc": xa}, headers=auth_header(sales_user))
+    assert r.status_code == 422 and "quá xa" in r.json()["detail"]
+    r = await client.post(URL.format(lead.id), json={"viec": "hen", "hen_tiep_luc": xa}, headers=auth_header(sales_user))
+    assert r.status_code == 422 and "quá xa" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_ghi_hoat_dong_web_dung_pham_vi_va_loai(client, db_session, sales_user, sale_khac):
+    """Sale khác không ghi/đọc lịch sử lead không thuộc phạm vi; loại hệ thống không ghi tay được."""
+    lead = await _lead(db_session, sales_user)
+    body = {"type": "call", "content": "Khách báo huỷ"}
+    r = await client.post(f"/api/v1/leads/{lead.id}/activities", json=body, headers=auth_header(sale_khac))
+    assert r.status_code == 403
+    r = await client.get(f"/api/v1/leads/{lead.id}/activities", headers=auth_header(sale_khac))
+    assert r.status_code == 403
+    r = await client.post(f"/api/v1/leads/{lead.id}/activities", json={"type": "assignment", "content": "x"},
+                          headers=auth_header(sales_user))
+    assert r.status_code == 422
+    assert await _hoat_dong(db_session, lead) == []

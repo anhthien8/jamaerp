@@ -650,6 +650,7 @@ async def _thong_bao_gan_pic(
             f"{project.code} — {project.client_name or ''}\nNgười gắn: {actor.full_name}",
             link=f"/projects?id={project.id}",
             ref_id=f"pic-{cot}-{project.id}",
+            nhac_lai_sau_gio=None,  # tin sự kiện
         ):
             dem += 1
     return dem

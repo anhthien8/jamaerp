@@ -253,7 +253,7 @@ class BackgroundWorker:
 
             # Bản tin sáng «Hôm nay của bạn» cho sale (R00 mục 10). Cờ RAM mất khi khởi
             # động lại — chống gửi đôi nằm ở DB (thông báo ban_tin_sang theo ngày).
-            if vn_now.hour >= 7 and self._last_ban_tin_date != today_str:
+            if 7 <= vn_now.hour < 10 and self._last_ban_tin_date != today_str:
                 self._last_ban_tin_date = today_str
                 self.enqueue_task(
                     "ban_tin_sang",

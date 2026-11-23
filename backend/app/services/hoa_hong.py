@@ -204,6 +204,7 @@ class _Ghi:
                 f"Dự kiến {tong:,.0f}đ (chờ kế toán duyệt). Xem ở Hồ sơ 360° → tab Tiền.".replace(",", "."),
                 link=f"/hr/nhan-vien?id={uid}",
                 ref_id=self.contract.id,
+                nhac_lai_sau_gio=None,  # tin sự kiện: ký HĐ + thu cọc cùng ngày là 2 khoản
             )
 
 

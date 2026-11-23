@@ -752,7 +752,8 @@ async def _bao(db: AsyncSession, ids: set, title: str, body: str, proj: Project,
     if not ids:
         return
     for u in (await db.execute(select(User).where(User.id.in_(ids), User.is_active == True))).scalars():  # noqa: E712
-        await _notify(db, u, "vat_tu", title, body, link=f"/vat-tu?project={proj.id}", ref_id=ref)
+        await _notify(db, u, "vat_tu", title, body, link=f"/vat-tu?project={proj.id}", ref_id=ref,
+                      nhac_lai_sau_gio=None)  # tin sự kiện: đặt lại / từ chối lần 2 vẫn phải tới
 
 
 async def _ds_leader_thu_mua(db: AsyncSession) -> set[str]:

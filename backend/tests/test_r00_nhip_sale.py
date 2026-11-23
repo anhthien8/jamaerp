@@ -94,7 +94,7 @@ async def test_hoi_ket_qua_2_tieng_sau_hen_mot_lan(db_session, sale, gui):
     chat, text, mk = gui[0]
     assert chat == 777001
     assert text.startswith("<b>Buổi hẹn với Anh Nam – Vinhomes thế nào?</b>")
-    assert "Tư vấn Offline lúc 09:00 hôm nay" in text and "0909000111" in text
+    assert "Hẹn lúc 09:00 hôm nay" in text and "0909000111" in text
     nut = _nut(mk)
     assert nut[0] == ("Chốt được", f"https://crm.jamahome.vn/leads?id={lead.id}&chot=1")
     assert ("Cần theo tiếp", f"ld:tt:{lead.id}") in nut
@@ -144,7 +144,7 @@ async def test_hen_hom_qua_khong_hoi_ma_vao_ban_tin(db_session, sale, gui):
     assert (await nhip_sale.run_hoi_ket_qua_hen(db_session, now_vn=_luc(HOM_NAY, 11)))["hoi"] == 0
     bt = await nhip_sale.dung_ban_tin(db_session, sale, now_vn=_luc(HOM_NAY, 7))
     assert "<b>Hẹn hôm qua chưa có kết quả (1)</b>" in bt["text"]
-    assert "20:00 hôm qua · <b>Anh Nam – Vinhomes</b> · Tư vấn Online · 0909000111" in bt["text"]
+    assert "20:00 hôm qua · <b>Anh Nam – Vinhomes</b> · Hẹn · 0909000111" in bt["text"]
     assert ("1. Anh Nam – Vinhomes", f"ld:bq:{lead.id}") in _nut(bt["reply_markup"])
 
 
@@ -198,7 +198,7 @@ async def test_ban_tin_du_bon_muc_moi_dong_mot_nut(db_session, sale, sale_khac, 
     assert ("1. Chị Mai – Ecopark", f"ld:bt:{a.id}") in nut
     assert ("2. Anh Tâm – Gamuda", f"ld:bq:{b.id}") in nut
     assert ("3. Cô Lan – Hồ Tây", f"ld:bt:{c.id}") in nut
-    assert (f"4. HĐ {hd.code}", f"https://crm.jamahome.vn/contracts?id={hd.id}") in nut
+    assert (f"4. HĐ {hd.code}", f"https://crm.jamahome.vn/contracts?hd={hd.id}") in nut
     assert nut[-1] == ("Mở ERP", "https://crm.jamahome.vn/leads")
     assert bt["tom_tat"] == "1 hẹn hôm nay · 1 hẹn hôm qua chưa có kết quả · 1 khách cần gọi · 1 đợt thu cần nhắc"
 
@@ -224,6 +224,44 @@ async def test_run_ban_tin_moi_nguoi_moi_ngay_mot_ban(db_session, sale, sale_kha
     assert len(gui) == 1
 
 
+@pytest.mark.asyncio
+async def test_ban_tin_khong_gui_ngoai_buoi_sang(db_session, sale, gui):
+    """Khởi động lại server lúc tối: không bắn «Hôm nay của bạn» lúc đêm."""
+    await _lead(db_session, sale, lien_he_ngay=8)
+    for gio in (6, 10, 22):
+        kq = await nhip_sale.run_ban_tin_sang(db_session, now_vn=_luc(HOM_NAY, gio))
+        assert kq["status"] == "skipped", gio
+    assert gui == []
+
+
+@pytest.mark.asyncio
+async def test_khao_sat_chi_co_ngay_hoi_buoi_toi(db_session, sale, gui):
+    """Ô «Ngày khảo sát» trên web chỉ có ngày (00:00): không hỏi lúc 08:00, hỏi từ 19:00."""
+    lead = await _lead(db_session, sale, survey_date=_luc(HOM_NAY, 0))
+    assert (await nhip_sale.run_hoi_ket_qua_hen(db_session, now_vn=_luc(HOM_NAY, 8, 5)))["hoi"] == 0
+    assert (await nhip_sale.run_hoi_ket_qua_hen(db_session, now_vn=_luc(HOM_NAY, 18, 30)))["hoi"] == 0
+    assert (await nhip_sale.run_hoi_ket_qua_hen(db_session, now_vn=_luc(HOM_NAY, 19, 5)))["hoi"] == 1
+    assert "Khảo sát hôm nay · SĐT 0909000111" in gui[0][1] and "00:00" not in gui[0][1]
+    bt = await nhip_sale.dung_ban_tin(db_session, sale, now_vn=_luc(HOM_NAY, 7))
+    assert f"Trong ngày · <b>{lead.name}</b> · Khảo sát" in bt["text"]
+    hom_sau = await nhip_sale.dung_ban_tin(db_session, sale, now_vn=_luc(HOM_NAY + timedelta(days=1), 7))
+    assert f"Hôm qua · <b>{lead.name}</b> · Khảo sát" in hom_sau["text"]
+
+
+@pytest.mark.asyncio
+async def test_hen_khao_sat_va_ngay_khao_sat_cung_ngay_chi_mot_buoi(db_session, sale, gui):
+    await _lead(db_session, sale, hen_tiep_luc=_luc(HOM_NAY, 9), plan_type="survey", survey_date=_luc(HOM_NAY, 0))
+    bt = await nhip_sale.dung_ban_tin(db_session, sale, now_vn=_luc(HOM_NAY, 7))
+    assert "<b>Hẹn hôm nay (1)</b>" in bt["text"]
+    assert (await nhip_sale.run_hoi_ket_qua_hen(db_session, now_vn=_luc(HOM_NAY, 20)))["hoi"] == 1
+
+
+@pytest.mark.asyncio
+async def test_ngoai_kinh_doanh_khong_co_ban_tin(db_session, designer_user, gui):
+    await _lead(db_session, designer_user, lien_he_ngay=8)
+    assert await nhip_sale.dung_ban_tin(db_session, designer_user, now_vn=_luc(HOM_NAY, 7)) is None
+
+
 # ── Endpoint cho bot ─────────────────────────────────────────────────────────
 
 
@@ -234,7 +272,7 @@ async def test_the_khach_chi_nguoi_phu_trach(client, db_session, sale, sale_khac
     assert r.status_code == 200, r.text
     the = r.json()["lead"]
     assert the["phone"] == "0909000111" and the["name"] == "Anh Nam – Vinhomes"
-    assert the["hen"] == [{"luc": _luc(HOM_NAY + timedelta(days=1), 9).isoformat(), "loai": "Khảo sát"}]
+    assert the["hen"] == [{"luc": _luc(HOM_NAY + timedelta(days=1), 9).isoformat(), "loai": "Hẹn"}]
     assert the["mo_erp"].endswith(f"/leads?id={lead.id}")
     r = await client.get(f"/api/v1/telegram/lead/{lead.id}/the", headers=auth_header(sale_khac))
     assert r.status_code == 403
