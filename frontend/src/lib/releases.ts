@@ -15,7 +15,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: '21/11/2026',
+    date: '23/11/2026',
     title: 'Mở trang nhẹ hơn',
     tag: 'SỬA',
     fixes: [
