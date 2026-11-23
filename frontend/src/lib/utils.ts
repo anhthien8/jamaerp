@@ -15,6 +15,18 @@ export const STAGE_CONFIG: Record<string, { label: string; color: string; icon: 
   dormant: { label: 'Ngủ đông', color: 'var(--stage-dormant)', icon: 'moon' },
 };
 
+// Ghi chú ngắn cho từng giai đoạn — hiện khi rê chuột/chạm icon «i» (InfoTip).
+export const STAGE_HINT: Record<string, string> = {
+  new: 'Lead vừa vào hệ thống, chưa ai liên hệ.',
+  interested: 'Đã gọi/nhắn được khách, khách có nhu cầu và đang được tư vấn.',
+  surveyed: 'Đã đến khảo sát hiện trạng công trình.',
+  survey_scheduled: 'Đã gửi báo giá cho khách, đang chờ phản hồi.',
+  potential: 'Khách đang thương lượng giá, phạm vi hoặc điều khoản.',
+  signed_design: 'Khách đã chốt. Hệ thống tự tạo Khách hàng + Dự án + đầu việc — không chuyển lùi được.',
+  lost: 'Khách không làm nữa. Bắt buộc chọn lý do để cả phòng rút kinh nghiệm.',
+  dormant: 'Khách tạm im lặng nhưng chưa mất (đi xa, chưa có tiền…). Cất vào đây, sau đánh thức lại được.',
+};
+
 export const SOURCE_LABELS: Record<string, string> = {
   facebook: 'Facebook',
   zalo: 'Zalo',

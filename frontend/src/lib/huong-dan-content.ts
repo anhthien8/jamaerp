@@ -331,7 +331,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới.",
+          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới. Chưa rõ giai đoạn nào nghĩa là gì: rê chuột lên nút (hoặc chạm icon «i» cạnh tiêu đề) để xem ghi chú.",
           "Kéo thẻ vào cột **«Mất»**: thẻ chi tiết tự mở kèm ô chọn lý do (Ngân sách không phù hợp / Đã chọn đối thủ / Không phản hồi / Thay đổi kế hoạch / Lý do khác). Chọn xong bấm **«Xác nhận mất lead»** — không chọn lý do thì không chuyển được.",
           "Thêm khách mới: bấm nút **«+ Thêm Lead»** màu vàng ở góc phải trên.",
           "Cột đông khách chỉ hiện 25 thẻ đầu (số trên đầu cột vẫn là tổng thật). Cuộn xuống cuối cột, bấm **«Hiện thêm … thẻ»** để xem tiếp, bấm **«Thu gọn»** để gọn lại."
@@ -870,7 +870,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Chỉ **admin** thấy. Trên **Tổng quan** có khối **«AI Tiến Hoá · 12 tuần»**; bấm **«Xem chi tiết»** hoặc vào menu **Kinh doanh → AI Tiến Hoá** để mở trang đầy đủ. Số liệu lấy từ việc sale bấm **«Đã làm»** hay **«Bỏ qua»** trên gợi ý của Co-Pilot."
+        "text": "Chỉ **admin** thấy. Trên **Tổng quan** có khối **«AI Tiến Hoá · 12 tuần»**; bấm **«Xem chi tiết»** hoặc vào menu **Trợ giúp → AI Tiến Hoá** để mở trang đầy đủ. Số liệu lấy từ việc sale bấm **«Đã làm»** hay **«Bỏ qua»** trên gợi ý của Co-Pilot."
       },
       {
         "type": "table",
