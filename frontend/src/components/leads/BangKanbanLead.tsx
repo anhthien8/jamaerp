@@ -214,7 +214,7 @@ export default function BangKanbanLead({
                           e.stopPropagation();
                           if (!lead.phone) { e.preventDefault(); return; }
                           // Bấm là GỌI THẬT (tel:) + tự ghi nhận cuộc gọi (spec 08 §2.1)
-                          api.createActivity(lead.id, { type: 'call', content: `📞 Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+                          api.createActivity(lead.id, { type: 'call', content: `Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
                             .then(() => toast('Đang gọi + đã ghi nhận', 'success'))
                             .catch(() => {});
                         }}

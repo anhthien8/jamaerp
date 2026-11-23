@@ -210,6 +210,16 @@ class ApiClient {
   }
 
   /**
+   * Hẹn tiếp (R00) — chip «Hẹn gọi lại…» / «Hẹn khảo sát…» trong thẻ lead. Cùng lõi với nút
+   * «Hẹn lại» trên Telegram: đặt `hen_tiep_luc` (+ `plan_type`) và tự ghi dòng «Hẹn …» vào
+   * lịch sử. `hen_tiep_luc` là giờ VN naive ('2026-11-25T14:30:00'); `hen_sau_ngay` = N là
+   * 09:00 giờ VN của ngày hôm nay + N. Trả lead đã cập nhật (tags vẫn là chuỗi JSON).
+   */
+  async henTiepLead(id: string, data: { hen_tiep_luc?: string; hen_sau_ngay?: number; plan_type?: 'online' | 'offline' | 'survey'; ghi_chu?: string }) {
+    return this.request<Lead>(`/leads/${id}/hen`, { method: 'POST', body: data });
+  }
+
+  /**
    * Đổi giai đoạn lead — CỬA DUY NHẤT cho mọi chuyển stage, kể cả sang "Mất".
    * Đừng đổi stage qua updateLead(): PUT /leads/{id} không nhận stage/lost_reason
    * và Pydantic bỏ qua field lạ, nên nó trả 200 mà lead nằm y nguyên chỗ cũ.

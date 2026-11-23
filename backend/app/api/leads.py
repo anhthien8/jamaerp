@@ -25,7 +25,8 @@ from app.models.lead import (
     NGAN_SACH_KHOANG,
 )
 from app.services.media_gateway import MediaError, normalize_image
-from app.services.lead_touch import ghi_hoat_dong
+from app.services.lead_touch import dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
+from app.services.automation import gio_vn_naive
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task, sinh_ma_du_an, task_department_for_stage
@@ -35,7 +36,7 @@ import random
 import uuid
 from app.schemas.lead import (
     LeadCreate, LeadUpdate, LeadResponse, LeadStageChange, LeadAssign,
-    ActivityCreate, ActivityResponse, PipelineStats, PipelineKanban,
+    ActivityCreate, ActivityResponse, PipelineStats, PipelineKanban, LeadHenRequest,
 )
 
 def _escape_like(term: str) -> str:
@@ -612,6 +613,34 @@ async def update_lead(
     return _lead_response(lead, current_user=current_user)
 
 
+@router.post("/{lead_id}/hen", response_model=LeadResponse)
+async def hen_tiep_lead(
+    lead_id: str,
+    data: LeadHenRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Hẹn tiếp từ web (chip «Hẹn…» → Mai / 3 ngày / 1 tuần / chọn ngày) — R00 §E.
+
+    Cùng lõi với nút «Hẹn lại» trên Telegram (`lead_touch.dat_hen_tiep`): đặt
+    `hen_tiep_luc` (+ `plan_type`) và ghi dòng «Hẹn …» vào lịch sử. Hẹn còn ở phía trước
+    thì bot thôi nhắc, hệ thống thôi thu hồi. Quyền như sửa lead.
+    """
+    result = await db.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead không tồn tại")
+    if not await duoc_sua_lead_nay(db, current_user, lead):
+        raise HTTPException(status_code=403, detail="Không có quyền chỉnh sửa lead này")
+    hen_luc = data.hen_tiep_luc or (moc_hen_sau(data.hen_sau_ngay) if data.hen_sau_ngay else None)
+    if hen_luc is None:
+        raise HTTPException(status_code=422, detail="Thiếu giờ hẹn")
+    if hen_luc <= gio_vn_naive():
+        raise HTTPException(status_code=422, detail="Giờ hẹn phải ở phía trước")
+    await dat_hen_tiep(db, lead, current_user, hen_luc, plan_type=data.plan_type, ghi_them=data.ghi_chu)
+    return _lead_response(lead, current_user=current_user)
+
+
 @router.put("/{lead_id}/stage", response_model=LeadResponse)
 async def change_stage(
     lead_id: str,
@@ -1078,7 +1107,10 @@ async def create_activity(
     # Lõi chung với nút Telegram (services/lead_touch): ghi Activity, dời mốc «liên hệ
     # lần cuối» — TRỪ lognote CSKH (cuộc gọi KIỂM TRA chất lượng, không phải team KD chăm
     # khách; tính vào sẽ xoá oan cờ «Quá hạn», KPI chăm sóc đẹp giả) và dòng hẹn lịch.
-    activity, _ = await ghi_hoat_dong(db, lead, current_user, data.type, data.content)
+    # Bấm chip hai lần (mạng chậm) trong 2 phút không ghi đôi.
+    activity, _ = await ghi_hoat_dong(
+        db, lead, current_user, data.type, data.content, chong_bam_lap=True,
+    )
 
     return ActivityResponse(
         id=activity.id, lead_id=activity.lead_id, user_id=activity.user_id,

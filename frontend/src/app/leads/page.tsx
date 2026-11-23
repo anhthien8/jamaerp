@@ -27,6 +27,11 @@ const ChiTietLead = dynamic(() => import('@/components/leads/ChiTietLead'), { ss
 // chung để đánh giá chất lượng không bị trôi lẫn giữa hàng chục cuộc gọi.
 const CSKH_TYPE = 'cskh';
 
+// Giai đoạn được chuyển thẳng sang «Deal đã thắng» — soi gương VALID_STAGE_TRANSITIONS
+// (backend/app/models/lead.py): lead «Mất» chỉ quay về new/interested/dormant, còn
+// signed_design là điểm cuối. Dùng cho link «Chốt được» trên Telegram (/leads?id=…&chot=1).
+const CHOT_DEAL_TU_STAGE = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'dormant'];
+
 // ── Lọc theo ngày (double-check lead nhập đúng/đủ) ──────────────────────────
 // Backend trả ISO KHÔNG kèm timezone (cột DateTime naive) nên new Date() đọc theo
 // giờ máy — đúng bằng cách timeAgo/toLocaleString đang hiển thị ở mọi trang khác.
@@ -193,6 +198,14 @@ function LeadsContent() {
     } finally {
       setSavingSurvey(false);
     }
+  };
+
+  // Vá tại chỗ vài trường của MỘT lead (thẻ chi tiết + danh sách/kanban) sau khi máy chủ đã
+  // lưu — vd chip «Hẹn…» đặt giờ hẹn tiếp thì cờ «Quá hạn» trên thẻ kanban tắt ngay.
+  const patchLead = (leadId: string, patch: Partial<Lead>) => {
+    const applyPatch = (l: Lead): Lead => ({ ...l, ...patch });
+    setSelectedLead(prev => (prev && prev.id === leadId ? applyPatch(prev) : prev));
+    setLeads(prev => prev.map(l => (l.id === leadId ? applyPatch(l) : l)));
   };
 
   // ── Bulk stage: đổi giai đoạn hàng loạt (POST /leads/bulk/stage) ──
@@ -372,25 +385,6 @@ function LeadsContent() {
     // setter ổn định — liệt kê vì React Compiler không suy ra được khi setter được truyền xuống ChiTietLead
   }, [setNewNote, setAnhCho, setNewCskhNote, setAssignOpen, setLostPickerOpen]);
 
-  // Mở thẳng thẻ lead từ link thông báo (/leads?id=…). Đọc xong thì gỡ `id`
-  // khỏi URL để bấm lại cùng thông báo vẫn mở được, và đóng thẻ không bật lại.
-  const urlLeadId = searchParams.get('id');
-  useEffect(() => {
-    if (!urlLeadId || loadingLeads) return;
-    const conLai = new URLSearchParams(searchParams.toString());
-    conLai.delete('id');
-    router.replace(conLai.toString() ? `/leads?${conLai}` : '/leads', { scroll: false });
-    const coSan = leads.find(l => l.id === urlLeadId);
-    if (coSan) { void Promise.resolve().then(() => openLeadDetail(coSan)); return; }
-    api.getLead(urlLeadId)
-      .then(l => openLeadDetail({
-        ...l,
-        tags: typeof l.tags === 'string' ? (() => { try { return JSON.parse(l.tags as unknown as string); } catch { return []; } })() : l.tags || [],
-      }))
-      .catch(() => toast('Không mở được lead này (đã xoá hoặc ngoài phạm vi của bạn)', 'error'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlLeadId, loadingLeads]);
-
   // Ô chọn lý do nằm cuối thẻ chi tiết (thẻ có thể cuộn) — bật sẵn mà không cuộn tới
   // thì user bấm "Mất" xong tưởng không có gì xảy ra.
   useEffect(() => {
@@ -517,6 +511,22 @@ function LeadsContent() {
     await doStageChange(lead, newStage, { reason: reasonOverride });
   };
 
+  // Link «Chốt được» (Telegram): bật hộp «Deal đã thắng» điền sẵn cho lead. Chặn trước các
+  // ca máy chủ sẽ từ chối — khỏi để sale điền xong 4 ô mới thấy lỗi.
+  const moChotDeal = (lead: Lead) => {
+    const thang = STAGE_CONFIG.signed_design.label;
+    if (lead.stage === 'signed_design') {
+      toast(`Lead này đã ở «${thang}»`, 'info');
+      return;
+    }
+    if (!CHOT_DEAL_TU_STAGE.includes(lead.stage)) {
+      const goiY = lead.stage === 'lost' ? ` — chuyển lead về «${STAGE_CONFIG.interested.label}» trước rồi chốt lại` : '';
+      toast(`Lead đang ở «${STAGE_CONFIG[lead.stage]?.label || lead.stage}» nên chưa chốt «${thang}» được${goiY}`, 'warning');
+      return;
+    }
+    void handleStageChange(lead, 'signed_design');
+  };
+
   // Thân thật của việc đổi giai đoạn — confirm dialog signed_design gọi thẳng vào
   // đây (đi lại handleStageChange sẽ bị hộp xác nhận chặn lần nữa, vòng lặp).
   const doStageChange = async (lead: Lead, newStage: string, opts?: { reason?: string; contractValue?: number; projectName?: string; projectBudget?: number; signedDate?: string }) => {
@@ -550,6 +560,39 @@ function LeadsContent() {
       stageBusy.current = false;
     }
   };
+
+  // Mở thẳng thẻ lead từ link thông báo (/leads?id=…). Đọc xong thì gỡ `id` (và `chot`)
+  // khỏi URL để bấm lại cùng thông báo vẫn mở được, và đóng thẻ không bật lại.
+  // `chot=1` = nút «Chốt được» trên tin Telegram: mở thẻ xong bật luôn hộp «Deal đã thắng»
+  // điền sẵn, qua đúng cửa handleStageChange như nút trong thẻ / kéo thả kanban.
+  // (Đặt SAU moChotDeal/handleStageChange: effect gọi tới chúng, khai báo trước là lint chặn.)
+  const urlLeadId = searchParams.get('id');
+  // id đã xử lý — effect có chạy lại trước khi router.replace kịp đổi URL (lead tải lại)
+  // thì cũng không mở thẻ / hộp chốt lần hai. URL hết `id` thì xoá để lần bấm sau chạy.
+  const linkDaXuLy = useRef<string | null>(null);
+  useEffect(() => {
+    if (!urlLeadId) { linkDaXuLy.current = null; return; }
+    if (loadingLeads || linkDaXuLy.current === urlLeadId) return;
+    linkDaXuLy.current = urlLeadId;
+    const chot = searchParams.get('chot') === '1';
+    const conLai = new URLSearchParams(searchParams.toString());
+    conLai.delete('id');
+    conLai.delete('chot');
+    router.replace(conLai.toString() ? `/leads?${conLai}` : '/leads', { scroll: false });
+    const moThe = (lead: Lead) => {
+      void openLeadDetail(lead);
+      if (chot) moChotDeal(lead);
+    };
+    const coSan = leads.find(l => l.id === urlLeadId);
+    if (coSan) { void Promise.resolve().then(() => moThe(coSan)); return; }
+    api.getLead(urlLeadId)
+      .then(l => moThe({
+        ...l,
+        tags: typeof l.tags === 'string' ? (() => { try { return JSON.parse(l.tags as unknown as string); } catch { return []; } })() : l.tags || [],
+      }))
+      .catch(() => toast('Không mở được lead này (đã xoá hoặc ngoài phạm vi của bạn)', 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLeadId, loadingLeads]);
 
   // Nạp ứng viên phụ trách 1 lần rồi cache (bộ lọc dùng chung nằm ở api.getAssignableSales).
   // Danh sách tỉnh/thành cho ô lọc — gói useMemo vì nó quét toàn bộ lead (619
@@ -1065,7 +1108,7 @@ function LeadsContent() {
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!lead.phone) { e.preventDefault(); return; }
-                            api.createActivity(lead.id, { type: 'call', content: `📞 Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+                            api.createActivity(lead.id, { type: 'call', content: `Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
                               .then(() => toast('Đang gọi + đã ghi nhận', 'success'))
                               .catch(() => {});
                           }}
@@ -1206,6 +1249,7 @@ function LeadsContent() {
           loadingActivities={loadingActivities}
           timelineActivities={timelineActivities}
           setActivities={setActivities}
+          onLeadPatched={patchLead}
           toast={toast}
           newNote={newNote}
           setNewNote={setNewNote}

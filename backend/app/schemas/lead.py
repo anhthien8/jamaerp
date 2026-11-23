@@ -1,7 +1,9 @@
 """Pydantic schemas for leads & activities."""
 
 from decimal import Decimal
-from pydantic import BaseModel, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, timedelta, timezone
 
 
@@ -145,6 +147,16 @@ class LeadStageChange(BaseModel):
 class LeadAssign(BaseModel):
     user_id: str
     note: str | None = None
+
+
+class LeadHenRequest(BaseModel):
+    """Hẹn tiếp từ web: giờ cụ thể (naive giờ VN như cột) hoặc «sau N ngày» (09:00 hôm đó)."""
+    hen_tiep_luc: datetime | None = None
+    hen_sau_ngay: int | None = Field(default=None, ge=1, le=60)
+    plan_type: Literal["online", "offline", "survey"] | None = None
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+    _hen = field_validator("hen_tiep_luc")(_ngay_naive_vn)
 
 
 class ActivityCreate(BaseModel):

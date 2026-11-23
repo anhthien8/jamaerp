@@ -20,6 +20,7 @@ export const PRIORITY_LABELS: Record<string, { label: string; color: string }> =
 export const ACTIVITY_ICONS: Record<string, string> = {
   note: 'edit', call: 'phone', meeting: 'handshake', email: 'mail', sms: 'message',
   stage_change: 'refresh', assignment: 'user', system: 'robot', cskh: 'users',
+  zoom: 'globe', office_visit: 'building', hen: 'calendar',
 };
 export const STAGES = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design'];
 
@@ -30,6 +31,27 @@ export function formatDateTime(value?: string | null): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+}
+
+// Thứ trong tuần theo Date.getDay() (0 = Chủ nhật) — cùng chữ với bot (lead_touch.THU_VN).
+const THU_VN = ['Chủ nhật', 'thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy'];
+
+/** Giờ hẹn dạng «09:00 thứ Ba 25/11» (khác năm nay thì kèm năm) — khớp nhãn hẹn trên
+ *  tin bot (lead_touch.nhan_hen_ngan) để sale soát nhanh đúng ngày. Chuỗi rỗng nếu thiếu. */
+export function nhanHenNgan(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  const nam = d.getFullYear() === new Date().getFullYear() ? '' : `/${d.getFullYear()}`;
+  return `${p(d.getHours())}:${p(d.getMinutes())} ${THU_VN[d.getDay()]} ${p(d.getDate())}/${p(d.getMonth() + 1)}${nam}`;
+}
+
+/** Lead đang có hẹn tiếp ở phía trước (cùng cách đọc giờ với isOverdueLead bên dưới). */
+export function henTiepConToi(lead: Lead): boolean {
+  if (!lead.hen_tiep_luc) return false;
+  const t = new Date(lead.hen_tiep_luc).getTime();
+  return !Number.isNaN(t) && t > Date.now();
 }
 
 export function TagBadge({ tag }: { tag: string }) {

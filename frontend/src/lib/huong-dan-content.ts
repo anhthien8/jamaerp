@@ -491,7 +491,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "Bấm vào thẻ lead, cuộn xuống «Lịch sử hoạt động».",
-          "Vội thì bấm **chip 1 chạm**: «📵 Không nghe máy», «🔁 Hẹn gọi lại», «📤 Đã gửi báo giá», «📅 Hẹn khảo sát» — một cái bấm là ghi xong.",
+          "Vội thì bấm **chip 1 chạm**: «Không nghe máy», «Đã gặp khách», «Đã Zoom», «Khách lên văn phòng», «Đã gửi báo giá» — một cái bấm là ghi xong, đúng loại việc như nút trên tin Telegram. Gặp khách, Zoom, khách lên văn phòng tính là đã liên hệ khách. Chip «Đã gửi báo giá» chỉ ghi lịch sử, không tự chuyển cột.",
+          "Hẹn lại thì bấm **«Hẹn gọi lại…»** hoặc **«Hẹn khảo sát…»** rồi chọn **«Mai»**, **«3 ngày»** hoặc **«1 tuần»** (9 giờ sáng hôm đó); muốn giờ khác thì bấm **«Chọn ngày»**, chọn giờ rồi bấm **«Lưu hẹn»**. Giờ đã hẹn hiện ở dòng **«Đang hẹn: …»** ngay trên các chip; chưa tới giờ hẹn thì bot không nhắc, không thu hồi khách và thẻ không bị nhãn «Quá hạn».",
           "Muốn ghi kỹ hơn: gõ vào ô **«Thêm ghi chú...»** rồi bấm **«Gửi»** (hoặc phím Enter). Có ảnh (ảnh nhà khách, ảnh chụp tin nhắn...) thì bấm **📷** cạnh ô ghi chú hoặc dán ảnh thẳng vào ô, tối đa 6 ảnh mỗi ghi chú; ảnh hiện ngay trong lịch sử, bấm để phóng to. Ảnh lead chỉ người xem được lead mới thấy.",
           "Gọi khách ngay trên bảng: bấm **biểu tượng điện thoại** trên thẻ — máy gọi thật và hệ thống tự ghi nhận cuộc gọi kèm giờ."
         ]

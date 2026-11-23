@@ -238,3 +238,61 @@ async def test_web_ghi_hoat_dong_qua_cung_loi(client, db_session, sales_user):
     await db_session.refresh(n)
     assert _aware(lead.last_contacted_at) > cu
     assert n.read is True
+
+
+# ── Web: POST /leads/{id}/hen (chip «Hẹn…», R00 §E) ─────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_web_hen_sau_3_ngay_ghi_hen_tiep_va_lich_su(client, db_session, sales_user):
+    lead = await _lead(db_session, sales_user)
+    lien_he_cu = _aware(lead.last_contacted_at)
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={"hen_sau_ngay": 3, "plan_type": "survey"},
+                          headers=auth_header(sales_user))
+    assert r.status_code == 200, r.text
+    moc = (gio_vn_naive() + timedelta(days=3)).replace(hour=9, minute=0, second=0, microsecond=0)
+    assert r.json()["hen_tiep_luc"].startswith(moc.isoformat()[:16])
+    assert r.json()["plan_type"] == "survey"
+    await db_session.refresh(lead)
+    assert lead.hen_tiep_luc == moc
+    acts = await _hoat_dong(db_session, lead)
+    assert [a.type for a in acts] == ["hen"]
+    assert acts[0].content == f"Hẹn khảo sát: {moc:%H:%M %d/%m/%Y}"
+    # Hẹn chưa phải chạm khách → «liên hệ lần cuối» giữ nguyên
+    assert _aware(lead.last_contacted_at) == lien_he_cu
+
+
+@pytest.mark.asyncio
+async def test_web_hen_chon_ngay_qua_khu_hoac_thieu_gio_bi_tu_choi(client, db_session, sales_user):
+    lead = await _lead(db_session, sales_user)
+    qua = (gio_vn_naive() - timedelta(hours=1)).replace(microsecond=0).isoformat()
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={"hen_tiep_luc": qua}, headers=auth_header(sales_user))
+    assert r.status_code == 422 and r.json()["detail"] == "Giờ hẹn phải ở phía trước"
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={}, headers=auth_header(sales_user))
+    assert r.status_code == 422 and r.json()["detail"] == "Thiếu giờ hẹn"
+    toi = (gio_vn_naive() + timedelta(days=2)).replace(hour=14, minute=30, second=0, microsecond=0)
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={"hen_tiep_luc": toi.isoformat()},
+                          headers=auth_header(sales_user))
+    assert r.status_code == 200, r.text
+    await db_session.refresh(lead)
+    assert lead.hen_tiep_luc == toi
+
+
+@pytest.mark.asyncio
+async def test_web_hen_nguoi_ngoai_kinh_doanh_bi_chan(client, db_session, sales_user, designer_user):
+    lead = await _lead(db_session, sales_user)
+    r = await client.post(f"/api/v1/leads/{lead.id}/hen", json={"hen_sau_ngay": 1}, headers=auth_header(designer_user))
+    assert r.status_code == 403
+    await db_session.refresh(lead)
+    assert lead.hen_tiep_luc is None
+
+
+@pytest.mark.asyncio
+async def test_web_chip_bam_hai_lan_khong_ghi_doi(client, db_session, sales_user):
+    lead = await _lead(db_session, sales_user)
+    body = {"type": "zoom", "content": "Đã tư vấn khách qua Zoom/online"}
+    for _ in range(2):
+        r = await client.post(f"/api/v1/leads/{lead.id}/activities", json=body, headers=auth_header(sales_user))
+        assert r.status_code in (200, 201), r.text
+    acts = await _hoat_dong(db_session, lead)
+    assert [a.type for a in acts] == ["zoom"]

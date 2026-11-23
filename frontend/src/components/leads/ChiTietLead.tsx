@@ -1,14 +1,66 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
-import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
-import { toDayKey } from '@/lib/date-filter';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
+import { dayKey, toDayKey } from '@/lib/date-filter';
 import { AnhLead, DONG_ANH } from '@/components/ui/AnhGhiChuLead';
-import { api } from '@/lib/api';
-import { PRIORITY_LABELS, TagBadge, SOURCE_LABELS, PROPERTY_LABELS, formatDateTime, ACTIVITY_ICONS, STAGES } from './shared';
+import { api, ApiError } from '@/lib/api';
+import { PRIORITY_LABELS, TagBadge, SOURCE_LABELS, PROPERTY_LABELS, formatDateTime, ACTIVITY_ICONS, STAGES, henTiepConToi, nhanHenNgan } from './shared';
 import LostReasonSelector from './LostReasonSelector';
 import type { Lead, User, AISuggestion, AISuggestionHistory, Activity } from '@/lib/api';
+
+type HamToast = (message: string, type?: "success" | "info" | "warning" | "error" | undefined) => void;
+
+// ── Chip ghi nhanh 1 chạm (sales trên xe ngại gõ dấu — spec 08 §2.1, H8) ──
+// Mỗi chip ghi ĐÚNG loại hoạt động + câu chữ như nút trên tin Telegram (backend
+// lead_touch.VIEC_TIEP_XUC): gọi / gặp / Zoom / khách lên VP / ghi chú dời mốc «liên hệ lần
+// cuối». Bản cũ ghi mọi chip là «call» và nhét emoji vào nội dung.
+type ChipGhi = { nhan: string; icon: string; type: string; content: string };
+const CHIP_GHI_NHANH: ChipGhi[] = [
+  { nhan: 'Không nghe máy', icon: 'phone', type: 'call', content: 'Gọi khách không nghe máy' },
+  { nhan: 'Đã gặp khách', icon: 'handshake', type: 'meeting', content: 'Đã gặp khách trực tiếp' },
+  { nhan: 'Đã Zoom', icon: 'globe', type: 'zoom', content: 'Đã tư vấn khách qua Zoom/online' },
+  { nhan: 'Khách lên văn phòng', icon: 'building', type: 'office_visit', content: 'Khách lên văn phòng' },
+  { nhan: 'Đã gửi báo giá', icon: 'send', type: 'note', content: 'Đã gửi báo giá' },
+];
+
+// «Hẹn…» không ghi thẳng: mở chọn nhanh ngày → POST /leads/{id}/hen đặt giờ hẹn thật (bot
+// thôi nhắc, không thu hồi, hết cờ «Quá hạn»); máy chủ tự ghi dòng «Hẹn …» vào lịch sử.
+type KieuHen = 'goi_lai' | 'khao_sat';
+const CHIP_HEN: { kieu: KieuHen; nhan: string; icon: string; tieuDe: string; planType?: 'survey' }[] = [
+  { kieu: 'goi_lai', nhan: 'Hẹn gọi lại…', icon: 'refresh', tieuDe: 'gọi lại' },
+  { kieu: 'khao_sat', nhan: 'Hẹn khảo sát…', icon: 'calendar', tieuDe: 'khảo sát', planType: 'survey' },
+];
+// «Mai / 3 ngày / 1 tuần» = 09:00 giờ VN của ngày đó — máy chủ tính (hen_sau_ngay).
+const HEN_NHANH = [
+  { nhan: 'Mai', soNgay: 1 },
+  { nhan: '3 ngày', soNgay: 3 },
+  { nhan: '1 tuần', soNgay: 7 },
+];
+
+// Màu nền / viền / chữ chọn THEO TRẠNG THÁI, không xếp chồng: `cn` chỉ nối chuỗi (không gộp
+// lớp trùng thuộc tính), nên để cả vàng «đang mở» lẫn `border-white/10` trên một nút thì lớp
+// nào Tailwind in sau trong CSS thắng — vàng thua, và theme sáng còn ép `bg-white/5`,
+// `border-white/10` bằng !important. Trên điện thoại không có hover nên mất hẳn dấu «đang mở».
+const LOP_CHIP_GOC = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all min-h-[36px] border hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-40';
+const lopChip = (dangMo = false) => cn(
+  LOP_CHIP_GOC,
+  dangMo ? 'bg-[#C9A96E]/10 border-[#C9A96E] text-[#C9A96E]' : 'bg-white/5 border-white/10 text-[var(--text-secondary)]',
+);
+
+/** Câu lỗi tiếng Việt máy chủ trả (detail) nếu có; lỗi mạng / lỗi trơn thì câu dự phòng. */
+function loiMayChu(e: unknown, duPhong: string): string {
+  const msg = e instanceof ApiError ? e.message : '';
+  return msg && !/^HTTP \d+$/.test(msg) && msg !== 'Request failed' ? msg : duPhong;
+}
+
+/** 'YYYY-MM-DDTHH:mm' theo giờ máy — định dạng giá trị của ô datetime-local. */
+function oGioHen(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${dayKey(d)}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 /** Modal chi tiết lead. */
 export default function ChiTietLead({
@@ -39,6 +91,7 @@ export default function ChiTietLead({
   loadingActivities,
   timelineActivities,
   setActivities,
+  onLeadPatched,
   toast,
   newNote,
   setNewNote,
@@ -83,6 +136,8 @@ export default function ChiTietLead({
   loadingActivities: boolean;
   timelineActivities: Activity[];
   setActivities: Dispatch<SetStateAction<Activity[]>>;
+  /** Vá tại chỗ vài trường của lead (thẻ này + danh sách/kanban) sau khi máy chủ đã lưu. */
+  onLeadPatched: (leadId: string, patch: Partial<Lead>) => void;
   toast: (message: string, type?: "success" | "info" | "warning" | "error" | undefined) => void;
   newNote: string;
   setNewNote: Dispatch<SetStateAction<string>>;
@@ -547,26 +602,15 @@ export default function ChiTietLead({
 
             {/* Add Note */}
             <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
-              {/* Chip ghi chú 1 chạm — sales trên xe ngại gõ dấu (spec 08 §2.1, H8) */}
-              <div className="flex gap-1.5 flex-wrap">
-                {['📵 Không nghe máy', '🔁 Hẹn gọi lại', '📤 Đã gửi báo giá', '📅 Hẹn khảo sát'].map(chip => (
-                  <button
-                    key={chip}
-                    onClick={async () => {
-                      if (!selectedLead) return;
-                      try {
-                        await api.createActivity(selectedLead.id, { type: 'call', content: chip });
-                        const acts = await api.getActivities(selectedLead.id);
-                        setActivities(acts);
-                        toast('Đã ghi nhận', 'success');
-                      } catch { toast('Lỗi khi ghi nhận', 'error'); }
-                    }}
-                    className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all min-h-[36px] bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[#C9A96E] hover:text-[#C9A96E]"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
+              {/* Chip ghi chú 1 chạm — sales trên xe ngại gõ dấu (spec 08 §2.1, H8).
+                  key = lead: đổi lead là panel hẹn đóng, khoá chống bấm lặp làm lại từ đầu. */}
+              <ChipGhiNhanh
+                key={selectedLead.id}
+                lead={selectedLead}
+                setActivities={setActivities}
+                toast={toast}
+                onLeadPatched={onLeadPatched}
+              />
               <div className="flex gap-2">
                 <input
                   value={newNote}
@@ -722,5 +766,184 @@ export default function ChiTietLead({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Chip ghi nhanh + chọn nhanh ngày hẹn (dòng «Đang hẹn» ngay trên chip). */
+function ChipGhiNhanh({ lead, setActivities, toast, onLeadPatched }: {
+  lead: Lead;
+  setActivities: Dispatch<SetStateAction<Activity[]>>;
+  toast: HamToast;
+  onLeadPatched: (leadId: string, patch: Partial<Lead>) => void;
+}) {
+  // Một lượt gửi mỗi lúc: ref chặn cú bấm thứ hai trong cùng nhịp (state chưa kịp đổi),
+  // state để làm mờ nút + hiện «Đang lưu...».
+  const dangGuiRef = useRef(false);
+  const [dangGui, setDangGui] = useState<string | null>(null);
+  const [henMo, setHenMo] = useState<KieuHen | null>(null);
+  const [chonNgay, setChonNgay] = useState(false);
+  const [gioHen, setGioHen] = useState('');
+  const [gioHenMin, setGioHenMin] = useState('');
+  // Thẻ đã đóng / đổi lead khi request còn bay → không đổ lịch sử lead này sang thẻ khác.
+  const conMo = useRef(true);
+  useEffect(() => {
+    conMo.current = true;
+    return () => { conMo.current = false; };
+  }, []);
+
+  const chay = async (khoa: string, viec: () => Promise<void>) => {
+    if (dangGuiRef.current) return;
+    dangGuiRef.current = true;
+    setDangGui(khoa);
+    try {
+      await viec();
+    } finally {
+      dangGuiRef.current = false;
+      setDangGui(null);
+    }
+  };
+
+  const taiLaiLichSu = async () => {
+    try {
+      const acts = await api.getActivities(lead.id);
+      if (conMo.current) setActivities(acts);
+    } catch { /* đã lưu xong — lịch sử sẽ tải lại ở lần mở thẻ sau */ }
+  };
+
+  const ghiChip = (chip: ChipGhi) => chay(chip.type, async () => {
+    try {
+      await api.createActivity(lead.id, { type: chip.type, content: chip.content });
+    } catch (e) {
+      toast(loiMayChu(e, 'Lỗi khi ghi nhận'), 'error');
+      return;
+    }
+    toast('Đã ghi nhận', 'success');
+    await taiLaiLichSu();
+  });
+
+  const hen = CHIP_HEN.find(c => c.kieu === henMo);
+  const batTatHen = (kieu: KieuHen) => {
+    if (henMo === kieu) {
+      setHenMo(null);
+      setChonNgay(false);
+      setGioHen('');
+    } else {
+      setHenMo(kieu);
+    }
+  };
+
+  const datHen = (khoa: string, data: { hen_tiep_luc?: string; hen_sau_ngay?: number }) => {
+    if (!hen) return;
+    return chay(khoa, async () => {
+      let updated: Lead;
+      try {
+        updated = await api.henTiepLead(lead.id, { ...data, plan_type: hen.planType });
+      } catch (e) {
+        toast(loiMayChu(e, 'Không lưu được giờ hẹn'), 'error');
+        return;
+      }
+      // Chỉ vá 2 trường hẹn — lead máy chủ trả có tags dạng chuỗi JSON, thay nguyên là vỡ tag.
+      onLeadPatched(lead.id, { hen_tiep_luc: updated.hen_tiep_luc ?? null, plan_type: updated.plan_type });
+      setHenMo(null);
+      setChonNgay(false);
+      setGioHen('');
+      const nhan = nhanHenNgan(updated.hen_tiep_luc);
+      toast(nhan ? `Đã hẹn ${hen.tieuDe} ${nhan}` : 'Đã lưu giờ hẹn', 'success');
+      await taiLaiLichSu();
+    });
+  };
+
+  const henToi = henTiepConToi(lead);
+
+  return (
+    <>
+      {henToi && (
+        <p className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+          <LineIcon name="calendar" size={14} />
+          Đang hẹn: <span className="font-medium text-[var(--text-primary)]">{nhanHenNgan(lead.hen_tiep_luc)}</span>
+        </p>
+      )}
+      <div className="flex gap-1.5 flex-wrap">
+        {CHIP_GHI_NHANH.map(chip => (
+          <button
+            key={chip.type}
+            type="button"
+            onClick={() => void ghiChip(chip)}
+            disabled={dangGui !== null}
+            className={lopChip()}
+          >
+            <LineIcon name={chip.icon} size={14} color="currentColor" />{chip.nhan}
+          </button>
+        ))}
+        {CHIP_HEN.map(c => (
+          <button
+            key={c.kieu}
+            type="button"
+            onClick={() => batTatHen(c.kieu)}
+            disabled={dangGui !== null}
+            aria-expanded={henMo === c.kieu}
+            className={lopChip(henMo === c.kieu)}
+          >
+            <LineIcon name={c.icon} size={14} color="currentColor" />{c.nhan}
+          </button>
+        ))}
+      </div>
+      {hen && (
+        <div
+          role="group"
+          aria-label={`Chọn ngày hẹn ${hen.tieuDe}`}
+          className="p-3 rounded-lg space-y-2"
+          style={{ background: 'var(--surface-2)' }}
+        >
+          <p className="text-xs text-[var(--text-muted)]">
+            Hẹn {hen.tieuDe} khi nào? «Mai», «3 ngày», «1 tuần» là 9 giờ sáng hôm đó.
+          </p>
+          <div className="flex gap-1.5 flex-wrap">
+            {HEN_NHANH.map(o => (
+              <button
+                key={o.soNgay}
+                type="button"
+                onClick={() => void datHen(`sau_${o.soNgay}`, { hen_sau_ngay: o.soNgay })}
+                disabled={dangGui !== null}
+                className={lopChip()}
+              >
+                {dangGui === `sau_${o.soNgay}` ? 'Đang lưu...' : o.nhan}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => { setChonNgay(v => !v); setGioHenMin(oGioHen(new Date())); }}
+              disabled={dangGui !== null}
+              aria-expanded={chonNgay}
+              className={lopChip(chonNgay)}
+            >
+              <LineIcon name="calendar" size={14} color="currentColor" />Chọn ngày
+            </button>
+          </div>
+          {chonNgay && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="gio-hen-tiep" className="text-xs text-[var(--text-muted)]">Giờ hẹn</label>
+              <input
+                id="gio-hen-tiep"
+                type="datetime-local"
+                value={gioHen}
+                min={gioHenMin}
+                disabled={dangGui !== null}
+                onChange={e => setGioHen(e.target.value)}
+                className="text-sm px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-primary)] border border-[var(--border-subtle)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => void datHen('chon', { hen_tiep_luc: gioHen.length === 16 ? `${gioHen}:00` : gioHen })}
+                disabled={!gioHen || dangGui !== null}
+                className="px-3 py-2 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-30 transition-all min-h-[36px]"
+              >
+                {dangGui === 'chon' ? 'Đang lưu...' : 'Lưu hẹn'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
