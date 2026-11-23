@@ -6,7 +6,7 @@ import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems } from '@/lib/api';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { formatCurrency, formatDate, cn, chuanHoaTim } from '@/lib/utils';
 import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS, ROLE_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
@@ -505,10 +505,12 @@ export default function AccountingPage() {
                     {/* Xuất bảng tính */}
                     <button
                       onClick={() => {
+                        // So bản NFC cả hai phía — mô tả gõ kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026)
+                        const tuKhoa = chuanHoaTim(txSearch);
                         const filtered = transactions
                           .filter(tx => txType === 'all' || tx.type === txType)
                           .filter(tx => txCategory === 'all' || tx.category === txCategory)
-                          .filter(tx => txSearch === '' || tx.description.toLowerCase().includes(txSearch.toLowerCase()) || tx.code.toLowerCase().includes(txSearch.toLowerCase()))
+                          .filter(tx => txSearch === '' || chuanHoaTim(tx.description).includes(tuKhoa) || chuanHoaTim(tx.code).includes(tuKhoa))
                           .filter(tx => {
                             if (!dateFrom && !dateTo) return true;
                             const txDate = new Date(tx.date);
@@ -584,10 +586,11 @@ export default function AccountingPage() {
 
                 {/* Filtered + sorted transactions */}
                 {(() => {
+                  const tuKhoa = chuanHoaTim(txSearch);
                   const filteredTx = transactions
                     .filter(tx => txType === 'all' || tx.type === txType)
                     .filter(tx => txCategory === 'all' || tx.category === txCategory)
-                    .filter(tx => txSearch === '' || tx.description.toLowerCase().includes(txSearch.toLowerCase()) || tx.code.toLowerCase().includes(txSearch.toLowerCase()))
+                    .filter(tx => txSearch === '' || chuanHoaTim(tx.description).includes(tuKhoa) || chuanHoaTim(tx.code).includes(tuKhoa))
                     .filter(tx => {
                       if (!dateFrom && !dateTo) return true;
                       const txDate = new Date(tx.date);

@@ -4,6 +4,7 @@ import json
 import re
 from decimal import Decimal
 
+from app.chuan_hoa_unicode import nfc
 from app.config import get_settings
 from app.schemas.lead import LeadParseResponse
 from app.services.llm_config import llm_complete
@@ -35,6 +36,9 @@ Quy tắc:
 
 async def parse_lead_text(raw_text: str) -> LeadParseResponse:
     """Parse raw text using LLM → structured lead data."""
+    # NFC (21/11/2026): regex dự phòng («Chị», «tỷ», «triệu», lớp chữ có dấu) viết bằng chữ dựng
+    # sẵn — tin gõ dạng tổ hợp sẽ trượt tên khách
+    raw_text = nfc(raw_text)
     try:
         response = await llm_complete(
             messages=[

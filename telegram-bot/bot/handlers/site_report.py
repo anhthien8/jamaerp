@@ -1,6 +1,7 @@
 """/duan and /baocao handlers — project lookup + site reports with photos."""
 
 import os
+import unicodedata
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
@@ -176,7 +177,9 @@ _LA_TEP = F.document | F.video | F.audio | F.voice | F.video_note
 
 
 def _la_tu_xong(text: str | None) -> bool:
-    return (text or "").strip().lower().split("@")[0] in _TU_XONG
+    # NFC trước khi so (21/11/2026): bộ gõ «Unicode tổ hợp» gửi «gửi» thành u + dấu móc + dấu hỏi
+    # rời — trông y hệt nhưng không khớp chữ trong _TU_XONG
+    return unicodedata.normalize("NFC", text or "").strip().lower().split("@")[0] in _TU_XONG
 
 
 def _link_tin(message: types.Message) -> str | None:

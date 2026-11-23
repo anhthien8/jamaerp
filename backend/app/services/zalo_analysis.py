@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.models.zalo import ZaloGroup, ZaloMessage, ZaloSignal
 from app.models.lead import Lead
 
@@ -42,6 +43,9 @@ async def _phone_is_new(db: AsyncSession, phone: str) -> bool:
 
 def _rule_based_signals(text: str) -> list[dict]:
     """Trả list {type, summary, payload} từ 1 tin nhắn — không cần LLM."""
+    # NFC (21/11/2026): khách gõ dạng tổ hợp thì «báo giá», «không hài lòng», «thứ hai»… không
+    # khớp từ khoá dựng sẵn → mất tín hiệu
+    text = nfc(text)
     signals: list[dict] = []
     low = text.lower()
 

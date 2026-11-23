@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.projects import require_project_access
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import la_truong_nhom, la_truong_phong
@@ -420,7 +421,9 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
         raise HTTPException(400, str(e))
     except Exception as e:  # noqa: BLE001 — mạng, timeout…
         raise HTTPException(502, f"Không đọc được Google Sheet: {e}")
-    co = {(m.ma.upper(), m.nhom): m for m in (await db.execute(select(MauVatTu))).scalars()}
+    # Khoá (mã, nhóm) NFC cả 2 phía (21/11/2026): sheet đã NFC ở doc_csv, phía DB chuẩn hoá
+    # luôn để dòng cũ chưa qua migration vẫn khớp, không sinh mẫu trùng
+    co = {(nfc(m.ma).upper(), nfc(m.nhom)): m for m in (await db.execute(select(MauVatTu))).scalars()}
     them = sua = 0
     bo = BoNcc(db)
     so_ncc_truoc = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
@@ -441,7 +444,7 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
         them += 1
     # Nhóm mới chưa có % lãi → tạo dòng mặc định 15% để admin chỉnh một chỗ
     pt = await _phan_tram_nhom(db)
-    for nhom in {r["nhom"] for r in ds} - set(pt):
+    for nhom in {r["nhom"] for r in ds} - {nfc(k) for k in pt}:
         db.add(GiaNhomVatTu(nhom=nhom, phan_tram_lai=15.0, updated_by=user.id))
     await db.commit()
     so_ncc_sau = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
@@ -461,12 +464,15 @@ async def xem_cai_gia(user: User = Depends(get_current_user), db: AsyncSession =
 @router.put("/cai-gia")
 async def cai_gia(body: list[GiaNhomIn], user: User = Depends(yeu_cau_admin), db: AsyncSession = Depends(get_db)):
     for item in body:
-        g = await db.get(GiaNhomVatTu, item.nhom)
+        # Tên nhóm là KHOÁ CHÍNH: tra bằng bản NFC (21/11/2026) — gõ dạng tổ hợp mà tra nguyên
+        # văn thì không thấy dòng có sẵn, listener lại ghi bản NFC → nổ trùng khoá (500)
+        nhom = nfc(item.nhom)
+        g = await db.get(GiaNhomVatTu, nhom)
         if g:
             g.phan_tram_lai = item.phan_tram_lai
             g.updated_by = user.id
         else:
-            db.add(GiaNhomVatTu(nhom=item.nhom, phan_tram_lai=item.phan_tram_lai, updated_by=user.id))
+            db.add(GiaNhomVatTu(nhom=nhom, phan_tram_lai=item.phan_tram_lai, updated_by=user.id))
     await db.commit()
     return {"ok": True, "so_nhom": len(body)}
 
@@ -1270,7 +1276,7 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
                 await db.delete(d)
                 xoa += 1
             else:
-                da_xu_ly.add((d.hang_muc or "").strip().lower())  # Thu mua đã hỏi giá/chốt → giữ, không tạo lại
+                da_xu_ly.add(nfc(d.hang_muc or "").strip().lower())  # Thu mua đã hỏi giá/chốt → giữ, không tạo lại
         await db.flush()
         await dong_bo_gia_tri_du_an(db, goc.project_id)
         from app.cache import cache
@@ -1285,7 +1291,7 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
     for it in body.items:
         if (it.sl is not None and it.sl <= 0) or it.thanh_tien <= 0:
             continue  # giảm trừ: CĐT cấp, không mua
-        if it.hang_muc.strip().lower() in da_xu_ly:
+        if nfc(it.hang_muc).strip().lower() in da_xu_ly:  # NFC: tệp gõ dạng tổ hợp vẫn nhận ra dòng đã có
             continue
         thu_tu += 1
         gia_khach = f"Giá báo khách {it.don_gia:,.0f}đ/{it.dvt or 'đv'}".replace(",", ".") if it.don_gia else ""

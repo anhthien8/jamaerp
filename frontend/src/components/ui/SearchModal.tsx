@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { chuanHoaTim } from '@/lib/utils';
 import LineIcon from '@/components/ui/LineIcon';
 
 interface SearchItem {
@@ -25,9 +26,10 @@ const QUICK_ACTIONS: SearchItem[] = [
   { id: 'a5', type: 'contact', title: 'Cài đặt', subtitle: 'Thông tin cá nhân, Telegram Bot', icon: 'settings', href: '/settings' },
 ];
 
+// So bản NFC cả hai phía (21/11/2026): chữ gõ kiểu «Unicode tổ hợp» vẫn khớp chữ dựng sẵn.
 function fuzzyMatch(text: string, query: string): boolean {
-  const t = text.toLowerCase();
-  const q = query.toLowerCase();
+  const t = chuanHoaTim(text);
+  const q = chuanHoaTim(query);
   // Check if all query chars exist in order
   let qi = 0;
   for (let i = 0; i < t.length && qi < q.length; i++) {
@@ -38,13 +40,17 @@ function fuzzyMatch(text: string, query: string): boolean {
 
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  // Cắt trên bản NFC của text (trông y hệt) để vị trí tìm được khớp đúng chỗ tô;
+  // độ dài đoạn tô lấy theo từ khoá đã chuẩn hoá (bản tổ hợp dài hơn bản dựng sẵn).
+  const hienThi = text.normalize('NFC');
+  const tu = chuanHoaTim(query);
+  const idx = chuanHoaTim(hienThi).indexOf(tu);
   if (idx === -1) return text;
   return (
     <>
-      {text.slice(0, idx)}
-      <span style={{ color: 'var(--gold-400)', fontWeight: 600 }}>{text.slice(idx, idx + query.length)}</span>
-      {text.slice(idx + query.length)}
+      {hienThi.slice(0, idx)}
+      <span style={{ color: 'var(--gold-400)', fontWeight: 600 }}>{hienThi.slice(idx, idx + tu.length)}</span>
+      {hienThi.slice(idx + tu.length)}
     </>
   );
 }

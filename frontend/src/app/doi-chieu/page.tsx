@@ -23,7 +23,7 @@ import { Trong } from '@/components/dashboard/KhoiDashboard';
 import {
   api, DoiChieu, DoiChieuHoSo, DoiChieuMuc, KetQuaDoiChieu, PhongDuLieu,
 } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { chuanHoaTim, formatCurrency } from '@/lib/utils';
 import {
   GIAI_DOAN_DU_AN, GIAI_DOAN_LEAD, GIAI_DOAN_THEO_PHONG, NHAN_KET_QUA, PHONG_DU_LIEU, TEN_PHONG,
   baoLau, duocDoiChieu, duocDoiGiaiDoanDuAn, laBGD, linkHoSo, ngayThang, nhanDauVet, nhanGiaiDoan,
@@ -121,10 +121,11 @@ function DoiChieuNoiDung() {
 
   const goc = useMemo(() => (tab === 'chua_xep' ? data?.chua_xep : data?.ho_so) || [], [data, tab]);
   const danhSach = useMemo(() => {
-    const q = timKiem.trim().toLowerCase();
+    const q = chuanHoaTim(timKiem.trim());
     if (!q) return goc;
     // Lead không có mã (ma = null) — mọi trường đều có thể null.
-    return goc.filter(r => [r.ma, r.ten, r.khach, r.dia_chi].some(s => (s ?? '').toLowerCase().includes(q)));
+    // So bản NFC cả hai phía: tên gõ/lưu kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026).
+    return goc.filter(r => [r.ma, r.ten, r.khach, r.dia_chi].some(s => chuanHoaTim(s).includes(q)));
   }, [goc, timKiem]);
 
   // Dòng đã sửa lấy từ CẢ danh sách, không theo ô tìm — sửa rồi gõ tìm cho ẩn đi vẫn được gửi.

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import can_confirm_payment
@@ -319,7 +320,9 @@ async def update_lich_thu(
     moi = []
     for i, d in enumerate(data.dot):
         inst = dict(cu[i]) if i < len(cu) else {"status": "pending"}
-        inst.update({"name": d.name.strip()[:120] or f"Đợt {i + 1}", "percentage": d.percentage,
+        # NFC (21/11/2026): payment_terms là cột JSON — listener không chuẩn hoá bên trong;
+        # tên đợt còn đi vào ref_id nhắc thanh toán và chữ hiện trên thông báo
+        inst.update({"name": nfc(d.name.strip())[:120] or f"Đợt {i + 1}", "percentage": d.percentage,
                      "due_date": d.due_date.isoformat() if d.due_date else None})
         if d.milestone:
             inst["milestone"] = d.milestone

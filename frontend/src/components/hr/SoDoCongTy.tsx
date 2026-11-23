@@ -13,6 +13,7 @@ import type { User, Team } from '@/lib/api';
 import Avatar from '@/components/ui/Avatar';
 import LineIcon from '@/components/ui/LineIcon';
 import { capBac, deptLabel, DEPT_ORDER, type RoleStyle } from '@/lib/nhan-su';
+import { chuanHoaTim } from '@/lib/utils';
 import { BadgeBan, NEN_CUA_TOI } from '@/components/hr/CuaToi';
 import SoDoMangLuoi from '@/components/hr/SoDoMangLuoi';
 
@@ -93,8 +94,9 @@ export default function SoDoCongTy({ users, teams, roleOf, meId }: Props) {
   const [dong, setDong] = useState<Record<string, boolean>>({});
 
   const dangLam = useMemo(() => users.filter(u => u.is_active), [users]);
-  const q = tim.trim().toLowerCase();
-  const khop = (u: User) => !q || u.full_name.toLowerCase().includes(q) || roleOf(u.role).label.toLowerCase().includes(q);
+  // So bản NFC cả hai phía — tên lưu/gõ kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026)
+  const q = chuanHoaTim(tim.trim());
+  const khop = (u: User) => !q || chuanHoaTim(u.full_name).includes(q) || chuanHoaTim(roleOf(u.role).label).includes(q);
 
   const bgd = dangLam.filter(u => capBac(u) === 'bgd');
   const conLai = dangLam.filter(u => capBac(u) !== 'bgd');

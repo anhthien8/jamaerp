@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
@@ -313,7 +314,8 @@ async def create_price_item(
         raise HTTPException(status_code=400, detail="Danh mục không hợp lệ")
     if payload.unit not in PRICE_UNITS:
         raise HTTPException(status_code=400, detail="Đơn vị không hợp lệ")
-    existing = await db.execute(select(PriceItem).where(PriceItem.code == payload.code))
+    # NFC (21/11/2026): mã gõ dạng tổ hợp phải đụng mã dựng sẵn đã có → 400, không nổ khoá unique
+    existing = await db.execute(select(PriceItem).where(PriceItem.code == nfc(payload.code)))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Mã hạng mục đã tồn tại")
 

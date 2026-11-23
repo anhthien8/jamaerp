@@ -10,6 +10,7 @@ from app.agents.sales_copilot import (
     suggest_action as copilot_suggest_action,
     tom_luoc_ban_ghi,
 )
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import duoc_sua_lead_nay, duoc_xem_lead_nay
@@ -85,7 +86,9 @@ async def parse_lead(
     current_user: User = Depends(get_current_user),
 ):
     """Parse unstructured text into lead fields. Rule-based, no LLM required."""
-    text = data.get("text", "")
+    # NFC trước khi dò từ khoá (21/11/2026): «căn hộ», «nhà phố», «giới thiệu»… gõ dạng tổ hợp
+    # (bot Telegram, dán từ Zalo) không khớp chữ hằng dựng sẵn
+    text = nfc(data.get("text", ""))
     if not text:
         raise HTTPException(status_code=400, detail="Cần nhập text để parse")
 
