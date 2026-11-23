@@ -14,6 +14,7 @@ Bộ luật vẫn là đường lui: LLM tắt, hết quota hay trả rác thì 
 
 import json
 import logging
+import re
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ from app.models.ai_memory import (
     AiRun,
 )
 from app.models.lead import Activity, Lead
+from app.models.user import User
 from app.services import ai_memory, ai_tien_hoa
 from app.services.llm_config import llm_available, llm_complete
 
@@ -44,8 +46,18 @@ Pipeline 7 giai đoạn:
 
 QUY TẮC BẮT BUỘC:
 - Không lặp lại gợi ý mà sale đã ghi "đã làm" hoặc "bỏ qua" — hãy đề xuất bước kế tiếp.
-- Mọi câu chữ bằng tiếng Việt, xưng "em", gọi khách là "anh/chị".
+- Mọi câu chữ bằng tiếng Việt, xưng "em", gọi khách là "anh/chị" kèm tên khách.
 - CHỈ trả JSON, không giải thích, không rào đầu.
+
+MẪU TIN NHẮN (message_template) — người gửi là "Người phụ trách" trong bối cảnh:
+- Câu đầu tự giới thiệu "em là <tên người phụ trách> bên JAMA HOME" (dùng ĐÚNG tên được cho,
+  KHÔNG BAO GIỜ để ô trống kiểu [Tên], [tên nhân viên], [ngày]...). Không có tên thì "em bên JAMA HOME".
+- Giọng người Sài Gòn: mở bằng "Dạ", nói chuyện gần gũi, chân thành như người quen hỏi thăm,
+  dùng "nha", "nè", "ạ" tự nhiên; câu ngắn, 2–4 câu là đủ.
+- Nhắc JAMA HOME tự nhiên để khách yên tâm (đơn vị thiết kế – thi công nội thất), có thể khéo
+  nhắc lại đúng nhu cầu khách đã kể. KHÔNG bịa số liệu, giải thưởng, khuyến mãi.
+- Tránh văn mẫu sáo rỗng ("rất sẵn lòng hỗ trợ", "quý khách", "trân trọng").
+- Kết bằng một câu hỏi mở nhẹ nhàng, không ép khách.
 
 Trả về JSON:
 {
@@ -70,13 +82,19 @@ _NHAN_KET_QUA = {
 # Bộ luật — đường lui khi không có LLM
 # ---------------------------------------------------------------------------
 
-def _ung_vien_theo_luat(lead: Lead, activities: list[Activity], so_ngay_im_lang: int | None) -> list[dict]:
+def _ung_vien_theo_luat(
+    lead: Lead,
+    activities: list[Activity],
+    so_ngay_im_lang: int | None,
+    ten_pic: str | None = None,
+) -> list[dict]:
     """Toàn bộ gợi ý bộ luật nghĩ ra được, xếp theo thứ tự nên làm trước.
 
     Trả về cả danh sách (không phải mỗi cái đầu) để tầng gọi còn bước xuống cái
     tiếp theo khi cái đầu đã bị sale bỏ qua.
     """
     ten_khach = lead.contact_person or lead.name
+    em = f"em là {ten_pic} bên JAMA HOME" if ten_pic else "em bên JAMA HOME"
     ung_vien: list[dict] = []
 
     if not lead.assigned_to:
@@ -95,8 +113,9 @@ def _ung_vien_theo_luat(lead: Lead, activities: list[Activity], so_ngay_im_lang:
             "reason": "Chưa liên hệ khách hàng lần nào",
             "priority": "high",
             "message_template": (
-                f"Chào anh/chị {ten_khach}, em là nhân viên tư vấn JAMA HOME. "
-                "Em gọi để trao đổi về nhu cầu thiết kế nội thất của anh/chị ạ."
+                f"Dạ chào anh/chị {ten_khach}, {em} — bên em chuyên thiết kế, thi công nội thất ạ. "
+                "Em thấy anh/chị có quan tâm làm nội thất nên muốn hỏi thăm chút xíu nhu cầu "
+                "để tư vấn cho sát nha. Anh/chị tiện nghe máy lúc nào để em gọi ạ?"
             ),
         })
     elif so_ngay_im_lang is not None and so_ngay_im_lang > 7:
@@ -106,8 +125,9 @@ def _ung_vien_theo_luat(lead: Lead, activities: list[Activity], so_ngay_im_lang:
             "reason": f"Đã {so_ngay_im_lang} ngày không liên hệ, khách dễ nguội",
             "priority": "high",
             "message_template": (
-                f"Anh/chị {ten_khach} ơi, JAMA HOME hỏi thăm xem kế hoạch nội thất "
-                "của anh/chị tới đâu rồi ạ. Em hỗ trợ tiếp được không ạ?"
+                f"Dạ anh/chị {ten_khach} ơi, {em} nè. Lâu rồi không thấy anh/chị nhắn, "
+                "em hỏi thăm chút kế hoạch làm nội thất nhà mình tới đâu rồi ạ? "
+                "Có gì cần tham khảo thêm anh/chị cứ nhắn em, em hỗ trợ liền nha."
             ),
         })
 
@@ -134,8 +154,9 @@ def _ung_vien_theo_luat(lead: Lead, activities: list[Activity], so_ngay_im_lang:
             "action": "Hẹn lịch khảo sát thực tế",
             "reason": "KH quan tâm, hẹn khảo sát hiện trạng",
             "message_template": (
-                f"Anh/chị {ten_khach}, JAMA HOME xin hẹn khảo sát thực tế nhà anh/chị "
-                "vào [ngày]. Thời gian khoảng 30-45 phút ạ."
+                f"Dạ anh/chị {ten_khach}, {em} ạ. Để tư vấn cho đúng, bên em xin qua "
+                "coi thực tế nhà mình chừng 30–45 phút thôi nha. "
+                "Anh/chị rảnh hôm nào, giờ nào để em sắp xếp qua ạ?"
             ),
         },
         "surveyed": {
@@ -214,9 +235,33 @@ def _tom_tat_lich_su(lich_su: list[AiRun]) -> str:
     return "Đã gợi ý trước đó:\n" + "\n".join(dong)
 
 
-def _boi_canh(lead: Lead, activities: list[Activity], tom_tat_lich_su: str) -> str:
+def _ten_goi(ho_ten: str | None) -> str | None:
+    """Tên gọi thân mật trong tin nhắn: "Nguyễn Thị Mai" → "Mai"."""
+    phan = (ho_ten or "").split()
+    return phan[-1] if phan else None
+
+
+# Ô trống tên người gửi LLM hay để lại ("[Tên]", "[tên nhân viên]"); chừa "[tên khách]"
+_O_TRONG_TEN = re.compile(r"\[\s*t[êe]n(?![^\]]*kh[áa]ch)[^\]]*\]", re.IGNORECASE)
+
+
+def _dien_ten(mau: str | None, ten_pic: str | None) -> str | None:
+    """Thay ô trống tên bằng tên người phụ trách — cả gợi ý cũ đã lưu trong ai_runs."""
+    if not mau:
+        return mau
+    return _O_TRONG_TEN.sub(ten_pic or "tư vấn viên", mau)
+
+
+def _boi_canh(
+    lead: Lead,
+    activities: list[Activity],
+    tom_tat_lich_su: str,
+    ten_pic: str | None = None,
+) -> str:
     return (
         f"Lead: {lead.name}\n"
+        f"Tên khách: {lead.contact_person or lead.name}\n"
+        f"Người phụ trách (người nhắn tin cho khách): {ten_pic or 'chưa phân công'}\n"
         f"Giai đoạn: {lead.stage}\n"
         f"Nguồn: {lead.source or 'N/A'}\n"
         f"Ngân sách: {lead.estimated_budget or 'N/A'} VND\n"
@@ -286,8 +331,11 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
         scope_id=str(lead.id),
         limit=SO_GOI_Y_NHO_LAI,
     )
+    pic = await db.get(User, lead.assigned_to) if lead.assigned_to else None
+    ten_pic = _ten_goi(pic.full_name) if pic else None
+
     tom_tat = _tom_tat_lich_su(lich_su)
-    boi_canh = _boi_canh(lead, activities, tom_tat)
+    boi_canh = _boi_canh(lead, activities, tom_tat, ten_pic)
     # AI Tiến Hoá: bài học quản trị đã duyệt. Nằm trong đầu vào nên duyệt bài mới là băm đổi.
     bai_hoc = await ai_tien_hoa.bai_hoc_dang_ap_dung(db)
     if bai_hoc:
@@ -307,7 +355,7 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
             if cu.get("action"):
                 logger.info("Co-Pilot dùng lại gợi ý %s cho lead %s", ban_cu.id, lead_id)
                 await ai_memory.ghi_dung_lai(db, ban_cu)
-                return _tra_ve(ban_cu, cu, lich_su)
+                return _tra_ve(ban_cu, cu, lich_su, ten_pic)
 
         try:
             response = await llm_complete(
@@ -329,7 +377,7 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
             logger.warning("Co-Pilot LLM lỗi cho lead %s: %s — chuyển sang bộ luật", lead_id, e)
 
     if goi_y is None:
-        goi_y = _chon_theo_luat(lead, activities, lich_su, bai_hoc)
+        goi_y = _chon_theo_luat(lead, activities, lich_su, bai_hoc, ten_pic)
 
     ban = await ai_memory.ghi_lai(
         db,
@@ -341,7 +389,7 @@ async def suggest_action(lead_id: str, user_id: str, db: AsyncSession) -> dict:
         source=nguon,
         model_used=model_used,
     )
-    return _tra_ve(ban, goi_y, lich_su)
+    return _tra_ve(ban, goi_y, lich_su, ten_pic)
 
 
 def _chon_theo_luat(
@@ -349,6 +397,7 @@ def _chon_theo_luat(
     activities: list[Activity],
     lich_su: list[AiRun],
     bai_hoc: dict[str, str] | None = None,
+    ten_pic: str | None = None,
 ) -> dict:
     """Gợi ý bộ luật đầu tiên mà sale CHƯA phản hồi. Hết thì lấy cái cuối.
 
@@ -360,7 +409,7 @@ def _chon_theo_luat(
         for ban in lich_su
         if ban.outcome
     }
-    ung_vien = _ung_vien_theo_luat(lead, activities, _so_ngay_im_lang(lead))
+    ung_vien = _ung_vien_theo_luat(lead, activities, _so_ngay_im_lang(lead), ten_pic)
 
     def _chon(ds: list[dict]) -> dict:
         for uv in ds:
@@ -376,9 +425,12 @@ def _chon_theo_luat(
     return {**da_hoc, "theo_bai_hoc": True} if da_hoc["code"] != goc["code"] else goc
 
 
-def _tra_ve(ban: AiRun | None, goi_y: dict, lich_su: list[AiRun]) -> dict:
+def _tra_ve(
+    ban: AiRun | None, goi_y: dict, lich_su: list[AiRun], ten_pic: str | None = None
+) -> dict:
     return {
         **goi_y,
+        "message_template": _dien_ten(goi_y.get("message_template"), ten_pic),
         "run_id": ban.id if ban is not None else None,
         "source": ban.source if ban is not None else SOURCE_RULE,
         "lich_su": [tom_luoc_ban_ghi(b) for b in lich_su],

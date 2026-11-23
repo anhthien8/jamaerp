@@ -16,6 +16,18 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/11/2026',
+    title: 'Gợi ý AI: tin nhắn mẫu ký đúng tên bạn, giọng gần gũi hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Mẫu tin nhắn trong ô «Gợi ý AI» của lead không còn chỗ trống «[Tên]» — app tự ghi tên bạn đang phụ trách lead, ví dụ «em là Mai bên JAMA HOME».',
+      'Giọng tin nhắn đổi sang kiểu nói chuyện thân thiện, chân thành (mở bằng «Dạ», có «nha», «nè»), ngắn gọn, luôn nhắc tên JAMA HOME để khách yên tâm.',
+    ],
+    test: [
+      'Mở 1 lead bạn đang phụ trách → bấm «Xin gợi ý khác» → mẫu tin nhắn có đúng tên bạn, không còn «[Tên]».',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Vật tư: giá bán theo Bảng giá chuẩn, ngày NCC hẹn giao, lịch sử nhận hàng · gỡ Shopee',
     tag: 'MỚI',
     news: [
