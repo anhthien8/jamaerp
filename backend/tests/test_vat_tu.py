@@ -53,10 +53,12 @@ async def mau(db_session: AsyncSession) -> MauVatTu:
     return m
 
 
-def test_tinh_gia_ban_ap_cai_lai_hon():
-    assert tinh_gia_ban(200000, 15, None) == (230000, 15)
-    assert tinh_gia_ban(200000, 15, 250000) == (250000, None)   # giá cố định lãi hơn
-    assert tinh_gia_ban(200000, 15, 210000) == (230000, 15)     # % lãi hơn
+def test_tinh_gia_ban_gia_chuan_la_hang_so():
+    """22/11/2026: mẫu có giá chuẩn thì bán ĐÚNG giá chuẩn — không còn «áp cái lãi hơn»."""
+    assert tinh_gia_ban(200000, 15, None) == (230000, 15)       # chưa có giá chuẩn → vốn × (1 + %)
+    assert tinh_gia_ban(200000, 15, 250000) == (250000, None)
+    assert tinh_gia_ban(200000, 15, 210000) == (210000, None)   # giá vốn cao cũng không kéo giá khách lên
+    assert tinh_gia_ban(200000, 15, 0) == (230000, 15)          # 0 = chưa cài giá chuẩn
 
 
 @pytest.mark.asyncio
@@ -118,6 +120,7 @@ class TestPhieuVaChotGia:
                               json={"ncc_ten": "Daisan", "gia": 190000, "ngay_giao": "3 ngày"})
         bao_gia = r.json()["bao_gia"]
         assert [b["ncc_ten"] for b in bao_gia] == ["Daisan", "Hiệp Phát"]  # rẻ nhất lên đầu
+        assert {b["nguon"] for b in bao_gia} == {"tay"}                    # báo giá gõ tay
         re_nhat = bao_gia[0]["id"]
 
         # 4. Chốt theo báo giá rẻ nhất → giá bán = 190000 × 1.15
@@ -147,12 +150,13 @@ class TestPhieuVaChotGia:
         assert r.json()["tong_lai"] == round(28500 * 42.5)
         assert next(i for i in r.json()["items"] if i["id"] == dong["id"])["ncc_ten"] == "Daisan"  # gõ tay → tự tạo NCC
 
-    async def test_chot_bang_gia_co_dinh_khi_lai_hon(self, client: AsyncClient, thu_mua, du_an, mau, db_session):
+    async def test_mau_co_gia_chuan_ban_dung_gia_chuan(self, client: AsyncClient, thu_mua, du_an, mau, db_session):
         mau.gia_ban_co_dinh = 300000
         await db_session.commit()
         r = await client.post(f"/api/v1/vat-tu/du-an/{du_an.id}/dong", headers=auth_header(thu_mua),
                               json={"phong": "Bếp", "mau_id": mau.id, "so_luong": 10})
         dong_id = r.json()["id"]
+        assert r.json()["gia_ban"] == 300000 and r.json()["trang_thai"] == "khach_chon"  # có giá bán ngay khi tạo dòng
         r = await client.post(f"/api/v1/vat-tu/dong/{dong_id}/chot", headers=auth_header(thu_mua),
                               json={"gia_von": 200000, "ncc_ten": "Hiệp Phát"})
         assert r.status_code == 200
@@ -192,7 +196,12 @@ class TestPhieuVaChotGia:
     async def test_xoa_dong_da_chot_chi_admin(self, client: AsyncClient, admin_user, thu_mua, du_an, mau):
         r = await client.post(f"/api/v1/vat-tu/du-an/{du_an.id}/dong", headers=auth_header(thu_mua), json={"phong": "A", "mau_id": mau.id})
         dong_id = r.json()["id"]
-        await client.post(f"/api/v1/vat-tu/dong/{dong_id}/chot", headers=auth_header(thu_mua), json={"gia_von": 100000})
+        # 22/11/2026: chốt giá phải kèm NCC — gõ giá trơn không còn chốt được
+        r = await client.post(f"/api/v1/vat-tu/dong/{dong_id}/chot", headers=auth_header(thu_mua), json={"gia_von": 100000})
+        assert r.status_code == 400 and r.json()["detail"] == "Chốt giá phải kèm nhà cung cấp"
+        r = await client.post(f"/api/v1/vat-tu/dong/{dong_id}/chot", headers=auth_header(thu_mua),
+                              json={"gia_von": 100000, "ncc_ten": "Hiệp Phát"})
+        assert r.status_code == 200, r.text
         assert (await client.delete(f"/api/v1/vat-tu/dong/{dong_id}", headers=auth_header(thu_mua))).status_code == 400
         assert (await client.delete(f"/api/v1/vat-tu/dong/{dong_id}", headers=auth_header(admin_user))).status_code == 204
 
@@ -315,6 +324,7 @@ async def test_bot_trich_roi_ghi_bao_gia(client: AsyncClient, thu_mua, sales_use
     db_session.expire_all()
     bg = (await db_session.execute(select(BaoGiaDongVatTu))).scalar_one()
     assert bg.gia == 185000 and "baogia.csv" in bg.ghi_chu and "Thu Mua Test" in bg.ghi_chu
+    assert bg.nguon == "tep"  # báo giá từ tệp NCC gửi — bằng chứng mạnh nhất
     assert (await db_session.get(DongPhieuVatTu, dong_id)).trang_thai == "hoi_ncc"
 
 
@@ -326,7 +336,7 @@ async def test_bot_du_an_chua_co_phieu_tao_dong_tu_bao_gia(client: AsyncClient, 
 
     async def _trich(chu):
         return {"ncc_ten": "Hiệp Phát", "items": [
-            {"ma": "tm76006", "gia": 185000.0, "con_hang": True, "don_vi": None, "ghi_chu": None, "so_luong": 40, "phong": "WC1"},
+            {"ma": "tm76006", "gia": 185000.0, "con_hang": True, "don_vi": "thùng", "ghi_chu": None, "so_luong": 40, "phong": "WC1"},
             {"ma": "LA-9", "gia": 99000.0, "con_hang": True, "don_vi": "bộ", "ghi_chu": None, "so_luong": None, "phong": None},
             {"ma": "HH-1", "gia": None, "con_hang": True, "don_vi": None, "ghi_chu": None},
         ]}
@@ -342,6 +352,8 @@ async def test_bot_du_an_chua_co_phieu_tao_dong_tu_bao_gia(client: AsyncClient, 
     assert set(tao) == {mau.ma, "LA-9"}  # mã khớp danh mục lấy đúng mã mẫu
     assert tao[mau.ma]["co_trong_danh_muc"] and not tao["LA-9"]["co_trong_danh_muc"]
     assert tao["LA-9"]["phong"] == "Chung"
+    # Mã có trong danh mục: dòng sẽ mang đơn vị của mẫu (m2), không theo đơn vị ghi trong tệp; mã ngoài thì theo tệp
+    assert tao[mau.ma]["don_vi"] == "m2" and tao["LA-9"]["don_vi"] == "bộ"
     assert [k["ma"] for k in xem["khong_khop"]] == ["HH-1"]
     # Chưa ghi gì
     assert (await db_session.execute(select(func.count()).select_from(DongPhieuVatTu))).scalar_one() == 0
@@ -360,6 +372,25 @@ async def test_bot_du_an_chua_co_phieu_tao_dong_tu_bao_gia(client: AsyncClient, 
     assert d_mau.phong == "WC1" and d_mau.so_luong == 40 and d_mau.trang_thai == "hoi_ncc"
     assert d_tu_do.so_luong == 1 and d_tu_do.don_vi == "bộ"
     assert (await db_session.execute(select(func.count()).select_from(BaoGiaDongVatTu))).scalar_one() == 2
+    assert {b.nguon for b in (await db_session.execute(select(BaoGiaDongVatTu))).scalars()} == {"tep"}
+    assert d_mau.gia_ban is None  # mẫu chưa có giá chuẩn → chưa có giá bán tới khi chốt giá vốn
+
+
+@pytest.mark.asyncio
+async def test_bot_tao_dong_tu_bao_gia_mau_co_gia_chuan_co_gia_ban_ngay(client: AsyncClient, thu_mua, du_an, mau, db_session):
+    mau.gia_ban_co_dinh = 300000
+    await db_session.commit()
+    mau_id = mau.id
+    r = await client.post("/api/v1/vat-tu/bot/ghi-bao-gia", headers=auth_header(thu_mua), json={
+        "nguon": "tệp a.csv", "project_id": du_an.id, "items": [],
+        "tao_dong": [{"ma": "tm-76006", "ncc_ten": "Hiệp Phát", "gia": 185000, "don_vi": "thùng"},
+                     {"ma": "LA-9", "ncc_ten": "Hiệp Phát", "gia": 99000, "don_vi": "bộ"}]})
+    assert r.status_code == 201, r.text
+    db_session.expire_all()
+    ds = {d.mau_id: d for d in (await db_session.execute(select(DongPhieuVatTu))).scalars()}
+    assert ds[mau_id].gia_ban == 300000 and ds[mau_id].phan_tram_ap_dung is None
+    assert ds[mau_id].don_vi == "m2", "giá chuẩn tính trên đơn vị của mẫu → dòng theo đơn vị mẫu, không theo tệp"
+    assert ds[None].gia_ban is None and ds[None].don_vi == "bộ"  # mã ngoài danh mục: chưa có giá, đơn vị theo tệp
 
 
 @pytest.mark.asyncio

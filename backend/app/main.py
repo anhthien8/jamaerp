@@ -319,12 +319,12 @@ app.include_router(leaves_router, prefix="/api/v1")
 from app.api.payroll import router as payroll_router
 from app.api.suppliers import router as suppliers_router
 from app.api.vat_tu import router as vat_tu_router
+from app.api.gia_chuan_vat_tu import router as gia_chuan_vat_tu_router
 from app.api.estimations import router as estimations_router
 app.include_router(payroll_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")
 app.include_router(vat_tu_router, prefix="/api/v1")
-from app.api.shopee_settings import router as shopee_settings_router  # noqa: E402
-app.include_router(shopee_settings_router, prefix="/api/v1")
+app.include_router(gia_chuan_vat_tu_router, prefix="/api/v1")
 app.include_router(estimations_router, prefix="/api/v1")
 
 # Bảng điều khiển Kinh doanh (13/10/2026) — đăng ký SAU dashboard_router để

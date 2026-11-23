@@ -18,6 +18,7 @@ class SupplierCreate(BaseModel):
     ten_cong_ty: str | None = Field(default=None, max_length=255)
     chiet_khau_pct: float = Field(default=0.0, ge=0, le=100)
     notes: str | None = None
+    hang: str | None = None  # khoá của HANG_NCC; None = chưa xếp (API kiểm)
 
 
 class SupplierUpdate(BaseModel):
@@ -34,7 +35,8 @@ class SupplierUpdate(BaseModel):
     ten_cong_ty: str | None = Field(default=None, max_length=255)
     chiet_khau_pct: float | None = Field(default=None, ge=0, le=100)
     notes: str | None = None
-    is_active: bool | None = None
+    is_active: bool | None = None  # False = «Ngừng dùng»
+    hang: str | None = None  # gửi null để bỏ xếp hạng
 
 
 class SupplierResponse(BaseModel):
@@ -53,6 +55,7 @@ class SupplierResponse(BaseModel):
     chiet_khau_pct: float = 0.0
     notes: str | None = None
     is_active: bool
+    hang: str | None = None
     created_at: datetime
     updated_at: datetime
 

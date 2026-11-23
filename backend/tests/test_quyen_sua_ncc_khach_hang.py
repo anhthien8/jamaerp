@@ -148,6 +148,28 @@ async def test_sua_va_xoa_ncc_cung_theo_o_do(client, db_session, admin_user):
                              headers=auth_header(nguoi_la))).status_code == 403
 
 
+@pytest.mark.asyncio
+async def test_o_sua_ncc_gom_xep_hang_ngung_dung_nhung_khong_gom_gop(client, db_session, admin_user):
+    """22/11/2026: xếp hạng / «Ngừng dùng» đi theo ô «Sửa Nhà cung cấp»; GỘP hai NCC (xoá hẳn một
+    dòng, không hoàn tác) chỉ Ban giám đốc — không ô nào trong ma trận cấp được."""
+    await _tao_vai_tro(client, admin_user, "thu_mua4", "Thu mua 4", "PURCHASING",
+                       canEditSuppliers=True)
+    nv = await _tao_user(client, db_session, admin_user, "tm4@test.com", "thu_mua4", "PURCHASING")
+    a = (await _tao_ncc(client, nv, "NCC Gạch Đồng Tâm")).json()
+    b = (await _tao_ncc(client, nv, "NCC Sơn Jotun")).json()
+
+    sua = await client.put(f"/api/v1/suppliers/{a['id']}", json={"hang": "chinh", "is_active": False},
+                           headers=auth_header(nv))
+    assert sua.status_code == 200, sua.text
+    assert sua.json()["hang"] == "chinh" and sua.json()["is_active"] is False
+
+    gop = await client.post(f"/api/v1/suppliers/{b['id']}/gop/{a['id']}", headers=auth_header(nv))
+    assert gop.status_code == 403, gop.text
+    assert "Ban giám đốc" in gop.json()["detail"]
+    gop = await client.post(f"/api/v1/suppliers/{b['id']}/gop/{a['id']}", headers=auth_header(admin_user))
+    assert gop.status_code == 200, gop.text
+
+
 # ── Khách hàng ─────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

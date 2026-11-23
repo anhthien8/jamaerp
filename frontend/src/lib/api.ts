@@ -156,6 +156,8 @@ class ApiClient {
       throw new ApiError(error.detail || `HTTP ${res.status}`, res.status);
     }
 
+    // 204 (các lệnh xoá của Vật tư) không có thân — res.json() ném lỗi dù server đã làm xong việc
+    if (res.status === 204) return undefined as T;
     return res.json();
   }
 
@@ -757,11 +759,16 @@ class ApiClient {
   async getSuppliers(params?: Record<string, string>) {
     return this.request<PaginatedResponse<Supplier>>('/suppliers', { params });
   }
-  async createSupplier(data: Partial<Supplier>) {
+  async createSupplier(data: SupplierBody) {
     return this.request<Supplier>('/suppliers', { method: 'POST', body: data });
   }
-  async updateSupplier(id: string, data: Partial<Supplier>) {
+  async updateSupplier(id: string, data: SupplierBody) {
     return this.request<Supplier>(`/suppliers/${id}`, { method: 'PUT', body: data });
+  }
+  /** Gộp NCC trùng (chỉ BGĐ): `id` bị XOÁ, mọi phiếu/mẫu/báo giá chuyển sang `dichId`. Không hoàn tác được.
+   *  `ten_khac_khoa`: tên vừa xoá gõ lại sẽ KHÔNG ra NCC giữ lại («Hiep Phat» → «Hiệp Phát») — sheet / tệp báo giá còn tên cũ sẽ tạo lại nó. */
+  async gopSupplier(id: string, dichId: string) {
+    return this.request<{ supplier: Supplier; da_chuyen: Record<string, number>; ten_khac_khoa: boolean }>(`/suppliers/${id}/gop/${dichId}`, { method: 'POST' });
   }
   async getSupplierQuotes(supplierId: string) {
     // Backend trả {items, total} chứ không phải mảng thuần — trước 15/08/2026 FE
@@ -1316,15 +1323,17 @@ class ApiClient {
   async vatTuKhachDongY(id: string, ghiChu?: string) {
     return this.request<DongVatTu>(`/vat-tu/dong/${id}/khach-dong-y`, { method: 'POST', body: { ghi_chu: ghiChu || null } });
   }
-  /** Thu mua đặt hàng: trong báo giá → «Đã đặt», vượt khối lượng/đơn giá/ngân sách → chờ Leader duyệt (13/11/2026). */
-  async vatTuDatHang(id: string, body: { so_luong?: number | null; don_gia?: number | null }) {
+  /** Thu mua đặt hàng: trong báo giá → «Đã đặt», vượt khối lượng/đơn giá/ngân sách → chờ Leader duyệt (13/11/2026).
+   *  22/11/2026: bắt buộc `ngay_giao_hen` = ngày NCC hẹn giao, dạng YYYY-MM-DD theo giờ VN, không trước hôm nay. */
+  async vatTuDatHang(id: string, body: { so_luong?: number | null; don_gia?: number | null; ngay_giao_hen: string }) {
     return this.request<DongVatTu>(`/vat-tu/dong/${id}/dat-hang`, { method: 'POST', body });
   }
   async vatTuDuyetDat(id: string, dongY: boolean, lyDo?: string) {
     return this.request<DongVatTu>(`/vat-tu/dong/${id}/duyet-dat`, { method: 'POST', body: { dong_y: dongY, ly_do: lyDo || null } });
   }
-  /** Giám sát xác nhận hàng về đủ/thiếu — anh_ids lấy từ uploadMediaBatch, tối thiểu 2 ảnh. */
-  async vatTuNhanHang(id: string, body: { ket_qua: 'du' | 'thieu'; so_luong_nhan?: number | null; ghi_chu?: string; anh_ids: string[] }) {
+  /** Giám sát xác nhận hàng về đủ/thiếu — anh_ids lấy từ uploadMediaBatch, tối thiểu 2 ảnh.
+   *  «thieu»: `so_luong_nhan` bắt buộc = TỔNG đã về tới giờ. `ly_do_loi`: khoá của VatTuTongQuan.ly_do_loi_nhan_hang (tuỳ chọn). */
+  async vatTuNhanHang(id: string, body: { ket_qua: 'du' | 'thieu'; so_luong_nhan?: number | null; ly_do_loi?: string | null; ghi_chu?: string; anh_ids: string[] }) {
     return this.request<DongVatTu>(`/vat-tu/dong/${id}/nhan-hang`, { method: 'POST', body });
   }
   async vatTuViecDatNhan() {
@@ -1342,21 +1351,6 @@ class ApiClient {
   async vatTuChot(dongId: string, body: { bao_gia_id?: string; gia_von?: number; supplier_id?: string | null; ncc_ten?: string }) {
     return this.request<DongVatTu>(`/vat-tu/dong/${dongId}/chot`, { method: 'POST', body });
   }
-  async vatTuTimShopee(mauId: string, q?: string) {
-    return this.request<{ tu_khoa: string; items: ShopeeSanPham[] }>(`/vat-tu/mau/${mauId}/shopee`, { params: q ? { q } : undefined });
-  }
-  async vatTuChonShopee(mauId: string, sp: { item_id: string; ten?: string; gia?: number | null; link_aff?: string | null }) {
-    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee`, { method: 'PUT', body: sp });
-  }
-  async vatTuBoShopee(mauId: string) {
-    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee`, { method: 'DELETE' });
-  }
-  async vatTuLinkAff(mauId: string, url: string) {
-    return this.request<MauVatTu>(`/vat-tu/mau/${mauId}/shopee/link`, { method: 'POST', body: { url } });
-  }
-  async vatTuCanThuongLuong() {
-    return this.request<{ items: CanThuongLuong[] }>('/vat-tu/can-thuong-luong');
-  }
   async vatTuDsNcc() {
     return this.request<{ id: string; name: string; chiet_khau_pct: number }[]>('/vat-tu/ncc');
   }
@@ -1364,16 +1358,26 @@ class ApiClient {
     return this.request<{ ma_so_thue: string; ten_cong_ty?: string | null; ten_ngan?: string | null; dia_chi?: string | null; trang_thai?: string | null }>(`/suppliers/tra-mst/${encodeURIComponent(mst.trim())}`);
   }
   async vatTuGoiYNcc(mauId: string) {
-    return this.request<{ gia_shopee?: number | null; link_shopee_aff?: string | null; items: GoiYNcc[]; goi_y: GoiYNcc | null }>(`/vat-tu/mau/${mauId}/goi-y-ncc`);
+    return this.request<{ items: GoiYNcc[]; goi_y: GoiYNcc | null }>(`/vat-tu/mau/${mauId}/goi-y-ncc`);
   }
-  async shopeeCaiDat() {
-    return this.request<{ app_id: string; secret_masked: string; secret_set: boolean; san_sang: boolean }>('/shopee-settings');
+  // Bảng giá chuẩn (22/11/2026) — chỉ Thu mua + Giám đốc gọi được, người khác 403.
+  // params: loc (tat_ca | chua_co | duoi_he_so — giá trị khác server trả 422), nhom, q, page, page_size (≤ 100)
+  async vatTuGiaChuan(params?: Record<string, string>) {
+    return this.request<BangGiaChuanVatTu>('/vat-tu/gia-chuan', { params });
   }
-  async shopeeLuuCaiDat(body: { app_id?: string; secret?: string }) {
-    return this.request<{ app_id: string; secret_masked: string; secret_set: boolean; san_sang: boolean }>('/shopee-settings', { method: 'PUT', body });
+  /** Chỉ Giám đốc (role admin). null = bỏ giá chuẩn. Giá đổi thì dòng CHƯA đặt hàng mà khách CHƯA đồng ý lấy ngay
+   *  giá mới (bỏ giá chuẩn: giá vốn đã chốt × (1 + % nhóm), chưa chốt thì chưa có giá); dòng khách đã đồng ý và
+   *  dòng đã đặt hàng giữ giá — riêng mẫu bị bỏ giá chuẩn thì dòng đã đồng ý cũng tính lại khi Thu mua chốt giá vốn. */
+  async vatTuDatGiaChuan(mauId: string, giaChuan: number | null) {
+    return this.request<GiaChuanVatTu>(`/vat-tu/gia-chuan/${mauId}`, { method: 'PUT', body: { gia_chuan: giaChuan } });
   }
-  async shopeeThu() {
-    return this.request<{ ok: boolean; so_ket_qua: number; vi_du: ShopeeSanPham[] }>('/shopee-settings/thu', { method: 'POST' });
+  /** Thu mua nạp giá nhập của một NCC cho mẫu; gõ tên NCC chưa có thì server tự tạo NCC. */
+  async vatTuThemGiaNhap(mauId: string, body: { supplier_id?: string; ncc_ten?: string; gia: number; ghi_chu?: string }) {
+    return this.request<GiaChuanVatTu>(`/vat-tu/gia-chuan/${mauId}/gia-nhap`, { method: 'POST', body });
+  }
+  /** Người nạp giá đó hoặc Giám đốc. Trả 204 — tải lại bảng sau khi xoá. */
+  async vatTuXoaGiaNhap(giaNhapId: string) {
+    return this.request<void>(`/vat-tu/gia-chuan/gia-nhap/${giaNhapId}`, { method: 'DELETE' });
   }
 
   // === Automation (admin/executive) ===
@@ -1615,33 +1619,30 @@ export interface Activity {
 // ── Vật tư (25/10/2026) ──
 export interface MauVatTu {
   id: string; ma: string; ten?: string | null; hang?: string | null; nhom: string; be_mat?: string | null;
-  don_vi: string; anh_url?: string | null; link_shopee?: string | null; ghi_chu?: string | null; tinh_trang?: string | null; is_active: boolean;
+  don_vi: string; anh_url?: string | null; ghi_chu?: string | null; tinh_trang?: string | null; is_active: boolean;
   // chỉ có khi được xem giá vốn
   gia_tham_khao?: number | null; gia_von_gan_nhat?: number | null; gia_von_cap_nhat_luc?: string | null;
   ncc_gan_nhat_ten?: string | null; gia_ban_co_dinh?: number | null;
   /** Giá khung quá 60 ngày chưa hỏi lại NCC */
   gia_cu?: boolean;
-  // giá thị trường Shopee (mọi vai thấy) — 26/10/2026
-  shopee_item_id?: string | null; shopee_ten?: string | null; link_shopee_aff?: string | null;
-  gia_shopee?: number | null; gia_shopee_luc?: string | null;
-}
-export interface ShopeeSanPham {
-  item_id: string; ten: string; gia: number | null; gia_max?: number | null; da_ban: number; sao?: number | null;
-  shop?: string | null; anh?: string | null; link?: string | null; link_aff?: string | null; hoa_hong_pct: number;
-}
-export interface CanThuongLuong {
-  bao_gia_id: string; dong_id: string; ncc_ten: string; supplier_id?: string | null; gia_ncc: number;
-  gia_shopee: number; chenh: number; chenh_pct: number; mau_id: string; ma: string; hang?: string | null;
-  don_vi: string; link_shopee_aff?: string | null; project_code?: string | null; duoc_chon: boolean; created_at?: string;
 }
 export interface GoiYNcc {
   supplier_id?: string | null; ncc_ten: string; gia: number; chiet_khau_pct: number; gia_sau_ck: number;
-  da_mua: number; con_hang: boolean; bao_gia_luc?: string; cao_hon_shopee: boolean;
+  da_mua: number; con_hang: boolean; bao_gia_luc?: string;
+  /** Hạng NCC: chinh | du_phong | thu — null = chưa xếp. Danh sách đã xếp theo hạng trước (22/11/2026). */
+  hang?: string | null;
 }
 export interface BaoGiaVatTu {
   id: string; supplier_id?: string | null; ncc_ten: string; gia: number; con_hang: boolean;
   ngay_giao?: string | null; ghi_chu?: string | null; duoc_chon: boolean; created_at?: string;
-  cao_hon_shopee?: boolean;
+  /** tep = đọc từ tệp báo giá · tay = Thu mua ghi tay · chot = máy tự ghi lúc gõ giá để chốt (22/11/2026) */
+  nguon?: 'tep' | 'tay' | 'chot';
+}
+/** Một LẦN Giám sát nhận hàng của một dòng (22/11/2026). `sl_luy_ke` = tổng đã về tới lần đó.
+ *  Hai số lượng là null ở lần nhận ghi TRƯỚC 22/11 mà không kèm số lượng (chép sang lúc nâng cấp). */
+export interface LanNhanHangVatTu {
+  luc: string; boi_ten?: string | null; ket_qua: 'du' | 'thieu'; sl_lan_nay: number | null; sl_luy_ke: number | null;
+  ly_do_loi?: string | null; ly_do_loi_nhan?: string | null; ghi_chu?: string | null;
 }
 export type TrangThaiDongVatTu = 'khach_chon' | 'hoi_ncc' | 'het_hang' | 'cho_khach_duyet_lai' | 'da_chot_gia' | 'cho_duyet_dat' | 'da_dat' | 'giao_thieu' | 'da_giao' | 'huy';
 export interface DongVatTu {
@@ -1652,14 +1653,23 @@ export interface DongVatTu {
   gia_ban?: number | null; thanh_tien?: number | null; chot_luc?: string | null;
   khach_dong_y_luc?: string | null; khach_ghi_chu?: string | null; ghi_chu?: string | null; thu_tu: number;
   created_at?: string; updated_at?: string; so_bao_gia: number;
-  gia_shopee?: number | null; link_shopee_aff?: string | null;
   project_code?: string; project_name?: string; client_name?: string;
   // Đặt hàng – duyệt – nhận hàng (13/11/2026)
   sl_dat?: number | null; dat_luc?: string | null; dat_boi_ten?: string | null; ly_do_vuot?: string | null;
+  /** id người đặt hàng (mọi vai đều nhận) — người đặt không tự duyệt / tự từ chối đơn vượt của mình, trừ Admin */
+  dat_boi?: string | null;
   duyet_dat_luc?: string | null; duyet_dat_boi_ten?: string | null; tu_choi_dat_ly_do?: string | null;
   nhan_ket_qua?: 'du' | 'thieu' | null; sl_nhan?: number | null; nhan_luc?: string | null; nhan_boi_ten?: string | null;
   nhan_ghi_chu?: string | null; nhan_anh?: { id: string; url: string }[];
+  // 22/11/2026 — mọi vai đều thấy: ngày NCC hẹn giao (YYYY-MM-DD; `_dau` = lời hẹn đầu, không đổi) + trễ hẹn,
+  // lịch sử từng lần nhận hàng (cũ → mới), vết huỷ dòng. `huy_ly_do` cũng là ô gửi lên khi PATCH trang_thai = huy.
+  // Huỷ dòng «giao thiếu» đã về một phần: server trả trang_thai da_giao với so_luong = sl_dat = sl_nhan, kèm huy_*.
+  ngay_giao_hen?: string | null; ngay_giao_hen_dau?: string | null; tre_hen?: boolean;
+  nhan_lich_su?: LanNhanHangVatTu[];
+  huy_luc?: string | null; huy_boi_ten?: string | null; huy_ly_do?: string | null;
   // chỉ có khi được xem giá vốn
+  /** Ngày của bằng chứng giá (báo giá NCC) — luật «giá cũ» 60 ngày tính từ mốc này, không phải ngày bấm chốt */
+  gia_xac_nhan_luc?: string | null;
   gia_dat?: number | null; gia_cu?: boolean;
   gia_von?: number | null; ncc_id?: string | null; ncc_ten?: string | null; phan_tram_ap_dung?: number | null;
   lai?: number | null; bao_gia?: BaoGiaVatTu[]; gia_von_gan_nhat?: number | null; gia_tham_khao?: number | null;
@@ -1671,6 +1681,39 @@ export interface PhieuVatTu {
 export interface VatTuTongQuan {
   so_mau: number; theo_trang_thai: Record<string, number>; thay_gia_von: boolean; la_thu_mua: boolean;
   la_leader_thu_mua?: boolean; la_giam_sat?: boolean; so_anh_toi_thieu?: number; so_ngay_gia_cu?: number;
+  /** Lý do hàng lỗi khi nhận hàng: khoá → nhãn (sai_mau, hu_hong, khac) */
+  ly_do_loi_nhan_hang?: Record<string, string>;
+}
+// ── Bảng giá chuẩn (22/11/2026) — chỉ Thu mua + Giám đốc nhận được ──
+/** Giá nhập mới nhất của MỘT NCC cho một mẫu. `luc` là giờ UTC không kèm múi (đọc bằng docGio). */
+export interface GiaNhapNccVatTu {
+  supplier_id: string; ncc_ten: string; hang?: string | null; gia: number; luc: string;
+  nguon: 'tay' | 'tep' | 'chot'; cu: boolean; ghi_chu?: string | null;
+  /** Có id = giá Thu mua nạp vào bảng giá; null = lấy từ báo giá của một dự án, không xoá được ở đây */
+  gia_nhap_id: string | null; created_by?: string | null; xoa_duoc: boolean;
+}
+export interface GiaChuanVatTu {
+  id: string; ma: string; ten?: string | null; hang?: string | null; nhom: string; don_vi: string; anh_url?: string | null;
+  /** = gia_ban_co_dinh của mẫu; null = chưa có */
+  gia_chuan: number | null;
+  /** % lãi của nhóm (mặc định 15) */
+  he_so: number;
+  gia_nhap: GiaNhapNccVatTu[];
+  gia_nhap_gan_nhat: { gia: number; luc?: string | null; ncc_ten?: string | null; cu: boolean } | null;
+  gia_tham_khao?: number | null;
+  /** Giá vốn chốt gần nhất, chưa có thì giá NCC thấp nhất */
+  gia_nhap_moc: number | null;
+  /** round(gia_nhap_moc × (1 + he_so/100)) */
+  gia_goi_y: number | null;
+  /** % lời của giá chuẩn trên giá nhập mốc — cùng thước với he_so */
+  muc_loi_pct: number | null;
+  chua_co: boolean; duoi_he_so: boolean;
+}
+export interface BangGiaChuanVatTu {
+  items: GiaChuanVatTu[]; total: number; page: number; page_size: number;
+  /** Ba số đếm theo bộ lọc nhóm + ô tìm, không phụ thuộc `loc` */
+  tong: number; so_chua_co: number; so_duoi_he_so: number;
+  co_the_sua_gia_chuan: boolean;
 }
 
 export interface Project {
@@ -2944,10 +2987,15 @@ export interface Supplier {
   /** Mã số thuế + tên pháp lý (tra từ Cục Thuế) — 26/10/2026 */
   ma_so_thue?: string | null;
   ten_cong_ty?: string | null;
+  /** Hạng NCC (22/11/2026): chinh | du_phong | thu — null = chưa xếp. «Ngừng dùng» là is_active=false. */
+  hang?: HangNcc | null;
   quote_count?: number;
   created_at: string;
   updated_at: string;
 }
+export type HangNcc = 'chinh' | 'du_phong' | 'thu';
+/** Thân POST/PUT /suppliers. PUT: ô không gửi thì giữ nguyên; null = xoá ô đó (hang null = bỏ xếp hạng). */
+export type SupplierBody = { [K in keyof Supplier]?: Supplier[K] | null };
 
 export interface SupplierQuote {
   id: string;

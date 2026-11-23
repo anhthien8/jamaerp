@@ -411,11 +411,18 @@ class KhachVatTuIn(BaseModel):
     ghi_chu: str | None = Field(default=None, max_length=500)
 
 
+def _cho_khach_duyet(d) -> bool:
+    """Khách còn phải bấm: duyệt mẫu thay, hoặc đồng ý giá bán. 22/11/2026: có giá bán là duyệt
+    được ngay (mẫu có giá chuẩn — không chờ Thu mua chốt giá vốn); lời đồng ý còn hiệu lực tới khi
+    giá bán đổi (máy chủ tự xoá `khach_dong_y_luc` lúc giá đổi)."""
+    return d.trang_thai in ("cho_khach_duyet_lai", "het_hang") or (
+        d.gia_ban is not None and d.trang_thai in ("khach_chon", "hoi_ncc", "da_chot_gia")
+        and not d.khach_dong_y_luc)
+
+
 def _dong_cho_khach(d, ten_mau: dict) -> dict:
     """Không bao giờ trả giá vốn / NCC / % áp dụng cho khách."""
-    cho_duyet = d.trang_thai in ("cho_khach_duyet_lai", "het_hang") or (
-        d.gia_ban is not None and d.trang_thai == "da_chot_gia" and not (
-            d.khach_dong_y_luc and (not d.chot_luc or d.khach_dong_y_luc >= d.chot_luc)))
+    cho_duyet = _cho_khach_duyet(d)
     return {
         "id": d.id, "phong": d.phong, "hang_muc": d.hang_muc,
         "ten": ten_mau.get(d.mau_id) or d.ma_tu_do,
@@ -459,12 +466,21 @@ async def portal_vat_tu_dong_y(token: str, dong_id: str, data: KhachVatTuIn, db:
     project = await db.get(Project, d.project_id) if d else None
     if not d or not project or not _customer_owns_project(project, customer):
         raise HTTPException(status_code=403, detail="Không có quyền")
+    if not _cho_khach_duyet(d):
+        # Không có gì chờ khách (đã đồng ý, đã đặt hàng, chưa có giá…) → trả nguyên trạng, không ghi đè
+        return _dong_cho_khach(d, await _ten_mau(db, [d]))
     d.khach_dong_y_luc = datetime.now(timezone.utc).replace(tzinfo=None)
+    d.khach_dong_y_boi = None  # None = khách tự bấm trên portal
     d.khach_ghi_chu = ((data.ghi_chu or "").strip() or None) and f"[Khách tự bấm] {data.ghi_chu.strip()}"
     if d.trang_thai in ("cho_khach_duyet_lai", "het_hang") and (d.mau_thay_the_id or d.ma_thay_the):
+        from app.api.vat_tu import ap_mau_moi
+        mau_truoc = d.mau_id
         d.mau_id, d.ma_tu_do = d.mau_thay_the_id, (None if d.mau_thay_the_id else d.ma_thay_the)
         d.mau_thay_the_id = d.ma_thay_the = None
         d.trang_thai = "hoi_ncc"
+        # Giá theo mẫu mới (giá vốn đã chốt của mẫu cũ bị bỏ — không suy giá mẫu mới từ đó).
+        # Giá không đổi → lời đồng ý vừa ghi giữ nguyên; đổi → khách duyệt lại giá
+        await ap_mau_moi(db, d, doi_tu=(mau_truoc,))
     await db.commit()
     await db.refresh(d)
     return _dong_cho_khach(d, await _ten_mau(db, [d]))

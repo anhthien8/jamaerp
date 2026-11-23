@@ -7,6 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 
+# Hạng NCC: mỗi nhóm hàng nên có 1 NCC chính + ít nhất 1 dự phòng đã có giá; NCC mới ở hạng «thử».
+HANG_NCC = {"chinh": "Chính", "du_phong": "Dự phòng", "thu": "Đang thử"}
+
+
 class Supplier(Base):
     __tablename__ = "suppliers"
 
@@ -26,6 +30,8 @@ class Supplier(Base):
     chiet_khau_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)  # % CK NCC dành cho JAMA
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
+    # Hạng NCC (22/11/2026): chinh | du_phong | thu — None = chưa xếp. «Ngừng dùng» = is_active False.
+    hang: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
