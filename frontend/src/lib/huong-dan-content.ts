@@ -706,15 +706,21 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Trang này là **hồ sơ khách hàng chính thức** — khách tự động xuất hiện ở đây khi lead ký hợp đồng (khách đang tư vấn thì nằm bên mục «Quy trình»). Ai cũng xem được; còn **thêm/sửa** hồ sơ thì chỉ một số vai trò có nút."
+        "text": "Trang này là **hồ sơ khách hàng chính thức** — khách tự động xuất hiện ở đây khi lead ký hợp đồng (khách đang tư vấn thì nằm bên mục «Quy trình»). **Mỗi người chỉ thấy khách của mình**: nhân viên thấy khách mình chăm sóc, trưởng nhóm thấy khách của nhóm, trưởng phòng thấy khách của cả phòng; Ban giám đốc, Kế toán và Admin CSKH thấy toàn bộ. **Thêm/sửa** hồ sơ thì chỉ một số vai trò có nút, và cũng chỉ sửa được khách trong phạm vi mình thấy."
+      },
+      {
+        "type": "p",
+        "text": "**Người chăm sóc** của một khách do ERP tự xác định: sale đang giữ lead của khách → nếu không có thì sale phụ trách dự án → nếu vẫn không có thì người đã tạo hồ sơ. Muốn đổi người chăm sóc thì đổi người phụ trách lead (mục «Quy trình») hoặc sale của dự án."
       },
       {
         "type": "list",
         "items": [
           "Ô tìm kiếm: gõ **tên, SĐT hoặc email** là ra ngay.",
           "Ô lọc bên cạnh: **Tất cả loại KH / Cá nhân / Doanh nghiệp**.",
-          "Bảng danh sách hiện: Tên, Loại, SĐT, Email, **Doanh thu** (tổng giá trị các dự án khách đã mang lại, bỏ dự án hủy) và **Số HĐ**. Khách sắp sinh nhật (trong 7 ngày) có nhãn vàng «Sinh nhật còn N ngày».",
-          "Bấm vào 1 khách → cửa sổ chi tiết: SĐT, email, địa chỉ, mã số thuế, ghi chú nội bộ, và **danh sách dự án** của khách kèm % tiến độ từng dự án."
+          "Bảng danh sách hiện: Tên, Loại, SĐT, **Người chăm sóc**, **Doanh thu** kèm nhãn trạng thái và **Số HĐ**. Khách sắp sinh nhật (trong 7 ngày) có nhãn vàng «Sinh nhật còn N ngày».",
+          "Nhãn cạnh doanh thu: **«Đã chốt»** = deal đã thắng, số tiền là tổng giá trị các dự án của khách (bỏ dự án hủy). **«Đang chốt»** = đã gửi báo giá / đang đàm phán. **«Tiềm năng»** = còn đang tư vấn, khảo sát. Hai nhãn sau hiện **số dự kiến** lấy từ lead — chưa phải doanh thu. Ngoài ra có «Đã mất» và «Đã hủy».",
+          "**Bấm vào số điện thoại là gọi luôn** (trên điện thoại mở trình gọi, trên máy tính mở ứng dụng gọi nếu có). Số đang bị che dạng `091***` thì không bấm gọi được.",
+          "Bấm vào 1 khách → cửa sổ chi tiết: người chăm sóc, doanh thu + trạng thái, rồi khối **Thông tin khách hàng** (họ tên, SĐT, địa chỉ, email, sinh nhật — mục nào còn thiếu ghi «Chưa có» để biết cần hỏi khách), và **danh sách dự án** kèm % tiến độ. **Bấm vào một dự án là mở thẳng chi tiết dự án đó.**"
         ]
       },
       {

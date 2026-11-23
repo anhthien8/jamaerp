@@ -16,6 +16,27 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/11/2026',
+    title: 'Khách hàng: mỗi người chỉ thấy khách của mình, ghi rõ ai chăm sóc, bấm số là gọi',
+    tag: 'ĐỔI QUYỀN',
+    news: [
+      'ĐỔI QUYỀN XEM: ở menu «Khách hàng», nhân viên chỉ còn thấy khách mình chăm sóc; trưởng nhóm thấy khách của nhóm; trưởng phòng thấy khách của cả phòng. Ban giám đốc, Kế toán và Admin CSKH vẫn thấy toàn bộ. Danh sách của bạn ngắn lại là đúng, không phải mất dữ liệu.',
+      'Mỗi khách ghi rõ «Người chăm sóc» — ở bảng danh sách và trong cửa sổ chi tiết. App tự lấy theo sale đang giữ lead của khách, không có thì lấy sale của dự án, không có nữa thì lấy người tạo hồ sơ.',
+      'Doanh thu có nhãn trạng thái: «Đã chốt» (deal đã thắng), «Đang chốt» (đã gửi báo giá / đang đàm phán), «Tiềm năng» (còn tư vấn, khảo sát). Hai nhãn sau hiện số dự kiến, chưa phải doanh thu.',
+      'Bấm vào số điện thoại là gọi luôn. Bấm vào một dự án trong cửa sổ khách là mở thẳng chi tiết dự án đó.',
+      'Cửa sổ chi tiết khách luôn hiện đủ Họ tên, SĐT, Địa chỉ, Email, Sinh nhật — mục nào thiếu ghi «Chưa có» để bạn biết cần hỏi khách.',
+    ],
+    fixes: [
+      'Sale bấm vào khách của chính mình không còn bị mất khối «Dự án».',
+      'Không còn sửa được hồ sơ của khách không thuộc phạm vi mình thấy.',
+    ],
+    test: [
+      'Sale: mở «Khách hàng» → chỉ thấy khách của mình; cột «Người chăm sóc» ghi tên bạn.',
+      'Trưởng phòng: mở «Khách hàng» → thấy khách của mọi người trong phòng, mỗi dòng ghi tên người chăm sóc.',
+      'Mở 1 khách trên điện thoại → bấm số điện thoại → máy mở màn hình gọi. Bấm thẻ dự án → vào chi tiết dự án.',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Gợi ý AI: tin nhắn mẫu ký đúng tên bạn, giọng gần gũi hơn',
     tag: 'SỬA',
     fixes: [

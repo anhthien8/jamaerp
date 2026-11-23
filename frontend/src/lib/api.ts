@@ -2379,6 +2379,12 @@ export interface Customer {
   so_hop_dong?: number;
   so_du_an?: number;
   sinh_nhat_con_ngay?: number | null;
+  /** Người chăm sóc: sale của lead → sale dự án → người tạo hồ sơ. */
+  cham_soc_id?: string | null;
+  cham_soc_ten?: string | null;
+  /** `doanh_thu` chỉ gồm phần đã chốt; `doanh_thu_du_kien` là giá trị lead khi chưa có dự án. */
+  trang_thai_doanh_thu?: 'da_chot' | 'dang_chot' | 'tiem_nang' | 'da_mat' | 'da_huy' | null;
+  doanh_thu_du_kien?: number;
 }
 
 export type NhomMau = 'hop_dong' | 'bien_ban' | 'thanh_toan' | 'phu_luc' | 'khac';

@@ -29,6 +29,10 @@ class Customer(Base):
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # 24/11/2026: người tạo hồ sơ tay — người chăm sóc dự phòng khi khách chưa gắn
+    # lead/dự án nào (thiếu cột này sale tự tạo khách xong là không còn thấy khách đó).
+    created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+
     # 25/10/2026: ngày sinh (nhắc sale tặng quà) + số CCCD trích từ ảnh căn cước.
     # Ảnh CCCD KHÔNG lưu — chỉ đọc một lần để điền form.
     birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
