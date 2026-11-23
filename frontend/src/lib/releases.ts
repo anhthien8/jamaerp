@@ -15,7 +15,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: '23/11/2026',
+    date: '24/11/2026',
     title: 'Vật tư: giá bán theo Bảng giá chuẩn, ngày NCC hẹn giao, lịch sử nhận hàng · gỡ Shopee',
     tag: 'MỚI',
     news: [
@@ -40,6 +40,18 @@ export const RELEASES: Release[] = [
       'Thu mua: chốt giá gõ tay không ghi NCC → app báo phải kèm NCC. Đặt hàng → không chọn ngày hẹn thì nút đặt không bấm được.',
       'Giám sát: nhận hàng thiếu, ghi số đã nhận → lần sau giao bù bấm «Đủ» → dưới dòng hiện 2 lần nhận.',
       'Nhà cung cấp: thử tạo «Cty TNHH <tên NCC đang có>» → app báo trùng và mở NCC đang có.',
+    ],
+  },
+  {
+    date: '23/11/2026',
+    title: 'Mở trang nhẹ hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Mỗi lần mở một trang bất kỳ, app không còn tải ngầm danh sách lead và dự án cho khung thông báo nữa — chỉ tải khi bạn bấm chuông. Mạng yếu / 4G mở trang nhanh hơn rõ.',
+      'Chuông thông báo tự làm mới mỗi 2 phút thay vì mỗi phút, nhưng vẫn lấy bản mới nhất NGAY lúc bạn quay lại tab hoặc bấm vào chuông.',
+    ],
+    test: [
+      'Mở một trang bất kỳ → bấm chuông: danh sách thông báo (kể cả dòng «Lead quá hạn», «Tiến độ thấp») vẫn hiện đủ như cũ, số đỏ trên chuông không đổi.',
     ],
   },
   {
