@@ -51,6 +51,8 @@ async def process_lead_text(message: types.Message, state: FSMContext):
     parsed = await api.parse_lead(message.from_user.id, raw_text)
 
     if not parsed:
+        # Thôi trạng thái chờ: không thì tin kế tiếp (kể cả ghi chú cho khách cũ) bị đọc như lead mới.
+        await state.clear()
         await message.answer("❌ Không thể phân tích. Vui lòng thử lại hoặc nhập thủ công.")
         return
 
@@ -213,6 +215,14 @@ async def auto_parse_message(message: types.Message, state: FSMContext):
             "• /help xem các lệnh."
         )
 
+
+
+# Thẻ «Kết quả phân tích» bỏ ngỏ: sale gõ tin khác thì thôi thẻ cũ, đọc tin mới như bình thường —
+# trước đây ở trạng thái `confirming` không handler nào nhận chữ, tin bị nuốt im lặng (R00, 24/11/2026).
+@router.message(LeadIntakeState.confirming, F.chat.type == "private", F.text & ~F.text.startswith("/"))
+async def bo_the_cu_doc_tin_moi(message: types.Message, state: FSMContext):
+    await state.clear()
+    await auto_parse_message(message, state)
 
 def _format_budget(budget) -> str:
     """Format budget VND."""

@@ -27,8 +27,14 @@ async def ban_tin_hom_nay(tg_user_id: int) -> tuple[str, types.InlineKeyboardMar
     return kq["text"], types.InlineKeyboardMarkup.model_validate(mk) if mk else None
 
 
+CHI_CHAT_RIENG = "Bản tin có SĐT khách và tiền hợp đồng — chỉ xem trong chat riêng với bot, nhắn riêng /briefing nhé."
+
+
 @router.message(Command("briefing"))
 async def cmd_briefing(message: types.Message):
+    if message.chat.type != "private":
+        await message.answer(CHI_CHAT_RIENG)
+        return
     text, mk = await ban_tin_hom_nay(message.from_user.id)
     await message.answer(text, reply_markup=mk)
 

@@ -42,8 +42,10 @@ from datetime import datetime, timedelta, timezone
 from aiogram import F, Router, types
 from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
 
 from bot.api_client import api
+from bot.handlers.lead_intake import LeadIntakeState
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -247,6 +249,9 @@ async def _gui_the_khach(callback: types.CallbackQuery, msg: types.Message | Non
     if msg is None:
         await callback.answer("Bản tin đã quá cũ — gõ /briefing để lấy bản mới", show_alert=True)
         return
+    if msg.chat.type != "private":
+        await callback.answer("Thẻ khách có SĐT — chỉ mở trong chat riêng với bot", show_alert=True)
+        return
     kq = await api.lead_the(callback.from_user.id, lead_id)
     if not kq or kq.get("error"):
         await _bao_loi(callback, kq)
@@ -358,13 +363,24 @@ def lead_cua_tin(message) -> str | None:
     return ids.pop() if len(ids) == 1 else None
 
 
+async def _bo_the_lead_moi_dang_cho(state: FSMContext | None) -> None:
+    """Thẻ «Kết quả phân tích» lead mới bỏ ngỏ (hoặc phân tích hỏng) không được giữ chân các tin
+    sau: sale đã chuyển sang việc khác thì thôi thẻ đó (đăng ký lại bằng /lead khi cần)."""
+    if state is not None and await state.get_state() is not None:
+        await state.clear()
+
+
+# Trả lời vào tin về MỘT lead là rõ ràng → nhận cả khi đang dở luồng nhập lead mới (thẻ bỏ ngỏ /
+# phân tích hỏng). Luồng khác (/baocao, /suco, vật tư…) không nằm trong bộ lọc → tin rơi xuống đó.
 @router.message(
-    StateFilter(None), F.chat.type == "private", F.text & ~F.text.startswith("/"), F.reply_to_message,
+    StateFilter(None, LeadIntakeState.waiting_text, LeadIntakeState.confirming),
+    F.chat.type == "private", F.text & ~F.text.startswith("/"), F.reply_to_message,
 )
-async def tra_loi_tin_lead(message: types.Message):
+async def tra_loi_tin_lead(message: types.Message, state: FSMContext | None = None):
     lead_id = lead_cua_tin(message.reply_to_message)
     if not lead_id:
         raise SkipHandler()
+    await _bo_the_lead_moi_dang_cho(state)
     kq = await api.lead_touch(
         message.from_user.id, lead_id, {"viec": "ghi_chu", "noi_dung": message.text, **_the_tg(message)},
     )
@@ -415,11 +431,14 @@ def ban_phim_chon(ma: str, leads: list[dict]) -> types.InlineKeyboardMarkup:
     return types.InlineKeyboardMarkup(inline_keyboard=hang)
 
 
-@router.message(StateFilter(None), F.chat.type == "private", F.text & ~F.text.startswith("/"))
-async def cau_tu_do(message: types.Message):
+@router.message(
+    StateFilter(None, LeadIntakeState.confirming), F.chat.type == "private", F.text & ~F.text.startswith("/"),
+)
+async def cau_tu_do(message: types.Message, state: FSMContext | None = None):
     kq = await api.lead_doan(message.from_user.id, message.text)
     if not kq or kq.get("error") or not kq.get("la_bao_cham") or kq.get("viec") not in MA_VIEC:
         raise SkipHandler()  # không phải báo chăm khách → luồng nhập lead mới lo
+    await _bo_the_lead_moi_dang_cho(state)
     ma = ma_viec(kq)
     tom_tat = html.escape(kq.get("tom_tat") or "")
     ung = kq.get("ung_vien") or []
@@ -476,6 +495,10 @@ async def bam_xac_nhan_lead(callback: types.CallbackQuery):
             await _bao_loi(callback, kq)
             return
         khac = [ld for ld in [*(kq.get("ung_vien") or []), *(kq.get("goi_y") or [])] if ld["id"] != lead_id]
+        if not khac:
+            # Chỉ AI hiểu câu (bộ luật không ra gì) → lấy danh sách khách đang chăm (chữ rỗng = goi_y).
+            kq = await api.lead_doan(tg_id, "", dung_ai=False) or {}
+            khac = [ld for ld in kq.get("goi_y") or [] if ld["id"] != lead_id]
         if not khac or msg is None:
             await callback.answer("Không còn lead nào khác đang chăm. Mở ERP để chọn.", show_alert=True)
             return

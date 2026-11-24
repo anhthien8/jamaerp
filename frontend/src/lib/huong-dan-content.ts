@@ -1775,7 +1775,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           ],
           [
             "`/pipeline` · `/briefing`",
-            "Xem khách mình đang chăm theo từng giai đoạn · bản tin «Hôm nay của bạn» (hẹn hôm nay, hẹn hôm qua chưa có kết quả, khách cần gọi, đợt thu cần nhắc), mỗi dòng một nút"
+            "Xem khách mình đang chăm theo từng giai đoạn · bản tin «Hôm nay của bạn» (hẹn hôm nay, hẹn hôm qua chưa có kết quả, khách cần gọi, đợt thu cần nhắc), mỗi dòng một nút — chỉ trong chat riêng với bot"
           ],
           [
             "`/lead`",

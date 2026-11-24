@@ -81,6 +81,9 @@ async def cb_briefing(callback: types.CallbackQuery):
     """Nút «Briefing» ở /start — cùng bản tin «Hôm nay của bạn» với /briefing (R00 mục 10)."""
     from bot.handlers.briefing import ban_tin_hom_nay
 
+    if callback.message is None or callback.message.chat.type != "private":
+        await callback.answer("Bản tin chỉ xem trong chat riêng với bot", show_alert=True)
+        return
     text, mk = await ban_tin_hom_nay(callback.from_user.id)
     await callback.message.answer(text, reply_markup=mk)
     await callback.answer()

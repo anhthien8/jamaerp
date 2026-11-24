@@ -36,6 +36,8 @@ export const RELEASES: Release[] = [
       'Lịch sử hoạt động của một khách chỉ người được xem khách đó mới xem và ghi được (trước đây người phòng Kinh doanh biết mã khách là ghi được vào khách của người khác).',
       'Tin sự kiện lần thứ hai trong ngày (bị yêu cầu sửa lại lần 2, đặt lại vật tư sau khi bị từ chối, được giao lại việc…) vẫn tới, không bị gộp mất khi tin trước chưa đọc.',
       'Nút «Mở ERP» trên tin nhắc thanh toán (kế toán) mở đúng hợp đồng thay vì chỉ mở danh sách.',
+      'Bỏ dở thẻ «Kết quả phân tích» lead mới không còn làm bot «im»: tin trả lời hay câu báo việc gõ sau đó vẫn được ghi.',
+      '/briefing và thẻ khách (có SĐT khách, tiền hợp đồng) chỉ mở trong chat riêng với bot, không đăng vào nhóm.',
     ],
     test: [
       'Trên iPhone (Safari) và máy tính bảng Samsung: bấm «Mở ERP» trên một tin nhắc của bot → mở đúng trang của việc đó.',
