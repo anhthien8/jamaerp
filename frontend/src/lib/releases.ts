@@ -15,7 +15,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: '21/11/2026',
+    date: '24/11/2026',
     title: 'Làm việc ngay trên tin Telegram: nút bấm + hẹn tiếp',
     tag: 'MỚI',
     news: [
@@ -48,6 +48,46 @@ export const RELEASES: Release[] = [
     ],
   },
   {
+    date: '24/11/2026',
+    title: 'Vật tư: giá bán theo Bảng giá chuẩn, ngày NCC hẹn giao, lịch sử nhận hàng · gỡ Shopee',
+    tag: 'MỚI',
+    news: [
+      'Đơn giá bán vật tư là cố định: mẫu đã có giá chuẩn thì khách trả đúng giá chuẩn, Thu mua chốt giá vốn không còn làm đổi giá bán. Khách muốn bớt tiền thì đổi mẫu hoặc khối lượng.',
+      'Tab mới «Bảng giá chuẩn» (Thu mua và Giám đốc): mỗi mẫu hiện giá nhập của từng NCC, giá gợi ý, giá chuẩn và mức lời. Thu mua bấm «Thêm giá nhập»; chỉ Giám đốc đặt giá chuẩn. Lọc nhanh mẫu chưa có giá chuẩn và mẫu đang lời dưới hệ số.',
+      'Đặt hàng bắt buộc chọn ngày NCC hẹn giao (Mai / 3 ngày / 1 tuần / 2 tuần / chọn ngày). Dòng quá hẹn mà chưa về đủ có nhãn «trễ hẹn».',
+      'Mỗi lần Giám sát nhận hàng được lưu riêng thành lịch sử dưới dòng (lần đầu thiếu bao nhiêu, giao bù bao nhiêu, hàng lỗi vì sao). Giao thiếu thì ghi tổng số đã nhận.',
+      '«Khách đã đồng ý» bấm được ngay khi dòng có giá bán, không cần chờ chốt giá vốn; lời đồng ý giữ tới khi giá bán đổi. App ghi lại ai bấm.',
+      'Nhà cung cấp: xếp hạng Chính / Dự phòng / Đang thử, nút «Ngừng dùng», sửa đủ thông tin (cả Zalo), Giám đốc «Gộp vào NCC khác» khi lỡ trùng.',
+    ],
+    fixes: [
+      'ĐỔI QUY TẮC: chốt giá vốn bắt buộc kèm nhà cung cấp. Gõ giá tay thì ghi tên NCC, app lưu thành báo giá «gõ tay».',
+      'ĐỔI QUY TẮC: dòng đã đặt hàng không sửa khối lượng, không đổi mẫu, không xoá; chỉ Leader Thu mua hoặc Giám đốc huỷ, bắt buộc lý do. Leader tự đặt đơn vượt cũng phải chờ người khác duyệt.',
+      'ĐỔI QUY TẮC: ngân sách dự án là trần toàn bộ chi phí (vật tư + nhân công, thầu phụ, chi khác), không chỉ riêng vật tư.',
+      'Giá «cũ» (quá 60 ngày) tính theo ngày NCC báo giá, không theo ngày bấm chốt: chốt lại đúng giá cũ không làm giá mới lại. Dòng giá cũ có nút «Hỏi lại giá».',
+      'Tạo NCC không còn bị trùng vì «Công ty TNHH», «Cty», «Cửa hàng» hay kiểu đặt dấu «Hoà/Hòa».',
+      'Gỡ hẳn giá Shopee: không còn giá Shopee trên thẻ mẫu, tab «Cần thương lượng», mục cài đặt Shopee và lịch cập nhật giá sáng thứ Hai.',
+    ],
+    test: [
+      'Thu mua: mở «Bảng giá chuẩn» → «Thêm giá nhập» cho 1 mẫu → giá hiện trong danh sách NCC của mẫu đó.',
+      'Giám đốc: đặt giá chuẩn cho 1 mẫu → dòng vật tư khách chưa đồng ý của mẫu đó đổi sang giá mới; dòng khách đã đồng ý giữ giá cũ.',
+      'Thu mua: chốt giá gõ tay không ghi NCC → app báo phải kèm NCC. Đặt hàng → không chọn ngày hẹn thì nút đặt không bấm được.',
+      'Giám sát: nhận hàng thiếu, ghi số đã nhận → lần sau giao bù bấm «Đủ» → dưới dòng hiện 2 lần nhận.',
+      'Nhà cung cấp: thử tạo «Cty TNHH <tên NCC đang có>» → app báo trùng và mở NCC đang có.',
+    ],
+  },
+  {
+    date: '23/11/2026',
+    title: 'Mở trang nhẹ hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Mỗi lần mở một trang bất kỳ, app không còn tải ngầm danh sách lead và dự án cho khung thông báo nữa — chỉ tải khi bạn bấm chuông. Mạng yếu / 4G mở trang nhanh hơn rõ.',
+      'Chuông thông báo tự làm mới mỗi 2 phút thay vì mỗi phút, nhưng vẫn lấy bản mới nhất NGAY lúc bạn quay lại tab hoặc bấm vào chuông.',
+    ],
+    test: [
+      'Mở một trang bất kỳ → bấm chuông: danh sách thông báo (kể cả dòng «Lead quá hạn», «Tiến độ thấp») vẫn hiện đủ như cũ, số đỏ trên chuông không đổi.',
+    ],
+  },
+  {
     date: '21/11/2026',
     title: 'Thông báo hiện ngay trong app + nhắc cài app, bật thông báo trên điện thoại',
     tag: 'MỚI',
@@ -59,6 +99,10 @@ export const RELEASES: Release[] = [
       'Bấm link trong tin nhắc (Telegram, thông báo máy) ở trình duyệt chưa đăng nhập: đăng nhập xong vào thẳng trang của link (vd danh sách Đối chiếu), không còn bị đưa về Tổng quan.',
       'Dữ liệu chung (Ban giám đốc): dưới tên trưởng phòng có chip «Telegram» / «Thông báo máy» / «Chỉ nhận trong chuông»; bấm «Nhắc» xong biết tin đi qua kênh nào. Khối mới «Kênh nhận thông báo» đếm ai đã bật thông báo theo từng phòng và có nút «Nhắc cài app & bật thông báo».',
       'Tin nhắc gửi người chưa bật thông báo máy có thêm link «Hướng dẫn 1 phút» để cài app.',
+    ],
+    fixes: [
+      'Tìm kiếm tên tiếng Việt: chữ gõ bằng bộ gõ kiểu «Unicode tổ hợp» (Unikey) và kiểu «dựng sẵn» nay khớp nhau. Trước đây gõ «Trịnh» không ra một số nhân viên, khách, lead dù tên trông y hệt. Hệ thống đã thống nhất 285 dòng dữ liệu cũ và tự thống nhất mọi chữ lưu mới; cách gõ của mỗi người giữ nguyên.',
+      'Vật tư: gõ tên NCC, nhóm vật tư bằng bộ gõ «tổ hợp» không còn tạo trùng một NCC/nhóm đã có.',
     ],
     test: [
       'Tài khoản admin/executive: Dữ liệu chung → thẻ Thi công thấy chip kênh dưới tên trưởng phòng; khối «Kênh nhận thông báo» hiện số người đã bật / chỉ nhận trong chuông.',

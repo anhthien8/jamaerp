@@ -1,5 +1,7 @@
 """NCC tự tạo từ Vật tư + mã số thuế (26/10/2026)."""
 
+from datetime import datetime
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -10,7 +12,7 @@ from app.middleware.auth import hash_password
 from app.models.project import Project
 from app.models.supplier import Supplier
 from app.models.user import User
-from app.models.vat_tu import BaoGiaDongVatTu, DongPhieuVatTu
+from app.models.vat_tu import BaoGiaDongVatTu, DongPhieuVatTu, MauVatTu
 from app.services import ncc as ncc_svc
 from tests.conftest import _uid, auth_header
 
@@ -43,12 +45,37 @@ async def test_mau_go_ten_ncc_tu_tao_va_khong_trung(client: AsyncClient, db_sess
                           headers=auth_header(thu_mua))
     assert r.status_code == 201 and r.json()["ncc_gan_nhat_ten"] == "Hiệp Phát"
     assert await _so_ncc(db_session) == truoc
+    # 22/11/2026: gõ kèm «Công ty TNHH…» vẫn ra đúng NCC đang có, không sinh NCC trùng
+    r = await client.post("/api/v1/vat-tu/mau", json={"ma": "HP2", "ncc_gan_nhat_ten": "Công ty TNHH TM & DV Hiệp Phát"},
+                          headers=auth_header(thu_mua))
+    assert r.status_code == 201 and r.json()["ncc_gan_nhat_ten"] == "Hiệp Phát"
+    assert await _so_ncc(db_session) == truoc
     r = await client.post("/api/v1/vat-tu/mau", json={"ma": "DS1", "ncc_gan_nhat_ten": "Daisan"},
                           headers=auth_header(thu_mua))
     assert r.status_code == 201
     assert await _so_ncc(db_session) == truoc + 1
     ten = [x["name"] for x in (await client.get("/api/v1/vat-tu/ncc", headers=auth_header(thu_mua))).json()]
     assert "Daisan" in ten and "Hiệp Phát" in ten
+
+
+@pytest.mark.asyncio
+async def test_sua_mau_gui_lai_ten_ncc_khong_doi_sang_ncc_cung_khoa(client: AsyncClient, db_session, thu_mua):
+    """Form sửa mẫu gửi lại tên NCC đã chép. Hai NCC cùng khoá («Công ty TNHH Minh Phát» tạo trước,
+    «Cửa hàng Minh Phát» tạo sau): sửa ô khác của mẫu không được âm thầm chuyển mẫu sang NCC kia."""
+    cong_ty = Supplier(id=_uid(), name="Công ty TNHH Minh Phát", created_at=datetime(2026, 2, 1))
+    cua_hang = Supplier(id=_uid(), name="Cửa hàng Minh Phát", created_at=datetime(2026, 5, 1))
+    db_session.add_all([cong_ty, cua_hang])
+    await db_session.commit()
+    cua_hang_id = cua_hang.id
+    h = auth_header(thu_mua)
+
+    r = await client.post("/api/v1/vat-tu/mau", json={"ma": "MP1", "ncc_gan_nhat_ten": "Cửa hàng Minh Phát"}, headers=h)
+    assert r.status_code == 201 and r.json()["ncc_gan_nhat_ten"] == "Cửa hàng Minh Phát"
+    r = await client.put(f"/api/v1/vat-tu/mau/{r.json()['id']}", headers=h,
+                         json={"ma": "MP1", "ten": "Gạch 60x60", "ncc_gan_nhat_ten": "Cửa hàng Minh Phát"})
+    assert r.status_code == 200 and r.json()["ncc_gan_nhat_ten"] == "Cửa hàng Minh Phát"
+    ncc_id = (await db_session.execute(select(MauVatTu.ncc_gan_nhat_id).where(MauVatTu.ma == "MP1"))).scalar_one()
+    assert ncc_id == cua_hang_id
 
 
 @pytest.mark.asyncio

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
@@ -176,8 +177,9 @@ async def _anh_cua_du_an(db: AsyncSession, media_ids: list[str], project_id: str
 
 async def _resolve_project(code: str, db: AsyncSession) -> Project:
     """Look up a Project by its short code (e.g. JMH-0601)."""
+    # NFC (21/11/2026): mã có chữ Việt gõ dạng tổ hợp (path /project/{mã}, body bot) vẫn khớp
     result = await db.execute(
-        select(Project).where(Project.code == code)
+        select(Project).where(Project.code == nfc(code))
     )
     project = result.scalar_one_or_none()
     if not project:
@@ -318,7 +320,9 @@ async def create_site_report(
 
     anh = await _anh_cua_du_an(db, data.media_ids, project.id)
     full_content = data.content
-    noi_bo = data.noi_bo or full_content.lower().lstrip().startswith(("#noibo", "#nội bộ", "#noi_bo"))
+    # NFC trước khi so (21/11/2026): «#nội bộ» gõ dạng tổ hợp không khớp chữ hằng → báo cáo nội bộ
+    # lọt ra portal khách
+    noi_bo = data.noi_bo or nfc(full_content).lower().lstrip().startswith(("#noibo", "#nội bộ", "#noi_bo"))
     if noi_bo:
         for m in anh:
             m.shared_with_customer = False
@@ -383,6 +387,30 @@ async def create_site_report(
 
 # ── 3. POST /material-request ─────────────────────────────────────────────
 
+async def _tim_vat_tu_khop_ro(db: AsyncSession, ten_go: str | None) -> Material | None:
+    """Vật tư trong kho ứng với tên gõ — CHỈ khi khớp rõ ràng, còn lại (mơ hồ / không có) → None.
+
+    Rõ ràng = chỉ một vật tư có tên chứa chữ đã gõ, hoặc đúng một vật tư TRÙNG tên (không phân
+    biệt hoa thường). Lấy tối đa 2 dòng, vật tư trùng tên xếp trước rồi theo mã (unique) → kết
+    quả không phụ thuộc thứ tự dòng trong bảng. `%`, `_` người dùng gõ được thoát (ESCAPE '/')
+    để «trùng tên» là trùng thật.
+    """
+    ten = nfc(ten_go or "").strip()
+    if not ten:
+        return None
+    mau = ten.replace("/", "//").replace("%", "/%").replace("_", "/_")
+    trung_ten = Material.name.ilike(mau, escape="/")
+    ds = (await db.execute(
+        select(Material, trung_ten.label("trung_ten"))
+        .where(Material.name.ilike(f"%{mau}%", escape="/"))
+        .order_by(trung_ten.desc(), Material.code)
+        .limit(2)
+    )).all()
+    if len(ds) == 1 or (len(ds) == 2 and ds[0].trung_ten and not ds[1].trung_ten):
+        return ds[0][0]
+    return None
+
+
 @router.post("/material-request", status_code=status.HTTP_201_CREATED)
 async def create_material_request(
     data: MaterialRequestPayload,
@@ -403,10 +431,12 @@ async def create_material_request(
     estimated_cost = 0.0  # Could be enriched with material price lookup
 
     # Try to find matching material in catalog for price estimate
-    mat_result = await db.execute(
-        select(Material).where(Material.name.ilike(f"%{data.material_name}%"))
-    )
-    matched_material = mat_result.scalar_one_or_none()
+    # (21/11/2026) NFC: tên gõ dạng tổ hợp vẫn khớp kho. Chỉ lấy giá khi khớp RÕ RÀNG: đúng một
+    # vật tư trùng tên (không phân biệt hoa thường), hoặc chỉ một vật tư chứa chữ đã gõ. Tên
+    # ngắn («Gỗ» → «Gỗ sồi», «Gỗ óc chó») là mơ hồ → không ước tính: lấy đại 1 dòng thì giá — và
+    # kết luận «vượt định mức» báo cho người ở công trình — đổi theo thứ tự Postgres trả về
+    # (trước đó scalar_one_or_none nổ MultipleResultsFound → 500, bot báo lỗi).
+    matched_material = await _tim_vat_tu_khop_ro(db, data.material_name)
     if matched_material:
         estimated_cost = matched_material.unit_price * data.quantity
 

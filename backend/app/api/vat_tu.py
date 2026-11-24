@@ -5,7 +5,9 @@ Quyền (chốt với chủ dự án, không thêm ô ma trận):
   Sale & Thiết kế chỉ thấy giá bán. Hàm `xem_gia_von`.
 - Chốt giá, ghi báo giá, bảng «Cần hỏi giá», cài % lãi: Thu mua (hoặc admin).
 - Tạo/sửa dòng phiếu: ai vào được dự án (`require_project_access`).
-Giá bán = max(giá vốn × (1 + % nhóm), giá cố định của mẫu) — tính ở server, không ai gõ.
+Giá bán (22/11/2026, Giám đốc chốt «đơn giá là hằng số»): mẫu có giá chuẩn (`gia_ban_co_dinh`,
+chỉ Admin ấn định) thì bán đúng giá chuẩn; chưa có thì giá vốn × (1 + % nhóm). Tính ở server,
+không ai gõ. Lời «khách đồng ý» có hiệu lực tới khi giá bán của dòng đổi.
 """
 
 import json
@@ -13,30 +15,44 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.projects import require_project_access
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.rbac import la_truong_nhom, la_truong_phong
 from app.models.notification import Notification
+from app.models.payroll import Transaction
 from app.models.project import Project
-from app.models.supplier import Supplier
+from app.models.supplier import HANG_NCC, Supplier
 from app.models.user import User
 from app.models.vat_tu import (
-    NHAN_TRANG_THAI, SO_ANH_NHAN_HANG_TOI_THIEU, SO_NGAY_GIA_CU, TRANG_THAI_DONG, BaoGiaDongVatTu, DongPhieuVatTu, GiaNhomVatTu, MauVatTu,
+    LY_DO_LOI_NHAN_HANG, NHAN_TRANG_THAI, SO_ANH_NHAN_HANG_TOI_THIEU, SO_NGAY_GIA_CU, TRANG_THAI_DONG,
+    BaoGiaDongVatTu, DongPhieuVatTu, GiaNhapMauVatTu, GiaNhomVatTu, MauVatTu, NhanHangVatTu,
 )
-from app.services import shopee_affiliate, vat_tu_sheet
+from app.services import vat_tu_sheet
+from app.services.attendance_service import vn_today
 from app.services.ncc import BoNcc
 
 router = APIRouter(prefix="/vat-tu", tags=["vat-tu"])
 
 PHONG_THU_MUA = ("PURCHASING", "PROCUREMENT")
+# Dòng ĐÃ ĐẶT HÀNG (kể cả đơn vượt đang chờ Leader duyệt): tiền đã cam kết với NCC —
+# không sửa, không xoá lặng lẽ; muốn bỏ thì Leader Thu mua huỷ kèm lý do (22/11/2026).
+TT_DA_DAT = ("cho_duyet_dat", "da_dat", "giao_thieu", "da_giao")
+COT_KHOA_SAU_DAT = ("so_luong", "mau_id", "ma_tu_do", "don_vi", "mau_thay_the_id", "ma_thay_the")
+# Dòng CHƯA đặt hàng: khách chưa đồng ý thì giá bán còn đi theo giá chuẩn của mẫu
+TT_CHUA_DAT = ("khach_chon", "hoi_ncc", "het_hang", "cho_khach_duyet_lai", "da_chot_gia")
 
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+def _naive(t: datetime) -> datetime:
+    return t.replace(tzinfo=None) if t.tzinfo else t
 
 
 def la_thu_mua(user: User) -> bool:
@@ -93,11 +109,105 @@ async def quyen_du_an(project_id: str, user: User = Depends(get_current_user), d
 
 
 def tinh_gia_ban(gia_von: float, phan_tram: float, gia_co_dinh: float | None) -> tuple[float, float | None]:
-    """(giá bán, % áp dụng) — áp cái lãi hơn; % None nghĩa là dùng giá cố định."""
-    theo_phan_tram = round(gia_von * (1 + phan_tram / 100))
-    if gia_co_dinh and gia_co_dinh > theo_phan_tram:
+    """(giá bán, % áp dụng). Mẫu có giá chuẩn → LUÔN đúng giá chuẩn (% None): giá sỉ lên xuống
+    không kéo giá khách theo. Mẫu chưa có giá chuẩn → giá vốn × (1 + % nhóm)."""
+    if gia_co_dinh and gia_co_dinh > 0:
         return float(gia_co_dinh), None
-    return float(theo_phan_tram), phan_tram
+    return float(round(gia_von * (1 + phan_tram / 100))), phan_tram
+
+
+def _dat_gia_ban(d: DongPhieuVatTu, gia_ban: float | None, phan_tram: float | None) -> None:
+    """Chỗ DUY NHẤT ghi giá bán của dòng. Lời đồng ý của khách có hiệu lực tới khi GIÁ TRỊ giá
+    bán đổi (chưa có ↔ có, hoặc lệch quá 0,5đ) — đổi thì xoá để khách duyệt lại giá mới."""
+    cu = d.gia_ban
+    if (cu is None) != (gia_ban is None) or (cu is not None and abs(cu - gia_ban) > 0.5):
+        d.khach_dong_y_luc = d.khach_dong_y_boi = None
+    d.gia_ban, d.phan_tram_ap_dung = gia_ban, phan_tram
+
+
+def _gia_chuan(mau: MauVatTu | None) -> float | None:
+    return float(mau.gia_ban_co_dinh) if mau and (mau.gia_ban_co_dinh or 0) > 0 else None
+
+
+def _giu_gia_nhap(db: AsyncSession, b: BaoGiaDongVatTu, mau_id: str | None) -> bool:
+    """Báo giá NCC sắp bị bỏ khỏi dòng → giữ làm giá nhập theo mẫu (căn cứ của Bảng giá chuẩn),
+    giữ nguyên ngày và người ghi. Chỉ giữ được khi biết NCC và mẫu."""
+    if not (b.supplier_id and mau_id):
+        return False
+    db.add(GiaNhapMauVatTu(mau_id=mau_id, supplier_id=b.supplier_id, gia=b.gia, nguon=b.nguon,
+                           ghi_chu=b.ghi_chu, created_by=b.created_by,
+                           created_at=_naive(b.created_at or _now())))
+    return True
+
+
+async def ap_mau_moi(db: AsyncSession, d: DongPhieuVatTu, doi_tu: tuple[str | None] | None = None) -> None:
+    """Dòng vừa mang một mẫu / mã MỚI (dòng mới, đổi mẫu, khách nhận mẫu thay).
+    `doi_tu=(mau_id cũ,)` khi dòng ĐỔI từ mẫu / mã khác: báo giá NCC trên dòng là của mẫu cũ → chuyển
+    thành giá nhập của mẫu cũ rồi bỏ khỏi dòng (không để Bảng giá chuẩn và «chốt theo báo giá» hiểu
+    nhầm là giá của mẫu mới).
+    - Mã gõ tay trùng mã một mẫu đang dùng trong danh mục → gắn mẫu đó: gõ mã không lách được giá chuẩn.
+    - Giá vốn, NCC, báo giá đang chốt là của mẫu CŨ → bỏ, dòng quay lại «hỏi NCC» để chốt giá mẫu mới.
+    - Đơn vị theo mẫu (giá chuẩn tính trên đơn vị của mẫu). Giá bán = giá chuẩn của mẫu; mẫu chưa có
+      giá chuẩn thì CHƯA có giá. Không suy giá bán từ giá vốn của mẫu cũ: sai giá mẫu mới, và người
+      không được xem giá vốn đọc ngược ra được."""
+    from app.services.vat_tu_bao_gia_tep import chuan_ma
+    if not d.mau_id and chuan_ma(d.ma_tu_do):
+        trung = (await _mau_theo_ma(db, [d.ma_tu_do])).get(chuan_ma(d.ma_tu_do))
+        if trung:
+            d.mau_id, d.ma_tu_do = trung.id, None
+    if doi_tu is not None:
+        for b in (await db.execute(select(BaoGiaDongVatTu).where(BaoGiaDongVatTu.dong_id == d.id))).scalars().all():
+            _giu_gia_nhap(db, b, doi_tu[0])
+            await db.delete(b)
+    if d.gia_von is not None or d.trang_thai == "da_chot_gia":
+        d.gia_von = d.ncc_id = d.phan_tram_ap_dung = d.chot_boi = d.chot_luc = d.gia_xac_nhan_luc = None
+        if doi_tu is None:
+            for b in (await db.execute(select(BaoGiaDongVatTu).where(
+                    BaoGiaDongVatTu.dong_id == d.id, BaoGiaDongVatTu.duoc_chon.is_(True)))).scalars():
+                b.duoc_chon = False
+        if d.trang_thai == "da_chot_gia":
+            d.trang_thai = "hoi_ncc"
+    mau = await db.get(MauVatTu, d.mau_id) if d.mau_id else None
+    if mau:
+        d.don_vi = mau.don_vi
+    _dat_gia_ban(d, _gia_chuan(mau), None)
+
+
+async def ghi_doi_gia_chuan(db: AsyncSession, user: User, mau: MauVatTu, cu: float | None) -> None:
+    """Gọi ngay SAU khi ghi `mau.gia_ban_co_dinh` — mọi lối ghi giá chuẩn đều qua đây. Giá đổi thì dòng
+    CHƯA đặt hàng mà khách CHƯA đồng ý lấy ngay giá mới (bỏ giá chuẩn: giá vốn đã chốt × (1 + % nhóm),
+    chưa chốt thì chưa có giá) — giá của dòng không còn tuỳ khách bấm đồng ý trước hay sau lúc Giám đốc
+    đổi giá. Dòng khách đã đồng ý và dòng đã đặt hàng giữ nguyên. Có ghi nhật ký kiểm toán."""
+    moi = mau.gia_ban_co_dinh
+    if moi == cu:
+        return
+    await db.flush()  # mẫu vừa tạo phải có id trước khi tìm dòng theo mẫu
+    chuan = _gia_chuan(mau)
+    pt = None if chuan else (await _phan_tram_nhom(db)).get(mau.nhom, 15.0)
+    so_dong = 0
+    for d in (await db.execute(select(DongPhieuVatTu).where(
+            DongPhieuVatTu.mau_id == mau.id, DongPhieuVatTu.trang_thai.in_(TT_CHUA_DAT),
+            # Đồng ý trên dòng chưa có giá là vô nghĩa — dòng đó cũng nhận giá mới
+            or_(DongPhieuVatTu.khach_dong_y_luc.is_(None), DongPhieuVatTu.gia_ban.is_(None))))).scalars():
+        truoc = d.gia_ban
+        if chuan:
+            _dat_gia_ban(d, chuan, None)
+        elif d.gia_von:
+            _dat_gia_ban(d, *tinh_gia_ban(d.gia_von, pt, None))
+        else:
+            _dat_gia_ban(d, None, None)
+        so_dong += d.gia_ban != truoc
+    from app.services.audit import log_action
+    await log_action(db, actor=user, action="vat_tu.gia_chuan", entity_type="mau_vat_tu", entity_id=mau.id,
+                     before={"ma": mau.ma, "gia_ban_co_dinh": cu},
+                     after={"gia_ban_co_dinh": moi, "so_dong_doi_gia": so_dong})
+
+
+def _chi_admin_gia_chuan(data: dict, user: User) -> dict:
+    """Giá chuẩn (`gia_ban_co_dinh`) chỉ Admin ấn định: người khác gửi lên thì bỏ qua, giữ giá đang lưu."""
+    if user.role != "admin":
+        data.pop("gia_ban_co_dinh", None)
+    return data
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────
@@ -110,7 +220,6 @@ class MauIn(BaseModel):
     be_mat: str | None = None
     don_vi: str = "m2"
     anh_url: str | None = Field(default=None, max_length=500)
-    link_shopee: str | None = Field(default=None, max_length=500)
     ghi_chu: str | None = None
     tinh_trang: str | None = None
     gia_tham_khao: float | None = None
@@ -153,6 +262,7 @@ class DongPatch(BaseModel):
     ma_thay_the: str | None = None
     ly_do_doi: str | None = None
     can_ngay: date | None = None
+    huy_ly_do: str | None = None  # chỉ đọc khi trang_thai = huy; dòng đã đặt hàng thì bắt buộc
 
 
 class BaoGiaIn(BaseModel):
@@ -178,6 +288,7 @@ class KhachDongYIn(BaseModel):
 class DatHangIn(BaseModel):
     so_luong: float | None = Field(default=None, gt=0)   # bỏ trống = đúng khối lượng báo giá
     don_gia: float | None = Field(default=None, gt=0)    # bỏ trống = đúng đơn giá đã chốt
+    ngay_giao_hen: date | None = None                    # BẮT BUỘC (kiểm ở handler để trả 400 tiếng Việt)
 
 
 class DuyetDatIn(BaseModel):
@@ -187,7 +298,8 @@ class DuyetDatIn(BaseModel):
 
 class NhanHangIn(BaseModel):
     ket_qua: str                                  # du | thieu
-    so_luong_nhan: float | None = Field(default=None, ge=0)
+    so_luong_nhan: float | None = Field(default=None, ge=0)  # «thiếu»: TỔNG đã về tới lần này (bắt buộc)
+    ly_do_loi: str | None = None                  # khoá của LY_DO_LOI_NHAN_HANG, tuỳ chọn
     ghi_chu: str | None = None
     anh_ids: list[str] = Field(default_factory=list)
 
@@ -197,10 +309,8 @@ class NhanHangIn(BaseModel):
 def _mau_dict(m: MauVatTu, thay_gia_von: bool) -> dict:
     d = {
         "id": m.id, "ma": m.ma, "ten": m.ten, "hang": m.hang, "nhom": m.nhom, "be_mat": m.be_mat,
-        "don_vi": m.don_vi, "anh_url": m.anh_url, "link_shopee": m.link_shopee, "ghi_chu": m.ghi_chu, "tinh_trang": m.tinh_trang,
+        "don_vi": m.don_vi, "anh_url": m.anh_url, "ghi_chu": m.ghi_chu, "tinh_trang": m.tinh_trang,
         "is_active": m.is_active, "gia_ban_co_dinh": m.gia_ban_co_dinh if thay_gia_von else None,
-        "shopee_item_id": m.shopee_item_id, "shopee_ten": m.shopee_ten, "link_shopee_aff": m.link_shopee_aff,
-        "gia_shopee": m.gia_shopee, "gia_shopee_luc": m.gia_shopee_luc,
     }
     if thay_gia_von:
         d.update({
@@ -212,17 +322,18 @@ def _mau_dict(m: MauVatTu, thay_gia_von: bool) -> dict:
     return d
 
 
-def _bao_gia_dict(b: BaoGiaDongVatTu, gia_shopee: float | None = None) -> dict:
+def _bao_gia_dict(b: BaoGiaDongVatTu) -> dict:
     return {
         "id": b.id, "supplier_id": b.supplier_id, "ncc_ten": b.ncc_ten, "gia": b.gia, "con_hang": b.con_hang,
         "ngay_giao": b.ngay_giao, "ghi_chu": b.ghi_chu, "duoc_chon": b.duoc_chon, "created_at": b.created_at,
-        "cao_hon_shopee": bool(gia_shopee and b.gia and b.gia > gia_shopee),
+        "nguon": b.nguon,
     }
 
 
 def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], bao_gia: list[BaoGiaDongVatTu],
                ncc: dict[str, str], du_an: Project | None = None,
-               anh: dict[str, str] | None = None, ten: dict[str, str] | None = None) -> dict:
+               anh: dict[str, str] | None = None, ten: dict[str, str] | None = None,
+               nhan: list[NhanHangVatTu] | None = None) -> dict:
     anh, ten = anh or {}, ten or {}
     m = mau.get(d.mau_id or "")
     mt = mau.get(d.mau_thay_the_id or "")
@@ -239,14 +350,24 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
         "ghi_chu": d.ghi_chu, "can_ngay": d.can_ngay, "thu_tu": d.thu_tu, "created_at": d.created_at, "updated_at": d.updated_at,
         "so_bao_gia": len(bao_gia),
         # Đặt hàng – duyệt – nhận hàng (13/11): ai cũng thấy khối lượng + kết quả nhận, không lộ giá vốn
-        "sl_dat": d.sl_dat, "dat_luc": d.dat_luc, "dat_boi_ten": ten.get(d.dat_boi or ""),
+        "sl_dat": d.sl_dat, "dat_luc": d.dat_luc, "dat_boi": d.dat_boi, "dat_boi_ten": ten.get(d.dat_boi or ""),
         "ly_do_vuot": d.ly_do_vuot if thay_gia_von else None,
         "duyet_dat_luc": d.duyet_dat_luc, "duyet_dat_boi_ten": ten.get(d.duyet_dat_boi or ""),
         "tu_choi_dat_ly_do": d.tu_choi_dat_ly_do,
         "nhan_ket_qua": d.nhan_ket_qua, "sl_nhan": d.sl_nhan, "nhan_luc": d.nhan_luc,
         "nhan_boi_ten": ten.get(d.nhan_boi or ""), "nhan_ghi_chu": d.nhan_ghi_chu,
         "nhan_anh": [{"id": i, "url": anh[i]} for i in _ids_anh(d) if i in anh],
-        "gia_shopee": (m.gia_shopee if m else None), "link_shopee_aff": (m.link_shopee_aff if m else None),
+        # 22/11: ngày NCC hẹn giao (`_dau` = lời hẹn đầu, không sửa) + trễ hẹn — mọi vai đều thấy
+        "ngay_giao_hen": d.ngay_giao_hen, "ngay_giao_hen_dau": d.ngay_giao_hen_dau,
+        "tre_hen": bool(d.ngay_giao_hen and d.trang_thai in ("da_dat", "giao_thieu") and d.ngay_giao_hen < vn_today()),
+        # Từng LẦN Giám sát nhận hàng (cũ → mới): không có giá, không có NCC
+        "nhan_lich_su": [{
+            "luc": n.luc, "boi_ten": ten.get(n.boi or ""), "ket_qua": n.ket_qua,
+            "sl_lan_nay": n.sl_lan_nay, "sl_luy_ke": n.sl_luy_ke,
+            "ly_do_loi": n.ly_do_loi, "ly_do_loi_nhan": LY_DO_LOI_NHAN_HANG.get(n.ly_do_loi or ""),
+            "ghi_chu": n.ghi_chu,
+        } for n in (nhan or [])],
+        "huy_luc": d.huy_luc, "huy_boi_ten": ten.get(d.huy_boi or ""), "huy_ly_do": d.huy_ly_do,
     }
     if du_an is not None:
         out.update({"project_code": du_an.code, "project_name": du_an.name, "client_name": du_an.client_name})
@@ -254,9 +375,11 @@ def _dong_dict(d: DongPhieuVatTu, thay_gia_von: bool, mau: dict[str, MauVatTu], 
         out.update({
             "gia_von": d.gia_von, "ncc_id": d.ncc_id, "ncc_ten": ncc.get(d.ncc_id or ""),
             "phan_tram_ap_dung": d.phan_tram_ap_dung, "gia_dat": d.gia_dat,
-            "gia_cu": d.trang_thai == "da_chot_gia" and gia_da_cu(d.chot_luc),
+            # Luật 60 ngày đọc ngày của BẰNG CHỨNG giá (báo giá NCC), không phải ngày bấm chốt
+            "gia_xac_nhan_luc": d.gia_xac_nhan_luc,
+            "gia_cu": d.trang_thai == "da_chot_gia" and gia_da_cu(d.gia_xac_nhan_luc or d.chot_luc),
             "lai": (round((d.gia_ban - d.gia_von) * d.so_luong) if d.gia_ban and d.gia_von else None),
-            "bao_gia": [_bao_gia_dict(b, m.gia_shopee if m else None) for b in bao_gia],
+            "bao_gia": [_bao_gia_dict(b) for b in bao_gia],
             "gia_von_gan_nhat": (m.gia_von_gan_nhat if m else None),
             "gia_tham_khao": (m.gia_tham_khao if m else None),
             # NCC của lần mua gần nhất + giá khung đã quá hạn chưa — để Thu mua chốt một chạm
@@ -296,9 +419,19 @@ async def _goi_dong(db: AsyncSession, ds: list[DongPhieuVatTu], user: User, kem_
         from app.models.media import MediaFile
         from app.services.media_gateway import url_media
         anh = {m.id: url_media(m) for m in (await db.execute(select(MediaFile).where(MediaFile.id.in_(ids_anh)))).scalars()}
-    ids_nguoi = {x for d in ds for x in (d.dat_boi, d.duyet_dat_boi, d.nhan_boi) if x}
+    # Lịch sử nhận hàng: chỉ hỏi DB cho dòng đã có ít nhất một lần nhận
+    ids_nhan = [d.id for d in ds if d.nhan_luc]
+    nhan: dict[str, list[NhanHangVatTu]] = {}
+    if ids_nhan:
+        for n in (await db.execute(
+            select(NhanHangVatTu).where(NhanHangVatTu.dong_id.in_(ids_nhan)).order_by(NhanHangVatTu.luc)
+        )).scalars():
+            nhan.setdefault(n.dong_id, []).append(n)
+    ids_nguoi = {x for d in ds for x in (d.dat_boi, d.duyet_dat_boi, d.nhan_boi, d.huy_boi) if x}
+    ids_nguoi |= {n.boi for ls in nhan.values() for n in ls if n.boi}
     ten = {i: n for i, n in (await db.execute(select(User.id, User.full_name).where(User.id.in_(ids_nguoi)))).all()} if ids_nguoi else {}
-    return [_dong_dict(d, thay, mau, bg.get(d.id, []), ncc, du_an.get(d.project_id) if kem_du_an else None, anh, ten) for d in ds]
+    return [_dong_dict(d, thay, mau, bg.get(d.id, []), ncc, du_an.get(d.project_id) if kem_du_an else None, anh, ten,
+                       nhan.get(d.id)) for d in ds]
 
 
 async def _phan_tram_nhom(db: AsyncSession) -> dict[str, float]:
@@ -356,9 +489,10 @@ async def ds_ncc(user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depen
 
 @router.post("/mau", status_code=201)
 async def tao_mau(body: MauIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
-    m = MauVatTu(**body.model_dump())
+    m = MauVatTu(**_chi_admin_gia_chuan(body.model_dump(), user))
     db.add(m)
     await _gan_ncc_mau(BoNcc(db), m)
+    await ghi_doi_gia_chuan(db, user, m, None)
     await db.commit()
     await db.refresh(m)
     return _mau_dict(m, True)
@@ -369,9 +503,11 @@ async def sua_mau(mau_id: str, body: MauIn, user: User = Depends(yeu_cau_thu_mua
     m = await db.get(MauVatTu, mau_id)
     if not m:
         raise HTTPException(404, "Không có mẫu này")
-    for k, v in body.model_dump().items():
+    gia_chuan_cu = m.gia_ban_co_dinh
+    for k, v in _chi_admin_gia_chuan(body.model_dump(), user).items():
         setattr(m, k, v)
     await _gan_ncc_mau(BoNcc(db), m)
+    await ghi_doi_gia_chuan(db, user, m, gia_chuan_cu)
     await db.commit()
     await db.refresh(m)
     return _mau_dict(m, True)
@@ -420,28 +556,34 @@ async def nhap_tu_sheet(body: ImportSheetIn, user: User = Depends(yeu_cau_thu_mu
         raise HTTPException(400, str(e))
     except Exception as e:  # noqa: BLE001 — mạng, timeout…
         raise HTTPException(502, f"Không đọc được Google Sheet: {e}")
-    co = {(m.ma.upper(), m.nhom): m for m in (await db.execute(select(MauVatTu))).scalars()}
+    # Khoá (mã, nhóm) NFC cả 2 phía (21/11/2026): sheet đã NFC ở doc_csv, phía DB chuẩn hoá
+    # luôn để dòng cũ chưa qua migration vẫn khớp, không sinh mẫu trùng
+    co = {(nfc(m.ma).upper(), nfc(m.nhom)): m for m in (await db.execute(select(MauVatTu))).scalars()}
     them = sua = 0
     bo = BoNcc(db)
     so_ncc_truoc = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
     for r in ds:
+        _chi_admin_gia_chuan(r, user)
         khoa = (r["ma"].upper(), r["nhom"])
         if khoa in co:
             if body.ghi_de:
+                gia_chuan_cu = co[khoa].gia_ban_co_dinh
                 for k, v in r.items():
                     if v is not None:
                         setattr(co[khoa], k, v)
                 await _gan_ncc_mau(bo, co[khoa])
+                await ghi_doi_gia_chuan(db, user, co[khoa], gia_chuan_cu)
                 sua += 1
             continue
         m = MauVatTu(**r)
         db.add(m)
         await _gan_ncc_mau(bo, m)
+        await ghi_doi_gia_chuan(db, user, m, None)
         co[khoa] = m
         them += 1
     # Nhóm mới chưa có % lãi → tạo dòng mặc định 15% để admin chỉnh một chỗ
     pt = await _phan_tram_nhom(db)
-    for nhom in {r["nhom"] for r in ds} - set(pt):
+    for nhom in {r["nhom"] for r in ds} - {nfc(k) for k in pt}:
         db.add(GiaNhomVatTu(nhom=nhom, phan_tram_lai=15.0, updated_by=user.id))
     await db.commit()
     so_ncc_sau = (await db.execute(select(func.count()).select_from(Supplier))).scalar() or 0
@@ -461,21 +603,20 @@ async def xem_cai_gia(user: User = Depends(get_current_user), db: AsyncSession =
 @router.put("/cai-gia")
 async def cai_gia(body: list[GiaNhomIn], user: User = Depends(yeu_cau_admin), db: AsyncSession = Depends(get_db)):
     for item in body:
-        g = await db.get(GiaNhomVatTu, item.nhom)
+        # Tên nhóm là KHOÁ CHÍNH: tra bằng bản NFC (21/11/2026) — gõ dạng tổ hợp mà tra nguyên
+        # văn thì không thấy dòng có sẵn, listener lại ghi bản NFC → nổ trùng khoá (500)
+        nhom = nfc(item.nhom)
+        g = await db.get(GiaNhomVatTu, nhom)
         if g:
             g.phan_tram_lai = item.phan_tram_lai
             g.updated_by = user.id
         else:
-            db.add(GiaNhomVatTu(nhom=item.nhom, phan_tram_lai=item.phan_tram_lai, updated_by=user.id))
+            db.add(GiaNhomVatTu(nhom=nhom, phan_tram_lai=item.phan_tram_lai, updated_by=user.id))
     await db.commit()
     return {"ok": True, "so_nhom": len(body)}
 
 
 # ── Phiếu chọn theo dự án ─────────────────────────────────────────────────
-
-def _naive(t: datetime) -> datetime:
-    return t.replace(tzinfo=None) if t.tzinfo else t
-
 
 async def _bao_thu_mua_dong_moi(db: AsyncSession, project_id: str, user: User, d: DongPhieuVatTu) -> None:
     """Dòng vật tư mới → báo Thu mua của dự án (hoặc cả phòng Thu mua). Gộp: còn
@@ -518,10 +659,11 @@ async def phieu_du_an(project_id: str, user: User = Depends(quyen_du_an), db: As
         .order_by(DongPhieuVatTu.phong, DongPhieuVatTu.thu_tu, DongPhieuVatTu.created_at)
     )).scalars().all()
     items = await _goi_dong(db, ds, user)
-    tong_ban = sum(i["thanh_tien"] or 0 for i in items)
+    con = [i for i in items if i["trang_thai"] != "huy"]  # dòng đã huỷ vẫn hiện nhưng không cộng vào tổng
+    tong_ban = sum(i["thanh_tien"] or 0 for i in con)
     out = {"items": items, "tong_gia_ban": tong_ban, "thay_gia_von": xem_gia_von(user), "co_the_chot": la_thu_mua(user)}
     if out["thay_gia_von"]:
-        out["tong_lai"] = sum(i.get("lai") or 0 for i in items)
+        out["tong_lai"] = sum(i.get("lai") or 0 for i in con)
     return out
 
 
@@ -536,6 +678,8 @@ async def them_dong(project_id: str, body: DongIn, user: User = Depends(quyen_du
     )).scalar_one() + 1
     d = DongPhieuVatTu(project_id=project_id, created_by=user.id, thu_tu=thu_tu, **body.model_dump())
     db.add(d)
+    # Mẫu có giá chuẩn → dòng có giá bán ngay, khách duyệt được trước khi Thu mua chốt giá vốn
+    await ap_mau_moi(db, d)
     await _bao_thu_mua_dong_moi(db, project_id, user, d)
     await db.commit()
     await db.refresh(d)
@@ -547,7 +691,9 @@ async def sua_dong(dong_id: str, body: DongPatch, user: User = Depends(get_curre
     d = await _dong_hoac_404(db, dong_id)
     await quyen_du_an(d.project_id, user, db)
     data = body.model_dump(exclude_unset=True)
+    ly_do_huy = (data.pop("huy_ly_do", None) or "").strip()[:1000] or None
     tt = data.get("trang_thai")
+    tt_cu = d.trang_thai
     if tt is not None:
         if tt not in TRANG_THAI_DONG:
             raise HTTPException(400, "Trạng thái không hợp lệ")
@@ -564,8 +710,51 @@ async def sua_dong(dong_id: str, body: DongPatch, user: User = Depends(get_curre
             raise HTTPException(400, "Hàng về do Giám sát xác nhận kèm ảnh hiện trường")
         if tt == "het_hang" and not (data.get("mau_thay_the_id") or data.get("ma_thay_the") or d.mau_thay_the_id or d.ma_thay_the):
             raise HTTPException(400, "Hết hàng thì phải kèm mẫu thay thế")
+    # Dòng có ĐƠN ĐẶT HÀNG trên sổ: đang đặt / đã giao, hoặc đã huỷ SAU khi đặt (giữ nguyên làm lịch sử đơn)
+    huy_sau_dat = tt_cu == "huy" and d.sl_dat is not None
+    if tt_cu in TT_DA_DAT or huy_sau_dat:
+        if any(k in data and data[k] != getattr(d, k) for k in COT_KHOA_SAU_DAT):
+            raise HTTPException(400, "Dòng đã đặt hàng — không sửa được mẫu, số lượng, đơn vị. " + (
+                "Cần mua lại thì tạo dòng mới" if huy_sau_dat
+                else "Cần đổi thì Leader Thu mua huỷ dòng này rồi tạo dòng mới"))
+        if huy_sau_dat and tt not in (None, "huy"):
+            # Mở lại rồi chốt NCC khác / đặt lại sẽ trộn lịch sử nhận hàng và lời hẹn giao của hai đơn
+            raise HTTPException(400, "Dòng đã từng đặt hàng rồi huỷ — không mở lại được. Cần mua lại thì tạo dòng mới")
+        if tt is not None and not huy_sau_dat:
+            if tt != "huy":
+                raise HTTPException(400, "Dòng đã đặt hàng — chỉ huỷ được, không lùi về bước trước")
+            if not la_leader_thu_mua(user):
+                raise HTTPException(403, "Dòng đã đặt hàng — chỉ Leader Thu mua (hoặc Admin) huỷ được")
+            if tt_cu == "da_giao":
+                raise HTTPException(400, "Hàng đã giao đủ — không huỷ được")
+            if not ly_do_huy:
+                raise HTTPException(400, "Huỷ dòng đã đặt hàng thì phải ghi lý do")
+    if data.get("mau_id") and data["mau_id"] != d.mau_id and not await db.get(MauVatTu, data["mau_id"]):
+        raise HTTPException(404, "Mẫu không có trong danh mục")
+    truoc = {"trang_thai": tt_cu, "sl_dat": d.sl_dat, "gia_dat": d.gia_dat, "ncc_id": d.ncc_id, "project_id": d.project_id}
+    mau_cu = (d.mau_id, None if d.mau_id else d.ma_tu_do)
     for k, v in data.items():
         setattr(d, k, v)
+    if (d.mau_id, None if d.mau_id else d.ma_tu_do) != mau_cu:
+        # Mẫu / mã khác: hết chốt giá vốn của mẫu cũ, giá + đơn vị theo mẫu mới; giá đổi thì khách duyệt lại
+        await ap_mau_moi(db, d, doi_tu=(mau_cu[0],))
+    elif d.mau_id and not (tt_cu in TT_DA_DAT or huy_sau_dat):
+        mau = await db.get(MauVatTu, d.mau_id)
+        if mau:
+            d.don_vi = mau.don_vi  # đơn vị theo mẫu, gõ khác cũng không đổi: giá chuẩn tính trên đơn vị của mẫu
+    if tt == "huy" and tt_cu != "huy":
+        d.huy_luc, d.huy_boi, d.huy_ly_do = _naive(_now()), user.id, ly_do_huy
+        if tt_cu == "giao_thieu" and (d.sl_nhan or 0) > 0:
+            # Hàng đã về một phần: tiền phần ĐÃ NHẬN phải còn trong chi phí dự án → không huỷ cả dòng mà
+            # đóng dòng ở số đã nhận. Phần chưa về coi như bỏ (huy_* + nhật ký ghi lại); mua tiếp thì tạo dòng mới
+            d.so_luong = d.sl_dat = d.sl_nhan
+            d.trang_thai = "da_giao"
+        if tt_cu in TT_DA_DAT:
+            from app.services.audit import log_action
+            await log_action(db, actor=user, action="vat_tu.huy_dong", entity_type="dong_vat_tu", entity_id=d.id,
+                             before=truoc, after={"trang_thai": d.trang_thai, "sl_dat": d.sl_dat, "huy_ly_do": ly_do_huy})
+    elif tt not in (None, "huy") and tt_cu == "huy":
+        d.huy_luc = d.huy_boi = d.huy_ly_do = None  # mở lại dòng đã huỷ (chưa từng đặt hàng)
     if tt is not None:
         await db.flush()
         from app.services.dong_bo_tai_chinh import tinh_lai_spent
@@ -582,11 +771,22 @@ async def sua_dong(dong_id: str, body: DongPatch, user: User = Depends(get_curre
 async def xoa_dong(dong_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     d = await _dong_hoac_404(db, dong_id)
     await quyen_du_an(d.project_id, user, db)
-    if d.trang_thai in ("da_chot_gia", "cho_duyet_dat", "da_dat", "giao_thieu", "da_giao") and user.role != "admin":
+    if d.trang_thai in TT_DA_DAT:
+        raise HTTPException(400, "Dòng đã đặt hàng — không xoá được. Cần bỏ thì Leader Thu mua huỷ dòng kèm lý do")
+    if d.trang_thai == "huy" and d.sl_dat is not None:
+        raise HTTPException(400, "Dòng đã từng đặt hàng rồi huỷ — không xoá được, giữ làm lịch sử đơn")
+    if d.trang_thai == "da_chot_gia" and user.role != "admin":
         raise HTTPException(400, "Dòng đã chốt giá — chỉ Admin xoá được")
-    for b in (await db.execute(select(BaoGiaDongVatTu).where(BaoGiaDongVatTu.dong_id == d.id))).scalars():
+    # Dòng từng nhận hàng rồi bị huỷ: giữ lại, lịch sử nhận hàng dùng để chấm NCC
+    if (await db.execute(select(NhanHangVatTu.id).where(NhanHangVatTu.dong_id == d.id).limit(1))).first():
+        raise HTTPException(400, "Dòng đã có lịch sử nhận hàng — không xoá được")
+    bao_gias = (await db.execute(select(BaoGiaDongVatTu).where(BaoGiaDongVatTu.dong_id == d.id))).scalars().all()
+    giu = 0
+    for b in bao_gias:
+        # Báo giá NCC là căn cứ của Bảng giá chuẩn — xoá dòng (sale cũng xoá được) không được làm mất
+        giu += _giu_gia_nhap(db, b, d.mau_id)
         await db.delete(b)
-    pid, ten, tt_cu = d.project_id, getattr(d, "ten", None), d.trang_thai
+    pid, ten, tt_cu = d.project_id, await _ma_dong(db, d), d.trang_thai
     await db.delete(d)
     await db.flush()
     # Audit 27/10: xoá dòng đã chốt mà chi phí dự án không giảm
@@ -594,7 +794,8 @@ async def xoa_dong(dong_id: str, user: User = Depends(get_current_user), db: Asy
     await tinh_lai_spent(db, pid)
     from app.services.audit import log_action
     await log_action(db, actor=user, action="vat_tu.xoa_dong", entity_type="dong_vat_tu",
-                     entity_id=dong_id, before={"ten": ten, "trang_thai": tt_cu, "project_id": pid})
+                     entity_id=dong_id, before={"ten": ten, "trang_thai": tt_cu, "project_id": pid,
+                                                "so_bao_gia": len(bao_gias), "giu_lam_gia_nhap": giu})
     await db.commit()
 
 
@@ -603,13 +804,24 @@ async def khach_dong_y(dong_id: str, body: KhachDongYIn, user: User = Depends(ge
     """Đợt 1: nhân viên bấm thay khách (kèm ghi chú); Đợt 2 khách tự bấm trên portal."""
     d = await _dong_hoac_404(db, dong_id)
     await quyen_du_an(d.project_id, user, db)
-    d.khach_dong_y_luc = _now()
+    if d.trang_thai in TT_DA_DAT or d.trang_thai == "huy":
+        raise HTTPException(400, "Dòng đã đặt hàng hoặc đã huỷ — không ghi lại lời đồng ý của khách")
+    doi_mau_thay = d.trang_thai in ("cho_khach_duyet_lai", "het_hang")
+    if not doi_mau_thay and d.gia_ban is None:
+        raise HTTPException(400, "Dòng chưa có giá bán — chưa có gì để khách đồng ý")
+    if d.khach_dong_y_luc and not doi_mau_thay:
+        # Khách đã đồng ý, không còn gì chờ duyệt → giữ nguyên ai ghi, lúc nào, qua kênh nào
+        return (await _goi_dong(db, [d], user))[0]
+    d.khach_dong_y_luc, d.khach_dong_y_boi = _now(), user.id
     d.khach_ghi_chu = body.ghi_chu
-    if d.trang_thai == "cho_khach_duyet_lai" or d.trang_thai == "het_hang":
+    if doi_mau_thay:
         # Khách đồng ý mẫu thay → mẫu thay trở thành mẫu chính, quay lại hỏi giá
         if d.mau_thay_the_id or d.ma_thay_the:
+            mau_truoc = d.mau_id
             d.mau_id, d.ma_tu_do = d.mau_thay_the_id, (None if d.mau_thay_the_id else d.ma_thay_the)
             d.mau_thay_the_id = d.ma_thay_the = None
+            # Giá theo mẫu mới. Giá không đổi → lời đồng ý vừa ghi giữ nguyên; đổi → khách duyệt lại giá
+            await ap_mau_moi(db, d, doi_tu=(mau_truoc,))
         d.trang_thai = "hoi_ncc"
     await db.commit()
     await db.refresh(d)
@@ -626,7 +838,8 @@ async def can_hoi_gia(
         raise HTTPException(403, "Bảng này dành cho Thu mua / Ban giám đốc")
     tt = [trang_thai] if trang_thai else ["khach_chon", "hoi_ncc", "het_hang", "cho_khach_duyet_lai"]
     ds = (await db.execute(
-        select(DongPhieuVatTu).where(DongPhieuVatTu.trang_thai.in_(tt)).order_by(DongPhieuVatTu.created_at)
+        select(DongPhieuVatTu).where(DongPhieuVatTu.trang_thai.in_(tt))
+        .order_by(DongPhieuVatTu.can_ngay.asc().nulls_last(), DongPhieuVatTu.created_at)
     )).scalars().all()
     return {"items": await _goi_dong(db, ds, user, kem_du_an=True)}
 
@@ -648,7 +861,7 @@ async def them_bao_gia(dong_id: str, body: BaoGiaIn, user: User = Depends(yeu_ca
         if s:
             supplier_id, ten = s.id, s.name
     b = BaoGiaDongVatTu(dong_id=d.id, supplier_id=supplier_id, ncc_ten=ten, gia=body.gia, con_hang=body.con_hang,
-                        ngay_giao=body.ngay_giao, ghi_chu=body.ghi_chu, created_by=user.id)
+                        ngay_giao=body.ngay_giao, ghi_chu=body.ghi_chu, nguon="tay", created_by=user.id)
     db.add(b)
     if d.trang_thai == "khach_chon":
         d.trang_thai = "hoi_ncc"
@@ -670,36 +883,80 @@ async def xoa_bao_gia(bao_gia_id: str, user: User = Depends(yeu_cau_thu_mua), db
 
 @router.post("/dong/{dong_id}/chot")
 async def chot_gia(dong_id: str, body: ChotIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
-    """Thu mua chốt giá vốn → server tính giá bán → ghi «giá gần nhất» về mẫu → báo PIC."""
+    """Thu mua chốt giá vốn (bắt buộc kèm NCC) → để lại bằng chứng giá → server tính giá bán
+    → ghi «giá gần nhất» về mẫu → báo PIC; giá vốn làm giá chuẩn lời dưới hệ số thì báo Giám đốc."""
     d = await _dong_hoac_404(db, dong_id)
-    if d.trang_thai in ("cho_duyet_dat", "da_dat", "giao_thieu", "da_giao", "huy"):
+    if d.trang_thai in TT_DA_DAT or d.trang_thai == "huy":
         raise HTTPException(400, "Dòng này không còn ở bước chốt giá")
     gia_von, supplier_id, ncc_ten = body.gia_von, body.supplier_id, (body.ncc_ten or "").strip() or None
     bao_gias = (await db.execute(select(BaoGiaDongVatTu).where(BaoGiaDongVatTu.dong_id == d.id))).scalars().all()
+    chon = None
     if body.bao_gia_id:
         chon = next((b for b in bao_gias if b.id == body.bao_gia_id), None)
         if not chon:
             raise HTTPException(404, "Báo giá không thuộc dòng này")
         gia_von, supplier_id, ncc_ten = chon.gia, chon.supplier_id, chon.ncc_ten
-        for b in bao_gias:
-            b.duoc_chon = b.id == chon.id
     if not gia_von:
         raise HTTPException(400, "Cần chọn một báo giá hoặc gõ giá vốn")
-    if not supplier_id and ncc_ten:
-        s = await BoNcc(db).lay(ncc_ten)
-        if s:
-            supplier_id, ncc_ten = s.id, s.name
+    # NCC bắt buộc (22/11/2026): giá vốn không rõ của ai thì không đối chiếu, không chấm NCC được
+    if supplier_id:
+        ncc = await db.get(Supplier, supplier_id)
+        if not ncc:
+            raise HTTPException(404, "NCC không có trong Kho")
+    else:
+        ncc = await BoNcc(db).lay(ncc_ten)
+    if not ncc:
+        raise HTTPException(400, "Chốt giá phải kèm nhà cung cấp")
+    supplier_id, ncc_ten = ncc.id, ncc.name
     mau = await db.get(MauVatTu, d.mau_id) if d.mau_id else None
+
+    def _bang(a: float | None) -> bool:
+        return a is not None and abs(a - gia_von) <= 0.5
+
+    # Ngày của BẰNG CHỨNG giá (luật 60 ngày đọc mốc này): chốt qua một báo giá → ngày báo giá đó;
+    # gõ lại đúng giá đang nhớ của cùng NCC (ở mẫu, hoặc lần chốt trước của chính dòng này) → giữ
+    # ngày cũ, vì dùng lại giá cũ không phải bằng chứng mới; còn lại → bây giờ. Giá đang nhớ mà CHƯA rõ
+    # NCC (chốt trước 22/11 không kèm NCC) coi như của cùng NCC: gõ lại kèm tên NCC không làm mới giá.
+    bay_gio = _naive(_now())
+    if chon:
+        xac_nhan = _naive(chon.created_at or bay_gio)
+    elif mau and _bang(mau.gia_von_gan_nhat) and mau.ncc_gan_nhat_id in (None, supplier_id) and mau.gia_von_cap_nhat_luc:
+        xac_nhan = _naive(mau.gia_von_cap_nhat_luc)
+    elif _bang(d.gia_von) and d.ncc_id in (None, supplier_id) and (d.gia_xac_nhan_luc or d.chot_luc):
+        xac_nhan = _naive(d.gia_xac_nhan_luc or d.chot_luc)
+    else:
+        xac_nhan = bay_gio
+    if chon:
+        chon.supplier_id, chon.ncc_ten = supplier_id, ncc_ten
+    else:
+        # Giá gõ tay cũng để lại một dòng báo giá — tra được «giá này của ai, từ ngày nào»
+        chon = BaoGiaDongVatTu(dong_id=d.id, supplier_id=supplier_id, ncc_ten=ncc_ten, gia=gia_von,
+                               nguon="chot", created_by=user.id, created_at=xac_nhan)
+        db.add(chon)
+    for b in bao_gias:
+        b.duoc_chon = b is chon
+    chon.duoc_chon = True
+
     nhom = mau.nhom if mau else "Khác"
     pt = (await _phan_tram_nhom(db)).get(nhom, 15.0)
-    d.gia_ban, d.phan_tram_ap_dung = tinh_gia_ban(gia_von, pt, mau.gia_ban_co_dinh if mau else None)
-    d.gia_von, d.ncc_id = gia_von, supplier_id
+    chuan = _gia_chuan(mau)
+    if not chuan:
+        _dat_gia_ban(d, *tinh_gia_ban(gia_von, pt, None))
+    elif d.gia_ban is None or not d.khach_dong_y_luc:
+        _dat_gia_ban(d, chuan, None)
+    # else: mẫu có giá chuẩn và khách ĐÃ đồng ý giá đang ghi → đóng băng, giá vốn không kéo giá khách
+    d.gia_von, d.ncc_id, d.gia_xac_nhan_luc = gia_von, supplier_id, xac_nhan
     d.chot_boi, d.chot_luc, d.trang_thai = user.id, _now(), "da_chot_gia"
     if mau:
-        mau.gia_von_gan_nhat, mau.gia_von_cap_nhat_luc = gia_von, _now()
-        mau.ncc_gan_nhat_id = supplier_id
-        if ncc_ten:
-            mau.ncc_gan_nhat_ten = ncc_ten
+        mau.gia_von_gan_nhat, mau.gia_von_cap_nhat_luc = gia_von, xac_nhan
+        mau.ncc_gan_nhat_id, mau.ncc_gan_nhat_ten = supplier_id, ncc_ten
+        theo_he_so = round(gia_von * (1 + pt / 100))
+        if chuan and theo_he_so > chuan:
+            # Giá chuẩn không tự đổi theo giá sỉ — chỉ báo Giám đốc (Admin) xét lại, không báo ai khác
+            await _bao(db, await _ds_admin(db), f"Giá chuẩn cần xét lại · {mau.ma}",
+                       f"Giá nhập mới {_tien(gia_von)}/{mau.don_vi} ({ncc_ten}) · giá chuẩn {_tien(chuan)} · "
+                       f"hệ số nhóm {nhom} {pt:g}% → cần bán từ {_tien(theo_he_so)}",
+                       None, f"xet-gia-{mau.id}", link="/vat-tu?tab=gia-chuan&loc=duoi_he_so")
     # Báo người phụ trách dự án (thiết kế + KD) — họ chỉ thấy giá bán
     proj = await db.get(Project, d.project_id)
     if proj:
@@ -729,10 +986,12 @@ def _so(v: float) -> str:
 
 
 async def _tong_da_dat(db: AsyncSession, project_id: str, tru_dong: str) -> float:
-    """Tiền vật tư đã cam kết của dự án (đã đặt + đang chờ duyệt), không tính dòng đang xét."""
+    """Tiền vật tư đã cam kết của dự án (đã đặt + đang chờ duyệt), không tính dòng đang xét.
+    Đơn giá gõ lúc đặt thấp hơn giá vốn đã chốt thì tính theo giá đã chốt — như đơn đang xét ở `dat_hang`."""
+    gia = func.coalesce(DongPhieuVatTu.gia_dat, DongPhieuVatTu.gia_von)
     v = (await db.execute(
         select(func.coalesce(func.sum(
-            func.coalesce(DongPhieuVatTu.gia_dat, DongPhieuVatTu.gia_von)
+            case((gia < DongPhieuVatTu.gia_von, DongPhieuVatTu.gia_von), else_=gia)
             * func.coalesce(DongPhieuVatTu.sl_dat, DongPhieuVatTu.so_luong)), 0))
         .where(DongPhieuVatTu.project_id == project_id, DongPhieuVatTu.id != tru_dong,
                DongPhieuVatTu.trang_thai.in_(("cho_duyet_dat", "da_dat", "giao_thieu", "da_giao")),
@@ -746,14 +1005,21 @@ async def _ma_dong(db: AsyncSession, d: DongPhieuVatTu) -> str:
     return (mau.ma if mau else d.ma_tu_do) or d.hang_muc or "vật tư"
 
 
-async def _bao(db: AsyncSession, ids: set, title: str, body: str, proj: Project, ref: str) -> None:
+async def _bao(db: AsyncSession, ids: set, title: str, body: str, proj: Project | None, ref: str,
+               link: str | None = None) -> None:
+    """Thông báo trong app + Telegram. Mặc định mở phiếu vật tư của dự án; `link` để mở chỗ khác."""
     from app.services.automation import _notify
     ids = {i for i in ids if i}
     if not ids:
         return
+    link = link or f"/vat-tu?project={proj.id}"
     for u in (await db.execute(select(User).where(User.id.in_(ids), User.is_active == True))).scalars():  # noqa: E712
-        await _notify(db, u, "vat_tu", title, body, link=f"/vat-tu?project={proj.id}", ref_id=ref,
+        await _notify(db, u, "vat_tu", title, body, link=link, ref_id=ref,
                       nhac_lai_sau_gio=None)  # tin sự kiện: đặt lại / từ chối lần 2 vẫn phải tới
+
+
+async def _ds_admin(db: AsyncSession) -> set[str]:
+    return set((await db.execute(select(User.id).where(User.role == "admin", User.is_active == True))).scalars())  # noqa: E712
 
 
 async def _ds_leader_thu_mua(db: AsyncSession) -> set[str]:
@@ -762,7 +1028,7 @@ async def _ds_leader_thu_mua(db: AsyncSession) -> set[str]:
     ))).scalars().all()
     ids = {u.id for u in ds if la_leader_thu_mua(u)}
     if not ids:  # bộ phận chưa có Leader → Admin duyệt thay
-        ids = set((await db.execute(select(User.id).where(User.role == "admin", User.is_active == True))).scalars())  # noqa: E712
+        ids = await _ds_admin(db)
     return ids
 
 
@@ -772,13 +1038,19 @@ async def dat_hang(dong_id: str, body: DatHangIn, user: User = Depends(yeu_cau_t
     d = await _dong_hoac_404(db, dong_id)
     if d.trang_thai != "da_chot_gia" or not d.gia_von:
         raise HTTPException(400, "Chỉ đặt được dòng đã chốt giá")
-    # Đặt hàng khi khách chưa đồng ý giá bán = rủi ro công ty ôm hàng (27/10/2026)
-    if d.gia_ban is not None and not (
-        d.khach_dong_y_luc and (not d.chot_luc or _naive(d.khach_dong_y_luc) >= _naive(d.chot_luc))
-    ):
+    if not d.ncc_id:  # dòng chốt trước 22/11 không kèm NCC: lời hẹn giao, lịch sử nhận hàng sẽ không thuộc NCC nào
+        raise HTTPException(400, "Dòng chốt giá chưa có nhà cung cấp — chốt lại kèm NCC rồi đặt hàng")
+    # Đặt hàng khi khách chưa đồng ý giá bán = rủi ro công ty ôm hàng (27/10/2026).
+    # 22/11: lời đồng ý còn hiệu lực tới khi giá bán đổi (`_dat_gia_ban` xoá khi đổi) — khách
+    # đồng ý giá chuẩn TRƯỚC khi Thu mua chốt giá vốn vẫn tính.
+    if d.gia_ban is not None and not d.khach_dong_y_luc:
         raise HTTPException(400, "Khách chưa đồng ý giá bán — bấm «Khách đồng ý» trước khi đặt hàng")
-    if gia_da_cu(d.chot_luc):
-        raise HTTPException(400, f"Giá chốt đã quá {SO_NGAY_GIA_CU} ngày — hỏi lại NCC và chốt lại giá trước khi đặt")
+    if gia_da_cu(d.gia_xac_nhan_luc or d.chot_luc):
+        raise HTTPException(400, f"Giá chốt đã quá {SO_NGAY_GIA_CU} ngày — hỏi lại NCC, ghi báo giá mới rồi chốt lại trước khi đặt")
+    if not body.ngay_giao_hen:
+        raise HTTPException(400, "Chọn ngày NCC hẹn giao")
+    if body.ngay_giao_hen < vn_today():
+        raise HTTPException(400, "Ngày NCC hẹn giao không được trước hôm nay")
     proj = await db.get(Project, d.project_id)
     sl = body.so_luong or d.so_luong
     gia = body.don_gia or d.gia_von
@@ -788,22 +1060,34 @@ async def dat_hang(dong_id: str, body: DatHangIn, user: User = Depends(yeu_cau_t
     if gia > d.gia_von + 0.5:
         vuot.append(f"Đơn giá {_tien(gia)} vượt báo giá {_tien(d.gia_von)}")
     if proj and proj.budget_total:
-        tong = await _tong_da_dat(db, d.project_id, d.id) + sl * gia
+        # Ngân sách dự án là trần của TOÀN BỘ chi phí (chốt 22/11/2026): vật tư đã đặt + đơn này
+        # + các khoản chi khác của dự án. Bỏ loại «material»: tiền trả NCC đã nằm trong vật tư đã đặt.
+        chi_khac = float((await db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.project_id == d.project_id, Transaction.type == "expense",
+                Transaction.status != "cancelled", Transaction.category != "material")
+        )).scalar() or 0)
+        # Sàn là giá vốn đã chốt: gõ đơn giá thấp (nhầm, hoặc cho lọt trần) không làm ngân sách «còn dư»
+        tong = await _tong_da_dat(db, d.project_id, d.id) + sl * max(gia, d.gia_von) + chi_khac
         if tong > float(proj.budget_total) + 0.5:
-            vuot.append(f"Tổng vật tư đã đặt {_tien(tong)} vượt ngân sách dự án {_tien(float(proj.budget_total))}")
+            vuot.append(f"Tổng chi phí dự án {_tien(tong)} vượt ngân sách {_tien(float(proj.budget_total))}")
     d.sl_dat, d.gia_dat, d.dat_boi, d.dat_luc = sl, gia, user.id, _now()
+    d.ngay_giao_hen = body.ngay_giao_hen
+    if d.ngay_giao_hen_dau is None:  # lời hẹn ĐẦU ghi một lần — chấm NCC giao đúng hạn theo mốc này
+        d.ngay_giao_hen_dau = body.ngay_giao_hen
     d.tu_choi_dat_ly_do = None
     d.ly_do_vuot = "; ".join(vuot) or None
     ma = await _ma_dong(db, d)
     if not vuot:
         d.trang_thai, d.duyet_dat_boi, d.duyet_dat_luc = "da_dat", None, None
-    elif la_leader_thu_mua(user):
-        # Leader tự đặt đơn vượt = tự chịu trách nhiệm duyệt, vẫn ghi vết lý do vượt
-        d.trang_thai, d.duyet_dat_boi, d.duyet_dat_luc = "da_dat", user.id, _now()
     else:
+        # Đơn vượt của AI cũng chờ duyệt — Leader tự đặt không còn tự qua (22/11/2026)
         d.trang_thai, d.duyet_dat_boi, d.duyet_dat_luc = "cho_duyet_dat", None, None
         if proj:
-            await _bao(db, await _ds_leader_thu_mua(db), f"Đơn đặt hàng vượt báo giá cần duyệt · {proj.code}",
+            nguoi_duyet = await _ds_leader_thu_mua(db)
+            if user.id in nguoi_duyet:  # Leader tự đặt → Leader khác và Admin duyệt
+                nguoi_duyet |= await _ds_admin(db)
+            await _bao(db, nguoi_duyet - {user.id}, f"Đơn đặt hàng vượt báo giá cần duyệt · {proj.code}",
                        f"{d.phong} · {ma}: {d.ly_do_vuot}. Người đặt: {user.full_name}", proj, f"duyet-dat-{d.id}")
     if d.trang_thai == "da_dat" and proj:
         # Báo Giám sát: hàng sắp về, nhận hàng phải chụp ảnh hiện trường
@@ -826,6 +1110,8 @@ async def duyet_dat(dong_id: str, body: DuyetDatIn, user: User = Depends(get_cur
     d = await _dong_hoac_404(db, dong_id)
     if d.trang_thai != "cho_duyet_dat":
         raise HTTPException(400, "Dòng này không chờ duyệt đặt hàng")
+    if d.dat_boi == user.id and user.role != "admin":
+        raise HTTPException(403, "Không tự duyệt đơn mình đặt — nhờ Leader Thu mua khác hoặc Admin duyệt")
     ly_do = (body.ly_do or "").strip()
     if not body.dong_y and not ly_do:
         raise HTTPException(400, "Từ chối thì ghi lý do để Thu mua biết đường sửa")
@@ -839,6 +1125,7 @@ async def duyet_dat(dong_id: str, body: DuyetDatIn, user: User = Depends(get_cur
         # Trả về bước đã chốt giá để Thu mua sửa khối lượng/đơn giá rồi đặt lại
         d.trang_thai, d.tu_choi_dat_ly_do = "da_chot_gia", ly_do[:1000]
         d.sl_dat, d.gia_dat = None, None
+        d.ngay_giao_hen = d.ngay_giao_hen_dau = None  # đơn chưa từng được đặt → chưa có lời hẹn nào
     if proj:
         if body.dong_y:
             await _bao(db, {nguoi_dat} - {user.id}, f"Đơn vượt báo giá đã được duyệt · {proj.code}",
@@ -876,6 +1163,9 @@ async def nhan_hang(dong_id: str, body: NhanHangIn, user: User = Depends(get_cur
         raise HTTPException(400, "Chỉ xác nhận được dòng đã đặt hàng")
     if body.ket_qua not in ("du", "thieu"):
         raise HTTPException(400, "Kết quả nhận hàng: đủ hoặc thiếu")
+    ly_do_loi = body.ly_do_loi or None  # ô chọn để trống gửi "" = không ghi lỗi
+    if ly_do_loi is not None and ly_do_loi not in LY_DO_LOI_NHAN_HANG:
+        raise HTTPException(400, "Lý do hàng lỗi không hợp lệ")
     ghi_chu = (body.ghi_chu or "").strip()
     if body.ket_qua == "thieu" and not ghi_chu:
         raise HTTPException(400, "Hàng thiếu thì ghi rõ thiếu gì, bao nhiêu")
@@ -887,13 +1177,25 @@ async def nhan_hang(dong_id: str, body: NhanHangIn, user: User = Depends(get_cur
     if len(ids) < SO_ANH_NHAN_HANG_TOI_THIEU:
         raise HTTPException(400, f"Cần tối thiểu {SO_ANH_NHAN_HANG_TOI_THIEU} ảnh chụp tại hiện trường mới xác nhận được")
     sl_dat = d.sl_dat or d.so_luong
-    if body.ket_qua == "thieu" and body.so_luong_nhan is not None and body.so_luong_nhan >= sl_dat:
+    da_ve = (d.sl_nhan or 0) if d.trang_thai == "giao_thieu" else 0  # tổng đã về TRƯỚC lần này
+    luy_ke = sl_dat if body.ket_qua == "du" else body.so_luong_nhan   # tổng đã về TỚI lần này
+    if luy_ke is None:
+        raise HTTPException(400, "Hàng thiếu thì ghi tổng số lượng đã về tới giờ")
+    if body.ket_qua == "thieu" and luy_ke >= sl_dat:
         raise HTTPException(400, "Số lượng nhận đã đủ — chọn «Đủ hàng»")
+    if luy_ke < da_ve:
+        raise HTTPException(400, f"Tổng đã về không thể ít hơn lần trước ({_so(da_ve)} {d.don_vi})")
     # Lần nhận bù sau «giao thiếu»: giữ ảnh các lần trước để còn đối chứng
     d.nhan_anh_ids = json.dumps(list(dict.fromkeys(_ids_anh(d) + ids)))
-    d.nhan_ket_qua, d.nhan_boi, d.nhan_luc, d.nhan_ghi_chu = body.ket_qua, user.id, _now(), ghi_chu[:1000] or None
-    d.sl_nhan = sl_dat if body.ket_qua == "du" else body.so_luong_nhan
+    luc = _naive(_now())
+    d.nhan_ket_qua, d.nhan_boi, d.nhan_luc, d.nhan_ghi_chu = body.ket_qua, user.id, luc, ghi_chu[:1000] or None
+    d.sl_nhan = luy_ke
     d.trang_thai = "da_giao" if body.ket_qua == "du" else "giao_thieu"
+    # Mỗi LẦN nhận một dòng lịch sử, không ghi đè: giao thiếu, giao bù, hàng lỗi — để chấm NCC
+    db.add(NhanHangVatTu(
+        dong_id=d.id, ket_qua=body.ket_qua, sl_lan_nay=round(luy_ke - da_ve, 3), sl_luy_ke=luy_ke,
+        ly_do_loi=ly_do_loi, ghi_chu=ghi_chu[:1000] or None, anh_ids=json.dumps(ids), boi=user.id, luc=luc,
+    ))
     ma = await _ma_dong(db, d)
     if proj:
         nhan = {d.dat_boi, getattr(proj, "purchasing_id", None)} - {user.id}
@@ -946,7 +1248,8 @@ async def tong_quan(user: User = Depends(get_current_user), db: AsyncSession = D
     )).all())
     return {"so_mau": so_mau, "theo_trang_thai": theo_tt, "thay_gia_von": xem_gia_von(user), "la_thu_mua": la_thu_mua(user),
             "la_leader_thu_mua": la_leader_thu_mua(user), "la_giam_sat": la_giam_sat(user, None),
-            "so_anh_toi_thieu": SO_ANH_NHAN_HANG_TOI_THIEU, "so_ngay_gia_cu": SO_NGAY_GIA_CU}
+            "so_anh_toi_thieu": SO_ANH_NHAN_HANG_TOI_THIEU, "so_ngay_gia_cu": SO_NGAY_GIA_CU,
+            "ly_do_loi_nhan_hang": LY_DO_LOI_NHAN_HANG}
 
 
 # ── Bot Telegram nhập báo giá từ tệp (25/10/2026) ─────────────────────────
@@ -1057,7 +1360,8 @@ async def bot_trich_bao_gia(body: TrichBaoGiaIn, user: User = Depends(yeu_cau_th
             m = mau.get(tep.chuan_ma(it["ma"]))
             tao_moi.append({**it, "ma": m.ma if m else it["ma"], "co_trong_danh_muc": bool(m),
                             "phong": it.get("phong") or "Chung",
-                            "don_vi": it.get("don_vi") or (m.don_vi if m else "m2")})
+                            # Mã có trong danh mục: dòng tạo ra mang đơn vị của MẪU → xem trước hiện đúng đơn vị đó
+                            "don_vi": m.don_vi if m else (it.get("don_vi") or "m2")})
     return {
         "project_code": proj.code, "project_name": proj.name, "ncc_ten": kq["ncc_ten"],
         "ncc_mst": kq.get("ncc_mst"), "ncc_dia_chi": kq.get("ncc_dia_chi"),
@@ -1107,12 +1411,14 @@ async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mu
                 ghi_chu=f"Tạo từ báo giá — {nguon}"[:500], trang_thai="hoi_ncc",
             )
             db.add(d)
+            if m:
+                await ap_mau_moi(db, d)  # đơn vị theo mẫu; mẫu có giá chuẩn → có giá bán ngay
             await db.flush()
             s = await bo.lay(t.ncc_ten, body.ncc_mst, body.ncc_dia_chi)
             ghi_chu = f"{t.ghi_chu} · {nguon}" if t.ghi_chu else nguon
             db.add(BaoGiaDongVatTu(dong_id=d.id, supplier_id=s.id if s else None,
                                    ncc_ten=s.name if s else t.ncc_ten.strip(), gia=t.gia, con_hang=t.con_hang,
-                                   ghi_chu=ghi_chu[:500], created_by=user.id))
+                                   ghi_chu=ghi_chu[:500], nguon="tep", created_by=user.id))
             tao += 1
             ghi += 1
     for it in body.items:
@@ -1124,7 +1430,7 @@ async def bot_ghi_bao_gia(body: GhiBaoGiaIn, user: User = Depends(yeu_cau_thu_mu
         s = await bo.lay(it.ncc_ten, body.ncc_mst, body.ncc_dia_chi)
         db.add(BaoGiaDongVatTu(dong_id=d.id, supplier_id=s.id if s else None,
                                ncc_ten=s.name if s else it.ncc_ten.strip(), gia=it.gia, con_hang=it.con_hang,
-                               ghi_chu=ghi_chu[:500], created_by=user.id))
+                               ghi_chu=ghi_chu[:500], nguon="tep", created_by=user.id))
         if d.trang_thai == "khach_chon":
             d.trang_thai = "hoi_ncc"
         ghi += 1
@@ -1271,7 +1577,7 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
                 await db.delete(d)
                 xoa += 1
             else:
-                da_xu_ly.add((d.hang_muc or "").strip().lower())  # Thu mua đã hỏi giá/chốt → giữ, không tạo lại
+                da_xu_ly.add(nfc(d.hang_muc or "").strip().lower())  # Thu mua đã hỏi giá/chốt → giữ, không tạo lại
         await db.flush()
         await dong_bo_gia_tri_du_an(db, goc.project_id)
         from app.cache import cache
@@ -1286,35 +1592,26 @@ async def bot_ghi_phat_sinh(body: GhiPhatSinhIn, user: User = Depends(get_curren
     for it in body.items:
         if (it.sl is not None and it.sl <= 0) or it.thanh_tien <= 0:
             continue  # giảm trừ: CĐT cấp, không mua
-        if it.hang_muc.strip().lower() in da_xu_ly:
+        if nfc(it.hang_muc).strip().lower() in da_xu_ly:  # NFC: tệp gõ dạng tổ hợp vẫn nhận ra dòng đã có
             continue
         thu_tu += 1
         gia_khach = f"Giá báo khách {it.don_gia:,.0f}đ/{it.dvt or 'đv'}".replace(",", ".") if it.don_gia else ""
         ghi = " · ".join(x for x in (f"Phát sinh {pl.code}", it.kich_thuoc, it.ghi_chu, gia_khach) if x)
-        db.add(DongPhieuVatTu(
+        d = DongPhieuVatTu(
             project_id=body.project_id, created_by=user.id, thu_tu=thu_tu,
             phong="Phát sinh", hang_muc=it.hang_muc[:255], ma_tu_do=it.hang_muc[:150],
             so_luong=_so_luong_mua(it), don_vi=(it.dvt or "cái")[:20],
             ghi_chu=ghi[:500], trang_thai="khach_chon",
-        ))
+        )
+        db.add(d)
+        await ap_mau_moi(db, d)  # mã trùng mẫu trong danh mục → gắn mẫu, giá chuẩn + đơn vị theo mẫu
         tao += 1
     await db.commit()
     return {"phu_luc": {"id": pl.id, "code": pl.code, "total_value": tong}, "tao_dong": tao,
             "cap_nhat": cu is not None, "gia_tri_cu": cu, "xoa_dong_cu": xoa, "giu_dong": len(da_xu_ly)}
 
 
-# ── Shopee Affiliate: giá thị trường, cần thương lượng, gợi ý NCC (26/10/2026) ──
-
-class ChonShopeeIn(BaseModel):
-    item_id: str = Field(min_length=1, max_length=30)
-    ten: str | None = Field(default=None, max_length=255)
-    gia: float | None = Field(default=None, gt=0)
-    link_aff: str | None = Field(default=None, max_length=500)
-
-
-class LinkAffIn(BaseModel):
-    url: str = Field(min_length=8, max_length=500)
-
+# ── Gợi ý NCC cho một mẫu (26/10/2026) ──
 
 async def _mau_hoac_404(db: AsyncSession, mau_id: str) -> MauVatTu:
     m = await db.get(MauVatTu, mau_id)
@@ -1323,90 +1620,13 @@ async def _mau_hoac_404(db: AsyncSession, mau_id: str) -> MauVatTu:
     return m
 
 
-@router.get("/mau/{mau_id}/shopee")
-async def tim_shopee_cho_mau(
-    mau_id: str, q: str | None = None, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db),
-):
-    m = await _mau_hoac_404(db, mau_id)
-    tu_khoa = (q or "").strip() or shopee_affiliate.tu_khoa_mau(m)
-    try:
-        items = await shopee_affiliate.tim_san_pham(db, tu_khoa)
-    except shopee_affiliate.ShopeeError as exc:
-        raise HTTPException(exc.status, str(exc))
-    return {"tu_khoa": tu_khoa, "items": items}
-
-
-@router.put("/mau/{mau_id}/shopee")
-async def chon_shopee_cho_mau(
-    mau_id: str, body: ChonShopeeIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db),
-):
-    m = await _mau_hoac_404(db, mau_id)
-    m.shopee_item_id, m.shopee_ten, m.gia_shopee = body.item_id, body.ten, body.gia
-    m.link_shopee_aff, m.gia_shopee_luc = body.link_aff, _now()
-    await db.commit()
-    await db.refresh(m)
-    return _mau_dict(m, xem_gia_von(user))
-
-
-@router.delete("/mau/{mau_id}/shopee")
-async def bo_shopee_cho_mau(mau_id: str, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
-    m = await _mau_hoac_404(db, mau_id)
-    m.shopee_item_id = m.shopee_ten = m.link_shopee_aff = None
-    m.gia_shopee = m.gia_shopee_luc = None
-    await db.commit()
-    await db.refresh(m)
-    return _mau_dict(m, xem_gia_von(user))
-
-
-@router.post("/mau/{mau_id}/shopee/link")
-async def doi_link_aff(mau_id: str, body: LinkAffIn, user: User = Depends(yeu_cau_thu_mua), db: AsyncSession = Depends(get_db)):
-    """Link Shopee dán tay → link affiliate của JAMA."""
-    m = await _mau_hoac_404(db, mau_id)
-    url = body.url.strip()
-    if "shopee" not in url.lower() and "shp.ee" not in url.lower():
-        raise HTTPException(400, "Đây không phải link Shopee")
-    try:
-        m.link_shopee_aff = await shopee_affiliate.link_aff(db, url)
-    except shopee_affiliate.ShopeeError as exc:
-        raise HTTPException(exc.status, str(exc))
-    m.link_shopee = m.link_shopee or url
-    await db.commit()
-    await db.refresh(m)
-    return _mau_dict(m, xem_gia_von(user))
-
-
-@router.get("/can-thuong-luong")
-async def can_thuong_luong(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Báo giá NCC cao hơn giá Shopee của cùng mẫu — danh sách để đi thương lượng."""
-    if not xem_gia_von(user):
-        raise HTTPException(403, "Bảng này dành cho Thu mua / Ban giám đốc")
-    rows = (await db.execute(
-        select(BaoGiaDongVatTu, MauVatTu, DongPhieuVatTu.project_id)
-        .join(DongPhieuVatTu, DongPhieuVatTu.id == BaoGiaDongVatTu.dong_id)
-        .join(MauVatTu, MauVatTu.id == DongPhieuVatTu.mau_id)
-        .where(MauVatTu.gia_shopee.is_not(None), BaoGiaDongVatTu.gia > MauVatTu.gia_shopee,
-               DongPhieuVatTu.trang_thai != "huy")
-        .order_by(BaoGiaDongVatTu.created_at.desc()).limit(300)
-    )).all()
-    pids = {pid for _, _, pid in rows}
-    du_an = {p.id: p.code for p in (await db.execute(select(Project).where(Project.id.in_(pids)))).scalars()} if pids else {}
-    items = [{
-        "bao_gia_id": b.id, "dong_id": b.dong_id, "ncc_ten": b.ncc_ten, "supplier_id": b.supplier_id,
-        "gia_ncc": b.gia, "gia_shopee": m.gia_shopee, "chenh": round(b.gia - m.gia_shopee),
-        "chenh_pct": round((b.gia / m.gia_shopee - 1) * 100, 1), "mau_id": m.id, "ma": m.ma, "hang": m.hang,
-        "don_vi": m.don_vi, "link_shopee_aff": m.link_shopee_aff, "project_code": du_an.get(pid),
-        "duoc_chon": b.duoc_chon, "created_at": b.created_at,
-    } for b, m, pid in rows]
-    items.sort(key=lambda x: -x["chenh_pct"])
-    return {"items": items}
-
-
 @router.get("/mau/{mau_id}/goi-y-ncc")
 async def goi_y_ncc(mau_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Xếp NCC cho một mẫu: còn hàng → giá sau chiết khấu thấp nhất → tổng tiền JAMA đã mua của NCC cao nhất."""
+    """Xếp NCC cho một mẫu: hạng (chính → dự phòng → đang thử → chưa xếp) → còn hàng → giá sau
+    chiết khấu thấp nhất → tổng tiền JAMA đã mua của NCC cao nhất."""
     if not xem_gia_von(user):
         raise HTTPException(403, "Chỉ Thu mua / Ban giám đốc xem được giá NCC")
-    m = await _mau_hoac_404(db, mau_id)
+    await _mau_hoac_404(db, mau_id)
     bgs = (await db.execute(
         select(BaoGiaDongVatTu).join(DongPhieuVatTu, DongPhieuVatTu.id == BaoGiaDongVatTu.dong_id)
         .where(DongPhieuVatTu.mau_id == mau_id).order_by(BaoGiaDongVatTu.created_at.desc())
@@ -1427,11 +1647,11 @@ async def goi_y_ncc(mau_id: str, user: User = Depends(get_current_user), db: Asy
         ck = float(s.chiet_khau_pct or 0) if s else 0.0
         sau_ck = round(b.gia * (1 - ck / 100))
         items.append({
-            "supplier_id": b.supplier_id, "ncc_ten": s.name if s else b.ncc_ten, "gia": b.gia, "chiet_khau_pct": ck,
+            "supplier_id": b.supplier_id, "ncc_ten": s.name if s else b.ncc_ten, "hang": s.hang if s else None,
+            "gia": b.gia, "chiet_khau_pct": ck,
             "gia_sau_ck": sau_ck, "da_mua": round(float(da_mua.get(b.supplier_id, 0) or 0)),
             "con_hang": b.con_hang, "bao_gia_luc": b.created_at,
-            "cao_hon_shopee": bool(m.gia_shopee and sau_ck > m.gia_shopee),
         })
-    items.sort(key=lambda x: (not x["con_hang"], x["gia_sau_ck"], -x["da_mua"]))
-    return {"gia_shopee": m.gia_shopee, "link_shopee_aff": m.link_shopee_aff, "items": items,
-            "goi_y": items[0] if items else None}
+    thu_tu_hang = {k: i for i, k in enumerate(HANG_NCC)}  # chinh, du_phong, thu; None/khác xếp cuối
+    items.sort(key=lambda x: (thu_tu_hang.get(x["hang"], len(thu_tu_hang)), not x["con_hang"], x["gia_sau_ck"], -x["da_mua"]))
+    return {"items": items, "goi_y": items[0] if items else None}

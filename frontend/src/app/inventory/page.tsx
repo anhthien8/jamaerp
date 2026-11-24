@@ -9,6 +9,7 @@ import { api, Material, extractItems, PaginatedResponse } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { getPermissions, UserRole } from '@/lib/roles';
 import { labelOf, MATERIAL_CATEGORY_LABELS } from '@/lib/labels';
+import { chuanHoaTim } from '@/lib/utils';
 import LineIcon from '@/components/ui/LineIcon';
 
 function fmtVND(n?: number) {
@@ -83,7 +84,8 @@ export default function InventoryPage() {
       if (lines.length < 2) { setImportRows([]); setImportIssues(['File cần dòng tiêu đề + ít nhất 1 dòng dữ liệu']); return; }
       // Excel VN hay xuất CSV với dấu ';'
       const delim = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
-      const headers = parseCsvLine(lines[0], delim).map(h => HEADER_MAP[h.trim().toLowerCase()] || null);
+      // Tiêu đề gõ trong Excel bằng «Unicode tổ hợp» vẫn nhận ra cột (chuẩn hoá NFC lúc so, 21/11/2026)
+      const headers = parseCsvLine(lines[0], delim).map(h => HEADER_MAP[chuanHoaTim(h.trim())] || null);
       if (!headers.includes('name')) { setImportRows([]); setImportIssues(['Không tìm thấy cột "Tên vật tư" — tải file mẫu để xem đúng định dạng']); return; }
       const rows: Array<Record<string, unknown>> = [];
       const issues: string[] = [];
@@ -208,10 +210,12 @@ export default function InventoryPage() {
   const categories = ['all', ...Array.from(new Set(materials.map(m => m.category)))];
   const suppliers = ['all', ...Array.from(new Set(materials.map(m => m.supplier).filter(Boolean) as string[]))];
 
+  // So bản NFC cả hai phía — tên gõ/lưu kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026)
+  const tuKhoa = chuanHoaTim(search);
   const filtered = materials
     .filter(m => catFilter === 'all' || m.category === catFilter)
     .filter(m => supplierFilter === 'all' || m.supplier === supplierFilter)
-    .filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.code.toLowerCase().includes(search.toLowerCase()));
+    .filter(m => chuanHoaTim(m.name).includes(tuKhoa) || chuanHoaTim(m.code).includes(tuKhoa));
 
   const totalValue = materials.reduce((s, m) => s + m.unit_price * m.quantity_in_stock, 0);
 

@@ -1,4 +1,4 @@
-"""Ảnh mẫu vật tư tải từ máy + link Shopee + «Gửi thử» Web Push trả kết quả thật (25/10/2026)."""
+"""Ảnh mẫu vật tư tải từ máy + «Gửi thử» Web Push trả kết quả thật (25/10/2026)."""
 import base64
 import io
 
@@ -55,17 +55,14 @@ class TestTaiAnhMau:
         r = await client.post("/api/v1/vat-tu/anh", json={"data_base64": "@@@"}, headers=auth_header(thu_mua))
         assert r.status_code == 422
 
-    async def test_mau_luu_anh_url_va_link_shopee(self, client: AsyncClient, thu_mua):
+    async def test_mau_luu_anh_url(self, client: AsyncClient, thu_mua):
         r = await client.post("/api/v1/vat-tu/anh", json={"data_base64": _b64(_png(50, 50))}, headers=auth_header(thu_mua))
         url = r.json()["anh_url"]
         m = await client.post("/api/v1/vat-tu/mau", json={
-            "ma": "VT-ANH-1", "nhom": "60x60", "anh_url": url, "link_shopee": "https://shopee.vn/x-i.1.2",
+            "ma": "VT-ANH-1", "nhom": "60x60", "anh_url": url,
         }, headers=auth_header(thu_mua))
         assert m.status_code in (200, 201), m.text
-        d = m.json()
-        assert d["anh_url"] == url and d["link_shopee"] == "https://shopee.vn/x-i.1.2"
-        s = await client.put(f"/api/v1/vat-tu/mau/{d['id']}", json={"ma": "VT-ANH-1", "link_shopee": None}, headers=auth_header(thu_mua))
-        assert s.json()["link_shopee"] is None
+        assert m.json()["anh_url"] == url
 
 
 class TestGuiThuPush:

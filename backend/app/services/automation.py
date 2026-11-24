@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.models.lead import ACTIVE_LEAD_STAGES, Lead, Activity
 from app.models.contract import Contract
 from app.models.project import Project
@@ -91,6 +92,11 @@ async def _notify(
     """
     if user is None:
         return False
+
+    # NFC (21/11/2026): listener ghi notifications.ref_id dạng NFC; ref_id dựng từ nguồn chưa
+    # chuẩn hoá (tên đợt thu trong cột JSON payment_terms, gõ «Unicode tổ hợp») mà dò thẳng
+    # thì không bao giờ khớp → ngày nào cũng thêm 1 thông báo + 1 tin Telegram cho mỗi đợt.
+    ref_id = nfc(ref_id)
 
     # Cột title là String(255): Postgres báo lỗi khi dài hơn (SQLite thì không),
     # kéo cả thao tác giao việc đổ theo. Cắt cho vừa.

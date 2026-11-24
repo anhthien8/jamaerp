@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Lead, Project, ServerNotification } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 import BatThongBaoMay from '@/components/BatThongBaoMay';
+import { cachedFetch } from '@/lib/fetch-cache';
 import PopupThongBao, { dongDauThongBao, giaiMaThucThe, TOI_DA_POPUP, type MucPopup } from '@/components/ui/PopupThongBao';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -57,7 +58,6 @@ function daysSince(isoDate: string | undefined): number {
 }
 
 export function generateNotifications(leads: Lead[], projects: Project[], readIds: Set<string>): Notification[] {
-  const now = new Date();
   const notifs: Notification[] = [];
 
   // Overdue leads (not contacted in 3+ days)
@@ -222,85 +222,104 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
   // Popup trong app (21/11/2026): id thông báo đã thấy kể từ lúc mở app. null = chưa tải
   // lượt nào → lượt tải đầu chỉ ghi nhận, không bật popup cho tin cũ.
   const daThayRef = useRef<Set<string> | null>(null);
+  // fetchServer nằm ngoài effect (hai effect cùng gọi) nên cờ huỷ phải là ref.
+  const huyRef = useRef(false);
   const [popups, setPopups] = useState<MucPopup[]>([]);
 
   const leads = leadsProp ?? internalLeads;
   const projects = projectsProp ?? internalProjects;
 
-  // Auto-fetch if not provided
+  // leads/projects CHỈ dùng để sinh mấy dòng «Lead quá hạn» / «Tiến độ thấp» hiện
+  // BÊN TRONG panel — số trên chuông chỉ đếm thông báo thật (srv-). Trước
+  // 20/11 chúng được tải ngay lúc mount, tức mọi lần mở MỖI trang lại kéo
+  // thêm hai danh sách (~50 bản ghi/danh sách) không ai nhìn. Nay đợi người
+  // dùng bấm chuông, và dùng lại trong 60s qua cachedFetch.
   useEffect(() => {
-    if (!leadsProp) {
-      import('@/lib/api').then(({ api, extractItems }) => {
-        Promise.all([
-          api.getLeads().then(r => setInternalLeads(extractItems(r))),
-          api.getProjects().then(r => setInternalProjects(extractItems(r))),
-        ]).catch((e) => console.warn('NotificationCenter: không tải được leads/projects', e));
-      });
-    }
-  }, [leadsProp]);
-
-  // Lấy thông báo thật từ backend (poll mỗi 60s)
-  useEffect(() => {
+    if (leadsProp || !open) return;
     let cancelled = false;
+    import('@/lib/api').then(({ api, extractItems }) => {
+      Promise.all([
+        cachedFetch('leads:all', 60_000, () => api.getLeads())
+          .then(r => { if (!cancelled) setInternalLeads(extractItems(r)); }),
+        cachedFetch('projects:all', 60_000, () => api.getProjects())
+          .then(r => { if (!cancelled) setInternalProjects(extractItems(r)); }),
+      ]).catch((e) => console.warn('NotificationCenter: không tải được leads/projects', e));
+    });
+    return () => { cancelled = true; };
+  }, [leadsProp, open]);
 
-    const fetchServer = () => {
-      import('@/lib/api').then(({ api }) => {
-        api.getNotifications().then(res => {
-          if (cancelled) return;
-          const daThay = daThayRef.current;
-          let vuaDen: ServerNotification[] = [];
-          if (daThay === null) {
-            daThayRef.current = new Set(res.items.map(n => `srv-${n.id}`));
-          } else {
-            vuaDen = res.items.filter(n => !n.read && !daThay.has(`srv-${n.id}`));
-            for (const n of res.items) daThay.add(`srv-${n.id}`);
-          }
-          // Tin mới trỏ đúng trang đang mở (vd vừa bấm thông báo máy → app mở thẳng tới đó):
-          // người dùng đang xem rồi → đánh dấu đã đọc, không bật popup trùng.
-          const dangXem = new Set(vuaDen.filter(n => laTrangDangXem(n.link)).map(n => n.id));
-          for (const id of dangXem) {
-            api.markNotificationRead(id).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e));
-          }
-          const canPopup = vuaDen.filter(n => !dangXem.has(n.id));
-          if (canPopup.length > 0) {
-            void conTrenKhay(canPopup).then(khay => {
-              if (cancelled) return;
-              const moi = canPopup.filter(n => !khay.has(n.id)).map(thanhPopup);
-              if (moi.length === 0) return;
-              setPopups(prev => [...moi, ...prev.filter(p => !moi.some(m => m.id === p.id))].slice(0, TOI_DA_POPUP));
-            });
-          }
-          setServerNotifs(res.items.map(n => ({
-            id: `srv-${n.id}`,
-            group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
-            title: n.title,
-            description: dongDauThongBao(n.body),
-            icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
-            href: n.link || '/',
-            timestamp: n.created_at,
-            read: n.read || dangXem.has(n.id),
-            type: 'pending_approval' as const,
-          })));
-        }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
-      });
-    };
+  // Lấy thông báo thật từ backend. cachedFetch 4s gộp các lần gọi trùng nhau
+  // thành MỘT request: StrictMode (next dev) chạy effect hai lần, và việc quay
+  // lại tab / bấm chuông dễ trùng với nhịp đếm. Dùng chung một phản hồi KHÔNG
+  // làm popup hiện hai lần: daThayRef đã ghi id ngay lượt đầu.
+  const fetchServer = useCallback(() => {
+    import('@/lib/api').then(({ api }) => {
+      cachedFetch('notifications', 4_000, () => api.getNotifications()).then(res => {
+        if (huyRef.current) return;
+        const daThay = daThayRef.current;
+        let vuaDen: ServerNotification[] = [];
+        if (daThay === null) {
+          daThayRef.current = new Set(res.items.map(n => `srv-${n.id}`));
+        } else {
+          vuaDen = res.items.filter(n => !n.read && !daThay.has(`srv-${n.id}`));
+          for (const n of res.items) daThay.add(`srv-${n.id}`);
+        }
+        // Tin mới trỏ đúng trang đang mở (vd vừa bấm thông báo máy → app mở thẳng tới đó):
+        // người dùng đang xem rồi → đánh dấu đã đọc, không bật popup trùng.
+        const dangXem = new Set(vuaDen.filter(n => laTrangDangXem(n.link)).map(n => n.id));
+        for (const id of dangXem) {
+          api.markNotificationRead(id).catch((e) => console.warn('NotificationCenter: đánh dấu đã đọc thất bại', e));
+        }
+        const canPopup = vuaDen.filter(n => !dangXem.has(n.id));
+        if (canPopup.length > 0) {
+          void conTrenKhay(canPopup).then(khay => {
+            if (huyRef.current) return;
+            const moi = canPopup.filter(n => !khay.has(n.id)).map(thanhPopup);
+            if (moi.length === 0) return;
+            setPopups(prev => [...moi, ...prev.filter(p => !moi.some(m => m.id === p.id))].slice(0, TOI_DA_POPUP));
+          });
+        }
+        setServerNotifs(res.items.map(n => ({
+          id: `srv-${n.id}`,
+          group: SERVER_ACTION_TYPES.has(n.type) ? 'action_required' as const : 'recent' as const,
+          title: n.title,
+          description: dongDauThongBao(n.body),
+          icon: SERVER_NOTIF_ICONS[n.type] || 'bell',
+          href: n.link || '/',
+          timestamp: n.created_at,
+          read: n.read || dangXem.has(n.id),
+          type: 'pending_approval' as const,
+        })));
+      }).catch((e) => console.warn('NotificationCenter: không tải được thông báo', e));
+    });
+  }, []);
 
+  useEffect(() => () => { huyRef.current = true; }, []);
+
+  useEffect(() => {
     fetchServer();
     // Spec 08 §1.2: tab nằm nền thì DỪNG poll (200 người × cả ngày = hàng trăm
     // nghìn request vô ích + tốn pin 4G); mở lại tab thì fetch ngay.
+    // 20/11: giãn 60s → 120s. Việc gấp đã đẩy qua Web Push + Telegram; badge
+    // vẫn được làm mới ngay lúc quay lại tab và lúc bấm chuông, nên không cần
+    // đếm dày lúc người ta đang làm việc khác.
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') fetchServer();
-    }, 60_000);
+    }, 120_000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') fetchServer();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      cancelled = true;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, []);
+  }, [fetchServer]);
+
+  // Bấm chuông thì lấy bản mới nhất ngay, không chờ hết nhịp 120s.
+  useEffect(() => {
+    if (open) fetchServer();
+  }, [open, fetchServer]);
 
   // Load read IDs on mount
   useEffect(() => {

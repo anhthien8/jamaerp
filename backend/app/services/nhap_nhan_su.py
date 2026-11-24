@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.models.employee_profile import EmployeeProfile
 from app.models.user import User
 
@@ -105,7 +106,9 @@ def _chu(v, toi_da: int) -> str | None:
         return None
     if isinstance(v, float) and v.is_integer():
         v = int(v)
-    s = str(v).strip()
+    # NFC (21/11/2026): ô Excel gõ dạng tổ hợp so với hồ sơ đang lưu dạng dựng sẵn thì luôn
+    # «khác» → báo nhầm ô thay đổi. (Khớp họ tên dùng bo_dau() nên vốn không lệch.)
+    s = nfc(str(v)).strip()
     return s[:toi_da] if s else None
 
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import cat_phien_cu, get_current_user, hash_password
 # _ROLE_PERMISSION_DEFAULTS đã dời sang middleware/permissions.py (lõi quyền backend).
@@ -266,7 +267,8 @@ async def create_team(
     if not perms.get("canManageUsers"):
         raise HTTPException(status_code=403, detail="Không có quyền quản lý đội nhóm")
 
-    code = data.code.strip().upper()
+    # NFC (21/11/2026): mã gõ dạng tổ hợp phải đụng mã đội dựng sẵn đã có → báo trùng 400
+    code = nfc(data.code).strip().upper()
     existing = await db.execute(select(Team).where(Team.code == code))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"Mã đội '{code}' đã tồn tại")
@@ -557,7 +559,8 @@ async def create_custom_role(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ admin mới được tạo vai trò mới")
 
-    key = data.role_key.strip().lower().replace(" ", "_")
+    # NFC (21/11/2026): khoá gõ dạng tổ hợp vẫn đụng vai trò đã có → không tạo 2 vai trông y hệt
+    key = nfc(data.role_key).strip().lower().replace(" ", "_")
 
     # Must not collide with built-in roles
     if key in VALID_ROLES:

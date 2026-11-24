@@ -1,5 +1,7 @@
 """JAMA HOME ERP Backend — FastAPI entry point."""
 
+import asyncio
+import contextlib
 import os
 from contextlib import asynccontextmanager
 
@@ -21,6 +23,21 @@ if getattr(settings, "SENTRY_DSN", ""):
         print("[WARN] SENTRY_DSN đặt rồi nhưng thiếu package sentry-sdk — pip install sentry-sdk")
 
 
+async def _quet_lai_nfc_nen() -> None:
+    """Nền (production): quét lại chuẩn hoá NFC MỘT lần sau deploy — dọn chữ tổ hợp mà bản
+    CŨ (chưa có listener) ghi trong lúc migration a28 + khởi động (xem
+    app/chuan_hoa_unicode.quet_lai_sau_deploy). Lỗi chỉ cảnh báo, không bao giờ làm sập app."""
+    from app.chuan_hoa_unicode import quet_lai_sau_deploy
+
+    try:
+        kq = await quet_lai_sau_deploy()
+    except Exception as e:  # noqa: BLE001 — cờ chưa ghi → lần khởi động sau thử lại
+        print(f"[WARN] Quét lại chuẩn hoá NFC sau deploy lỗi (lần khởi động sau thử lại): {e}")
+        return
+    if kq is not None:
+        print(f"[OK] Quét lại chuẩn hoá NFC sau deploy: {sum(kq.values())} dòng-cột ở {len(kq)} cột {kq}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App startup/shutdown hooks."""
@@ -35,6 +52,7 @@ async def lifespan(app: FastAPI):
     if settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_AUTH_SECRET:
         print("[WARN] TELEGRAM_AUTH_SECRET chưa đặt — /auth/telegram chỉ dựa rate-limit. Nên đặt bí mật chia sẻ với bot.")
 
+    quet_lai_nfc: asyncio.Task | None = None
     if settings.APP_ENV == "production":
         # Production: start.sh/db_upgrade.py handles migrations before uvicorn starts.
         # Seed only if DB is empty (first boot) — seed_database is a no-op if users exist.
@@ -52,6 +70,9 @@ async def lifespan(app: FastAPI):
                 print(f"[WARN] Seed error: {e}")
                 await db.rollback()
         print(f"[OK] {settings.APP_NAME} started (production)")
+        # Chuẩn hoá NFC (21/11/2026): chạy nền, tự chờ bản cũ tắt hẳn, có cờ nên chỉ một lần —
+        # không làm chậm /health.
+        quet_lai_nfc = asyncio.create_task(_quet_lai_nfc_nen())
     else:
         # Dev/test: run migrations + create_all + seed
         from app.models import User, Team, Lead, Activity, Project, Task, TaskActivity, Transaction, Commission, Payroll, SalaryAdvance  # noqa
@@ -124,6 +145,12 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Shutdown: lần quét NFC chưa xong thì huỷ (giao dịch rollback, cờ chưa ghi → lần sau quét lại)
+    if quet_lai_nfc is not None and not quet_lai_nfc.done():
+        quet_lai_nfc.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await quet_lai_nfc
+
     # Shutdown: dừng worker nhúng trước khi thoát (nếu đã chạy).
     if worker_started:
         try:
@@ -157,6 +184,13 @@ app.add_middleware(
     # frontend (khác origin) mới đọc được — thiếu dòng này là gia hạn câm lặng.
     expose_headers=["X-Phien-Moi"],
 )
+
+# Chuẩn hoá NFC chữ trong query string (21/11/2026): ô tìm kiếm gõ bằng bộ gõ «Unicode tổ
+# hợp» vẫn khớp dữ liệu lưu dạng dựng sẵn — cho MỌI client (web, bot). Không đụng body
+# (webhook ký HMAC trên byte gốc); chữ trong body chuẩn hoá tại chỗ so khớp.
+from app.middleware.chuan_hoa_query import ChuanHoaQueryNFC  # noqa: E402
+
+app.add_middleware(ChuanHoaQueryNFC)
 
 
 # Security headers — áp cho mọi response
@@ -285,12 +319,12 @@ app.include_router(leaves_router, prefix="/api/v1")
 from app.api.payroll import router as payroll_router
 from app.api.suppliers import router as suppliers_router
 from app.api.vat_tu import router as vat_tu_router
+from app.api.gia_chuan_vat_tu import router as gia_chuan_vat_tu_router
 from app.api.estimations import router as estimations_router
 app.include_router(payroll_router, prefix="/api/v1")
 app.include_router(suppliers_router, prefix="/api/v1")
 app.include_router(vat_tu_router, prefix="/api/v1")
-from app.api.shopee_settings import router as shopee_settings_router  # noqa: E402
-app.include_router(shopee_settings_router, prefix="/api/v1")
+app.include_router(gia_chuan_vat_tu_router, prefix="/api/v1")
 app.include_router(estimations_router, prefix="/api/v1")
 
 # Bảng điều khiển Kinh doanh (13/10/2026) — đăng ký SAU dashboard_router để

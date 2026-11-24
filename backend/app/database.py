@@ -10,6 +10,11 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import get_settings
 
+# Chuẩn hoá Unicode NFC khi ghi (21/11/2026): import để ĐĂNG KÝ listener before_flush cho
+# mọi Session — model nào cũng import Base từ module này nên app, worker nhúng, script và
+# test đều có listener mà không phải nhớ import riêng.
+from app import chuan_hoa_unicode  # noqa: F401
+
 settings = get_settings()
 
 # SQLite doesn't support pool_size/max_overflow

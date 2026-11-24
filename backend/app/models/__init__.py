@@ -53,4 +53,4 @@ __all__ = [
     "TelegramContact",
     "DanhGiaKhach",
 ]
-from app.models.vat_tu import MauVatTu, GiaNhomVatTu, DongPhieuVatTu, BaoGiaDongVatTu, AnhVatTu
+from app.models.vat_tu import MauVatTu, GiaNhomVatTu, DongPhieuVatTu, BaoGiaDongVatTu, AnhVatTu, NhanHangVatTu, GiaNhapMauVatTu

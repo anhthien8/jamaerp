@@ -12,7 +12,7 @@ import { nenAnh, blobThanhDataUrl } from '@/lib/anh';
 import LyDoTamDung from '@/components/projects/LyDoTamDung';
 import FormCongViec from '@/components/projects/FormCongViec';
 import YeuCauVatTu from '@/components/projects/YeuCauVatTu';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, chuanHoaTim } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import LineIcon from '@/components/ui/LineIcon';
@@ -821,8 +821,9 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
                   .filter(p => {
                     // Search filter
                     if (searchProject) {
-                      const q = searchProject.toLowerCase();
-                      if (!p.name.toLowerCase().includes(q) && !p.code.toLowerCase().includes(q) && !(p.client_name || '').toLowerCase().includes(q) && !(p.address || '').toLowerCase().includes(q) && !(p.project_type || '').toLowerCase().includes(q)) return false;
+                      // So bản NFC cả hai phía — tên gõ/lưu kiểu «Unicode tổ hợp» vẫn khớp (21/11/2026)
+                      const q = chuanHoaTim(searchProject);
+                      if (!chuanHoaTim(p.name).includes(q) && !chuanHoaTim(p.code).includes(q) && !chuanHoaTim(p.client_name).includes(q) && !chuanHoaTim(p.address).includes(q) && !chuanHoaTim(p.project_type).includes(q)) return false;
                     }
                     // My tasks filter (show only projects assigned to current user)
                     if (showMyTasks && user) {
@@ -954,8 +955,8 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
                   {col.projects.filter(proj => {
                     // Search filter
                     if (searchProject) {
-                      const q = searchProject.toLowerCase();
-                      if (!proj.name.toLowerCase().includes(q) && !proj.code.toLowerCase().includes(q) && !(proj.client_name || '').toLowerCase().includes(q)) return false;
+                      const q = chuanHoaTim(searchProject);
+                      if (!chuanHoaTim(proj.name).includes(q) && !chuanHoaTim(proj.code).includes(q) && !chuanHoaTim(proj.client_name).includes(q)) return false;
                     }
                     // My tasks filter
                     if (showMyTasks && user) {

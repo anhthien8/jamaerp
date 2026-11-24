@@ -16,6 +16,8 @@ import re
 
 import httpx
 
+from app.chuan_hoa_unicode import nfc
+
 _RE_ID = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
 _RE_TAB = re.compile(r'items\.push\(\{name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"?(\d+)"?', re.S)
 
@@ -49,6 +51,10 @@ def _o(row: dict, *ten: str) -> str:
 
 def doc_csv(noi_dung: str, nhom: str) -> list[dict]:
     """CSV một tab → danh sách mẫu (dict khớp cột MauVatTu). Bỏ dòng không có mã."""
+    # NFC cả tab (21/11/2026): sheet gõ bằng bộ gõ «Unicode tổ hợp» thì tiêu đề «MÃ»,
+    # «THƯƠNG HIỆU»… không khớp chữ dựng sẵn ở _o() (mất cột), tên nhóm/mã lệch khoá (mã, nhóm)
+    # đang có → tạo mẫu trùng, và % lãi nhóm mới đụng khoá chính đã có
+    noi_dung, nhom = nfc(noi_dung), nfc(nhom)
     reader = csv.DictReader(io.StringIO(noi_dung))
     ket_qua: list[dict] = []
     for row in reader:

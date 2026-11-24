@@ -1065,11 +1065,12 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "title": "Vật tư — khách chọn mẫu, Thu mua hỏi giá, chốt giá bán «Vật tư»",
     "roles": ["Thiết kế", "Kinh doanh", "Thu mua", "Giám đốc"],
     "blocks": [
-      { "type": "p", "text": "Menu **Kho hàng → Vật tư** (từ 25/10/2026). JAMA không có bảng giá vật tư chuẩn: khách chọn mẫu → Thu mua hỏi 2–3 nhà cung cấp → chốt giá. App gói đúng luồng đó thành **phiếu vật tư theo dự án**, từng phòng một." },
+      { "type": "p", "text": "Menu **Kho hàng → Vật tư** (từ 25/10/2026). Khách chọn mẫu → Thu mua hỏi giá nhà cung cấp, chốt giá vốn, đặt hàng → Giám sát nhận hàng. App gói đúng luồng đó thành **phiếu vật tư theo dự án**, từng phòng một. Giá bán cho khách lấy từ **Bảng giá chuẩn** do Giám đốc ấn định (từ 23/11/2026)." },
       { "type": "h3", "text": "Quy tắc giá — ai thấy gì" },
       { "type": "list", "items": [
-        "**Giá bán cho khách = giá vốn + % lãi theo nhóm** (gạch 30x30, 60x60… mỗi nhóm một %; Giám đốc cài ở tab «% lãi theo nhóm»). Mẫu nào có **giá bán cố định** thì áp giá nào **cao hơn**.",
-        "**Chỉ Thu mua chốt giá.** Không ai gõ giá bán tay — tránh mỗi dự án một kiểu.",
+        "**Đơn giá bán là cố định (từ 23/11/2026).** Mẫu đã có **giá chuẩn** thì khách trả đúng giá chuẩn, giá vốn lên xuống không làm đổi giá bán. Muốn khách trả ít hơn thì đổi **giải pháp** (mẫu khác) hoặc **khối lượng**, không đổi đơn giá.",
+        "**Chỉ Giám đốc đặt giá chuẩn** (tab «Bảng giá chuẩn»). Mẫu chưa có giá chuẩn thì giá bán tạm = giá vốn + % lãi theo nhóm (Giám đốc cài ở tab «% lãi theo nhóm»).",
+        "**Thu mua chỉ chốt giá vốn** và đặt hàng. Không ai gõ giá bán tay.",
         "**Giá vốn, tên NCC, lãi** chỉ Giám đốc, Thu mua và Trưởng phòng thấy. Kinh doanh, Thiết kế chỉ thấy **giá bán** — máy chủ không gửi cột giá vốn xuống, không phải chỉ ẩn trên màn hình.",
         "Khách không bao giờ thấy giá vốn hay NCC (portal cho khách duyệt mẫu làm ở đợt sau)."
       ] },
@@ -1078,46 +1079,51 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "Mở dự án → bấm **«Phiếu vật tư của dự án»** (hoặc menu Vật tư → tab Phiếu dự án → gõ mã/tên dự án vào ô tìm; dự án có hoạt động 7 ngày gần nhất nằm sẵn ở mục **Gần đây**).",
         "Bấm **«Khách chọn mẫu»**: chọn phòng (Phòng khách, Bếp, WC…), hạng mục (sàn, tường…), gõ mã hoặc hãng để chọn trong danh mục có ảnh; nhập số lượng. Mã chưa có trong danh mục thì gõ tự do.",
         "Dòng mới ở trạng thái **Khách chọn** — Thu mua tự thấy ở bảng «Cần hỏi giá», không cần nhắn.",
-        "Khi khách gật đầu (ở quán, qua Zalo…), bấm **«Khách đã đồng ý»** và ghi chú khách nói gì, qua kênh nào.",
+        "Dòng có giá bán là bấm được **«Khách đã đồng ý»** ngay, không cần chờ Thu mua chốt giá vốn. Ghi chú khách nói gì, qua kênh nào; app ghi lại ai bấm. Lời đồng ý giữ nguyên cho tới khi giá bán của dòng đổi.",
+        "Gõ tay đúng mã đang có trong danh mục thì app tự gắn về mẫu đó, giá theo giá chuẩn. Đổi sang mẫu khác thì giá bán đổi theo mẫu mới và phải hỏi lại khách.",
         "Nếu Thu mua báo **Hết hàng / đề xuất thay**, dòng hiện đỏ kèm mã thay thế: hỏi lại khách, bấm «Khách đã đồng ý» → mã thay thành mã chính, Thu mua hỏi giá tiếp."
       ] },
       { "type": "h3", "text": "Thu mua — thêm / sửa mẫu trong Danh mục" },
       { "type": "steps", "items": [
         "Tab **Danh mục** → **«Thêm mẫu»** (hoặc «Sửa» trên thẻ mẫu). Chọn **Nhóm** trong danh sách (kích thước 30x30, 60x60…) hoặc «+ Nhóm mới…».",
         "**Ảnh mẫu**: dán link ảnh là thấy ngay; hoặc bấm **«Tải ảnh lên»** chụp/chọn từ máy — app nén và lưu trong ERP, không cần link ngoài.",
-        "Chưa có ảnh: bấm **«Tìm trên Shopee»** trong form — mở sẵn Shopee tìm theo hãng + mã để chép link ảnh.",
         "Bấm **Lưu**. Giá tham khảo (vốn) và NCC quen chỉ Thu mua / Giám đốc / Trưởng phòng thấy."
       ] },
       { "type": "h3", "text": "Thu mua — bảng «Cần hỏi giá»" },
       { "type": "steps", "items": [
         "Tab **Cần hỏi giá** gom mọi dòng chờ của tất cả dự án. Bấm một dòng để mở.",
         "Nhập từng báo giá NCC: tên NCC, giá vốn, còn hàng không, ngày giao. Báo giá **rẻ nhất tự lên đầu**.",
-        "Bấm **«Chốt giá này»** → app tính giá bán theo % lãi nhóm (hoặc giá cố định nếu cao hơn), ghi «giá gần nhất» về mẫu để lần sau tham khảo, và báo cho Thiết kế / Kinh doanh / PM của dự án.",
+        "Bấm **«Chốt giá này»**, hoặc gõ giá vốn rồi bấm **«Chốt»**. **Bắt buộc có nhà cung cấp**: gõ giá tay thì phải ghi tên NCC, app lưu thành một báo giá «gõ tay». App ghi «giá gần nhất» về mẫu và báo Thiết kế / Kinh doanh / PM của dự án.",
+        "Mẫu có giá chuẩn: chốt giá vốn **không đổi giá bán**. Nếu giá vốn mới làm lời xuống dưới hệ số của nhóm, Giám đốc nhận thông báo để xét lại giá chuẩn.",
         "Hết hàng: bấm **«Hết hàng / đề xuất thay»**, chọn mã thay và lý do → dòng chuyển sang chờ khách duyệt lại.",
         "Sau chốt: sang tab **«Đặt & nhận hàng»** để đặt hàng (xem mục bên dưới)."
       ] },
       { "type": "h3", "text": "Đặt hàng – duyệt – nhận hàng (từ 13/11/2026)" },
       { "type": "steps", "items": [
-        "Thu mua bấm **Đặt hàng** ở dòng đã chốt giá, nhập số lượng đặt và đơn giá thực tế.",
+        "Thu mua bấm **Đặt hàng** ở dòng đã chốt giá, nhập số lượng đặt, đơn giá thực tế và **bắt buộc chọn ngày NCC hẹn giao** (Mai / 3 ngày / 1 tuần / 2 tuần / chọn ngày). Đặt cả loạt theo NCC thì chọn một ngày cho mỗi NCC.",
+        "App giữ **ngày hẹn đầu tiên** để sau này chấm NCC giao đúng hạn hay không. Quá ngày hẹn mà hàng chưa về đủ thì dòng có nhãn **trễ hẹn**.",
         "Đặt **trong** khối lượng, đơn giá và ngân sách của báo giá → **tự duyệt**, đi đặt luôn.",
-        "Vượt **bất kỳ** mức nào (khối lượng, đơn giá hoặc ngân sách) → đơn chờ **Leader Thu mua** duyệt hoặc từ chối kèm lý do. Đơn chờ duyệt hiện ở «Việc của tôi» của Leader.",
-        "Hàng về công trình: **Giám sát** chụp **tối thiểu 2 ảnh hiện trường** rồi mới bấm được **Đủ** hoặc **Thiếu**. Thiếu thì bắt buộc ghi chú; phần thiếu giao bù sau và Giám sát xác nhận tiếp. Thu mua chỉ xem.",
-        "Giá khung NCC quá **60 ngày** hiện nhãn **«giá cũ»** — hỏi lại NCC trước khi đặt."
+        "Vượt **bất kỳ** mức nào (khối lượng, đơn giá hoặc ngân sách) → đơn chờ **Leader Thu mua** duyệt hoặc từ chối kèm lý do. Đơn chờ duyệt hiện ở «Việc của tôi» của Leader. **Leader tự đặt đơn vượt cũng phải chờ người khác duyệt** (Leader khác hoặc Giám đốc).",
+        "**Ngân sách dự án là trần toàn bộ chi phí**: vật tư đã đặt cộng các khoản chi khác của dự án (nhân công, thầu phụ…). Khoản chi loại «Vật liệu» không cộng lần hai.",
+        "Hàng về công trình: **Giám sát** chụp **tối thiểu 2 ảnh hiện trường** rồi mới bấm được **Đủ** hoặc **Thiếu**. Thiếu thì ghi **tổng số đã nhận tới giờ** và ghi chú; hàng lỗi chọn lý do (sai mẫu / hư hỏng / khác). Mỗi lần nhận được lưu riêng thành **lịch sử nhận hàng** dưới dòng. Thu mua chỉ xem.",
+        "Dòng đã đặt hàng **không sửa khối lượng, không đổi mẫu, không xoá**. Chỉ Leader Thu mua (hoặc Giám đốc) huỷ được, bắt buộc ghi lý do. Dòng giao thiếu mà đã nhận một phần thì nút là **«Chốt số đã nhận, bỏ phần còn lại»**. Dòng đã đặt rồi huỷ thì không mở lại được, cần mua lại thì tạo dòng mới.",
+        "Giá vốn dựa trên báo giá NCC quá **60 ngày** hiện nhãn **«giá cũ»**: bấm **«Hỏi lại giá»** để đưa dòng về tab «Cần hỏi giá», ghi báo giá mới rồi chốt lại. Chốt lại đúng giá cũ, cùng NCC cũ không làm giá «mới» lại."
       ] },
-      { "type": "h3", "text": "Giá Shopee, «Cần thương lượng» và gợi ý NCC (từ 26/10/2026)" },
+      { "type": "h3", "text": "Bảng giá chuẩn — Thu mua nạp giá nhập, Giám đốc ấn định giá bán (từ 23/11/2026)" },
       { "type": "list", "items": [
-        "Thu mua bấm **«Giá Shopee»** trên thẻ mẫu → app tìm sẵn theo hãng + mã → bấm **Chọn** đúng sản phẩm. Giá Shopee hiện màu cam trên thẻ mẫu cho mọi người, kèm link mở Shopee. Không tìm thấy thì dán link sản phẩm đã tìm tay.",
-        "Giá Shopee **tự cập nhật sáng thứ Hai hằng tuần**. Mẫu không có trên Shopee thì để trống — app không đoán giá.",
-        "Ở «Cần hỏi giá», báo giá NCC **đắt hơn Shopee** có nhãn đỏ «cao hơn Shopee x%». Tab **«Cần thương lượng»** gom tất cả các báo giá đó, chênh nhiều nhất lên đầu — mang số này đi đàm phán.",
-        "Mở một dòng sẽ thấy **Gợi ý NCC**: xếp theo giá sau chiết khấu (rẻ nhất trước), bằng giá thì NCC JAMA đã mua nhiều tiền hơn lên trước. **% chiết khấu** của từng NCC nhập ở **Nhà cung cấp** → chọn NCC → «Chiết khấu: Sửa».",
-        "Admin bật tìm giá Shopee ở **Cài đặt → Tích hợp**."
+        "Tab **«Bảng giá chuẩn»** chỉ bộ phận Thu mua và Giám đốc thấy. Mỗi mẫu hiện: giá nhập của từng NCC (kèm ngày, nhãn «giá cũ» nếu quá 60 ngày), giá gợi ý theo hệ số nhóm, giá chuẩn hiện tại và mức lời.",
+        "**Thu mua**: đi lấy giá nhiều NCC rồi bấm **«Thêm giá nhập»** trên mẫu (chọn hoặc gõ tên NCC, giá, ghi chú). Báo giá ghi trong các dự án cũng tự hiện ở đây.",
+        "**Giám đốc**: so giá nhập với giá thị trường rồi gõ **giá chuẩn** và lưu. Giá chuẩn mới áp ngay cho các dòng khách **chưa đồng ý**; dòng khách đã đồng ý giữ giá cũ.",
+        "Lọc nhanh: **Chưa có giá chuẩn** (mẫu cần Giám đốc định giá) và **Lời dưới hệ số** (giá vốn đã lên, giá chuẩn cần xét lại).",
+        "Mở một dòng ở «Cần hỏi giá» sẽ thấy **Gợi ý NCC**: NCC hạng **Chính** lên trước, rồi **Dự phòng**, **Đang thử**; cùng hạng thì rẻ nhất sau chiết khấu trước. **% chiết khấu** và **hạng** của NCC sửa ở trang **Nhà cung cấp**.",
+        "Từ 23/11/2026 app **không còn so giá Shopee** (đã gỡ giá Shopee, tab «Cần thương lượng» và mục cài đặt Shopee)."
       ] },
       { "type": "h3", "text": "Danh mục mẫu" },
       { "type": "list", "items": [
         "Thu mua bấm **«Nhập Google Sheet»** dán link bảng mẫu của JAMA (mỗi tab = một nhóm kích thước): app đọc cột MÃ, THƯƠNG HIỆU, HÌNH ẢNH, TÍNH CHẤT, TÌNH TRẠNG, ĐƠN GIÁ, NCC. Nhập lại chỉ thêm mẫu mới, tick «Ghi đè» mới cập nhật mẫu cũ.",
-        "Có thể thêm/sửa từng mẫu tay: mã, hãng, nhóm, ảnh, giá tham khảo, giá bán cố định, tắt «Đang dùng» khi ngừng bán."
+        "Có thể thêm/sửa từng mẫu tay: mã, hãng, nhóm, ảnh, giá tham khảo, tắt «Đang dùng» khi ngừng bán. **Giá chuẩn** chỉ Giám đốc sửa (ở form mẫu hoặc tab «Bảng giá chuẩn»); người khác gửi lên cũng không đổi."
       ] },
-      { "type": "tip", "text": "Dòng đã chốt giá chỉ Giám đốc xoá được. Thu mua không cần được gắn vào dự án vẫn xem và chốt mọi phiếu." }
+      { "type": "tip", "text": "Dòng đã đặt hàng không xoá được; xoá dòng chưa đặt thì báo giá NCC của nó vẫn được giữ trong Bảng giá chuẩn. Thu mua không cần được gắn vào dự án vẫn xem và chốt mọi phiếu." }
     ]
   },
   {
@@ -1165,7 +1171,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Vào menu **Nhà cung cấp**: danh sách NCC nằm bên trái, bấm vào một NCC để xem thông tin liên hệ và **Bảng giá** của họ bên phải.",
           "NCC gõ ở **Vật tư** (mẫu, báo giá, nhập sheet, bot) tự được tạo ở đây nếu chưa có. Khi thêm NCC, nhập **Mã số thuế** rồi bấm **Tra** để tự điền tên công ty và địa chỉ. Trong hồ sơ NCC, bấm vào mã số thuế để mở masothue.com.",
           "Muốn biết vật tư nào mua ở đâu rẻ nhất: gõ tên vật tư vào ô **So sánh giá** (ví dụ: Gỗ sồi) rồi bấm nút **So sánh giá** — bảng so sánh giá giữa các NCC hiện ra.",
-          "Thêm NCC mới: bấm **+ Thêm nhà cung cấp**, điền Tên NCC (bắt buộc), người liên hệ, điện thoại, loại hàng rồi bấm **Thêm**.",
+          "Thêm NCC mới: bấm **+ Thêm nhà cung cấp**, điền Tên NCC (bắt buộc), người liên hệ, điện thoại, Zalo, loại hàng rồi bấm **Thêm**. App chặn tạo trùng: «Công ty TNHH Hiệp Phát», «Cty Hiệp Phát» và «Hiệp Phát» (kể cả «Hoà/Hòa») coi là một NCC, trùng mã số thuế cũng vậy; app báo tên NCC đang có để mở ra dùng.",
+          "**Hạng NCC** (từ 23/11/2026): mỗi nhóm hàng nên có 1 NCC **Chính** và ít nhất 1 **Dự phòng**; NCC mới để **Đang thử**. Chọn hạng ở hồ sơ NCC hoặc nút **Sửa**; lọc danh sách theo hạng. Hạng quyết định thứ tự trong «Gợi ý NCC» ở Vật tư.",
+          "Không mua nữa: bấm **«Ngừng dùng»** (bấm **«Dùng lại»** để mở lại). NCC ngừng dùng ẩn khỏi danh sách và gợi ý; bật **«Hiện NCC đã ngừng»** để xem.",
+          "Lỡ có 2 NCC trùng: Giám đốc bấm **«Gộp vào NCC khác»**, chọn NCC giữ lại. Mọi báo giá, dòng vật tư, giá nhập chuyển sang NCC giữ lại, NCC kia bị xoá. Không hoàn tác được.",
           "Ghi báo giá NCC vừa gửi: chọn NCC đó, bấm **+ Thêm báo giá**, điền tên vật tư, đơn giá, số lượng tối thiểu, số ngày giao hàng."
         ]
       },

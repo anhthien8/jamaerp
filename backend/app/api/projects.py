@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, case, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chuan_hoa_unicode import nfc
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.user import User
@@ -566,6 +567,9 @@ async def create_project(
     if not perms.get("canCreateProjects"):
         raise HTTPException(status_code=403, detail="Bạn không có quyền «Tạo Dự án» — xem trang Phân quyền")
     truong = data.model_dump()
+    # NFC (21/11/2026): mã gõ dạng tổ hợp phải đụng mã dựng sẵn đã có → báo trùng 400, thay vì
+    # lọt kiểm tra rồi nổ khoá unique khi listener ghi bản NFC
+    truong["code"] = nfc(truong.get("code"))
     if not truong.get("code"):
         truong["code"] = await sinh_ma_du_an(db)
     elif (await db.execute(select(Project).where(Project.code == truong["code"]))).scalar_one_or_none():
