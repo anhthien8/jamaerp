@@ -8,7 +8,7 @@ import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
-import { STAGE_CONFIG, chuanHoaTim, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc } from '@/lib/utils';
+import { STAGE_CONFIG, chuanHoaTim, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc, mauNhat } from '@/lib/utils';
 import KhaoSatThang from '@/components/leads/KhaoSatThang';
 import ThanhThaoTacHangLoat from '@/components/leads/ThanhThaoTacHangLoat';
 import BangKanbanLead from '@/components/leads/BangKanbanLead';
@@ -68,7 +68,7 @@ function SortableTh({ label, sortKey, sortBy, setSortBy, align = 'left' }: {
       style={{ color: active ? '#C9A96E' : 'var(--text-tertiary)' }}>
       <button
         onClick={() => setSortBy(sortKey)}
-        className="inline-flex items-center gap-1 hover:text-[#C9A96E] transition-colors"
+        className="inline-flex items-center gap-1 hover:text-[var(--gold-500)] transition-colors"
         title={`Sắp xếp theo ${label.toLowerCase()}`}
       >
         {label}
@@ -242,7 +242,18 @@ function LeadsContent() {
   const [newCskhNote, setNewCskhNote] = useState('');
   const [savingCskh, setSavingCskh] = useState(false);
   const canWriteCskh = canWriteCskhNote(user);
-  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'calendar'>('kanban');
+  // Nhớ chế độ xem lần trước (24/11) — trước đây mỗi lần vào lại bị trả về Kanban.
+  // (đọc localStorage ngay lúc khởi tạo, cùng kiểu với menu ở Sidebar)
+  const [viewMode, setViewModeRaw] = useState<'kanban' | 'list' | 'calendar'>(() => {
+    if (typeof window === 'undefined') return 'kanban';
+    try { const v = localStorage.getItem('jama_leads_view'); return v === 'list' || v === 'calendar' ? v : 'kanban'; } catch { return 'kanban'; }
+  });
+  const setViewMode = (v: 'kanban' | 'list' | 'calendar') => {
+    setViewModeRaw(v);
+    try { localStorage.setItem('jama_leads_view', v); } catch { /* bộ nhớ đầy/ẩn danh */ }
+  };
+  const [calMo, setCalMo] = useState<string | null>(null); // ngày đang bung hết lead trên lịch
+  const [locMo, setLocMo] = useState(false); // điện thoại: 6 ô lọc gấp sau nút «Bộ lọc (n)»
   const [error, setError] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [searchQuery, setSearchQuery] = useState('');
@@ -452,9 +463,9 @@ function LeadsContent() {
         ids.push((await api.uploadLeadImage(selectedLead.id, dataUrl)).id);
       }
       const content = [newNote.trim(), ...ids.map(id => `🖼 anh:${id}`)].filter(Boolean).join('\n');
-      await api.createActivity(selectedLead.id, { type: 'note', content });
-      const acts = await api.getActivities(selectedLead.id);
-      setActivities(acts);
+      // Chèn thẳng dòng vừa tạo (xem ghi chú ở chip 1 chạm trong ChiTietLead về lý do không tải lại).
+      const act = await api.createActivity(selectedLead.id, { type: 'note', content });
+      setActivities(prev => [act, ...prev]);
       setNewNote('');
       setAnhCho([]);
       toast(ids.length ? `Đã thêm ghi chú kèm ${ids.length} ảnh` : 'Đã thêm ghi chú', 'success');
@@ -470,8 +481,8 @@ function LeadsContent() {
     if (!selectedLead || !newCskhNote.trim() || savingCskh) return;
     setSavingCskh(true);
     try {
-      await api.createActivity(selectedLead.id, { type: CSKH_TYPE, content: newCskhNote.trim() });
-      setActivities(await api.getActivities(selectedLead.id));
+      const act = await api.createActivity(selectedLead.id, { type: CSKH_TYPE, content: newCskhNote.trim() });
+      setActivities(prev => [act, ...prev]);
       setNewCskhNote('');
       toast('Đã lưu đánh giá CSKH', 'success');
     } catch (e) {
@@ -544,7 +555,13 @@ function LeadsContent() {
         designSignedDate: opts?.signedDate,
         note: newStage === 'dormant' ? (opts?.reason ? `Ngủ đông: ${opts.reason}` : undefined) : undefined,
       });
-      toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success');
+      // «Hoàn tác» cho bước chuyển thường (kéo nhầm cột là chuyện hằng ngày). Không có ở Mất / Ngủ đông / Thắng deal:
+      // ba bước đó kèm lý do, hợp đồng, dự án — quay lại không chỉ là đổi một nhãn.
+      const cu = lead.stage;
+      const dacBiet = ['lost', 'dormant', 'signed_design'];
+      const choHoanTac = cu !== newStage && !dacBiet.includes(cu) && !dacBiet.includes(newStage);
+      toast(`Chuyển ${lead.name} sang ${STAGE_CONFIG[newStage]?.label || newStage}`, 'success',
+        choHoanTac ? { nhan: 'Hoàn tác', lam: () => void doStageChange({ ...lead, stage: newStage }, cu) } : undefined);
       // Sort «Mới nhất» xếp lead cũ rất sâu: thẻ vừa chuyển vào cột đông có thể
       // nằm ngoài 25 thẻ đầu → thẻ «biến mất», sale tưởng chuyển hụt. Nới cửa sổ
       // cột đích đủ rộng để thẻ chắc chắn hiện ra; muốn gọn đã có nút «Thu gọn».
@@ -553,7 +570,15 @@ function LeadsContent() {
         [newStage]: Math.max(prev[newStage] ?? KANBAN_PAGE_SIZE, leads.filter(l => l.stage === newStage).length + 1),
       }));
       fetchLeads();
-      closeLeadDetail();
+      // Rời phễu (Mất / Ngủ đông) hoặc thắng deal thì xong việc với thẻ → đóng. Còn tiến trong phễu
+      // thì giữ thẻ mở để ghi chú tiếp, khỏi phải tìm lại khách (24/11).
+      if (newStage === 'lost' || newStage === 'dormant' || newStage === 'signed_design') {
+        closeLeadDetail();
+      } else {
+        setSelectedLead(prev => (prev && prev.id === lead.id ? { ...prev, stage: newStage } : prev));
+        // Dòng «đổi giai đoạn» do máy chủ tự ghi → phải tải lại lịch sử; chờ nửa giây cho máy chủ chốt giao dịch.
+        if (selectedLead?.id === lead.id) setTimeout(() => { api.getActivities(lead.id).then(setActivities).catch(() => {}); }, 500);
+      }
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
     } finally {
@@ -780,6 +805,23 @@ function LeadsContent() {
         : null,
   ].filter(Boolean);
 
+  // Chip lọc nhanh 1 chạm. «Của tôi» chỉ có nghĩa khi đang xem lead của nhiều người.
+  const soLocDangBat = [filterSource, filterPriority, filterRegion, filterAssignee, datePreset].filter(v => v !== 'all').length;
+  const coCuaToi = !!user && assigneeOptions.items.length > 1 && assigneeOptions.items.some(([id]) => id === user.id);
+  const batTatQuaHan = () => {
+    const q = new URLSearchParams(searchParams.toString());
+    if (activeQuickFilter === 'overdue') q.delete('filter'); else q.set('filter', 'overdue');
+    const qs = q.toString();
+    router.push(qs ? `/leads?${qs}` : '/leads');
+  };
+  const chipLoc = (bat: boolean) => ({
+    className: 'px-3 rounded-full text-xs font-medium whitespace-nowrap min-h-[36px] sm:min-h-[30px] transition-colors',
+    style: bat
+      ? { background: 'rgba(201,169,110,0.2)', color: 'var(--gold-500)', border: '1px solid rgba(201,169,110,0.5)' }
+      : { background: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' },
+    'aria-pressed': bat,
+  });
+
   const clearFilters = () => {
     setFilterSource('all');
     setFilterPriority('all');
@@ -824,7 +866,7 @@ function LeadsContent() {
               ))}
             </div>
             <button
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 whitespace-nowrap"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[var(--gold-500)] transition-all active:scale-95 whitespace-nowrap"
               onClick={() => setCreateOpen(true)}
             >
               + Thêm Lead
@@ -834,25 +876,33 @@ function LeadsContent() {
 
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-          <span className="text-xs text-[var(--text-muted)] mr-1">Lọc:</span>
+          <span className="hidden sm:inline text-xs text-[var(--text-muted)] mr-1">Lọc:</span>
           {/* Search input */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="text"
               placeholder="Tìm tên, SĐT..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded-lg text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-40"
+              className="pl-8 pr-3 py-1.5 rounded-lg text-xs bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none w-full sm:w-40"
             />
           </div>
+          <button onClick={() => setLocMo(v => !v)} aria-expanded={locMo} {...chipLoc(locMo || soLocDangBat > 0)} className={`sm:hidden ${chipLoc(false).className}`}>
+            <LineIcon name="filter" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Bộ lọc{soLocDangBat > 0 ? ` (${soLocDangBat})` : ''}
+          </button>
+          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+            {coCuaToi && (
+              <button onClick={() => setFilterAssignee(filterAssignee === user.id ? 'all' : user.id)} {...chipLoc(filterAssignee === user.id)}>Của tôi</button>
+            )}
+            <button onClick={batTatQuaHan} title="Lead quá hạn chăm sóc theo ngưỡng từng giai đoạn" {...chipLoc(activeQuickFilter === 'overdue')}>Quá hạn</button>
+            <button onClick={() => setDatePreset(datePreset === 'today' ? 'all' : 'today')} title={`${DATE_FIELDS[dateField]?.label}: hôm nay`} {...chipLoc(datePreset === 'today')}>Hôm nay</button>
+          </div>
+          {/* Điện thoại: gấp các ô chọn lại, bấm «Bộ lọc» mới bung. Máy tính: sm:contents → vẫn nằm trên hàng như cũ. */}
+          <div className={`${locMo ? 'flex' : 'hidden'} sm:contents w-full flex-wrap items-center gap-2`}>
           <select value={filterSource} onChange={e => setFilterSource(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="all">Tất cả nguồn</option>
-            <option value="zalo">Zalo</option>
-            <option value="facebook">Facebook</option>
-            <option value="tiktok">TikTok</option>
-            <option value="website">Website</option>
-            <option value="referral">Giới thiệu</option>
+            {Object.entries(SOURCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg bg-[var(--surface-3)] text-[var(--text-secondary)] border border-[var(--border-subtle)] outline-none">
             <option value="all">Tất cả ưu tiên</option>
@@ -931,10 +981,11 @@ function LeadsContent() {
             <option value="deal_value">Giá trị hợp đồng cao → thấp</option>
             <option value="ai_score">Điểm AI cao → thấp</option>
           </select>
+          </div>
           {activeFilterLabels.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 ml-2">
               {activeFilterLabels.map(label => (
-                <span key={label} className="text-[10px] px-2 py-1 rounded-full bg-[#C9A96E]/15 text-[#C9A96E] border border-[#C9A96E]/25">
+                <span key={label} className="text-[10px] px-2 py-1 rounded-full bg-[var(--gold-500)]/15 text-[var(--gold-500)] border border-[var(--gold-500)]/25">
                   {label}
                 </span>
               ))}
@@ -982,7 +1033,7 @@ function LeadsContent() {
                       <p className="text-xs text-[var(--text-muted)] mt-0.5"><LineIcon name="smartphone" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{lead.phone || '—'}</p>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0" style={{
-                      background: `${STAGE_CONFIG[lead.stage]?.color}20`,
+                      background: mauNhat(STAGE_CONFIG[lead.stage]?.color, 13),
                       color: STAGE_CONFIG[lead.stage]?.color,
                     }}>
                       <LineIcon name={STAGE_CONFIG[lead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[lead.stage]?.label || lead.stage}
@@ -991,7 +1042,27 @@ function LeadsContent() {
                   <div className="flex items-center justify-between gap-2 mt-1.5 text-[10px] text-[var(--text-muted)]">
                     <span>{lead.assigned_user_name || 'Chưa phân công'}</span>
                     <span>{DATE_FIELDS[dateField]?.short}: {formatShortDate(DATE_FIELDS[dateField]?.pick(lead))}</span>
-                    {lead.deal_value ? <span className="text-[#C9A96E] font-semibold">{formatDealValue(lead.deal_value)}</span> : null}
+                    {lead.deal_value ? <span className="text-[var(--gold-500)] font-semibold">{formatDealValue(lead.deal_value)}</span> : null}
+                    {/* Zalo / Gọi 1 chạm ngay trên dòng — trước đây điện thoại phải mở thẻ mới gọi được */}
+                    {lead.phone && (
+                      <span className="flex items-center -my-1.5 -mr-1.5 flex-shrink-0">
+                        <a href={`https://zalo.me/${lead.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label={`Nhắn Zalo ${lead.phone}`}
+                          onClick={e => e.stopPropagation()}
+                          className="w-10 h-10 flex items-center justify-center rounded-full text-[var(--text-secondary)] active:bg-white/10">
+                          <LineIcon name="message" size={17} color="currentColor" />
+                        </a>
+                        <a href={`tel:${lead.phone}`} aria-label={`Gọi ${lead.phone}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            api.createActivity(lead.id, { type: 'call', content: `📞 Gọi ${lead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+                              .then(() => toast('Đang gọi + đã ghi nhận', 'success'))
+                              .catch(() => {});
+                          }}
+                          className="w-10 h-10 flex items-center justify-center rounded-full text-[var(--gold-500)] active:bg-white/10">
+                          <LineIcon name="phone" size={17} color="currentColor" />
+                        </a>
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1009,7 +1080,7 @@ function LeadsContent() {
                           checked={filteredByUrl.length > 0 && filteredByUrl.every(l => selectedLeadIds.has(l.id))}
                           onChange={toggleSelectAllVisible}
                           onClick={e => e.stopPropagation()}
-                          className="w-4 h-4 cursor-pointer accent-[#C9A96E]"
+                          className="w-4 h-4 cursor-pointer accent-[var(--gold-500)]"
                         />
                       </th>
                     )}
@@ -1042,7 +1113,7 @@ function LeadsContent() {
                             aria-label={`Chọn ${lead.name}`}
                             checked={selectedLeadIds.has(lead.id)}
                             onChange={() => toggleSelectLead(lead.id)}
-                            className="w-4 h-4 cursor-pointer accent-[#C9A96E]"
+                            className="w-4 h-4 cursor-pointer accent-[var(--gold-500)]"
                           />
                         </td>
                       )}
@@ -1062,7 +1133,7 @@ function LeadsContent() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-[11px] px-2 py-1 rounded-full font-semibold whitespace-nowrap" style={{
-                          background: `${STAGE_CONFIG[lead.stage]?.color}20`,
+                          background: mauNhat(STAGE_CONFIG[lead.stage]?.color, 13),
                           color: STAGE_CONFIG[lead.stage]?.color,
                         }}>
                           <LineIcon name={STAGE_CONFIG[lead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[lead.stage]?.label || lead.stage}
@@ -1104,7 +1175,7 @@ function LeadsContent() {
                       <td className="px-4 py-3 text-right">
                         <a
                           href={lead.phone ? `tel:${lead.phone}` : undefined}
-                          className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E]"
+                          className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[var(--gold-500)]"
                           title={lead.phone ? `Gọi ${lead.phone}` : 'Chưa có SĐT'}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1175,21 +1246,23 @@ function LeadsContent() {
                     return (
                       <div key={`day-${day}`} className="rounded-lg p-1.5 min-h-[70px] sm:min-h-[90px] transition-all" style={{ background: isToday ? 'rgba(201,169,110,0.12)' : 'var(--surface-2)', border: isToday ? '1px solid rgba(201,169,110,0.4)' : '1px solid transparent' }}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-medium ${isToday ? 'text-[#C9A96E] font-bold' : ''}`} style={{ color: isToday ? '#C9A96E' : 'var(--text-secondary)' }}>{day}</span>
+                          <span className={`text-xs font-medium ${isToday ? 'text-[var(--gold-500)] font-bold' : ''}`} style={{ color: isToday ? '#C9A96E' : 'var(--text-secondary)' }}>{day}</span>
                           {dayLeads.length > 0 && (
                             <span className="text-[9px] px-1 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(201,169,110,0.2)', color: '#C9A96E' }}>{dayLeads.length}</span>
                           )}
                         </div>
                         <div className="space-y-0.5">
-                          {dayLeads.slice(0, 3).map(lead => (
-                            <div key={lead.id} onClick={() => openLeadDetail(lead)} className="text-[9px] sm:text-[10px] px-1 py-0.5 rounded cursor-pointer hover:opacity-80 transition-all truncate" style={{ background: `${PRIORITY_LABELS[lead.priority]?.color || '#6B7280'}20`, color: PRIORITY_LABELS[lead.priority]?.color || '#fff' }} title={`${lead.name} — ${formatDealValue(lead.deal_value)}`}>
+                          {(calMo === dateKey ? dayLeads : dayLeads.slice(0, 3)).map(lead => (
+                            <div key={lead.id} onClick={() => openLeadDetail(lead)} className="text-[9px] sm:text-[10px] px-1 py-0.5 rounded cursor-pointer hover:opacity-80 transition-all truncate" style={{ background: mauNhat(PRIORITY_LABELS[lead.priority]?.color || '#6B7280', 13), color: PRIORITY_LABELS[lead.priority]?.color || '#fff' }} title={`${lead.name} — ${formatDealValue(lead.deal_value)}`}>
                               <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 flex-shrink-0" style={{ background: PRIORITY_LABELS[lead.priority]?.color || '#6B7280', verticalAlign: 'middle' }} />
                               {lead.name?.split(' ')[0] || '—'}
                               {lead.deal_value ? <span className="hidden sm:inline"> · {formatDealValue(lead.deal_value)}</span> : null}
                             </div>
                           ))}
                           {dayLeads.length > 3 && (
-                            <div className="text-[9px] text-center" style={{ color: 'var(--text-muted)' }}>+{dayLeads.length - 3} nữa</div>
+                            <button onClick={() => setCalMo(calMo === dateKey ? null : dateKey)} className="w-full text-[10px] text-center underline" style={{ color: 'var(--text-secondary)', minHeight: 0 }}>
+                              {calMo === dateKey ? 'Thu gọn' : `+${dayLeads.length - 3} nữa`}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1223,6 +1296,7 @@ function LeadsContent() {
       {/* ── Lead Detail Modal ── */}
       {selectedLead && (
         <ChiTietLead
+          key={selectedLead.id}
           closeLeadDetail={closeLeadDetail}
           selectedLead={selectedLead}
           canAssign={canAssign}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState } from 'react';
 import { api, mediaUrl } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
@@ -85,6 +86,7 @@ export function DoiAnhDaiDien({
   /** Hiện nút «Gỡ ảnh» bên dưới khi đang có ảnh */
   choGo?: boolean;
 }) {
+  const xacNhan = useXacNhan();
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState('');
 
@@ -105,7 +107,7 @@ export function DoiAnhDaiDien({
   };
 
   const go = async () => {
-    if (!confirm('Gỡ ảnh đại diện?')) return;
+    if (!await xacNhan('Gỡ ảnh đại diện?')) return;
     setDangTai(true);
     try {
       await api.deleteAvatar(userId);

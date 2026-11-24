@@ -203,7 +203,10 @@ export default function QuotationsPage() {
   const openCreateForm = () => {
     setEditing(null);
     setFormError('');
-    setFormData(EMPTY_FORM);
+    // Hạn hiệu lực mặc định 15 ngày — cùng quy ước với Báo giá tức thì.
+    const han = new Date();
+    han.setDate(han.getDate() + 15);
+    setFormData({ ...EMPTY_FORM, valid_until: han.toLocaleDateString('sv-SE') });
     setLineItems([]);
     setShowForm(true);
   };
@@ -477,7 +480,7 @@ export default function QuotationsPage() {
 
       {/* Create / Edit quotation modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[6vh] px-4" onClick={() => { setShowForm(false); setEditing(null); }}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[6vh] px-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="relative w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
             <button onClick={() => { setShowForm(false); setEditing(null); }} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
@@ -521,7 +524,11 @@ export default function QuotationsPage() {
                 <label className="text-xs text-[var(--text-muted)] mb-1 block">Dự án</label>
                 <select
                   value={formData.project_id}
-                  onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}
+                  onChange={e => {
+                    const da = projects.find(x => x.id === e.target.value);
+                    // Chọn dự án thì điền luôn tiêu đề nếu ô còn trống.
+                    setFormData(p => ({ ...p, project_id: e.target.value, title: p.title.trim() || !da ? p.title : `Báo giá ${p.type === 'construction' ? 'thi công' : 'thiết kế'} - ${da.name}` }));
+                  }}
                   className="w-full px-3 py-2 rounded-xl text-sm"
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 >
@@ -545,7 +552,18 @@ export default function QuotationsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--text-muted)] mb-1 block">Thuế</label>
+                  <label className="text-xs text-[var(--text-muted)] mb-1 flex items-center justify-between gap-2">
+                    Thuế
+                    <button
+                      type="button"
+                      disabled={!Number(formData.total_amount)}
+                      onClick={() => setFormData(p => ({ ...p, tax_amount: String(Math.round(Number(p.total_amount) * 0.1)) }))}
+                      className="px-2 rounded-full text-[11px] font-medium disabled:opacity-40"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--gold-500)' }}
+                    >
+                      VAT 10%
+                    </button>
+                  </label>
                   <MoneyInput
                     valueDong={formData.tax_amount}
                     onChangeDong={v => setFormData(p => ({ ...p, tax_amount: v }))}
@@ -581,6 +599,9 @@ export default function QuotationsPage() {
                 />
               </div>
 
+              <datalist id="dv-bao-gia">
+                {['gói', 'm2', 'md', 'bộ', 'cái', 'phòng', 'công'].map(dv => <option key={dv} value={dv} />)}
+              </datalist>
               {/* Items editor — danh sách dòng hạng mục (thay cho ô JSON thô) */}
               <div>
                 <label className="text-xs text-[var(--text-muted)] mb-1 block">Mục báo giá</label>
@@ -620,6 +641,7 @@ export default function QuotationsPage() {
                             value={li.unit}
                             onChange={e => patchLineItem(i, { unit: e.target.value })}
                             placeholder="gói / m2 / bộ"
+                            list="dv-bao-gia"
                             className="w-full px-3 py-2 rounded-lg text-sm"
                             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                           />

@@ -130,7 +130,7 @@ export default function PortalPage() {
     } finally { setAccepting(false); }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[#C9A96E] border-t-transparent rounded-full"></div></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[var(--gold-500)] border-t-transparent rounded-full"></div></div>;
   if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><p className="text-red-400 text-lg mb-2"><LineIcon name="xCircle" size={18} color="currentColor" className="inline-block align-[-3px] mr-1.5" />{error}</p><p className="text-gray-500 text-sm">Vui lòng liên hệ JAMA HOME: 070.56.23456</p></div></div>;
 
   return (

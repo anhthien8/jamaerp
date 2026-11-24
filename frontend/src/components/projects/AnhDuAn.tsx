@@ -73,6 +73,9 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
       const u = await api.patchMedia(m.id, { shared_with_customer: !m.shared_with_customer });
       setItems(prev => prev.map(x => (x.id === m.id ? { ...x, ...u } : x)));
       if (xem?.id === m.id) setXem({ ...m, ...u });
+      // Bật nhầm là khách thấy ảnh nội bộ trên trang theo dõi → cho hoàn tác ngay.
+      toast(u.shared_with_customer ? 'Khách đã thấy ảnh này trên trang theo dõi' : 'Đã ẩn ảnh này với khách', 'success',
+        { nhan: 'Hoàn tác', lam: () => void doiChiaSe({ ...m, ...u }) });
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Không đổi được', 'error');
     }
@@ -85,7 +88,7 @@ export default function AnhDuAn({ projectId }: { projectId: string }) {
           <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Ảnh dự án {total > 0 && <span className="normal-case">({total})</span>}
         </h3>
         <input
-          ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+          id="o-them-anh-du-an" ref={fileRef} type="file" accept="image/*" multiple className="hidden"
           onChange={e => { const f = Array.from(e.target.files || []); e.target.value = ''; if (f.length) upload(f); }}
         />
         <button

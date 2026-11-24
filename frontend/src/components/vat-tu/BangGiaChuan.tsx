@@ -4,9 +4,11 @@
 // từng mẫu; Thu mua nạp giá nhập của các NCC làm căn cứ. Cả bảng là giá vốn + tên NCC + mức lời nên
 // server chỉ trả cho Thu mua và Giám đốc.
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type BangGiaChuanVatTu, type GiaChuanVatTu } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
+import InfoTip from '@/components/ui/InfoTip';
 import { ngayThang } from '@/lib/du-lieu-chung';
 import { AnhMau, NHAN_HANG_NCC, NccGoiY, btn, btnGhost, btnGold, inp, loi, tienDu, type Bao } from './chung';
 
@@ -119,6 +121,7 @@ export default function BangGiaChuan({ locDau, bao }: { locDau?: string | null; 
 
 /** Một mẫu: giá nhập theo NCC → giá gợi ý → giá chuẩn + mức lời. Dạng thẻ nên điện thoại xem vừa. */
 function TheMau({ m, coTheSua, onDoi, onTaiLai, bao }: { m: GiaChuanVatTu; coTheSua: boolean; onDoi: (m: GiaChuanVatTu) => void; onTaiLai: () => void; bao: Bao }) {
+  const xacNhan = useXacNhan();
   const giaDangLuu = m.gia_chuan != null ? String(Math.round(m.gia_chuan)) : '';
   const [gia, setGia] = useState(giaDangLuu);
   const [them, setThem] = useState<{ ncc: string; gia: string; ghi_chu: string } | null>(null);
@@ -127,7 +130,7 @@ function TheMau({ m, coTheSua, onDoi, onTaiLai, bao }: { m: GiaChuanVatTu; coThe
   const luuGiaChuan = async () => {
     const so = gia ? Number(gia) : null;
     // Khớp `ghi_doi_gia_chuan` + `chot_gia` ở server: bỏ giá chuẩn đổi ngay giá của dòng khách chưa đồng ý
-    if (so === null && !confirm(`Bỏ giá chuẩn của ${m.ma}?\n\nDòng tạo sau và dòng khách chưa đồng ý giá sẽ tính ngay giá bán = giá vốn × (1 + hệ số nhóm) — chưa chốt giá vốn thì chưa có giá bán.\nDòng khách đã đồng ý giữ giá cho tới khi Thu mua chốt lại giá vốn; lúc đó cũng tính theo hệ số, giá đổi thì khách phải duyệt lại.\nDòng đã đặt hàng không đổi.`)) return;
+    if (so === null && !await xacNhan(`Bỏ giá chuẩn của ${m.ma}?\n\nDòng tạo sau và dòng khách chưa đồng ý giá sẽ tính ngay giá bán = giá vốn × (1 + hệ số nhóm) — chưa chốt giá vốn thì chưa có giá bán.\nDòng khách đã đồng ý giữ giá cho tới khi Thu mua chốt lại giá vốn; lúc đó cũng tính theo hệ số, giá đổi thì khách phải duyệt lại.\nDòng đã đặt hàng không đổi.`)) return;
     setDang(true);
     try {
       onDoi(await api.vatTuDatGiaChuan(m.id, so));
@@ -149,7 +152,7 @@ function TheMau({ m, coTheSua, onDoi, onTaiLai, bao }: { m: GiaChuanVatTu; coThe
     finally { setDang(false); }
   };
   const xoaGiaNhap = async (id: string, ten: string) => {
-    if (!confirm(`Xoá giá nhập của ${ten} cho ${m.ma}? Giá nạp liền trước của NCC này (nếu có) sẽ hiện lại.`)) return;
+    if (!await xacNhan(`Xoá giá nhập của ${ten} cho ${m.ma}? Giá nạp liền trước của NCC này (nếu có) sẽ hiện lại.`)) return;
     try { await api.vatTuXoaGiaNhap(id); bao('ok', 'Đã xoá giá nhập'); onTaiLai(); }
     catch (e) { bao('loi', loi(e, 'Không xoá được giá nhập')); }
   };
@@ -215,7 +218,7 @@ function TheMau({ m, coTheSua, onDoi, onTaiLai, bao }: { m: GiaChuanVatTu; coThe
         </div>
         <div className="flex flex-wrap gap-x-4">
           <span><span className="text-[var(--text-muted)]">Giá gợi ý (+{m.he_so}%)</span> <span className="text-[var(--text-primary)] font-medium">{m.gia_goi_y != null ? tienDu(m.gia_goi_y) : '—'}</span></span>
-          <span><span className="text-[var(--text-muted)]">Mức lời</span>{' '}
+          <span><span className="text-[var(--text-muted)]">Mức lời <InfoTip text="(Giá chuẩn − giá nhập mốc) ÷ giá nhập mốc. Thấp hơn hệ số lãi của nhóm thì hiện đỏ và gắn nhãn «lời dưới hệ số» — nên xét lại giá chuẩn hoặc tìm NCC rẻ hơn." /></span>{' '}
             {m.muc_loi_pct != null ? <span className={`font-medium ${m.duoi_he_so ? 'text-red-300' : 'text-emerald-400'}`}>{m.muc_loi_pct.toLocaleString('vi-VN')}%</span> : '—'}
             <span className="text-[var(--text-muted)]"> / hệ số nhóm {m.he_so}%</span></span>
         </div>

@@ -67,8 +67,10 @@ export default function InfoTip({ text, children, size = 13, className = '' }: {
   };
 
   if (children) {
+    // Bọc nút: bấm là chạy việc của nút → cất ghi chú ngay, kẻo trên cảm ứng nó nằm lại đè lên
+    // màn kế tiếp. Người dùng điện thoại đọc ghi chú qua icon «i» (bản không children).
     return (
-      <span ref={triggerRef} className={`inline-flex ${className}`} {...handlers}>
+      <span ref={triggerRef} className={`inline-flex ${className}`} {...handlers} onClick={hide}>
         {children}
         {bubble}
       </span>

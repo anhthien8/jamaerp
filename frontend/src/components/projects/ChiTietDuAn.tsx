@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import AnhDuAn from '@/components/projects/AnhDuAn';
@@ -58,6 +59,7 @@ export default function ChiTietDuAn({
   duocGiaoViec: (task: ProjectTask) => boolean;
   giaoCaNhom: (viec: ProjectTask[], uid: string) => Promise<void>;
 }) {
+  const xacNhan = useXacNhan();
   /** Ô «Giao cả nhóm» ở tiêu đề nhóm việc: chỉ đụng việc CHƯA có người nhận và
    *  chưa xong (giao đè sẽ thay cả nhóm đảm nhận), chỉ giao việc người được chọn
    *  thuộc đúng bộ phận. Không còn việc nào như vậy thì ẩn. */
@@ -77,12 +79,12 @@ export default function ChiTietDuAn({
           title="Giao tất cả việc chưa có người nhận trong nhóm này cho một người"
           value=""
           disabled={dangGiao}
-          onChange={e => {
+          onChange={async e => {
             if (dangGiao) return;
             const u = ungVien.find(x => x.id === e.target.value);
             if (!u) return;
             const viec = trong.filter(t => canTakeTask(u, taskDeptOf(t)));
-            if (confirm(`Giao ${viec.length} việc chưa có người nhận ở «${nhan}» cho ${u.full_name}?
+            if (await xacNhan(`Giao ${viec.length} việc chưa có người nhận ở «${nhan}» cho ${u.full_name}?
 ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
               setDangGiao(true);
               void giaoCaNhom(viec, u.id).finally(() => setDangGiao(false));
@@ -98,6 +100,31 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
     );
   };
 
+  // Nút «Bắt đầu» / «Xong» thay ô chọn trạng thái chữ 9px (24/11): một chạm, cao ≥ 36px. Việc đã xong
+  // không có nút — cần mở lại thì vào chi tiết việc đổi trạng thái.
+  const [dangDoi, setDangDoi] = useState('');
+  const nutViec = (task: ProjectTask) => {
+    if (task.status === 'done' || task.status === 'completed') return null;
+    const chuaLam = task.status === 'not_started' || task.status === 'todo';
+    return (
+      <button
+        type="button"
+        disabled={dangDoi === task.id}
+        className="shrink-0 min-h-[36px] px-3 rounded-full text-xs font-medium disabled:opacity-50"
+        style={chuaLam ? { border: '1px solid var(--border-default)', color: 'var(--gold-400)' } : { background: 'var(--gold-400)', color: '#000' }}
+        onClick={e => {
+          e.stopPropagation();
+          setDangDoi(task.id);
+          void handleTaskStatusChange(task.id, chuaLam ? 'in_progress' : 'done').finally(() => setDangDoi(''));
+        }}
+      >
+        {chuaLam ? 'Bắt đầu' : 'Xong'}
+      </button>
+    );
+  };
+  const nutNhanh = 'inline-flex items-center gap-1.5 shrink-0 min-h-[40px] px-3.5 rounded-full text-xs font-medium border border-[var(--border-default)] text-[var(--text-primary)] bg-[var(--surface-2)]';
+  const chip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]" onClick={() => setSelectedProject(null)}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -107,7 +134,8 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
+        <div className="sticky top-0 z-10 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
+        <div className="flex items-center justify-between p-5 pb-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-[var(--text-muted)] font-mono">{selectedProject.code}</span>
@@ -146,6 +174,26 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
             <button onClick={() => setSelectedProject(null)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
           </div>
         </div>
+          {/* Hàng nút dính (24/11): bốn việc hay làm nhất ở công trình, cuộn tới đâu cũng một chạm. */}
+          <div className="flex gap-2 px-5 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {selectedProject.client_phone && (
+              <a href={`tel:${selectedProject.client_phone}`} className={nutNhanh}><LineIcon name="phone" size={15} color="currentColor" />Gọi khách</a>
+            )}
+            {selectedProject.address && (
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedProject.address)}`} target="_blank" rel="noopener noreferrer" className={nutNhanh}>
+                <LineIcon name="pin" size={15} color="currentColor" />Chỉ đường
+              </a>
+            )}
+            <button type="button" className={nutNhanh} onClick={() => {
+              const o = document.getElementById('o-them-anh-du-an');
+              o?.click();
+              o?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}>
+              <LineIcon name="camera" size={15} color="currentColor" />Thêm ảnh
+            </button>
+            <Link href={`/vat-tu?project=${selectedProject.id}`} className={nutNhanh}><LineIcon name="package" size={15} color="currentColor" />Vật tư</Link>
+          </div>
+        </div>
 
         <div className="p-5 space-y-5">
           {/* Pause Reason — hiển thị khi dự án tạm dừng */}
@@ -156,25 +204,27 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
             </div>
           )}
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Tóm tắt — một hàng chip (24/11: gộp 4 thẻ tóm tắt + 2 thẻ giá trị hợp đồng) */}
+          <div className="flex flex-wrap gap-1.5">
             {[
-              { label: 'Tiến độ', value: `${selectedProject.progress}%` },
-              { label: 'Tổng giá trị', value: formatCurrency(selectedProject.total_value || (selectedProject.design_value || 0) + (selectedProject.construction_value || 0)) },
-              { label: 'Đã chi', value: formatCurrency(selectedProject.spent) },
-              { label: 'Loại', value: selectedProject.project_type === 'design_build' ? 'TK & Thi công' : selectedProject.project_type === 'design_only' ? 'Chỉ Thiết kế' : 'Chỉ Thi công' },
-            ].map((card, i) => (
-              <div key={i} className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                <p className="text-xs text-[var(--text-muted)]">{card.label}</p>
-                <p className="text-sm font-semibold mt-1 text-[#C9A96E]">{card.value}</p>
-              </div>
+              ['Tiến độ', `${selectedProject.progress}%`],
+              ['Tổng giá trị', formatCurrency(selectedProject.total_value || (selectedProject.design_value || 0) + (selectedProject.construction_value || 0))],
+              ['HĐ thiết kế', formatCurrency(selectedProject.design_value)],
+              ['HĐ thi công', formatCurrency(selectedProject.construction_value)],
+              ['Đã chi', formatCurrency(selectedProject.spent)],
+              ['Loại', selectedProject.project_type === 'design_build' ? 'TK & Thi công' : selectedProject.project_type === 'design_only' ? 'Chỉ Thiết kế' : 'Chỉ Thi công'],
+            ].map(([nhan, giaTri]) => (
+              <span key={nhan} className={chip} style={{ background: 'var(--surface-2)' }}>
+                <span className="text-[var(--text-muted)]">{nhan}</span>
+                <b style={{ color: 'var(--gold-400)' }}>{giaTri}</b>
+              </span>
             ))}
           </div>
 
           {/* Team Assignment — Phân công bộ phận */}
           <div className="glass-card p-4">
             <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3"><LineIcon name="users" size={16} className="inline-block align-[-2px] mr-1.5" />Phân công bộ phận</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {[
                 { label: 'PM / Giám sát', id: selectedProject.pm_id, color: '#8B5CF6', icon: 'clipboard' },
                 { label: 'Thiết kế', id: selectedProject.designer_id, color: '#F59E0B', icon: 'palette' },
@@ -183,11 +233,11 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
               ].map(m => {
                 const userName = m.id ? (users.find(u => u.id === m.id)?.full_name || '—') : '—';
                 return (
-                  <div key={m.label} className="p-2 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                    <p className="mb-1 flex justify-center"><LineIcon name={m.icon} size={20} color={m.color} /></p>
-                    <p className="text-[10px] font-medium text-[var(--text-muted)]">{m.label}</p>
-                    <p className="text-xs font-semibold truncate" style={{ color: m.color }}>{userName}</p>
-                  </div>
+                  <span key={m.label} className={`${chip} min-w-0`} style={{ background: 'var(--surface-2)' }}>
+                    <LineIcon name={m.icon} size={14} color={m.color} className="shrink-0" />
+                    <span className="text-[var(--text-muted)] shrink-0">{m.label}</span>
+                    <b className="truncate" style={{ color: m.color }}>{userName}</b>
+                  </span>
                 );
               })}
             </div>
@@ -225,21 +275,6 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
             </div>
           </div>
 
-          {/* Contract Values */}
-          <div className="glass-card p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Giá trị hợp đồng</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <div className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
-                <p className="text-xs text-[var(--text-muted)]">HĐ Thiết kế</p>
-                <p className="text-sm font-semibold mt-1 text-white">{formatCurrency(selectedProject.design_value)}</p>
-              </div>
-              <div className="p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
-                <p className="text-xs text-[var(--text-muted)]">HĐ Thi công</p>
-                <p className="text-sm font-semibold mt-1 text-white">{formatCurrency(selectedProject.construction_value)}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Ngân sách vs Thực chi — cảnh báo vượt ngân sách sớm */}
           {selectedProject.budget_total ? (() => {
             const budget = selectedProject.budget_total || 0;
@@ -266,13 +301,6 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
 
           {/* Ảnh công trình — Kho ảnh (Telegram «JAMA Công trình») */}
           <AnhDuAn projectId={selectedProject.id} />
-
-          {/* Vật tư (25/10): phiếu khách chọn mẫu → Thu mua hỏi NCC → chốt giá */}
-          <Link href={`/vat-tu?project=${selectedProject.id}`}
-            className="flex items-center justify-between glass-card px-4 py-3 text-sm hover:border-[var(--gold-400)] transition-colors">
-            <span className="flex items-center gap-2 text-[var(--text-primary)]"><LineIcon name="package" size={16} /> Phiếu vật tư của dự án</span>
-            <span className="text-[var(--text-muted)]">Mở →</span>
-          </Link>
 
           {/* Khách đã xác nhận nghiệm thu trên portal (27/10/2026) */}
           {selectedProject.stage_acceptances && Object.keys(selectedProject.stage_acceptances).length > 0 && (
@@ -392,8 +420,9 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
                             onClick={() => openTaskDetail(task)}
                           >
                             <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
-                            <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{task.title}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${ts.color}20`, color: ts.color }}>{ts.label}</span>
+                            <span className="flex-1 min-w-0 text-sm text-[var(--text-primary)] truncate">{task.title}</span>
+                            <span className={cn('shrink-0 text-[10px] px-1.5 py-0.5 rounded', task.status !== 'done' && 'hidden sm:inline')} style={{ background: `${ts.color}20`, color: ts.color }}>{ts.label}</span>
+                            {nutViec(task)}
                           </div>
                         );
                       })}
@@ -421,11 +450,11 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
                           return (
                             <div
                               key={task.id}
-                              className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
+                              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5 bg-white/2"
                               onClick={() => openTaskDetail(task)}
                             >
                               <LineIcon name={ts.icon} size={16} color={ts.color} className="shrink-0" />
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-[45%] sm:min-w-0">
                                 <p className="text-xs font-medium truncate text-white">{task.title}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {dept && (
@@ -438,23 +467,7 @@ ${u.full_name} sẽ nhận ${viec.length} thông báo.`)) {
                                   )}
                                 </div>
                               </div>
-                              {/* Inline status dropdown */}
-                              <select
-                                className="text-[9px] px-1 py-0.5 rounded font-medium bg-transparent border border-white/10 cursor-pointer max-w-[90px]"
-                                style={{ color: ts.color }}
-                                value={task.status}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleTaskStatusChange(task.id, e.target.value);
-                                }}
-                              >
-                                {['not_started', 'in_progress', 'done'].map(s => (
-                                  <option key={s} value={s} style={{ background: 'var(--surface-1)', color: 'var(--text-primary)' }}>
-                                    {taskStatusConfig[s]?.label || s}
-                                  </option>
-                                ))}
-                              </select>
+                              {nutViec(task)}
                               {/* Nhãn trễ hạn / vượt SLA (13/10/2026) */}
                               {(() => {
                                 const nhan = nhanTreHan(task);

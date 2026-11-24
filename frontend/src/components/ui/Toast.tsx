@@ -7,10 +7,12 @@ interface Toast {
   id: number;
   message: string;
   type: 'success' | 'info' | 'warning' | 'error';
+  /** Nút kèm theo, vd «Hoàn tác» cho thao tác 1 chạm. Bấm là chạy `lam` rồi cất toast. */
+  hanhDong?: { nhan: string; lam: () => void };
 }
 
 interface ToastContextType {
-  toast: (message: string, type?: Toast['type']) => void;
+  toast: (message: string, type?: Toast['type'], hanhDong?: Toast['hanhDong']) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({
@@ -26,11 +28,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const toast = useCallback((message: string, type: Toast['type'] = 'info') => {
+  const toast = useCallback((message: string, type: Toast['type'] = 'info', hanhDong?: Toast['hanhDong']) => {
     const id = nextId++;
-    setToasts(prev => [...prev, { id, message, type }]);
-    // Error toasts stay longer (4s) for readability
-    const duration = type === 'error' ? 4000 : 3000;
+    setToasts(prev => [...prev, { id, message, type, hanhDong }]);
+    // Error toasts stay longer (4s) for readability; có nút Hoàn tác thì 6s cho kịp bấm
+    const duration = hanhDong ? 6000 : type === 'error' ? 4000 : 3000;
     setTimeout(() => dismiss(id), duration);
   }, [dismiss]);
 
@@ -54,7 +56,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
       {/* Toast container — accessible live region */}
       <div
-        className="fixed top-4 right-4 z-[9999] space-y-2"
+        className="fixed top-4 right-4 left-4 sm:left-auto z-[9999] space-y-2"
         role="status"
         aria-live="polite"
         aria-atomic="false"
@@ -72,6 +74,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <LineIcon name={icons[t.type]} size={16} color="currentColor" />
             <span className="flex-1">{t.message}</span>
+            {t.hanhDong && (
+              <button
+                onClick={() => { t.hanhDong?.lam(); dismiss(t.id); }}
+                className="ml-1 px-3 min-h-[32px] rounded-lg text-xs font-bold underline underline-offset-2"
+                style={{ color: colors[t.type] }}
+              >
+                {t.hanhDong.nhan}
+              </button>
+            )}
             {/* Dismiss button */}
             <button
               onClick={() => dismiss(t.id)}

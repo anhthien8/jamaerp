@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
@@ -87,6 +88,7 @@ function AccessDenied() {
 }
 
 export default function ContractsPage() {
+  const xacNhan = useXacNhan();
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -132,6 +134,8 @@ export default function ContractsPage() {
 
   const [timKiem, setTimKiem] = useState('');
   const [tongSo, setTongSo] = useState(0);
+  const [phuLuc, setPhuLuc] = useState<{ goc: Contract; title: string; value: string; giam: boolean } | null>(null);
+  const [luuPhuLuc, setLuuPhuLuc] = useState(false);
 
   const load = useCallback(async (search = '') => {
     try {
@@ -257,16 +261,20 @@ export default function ContractsPage() {
     } catch (e) { toast(e instanceof Error ? e.message : 'Lưu lịch thu thất bại', 'error'); } finally { setLuuLich(false); }
   };
 
-  const themPhuLuc = async (goc: Contract) => {
-    const title = window.prompt('Nội dung phụ lục (VD: Phát sinh ốp đá phòng khách)');
-    if (!title || title.trim().length < 3) return;
-    const so = Number((window.prompt('Giá trị (đồng). Giảm trừ thì ghi số âm, VD -5000000') || '').replace(/[^\d-]/g, ''));
+  // Phụ lục: trước 24/11 nhập bằng 2 hộp prompt, giá trị gõ theo ĐỒNG trong khi mọi ô tiền khác
+  // theo NGHÌN đồng → dễ lệch 1000 lần. Giờ là form nhỏ dùng chung MoneyInput, có dòng soát số.
+  const themPhuLuc = async () => {
+    if (!phuLuc || luuPhuLuc) return;
+    const so = Number(phuLuc.value) || 0;
+    if (phuLuc.title.trim().length < 3) { toast('Nội dung phụ lục cần ít nhất 3 ký tự', 'error'); return; }
     if (!so) { toast('Chưa nhập giá trị phụ lục', 'error'); return; }
+    setLuuPhuLuc(true);
     try {
-      const pl = await api.taoPhuLuc(goc.id, { title: title.trim(), total_value: so });
+      const pl = await api.taoPhuLuc(phuLuc.goc.id, { title: phuLuc.title.trim(), total_value: phuLuc.giam ? -so : so });
       setContracts(prev => [pl, ...prev]);
+      setPhuLuc(null);
       toast(`Đã tạo phụ lục ${pl.code} — giá trị dự án đã cập nhật`, 'success');
-    } catch (e) { toast(e instanceof Error ? e.message : 'Tạo phụ lục thất bại', 'error'); }
+    } catch (e) { toast(e instanceof Error ? e.message : 'Tạo phụ lục thất bại', 'error'); } finally { setLuuPhuLuc(false); }
   };
 
   const openPaymentModal = (contractId: string, idx: number) => {
@@ -282,7 +290,8 @@ export default function ContractsPage() {
   const openCreateForm = () => {
     setFormEdit(null);
     setFormError('');
-    setForm({ title: '', contract_kind: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: '', notes: '' });
+    // Ngày ký mặc định hôm nay — đa số hợp đồng được nhập đúng ngày ký.
+    setForm({ title: '', contract_kind: '', project_id: '', total_value: '', working_days: '', start_date: '', signed_date: new Date().toLocaleDateString('sv-SE'), notes: '' });
     setFormOpen(true);
   };
 
@@ -596,7 +605,7 @@ export default function ContractsPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">Tiến độ thanh toán</h3>
                 {permissions.canCreateContracts && !selected.parent_contract_id && selected.status !== 'cancelled' && (
-                  <button onClick={() => themPhuLuc(selected)} className="text-xs px-3 py-1.5 rounded-full ml-auto mr-2"
+                  <button onClick={() => setPhuLuc({ goc: selected, title: '', value: '', giam: false })} className="text-xs px-3 py-1.5 rounded-full ml-auto mr-2"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                     + Phụ lục
                   </button>
@@ -714,7 +723,7 @@ export default function ContractsPage() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (!confirm('Bỏ «đã thu» đợt này? Giao dịch thu và hoa hồng chưa trả của đợt sẽ được gỡ.')) return;
+                              if (!await xacNhan('Bỏ «đã thu» đợt này? Giao dịch thu và hoa hồng chưa trả của đợt sẽ được gỡ.')) return;
                               try {
                                 const updated = await api.boDaThu(selected.id, idx);
                                 setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -776,6 +785,59 @@ export default function ContractsPage() {
                     <img src={instDetail.proof_image} alt="Sao kê" className="w-full rounded-lg" />
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form phụ lục hợp đồng */}
+        {phuLuc && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center pt-[8vh] px-4" onClick={() => !luuPhuLuc && setPhuLuc(null)}>
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="relative w-full max-w-md rounded-2xl p-4 sm:p-6 space-y-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">Thêm phụ lục</h3>
+                <p className="text-xs text-[var(--text-muted)]">{phuLuc.goc.code} — {phuLuc.goc.title}</p>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Nội dung</label>
+                <input
+                  autoFocus
+                  value={phuLuc.title}
+                  onChange={e => setPhuLuc(p => p && ({ ...p, title: e.target.value }))}
+                  placeholder="VD: Phát sinh ốp đá phòng khách"
+                  className="w-full px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {([[false, 'Phát sinh tăng'], [true, 'Giảm trừ']] as const).map(([giam, nhan]) => (
+                  <button key={nhan} type="button" onClick={() => setPhuLuc(p => p && ({ ...p, giam }))}
+                    className="py-2 rounded-full text-sm font-medium min-h-[40px]"
+                    style={phuLuc.giam === giam
+                      ? { background: 'var(--gold-500)', color: '#000' }
+                      : { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                    {nhan}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label className="text-xs text-[var(--text-muted)] mb-1 block">Giá trị {phuLuc.giam ? 'giảm trừ' : 'phát sinh'} (nghìn đồng)</label>
+                <MoneyInput
+                  valueDong={phuLuc.value}
+                  onChangeDong={v => setPhuLuc(p => p && ({ ...p, value: v }))}
+                  placeholder="VD: 5000 = 5 triệu"
+                  className="w-full px-3 py-2 rounded-xl text-sm pr-24"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setPhuLuc(null)} disabled={luuPhuLuc} className="flex-1 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Hủy</button>
+                <button onClick={themPhuLuc} disabled={luuPhuLuc || !Number(phuLuc.value) || phuLuc.title.trim().length < 3}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', color: 'white' }}>
+                  {luuPhuLuc ? 'Đang tạo...' : 'Tạo phụ lục'}
+                </button>
               </div>
             </div>
           </div>
@@ -866,7 +928,7 @@ export default function ContractsPage() {
 
         {/* Create / Edit contract modal */}
         {formOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center pt-[6vh] px-4" onClick={() => setFormOpen(false)}>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center pt-[6vh] px-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative w-full max-w-lg mx-4 rounded-2xl p-4 sm:p-6 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }} onClick={e => e.stopPropagation()}>
               <button onClick={() => setFormOpen(false)} className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/5">
@@ -912,7 +974,20 @@ export default function ContractsPage() {
                   <label className="text-xs text-[var(--text-muted)] mb-1 block">Dự án</label>
                   <select
                     value={form.project_id}
-                    onChange={e => setForm(p => ({ ...p, project_id: e.target.value }))}
+                    onChange={e => {
+                      const da = projects.find(x => x.id === e.target.value);
+                      // Chọn dự án thì điền luôn tiêu đề và giá trị nếu hai ô còn trống (không đè số đã gõ).
+                      setForm(p => {
+                        const giaTri = p.contract_kind === 'thiet_ke' ? da?.design_value : p.contract_kind === 'thi_cong' ? da?.construction_value : da?.total_value;
+                        const loai = p.contract_kind === 'thiet_ke' ? 'Thiết kế ' : p.contract_kind === 'thi_cong' ? 'Thi công ' : '';
+                        return {
+                          ...p,
+                          project_id: e.target.value,
+                          title: p.title.trim() || !da ? p.title : `HĐ ${loai}${da.name}`,
+                          total_value: p.total_value || !giaTri ? p.total_value : String(giaTri),
+                        };
+                      });
+                    }}
                     className="w-full px-3 py-2 rounded-xl text-sm"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                   >

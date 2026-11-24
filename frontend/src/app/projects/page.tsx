@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import dynamic from 'next/dynamic';
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +25,7 @@ const FormDuAn = dynamic(() => import('@/components/projects/FormDuAn'), { ssr: 
 
 
 function ProjectsPageInner() {
+  const xacNhan = useXacNhan();
   const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -284,7 +286,9 @@ function ProjectsPageInner() {
     try {
       const updated = await api.updateTaskStatus(taskId, newStatus);
       setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
-      setSelectedTask(updated);
+      // Chỉ cập nhật cửa sổ chi tiết nếu nó ĐANG mở đúng việc này. Trước 24/11 gán thẳng →
+      // đổi trạng thái ngay trên dòng là bật cửa sổ chi tiết lên, phải bấm đóng thêm lần nữa.
+      setSelectedTask(prev => (prev && prev.id === taskId ? updated : prev));
 
       // Refresh project progress
       if (selectedProject) {
@@ -469,7 +473,7 @@ function ProjectsPageInner() {
     } catch (e) {
       // Còn việc mở → hỏi «vẫn hoàn thành?» (audit 27/10)
       if (e instanceof ApiError && e.status === 409 && e.data?.code === 'con_viec_mo') {
-        if (!confirm(`${e.message}
+        if (!await xacNhan(`${e.message}
 
 Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa hồng)`)) return;
         try { await doi(true); } catch (e2) { toast(e2 instanceof Error ? e2.message : 'Lỗi khi cập nhật giai đoạn', 'error'); }
@@ -536,6 +540,15 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
     }
     setShowProjectForm(true);
   };
+
+  // `?new=1` từ nút «+» tạo nhanh: mở sẵn form Tạo dự án rồi gỡ tham số (bấm lại lần sau vẫn mở được).
+  const urlTaoMoi = searchParams.get('new') === '1';
+  useEffect(() => {
+    if (!urlTaoMoi || loadingProjects || !effectivePermissions.canCreateProjects) return;
+    router.replace('/projects', { scroll: false });
+    void Promise.resolve().then(() => openProjectForm());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlTaoMoi, loadingProjects]);
 
   const handleSaveProject = async () => {
     if (!projectForm.name.trim() || !projectForm.client_name.trim()) {
@@ -871,7 +884,7 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
                       <div className="mb-3">
                         <div className="flex justify-between text-xs mb-1">
                           <span className="text-[var(--text-muted)]">Tiến độ</span>
-                          <span className="font-semibold text-[#C9A96E]">{project.progress}%</span>
+                          <span className="font-semibold text-[var(--gold-500)]">{project.progress}%</span>
                         </div>
                         <div className="h-1.5 rounded-full bg-white/5">
                           <div className="h-full rounded-full transition-all" style={{
@@ -1015,7 +1028,7 @@ Vẫn đánh dấu hoàn thành? (sẽ nghiệm thu HĐ thi công + tính hoa h�
       {permissions?.canCreateProjects && !selectedProject && (
         <button
           onClick={() => openProjectForm()}
-          className="fixed bottom-20 right-6 z-40 lg:hidden flex items-center gap-2 px-5 py-3.5 rounded-full font-bold text-white shadow-2xl transition-transform active:scale-95 hover:scale-105"
+          className="fixed bottom-20 right-20 z-40 lg:hidden flex items-center gap-2 px-5 py-3.5 rounded-full font-bold text-white shadow-2xl transition-transform active:scale-95 hover:scale-105"
           style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))', boxShadow: '0 8px 24px rgba(201,169,110,0.4)' }}
           aria-label="Tạo dự án mới"
         >

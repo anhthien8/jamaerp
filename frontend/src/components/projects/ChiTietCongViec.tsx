@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { mediaUrl } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -55,6 +56,8 @@ export default function ChiTietCongViec({
   loadingActivities: boolean;
   taskActivities: TaskActivity[];
 }) {
+  // Khoá «Đăng cập nhật» khi đang gửi — bấm đúp trên 4G chậm từng đăng lặp ghi chú + ảnh.
+  const [dangDang, setDangDang] = useState(false);
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-[8vh]" onClick={() => setSelectedTask(null)}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
@@ -78,7 +81,7 @@ export default function ChiTietCongViec({
                 <select
                   value={selectedTask.status}
                   onChange={e => handleTaskStatusChange(selectedTask.id, e.target.value)}
-                  className="text-[10px] bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded px-1 text-[var(--text-primary)] cursor-pointer"
+                  className="text-xs min-h-[36px] bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded-lg px-2 text-[var(--text-primary)] cursor-pointer"
                 >
                   {/* Giá trị phải là `not_started` — backend không có trạng thái
                       «todo», chọn sai thì ô này hiện lệch với trạng thái thật. */}
@@ -257,7 +260,7 @@ export default function ChiTietCongViec({
                   >
                     <LineIcon name="camera" size={16} className="inline-block align-[-2px] mr-1.5" />Đính kèm ảnh
                     {newActivityMedia.length > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-[#C9A96E] text-black">
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-[var(--gold-500)] text-black">
                         {newActivityMedia.length}
                       </span>
                     )}
@@ -289,11 +292,11 @@ export default function ChiTietCongViec({
                   </div>
                 )}
                 <button
-                  onClick={handleAddTaskActivity}
-                  disabled={!newActivityContent.trim() && newActivityMedia.length === 0}
-                  className="text-xs px-3 py-1.5 rounded-xl font-medium bg-white text-black hover:opacity-90 disabled:opacity-50"
+                  onClick={() => { setDangDang(true); void handleAddTaskActivity().finally(() => setDangDang(false)); }}
+                  disabled={dangDang || (!newActivityContent.trim() && newActivityMedia.length === 0)}
+                  className="text-xs px-4 min-h-[36px] rounded-xl font-medium bg-white text-black hover:opacity-90 disabled:opacity-50"
                 >
-                  Đăng cập nhật
+                  {dangDang ? 'Đang đăng…' : 'Đăng cập nhật'}
                 </button>
               </div>
             </div>

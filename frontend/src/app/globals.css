@@ -225,6 +225,12 @@
 
 /* Chữ trắng cứng trong component → lật sang than ấm khi ngoài trời */
 [data-theme='outdoor'] .text-white { color: #1C1A15 !important; }
+/* …trừ chữ nằm trên nền ĐẬM: nút tô nền bằng biến vàng (ở theme này là đồng đậm) hoặc xanh/đỏ đặc. Luật trên biến chữ
+   trắng thành chữ than → nút chính đọc không ra (24/11/2026). Chỉ bắt nền viết trong style, không bắt viền/chữ. */
+[data-theme='outdoor'] .text-white:is(
+  [style*="background: linear-gradient(135deg, var(--gold-"], [style*="background: var(--gold-"],
+  .bg-amber-600, .bg-emerald-600, .bg-emerald-500, .bg-red-600, .bg-red-500, .bg-blue-600
+) { color: #FFFFFF !important; }
 [data-theme='outdoor'] .bg-white\/5 { background: rgba(74, 62, 40, 0.05) !important; }
 [data-theme='outdoor'] .bg-white\/2 { background: rgba(74, 62, 40, 0.03) !important; }
 [data-theme='outdoor'] .border-white\/10 { border-color: rgba(74, 62, 40, 0.15) !important; }
@@ -306,6 +312,9 @@
     min-height: 100vh;
     line-height: 1.6;
   }
+  /* Khoá cuộn nền khi đang mở một cửa sổ đè toàn màn hình (24/11/2026). App có ~48 cửa sổ tự dựng
+     `fixed inset-0 z-50|60|70|80|100` — một luật ở đây thay cho việc sửa từng cái. */
+  body:has(div.fixed.inset-0:is(.z-50, .z-\[60\], .z-\[70\], .z-\[80\], .z-\[100\])) { overflow: hidden; }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -633,26 +642,26 @@ select optgroup {
 }
 
 /* === Phong cách BloFin (23/10/2026) — áp cho class Tailwind viết thẳng trong trang ===
-   Nút vàng đặc ở các trang không dùng .btn-primary mà viết bg-[#C9A96E] hoặc gradient
-   from-[#C9A96E]. [class~=…] chỉ khớp ĐÚNG token đó (không dính biến thể /15, /20 nền mờ).
+   Nút vàng đặc ở các trang không dùng .btn-primary mà viết bg-[var(--gold-500)] hoặc gradient
+   from-[var(--gold-500)] (trước 24/11/2026 là bg-[#C9A96E] / from-[#C9A96E]). [class~=…] chỉ khớp ĐÚNG token đó (không dính biến thể /15, /20 nền mờ).
    Ngoài @layer để thắng rounded-xl/text-white của Tailwind. */
-button[class~="bg-[#C9A96E]"],
-a[class~="bg-[#C9A96E]"],
+button[class~="bg-[var(--gold-500)]"],
+a[class~="bg-[var(--gold-500)]"],
 button[class~="bg-gold-500"],
 a[class~="bg-gold-500"],
-button[class~="from-[#C9A96E]"],
-a[class~="from-[#C9A96E]"] {
+button[class~="from-[var(--gold-500)]"],
+a[class~="from-[var(--gold-500)]"] {
   border-radius: 9999px;
   background: #C9A96E;
   color: #0B0D11;
   box-shadow: none;
 }
-button[class~="bg-[#C9A96E]"]:hover:not(:disabled),
-a[class~="bg-[#C9A96E]"]:hover,
+button[class~="bg-[var(--gold-500)]"]:hover:not(:disabled),
+a[class~="bg-[var(--gold-500)]"]:hover,
 button[class~="bg-gold-500"]:hover:not(:disabled),
 a[class~="bg-gold-500"]:hover,
-button[class~="from-[#C9A96E]"]:hover:not(:disabled),
-a[class~="from-[#C9A96E]"]:hover {
+button[class~="from-[var(--gold-500)]"]:hover:not(:disabled),
+a[class~="from-[var(--gold-500)]"]:hover {
   filter: brightness(1.08);
 }
 

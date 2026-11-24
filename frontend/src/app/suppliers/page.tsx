@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, ApiError, type HangNcc, type Supplier, type SupplierBody, type SupplierQuote, type PriceComparison } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -34,6 +35,7 @@ const HANG_MAU: Record<HangNcc, { background: string; color: string }> = {
   thu: { background: 'var(--warning-bg)', color: 'var(--warning)' },
 };
 
+const BAO_GIA_TRONG = { material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' };
 const FORM_TRONG = { name: '', ma_so_thue: '', ten_cong_ty: '', contact_name: '', phone: '', zalo: '', email: '', address: '', region: '', category: 'general', hang: '' as HangNcc | '', notes: '', chiet_khau_pct: 0 };
 // Các ô chữ của form NCC. `max` = độ dài cột trong DB — chặn ngay ở ô nhập, khỏi để máy chủ báo lỗi.
 const O_CHU: { key: 'name' | 'ten_cong_ty' | 'contact_name' | 'phone' | 'zalo' | 'email' | 'address' | 'region'; label: string; max: number; rong?: boolean; goiY?: string }[] = [
@@ -57,6 +59,7 @@ function NhanNgung() {
 }
 
 export default function SuppliersPage() {
+  const xacNhan = useXacNhan();
   // Backend chỉ cho admin + supervisor (mua hàng) thêm/sửa NCC (require_supplier_write).
   // Kế toán vẫn vào được trang này để tra giá, nên trước 12/08/2026 họ thấy nút "Thêm nhà
   // cung cấp" rồi nhập cả bảng xong mới ăn 403. Ẩn nút cho đúng quyền thật.
@@ -95,7 +98,7 @@ export default function SuppliersPage() {
   // `trung` = NCC đang có mà máy chủ báo trùng tên / mã số thuế (409).
   const [formLoi, setFormLoi] = useState<{ message: string; trung?: { id: string; ten: string; dangDung: boolean } } | null>(null);
   const [traMst, setTraMst] = useState('');
-  const [quoteForm, setQuoteForm] = useState({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
+  const [quoteForm, setQuoteForm] = useState(BAO_GIA_TRONG);
   // Gộp NCC trùng: `nguon` bị xoá, `dichId` = NCC giữ lại
   const [gop, setGop] = useState<{ nguon: Supplier; dichId: string; tim: string; loi?: string } | null>(null);
   // Gộp hai tên KHÁC cách viết: tên cũ còn nằm ở Google Sheet / tệp báo giá thì lần nhập sau tạo lại NCC vừa gộp.
@@ -246,7 +249,7 @@ export default function SuppliersPage() {
   const handleGop = async () => {
     if (!gop || !dichGop || saving) return;
     const a = gop.nguon.name, b = dichGop.name;
-    if (!window.confirm(`Gộp «${a}» vào «${b}»?\n\n«${a}» sẽ bị xoá hẳn; mọi phiếu vật tư, mẫu vật tư, báo giá và giá nhập của nó chuyển sang «${b}».\n\nKhông hoàn tác được.`)) return;
+    if (!await xacNhan(`Gộp «${a}» vào «${b}»?\n\n«${a}» sẽ bị xoá hẳn; mọi phiếu vật tư, mẫu vật tư, báo giá và giá nhập của nó chuyển sang «${b}».\n\nKhông hoàn tác được.`)) return;
     setSaving(true);
     try {
       const r = await api.gopSupplier(gop.nguon.id, dichGop.id);
@@ -274,7 +277,7 @@ export default function SuppliersPage() {
       // Không gửi valid_from: bảng supplier_quotes không có cột này, backend tự đặt quote_date.
       await api.addSupplierQuote(selected.id, quoteForm);
       setShowQuoteModal(false);
-      setQuoteForm({ material_name: '', material_category: 'general', unit: 'cái', unit_price: 0, min_quantity: 1, lead_time_days: 3, notes: '' });
+      setQuoteForm(BAO_GIA_TRONG);
       setError(null);
       loadQuotes(selected.id);
     } catch (e) {
@@ -283,11 +286,14 @@ export default function SuppliersPage() {
     setSaving(false);
   };
 
-  const handleCompare = async () => {
-    if (!compareMaterial.trim() || comparing) return;
+  // `ten`: bấm «So sánh» ngay trên một dòng báo giá — khỏi gõ lại tên vật tư vào ô so sánh.
+  const handleCompare = async (ten?: string) => {
+    const vatTu = (ten ?? compareMaterial).trim();
+    if (!vatTu || comparing) return;
+    if (ten) setCompareMaterial(ten);
     setComparing(true);
     try {
-      const data = await api.comparePrices(compareMaterial);
+      const data = await api.comparePrices(vatTu);
       setCompareData(data);
       setShowCompare(true);
       setError(null);
@@ -403,7 +409,7 @@ export default function SuppliersPage() {
             style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
           />
           <button
-            onClick={handleCompare}
+            onClick={() => handleCompare()}
             disabled={comparing}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
             style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)', border: '1px solid rgba(201,169,110,0.3)' }}
@@ -452,10 +458,25 @@ export default function SuppliersPage() {
                         <NhanHang hang={s.hang} />
                         {!s.is_active && <NhanNgung />}
                       </div>
-                      {s.contact_name && (
+                      {(s.contact_name || s.phone) && (
                         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          {s.contact_name}{s.phone ? ` · ${s.phone}` : ''}
+                          {[s.contact_name, s.phone].filter(Boolean).join(' · ')}
                         </p>
+                      )}
+                    </div>
+                    {/* Gọi / Zalo một chạm ngay trên dòng — không phải mở thẻ NCC rồi mới bấm số */}
+                    <div className="flex items-center gap-1.5 shrink-0 mx-2" onClick={e => e.stopPropagation()}>
+                      {s.phone && (
+                        <a href={`tel:${s.phone.replace(/[^\d+]/g, '')}`} aria-label={`Gọi ${s.name}`} title="Gọi"
+                          className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', color: 'var(--gold-400)' }}>
+                          <LineIcon name="phone" size={16} color="currentColor" />
+                        </a>
+                      )}
+                      {(soZalo(s.zalo) || soZalo(s.phone)) && (
+                        <a href={`https://zalo.me/${soZalo(s.zalo) || soZalo(s.phone)}`} target="_blank" rel="noopener noreferrer" aria-label={`Nhắn Zalo ${s.name}`} title="Zalo"
+                          className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', color: 'var(--gold-400)' }}>
+                          <LineIcon name="message" size={16} color="currentColor" />
+                        </a>
                       )}
                     </div>
                     {s.quote_count != null && s.quote_count > 0 && (
@@ -496,7 +517,7 @@ export default function SuppliersPage() {
                           <LineIcon name="edit" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />Sửa
                         </button>
                         <button
-                          onClick={() => setShowQuoteModal(true)}
+                          onClick={() => { setQuoteForm(BAO_GIA_TRONG); setShowQuoteModal(true); }}
                           className="px-3 py-2 rounded-lg text-xs font-semibold"
                           style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}
                         >
@@ -625,6 +646,23 @@ export default function SuppliersPage() {
                               Báo giá {new Date(q.quote_date).toLocaleDateString('vi-VN')}
                             </p>
                           )}
+                          <div className="flex gap-1.5 justify-end mt-1.5">
+                            <button type="button" disabled={comparing} onClick={() => handleCompare(q.material_name)}
+                              className="px-2.5 min-h-[32px] rounded-lg text-[11px] font-medium disabled:opacity-50" style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>
+                              So sánh
+                            </button>
+                            {(canEditSuppliers || laAdmin) && (
+                              <button type="button"
+                                onClick={() => {
+                                  // Mở form báo giá điền sẵn mọi thứ của dòng này — chỉ còn sửa con số giá. Lưu = thêm một dòng báo giá mới (giữ lịch sử).
+                                  setQuoteForm({ material_name: q.material_name, material_category: q.material_category || 'general', unit: q.unit, unit_price: q.unit_price, min_quantity: q.min_quantity ?? 1, lead_time_days: q.lead_time_days ?? 3, notes: '' });
+                                  setShowQuoteModal(true);
+                                }}
+                                className="px-2.5 min-h-[32px] rounded-lg text-[11px] font-semibold" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}>
+                                Cập nhật giá
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

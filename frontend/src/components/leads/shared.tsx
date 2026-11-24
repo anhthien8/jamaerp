@@ -1,4 +1,4 @@
-import { TAG_COLORS } from '@/lib/utils';
+import { TAG_COLORS, mauNhat } from '@/lib/utils';
 import type { Lead } from '@/lib/api';
 
 // Hằng số & helper hiển thị dùng chung giữa trang Lead và các khối tách ra.
@@ -59,7 +59,7 @@ export function TagBadge({ tag }: { tag: string }) {
   return (
     <span
       className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-      style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}
+      style={{ background: mauNhat(color, 13), color, border: `1px solid ${mauNhat(color, 19)}` }}
     >
       {tag}
     </span>

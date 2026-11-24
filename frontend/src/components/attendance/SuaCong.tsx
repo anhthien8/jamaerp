@@ -2,6 +2,7 @@
 
 // Sửa ca quên chấm của nhân viên (quản lý team / BGĐ / Kế toán) + lịch nghỉ lễ được tính công (27/10/2026)
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useCallback, useEffect, useState } from 'react';
 import { api, AttendanceRecord } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
@@ -25,6 +26,7 @@ function isoVN(ngay: string, gio: string): string | undefined {
 export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
   userId: string; ten: string; period: string; onClose: () => void; onSaved: () => void;
 }) {
+  const hoiLai = useXacNhan();
   const { toast } = useToast();
   const [ds, setDs] = useState<AttendanceRecord[]>([]);
   const [sua, setSua] = useState<{ id: string; ngay: string; vao: string; ra: string; note: string } | null>(null);
@@ -53,7 +55,7 @@ export function SuaCongNhanVien({ userId, ten, period, onClose, onSaved }: {
   const choXacNhan = userId === user?.id ? [] : ds.filter(tuDong);
   const xacNhan = async (list: AttendanceRecord[]) => {
     if (luu || list.length === 0) return;
-    if (list.length > 1 && !confirm(`Xác nhận giữ nguyên giờ công của ${list.length} ca tự đóng của ${ten}?\n` +
+    if (list.length > 1 && !await hoiLai(`Xác nhận giữ nguyên giờ công của ${list.length} ca tự đóng của ${ten}?\n` +
       list.map(r => `- ${new Date(r.work_date).toLocaleDateString('vi-VN')}: vào ${gioVN(r.check_in) || '—'} · ${r.work_hours}h`).join('\n'))) return;
     setLuu(true);
     let xong = 0;

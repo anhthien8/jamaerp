@@ -9,6 +9,8 @@ import { api, PnLProject, ReceivableContract, ReceivableInstallment } from '@/li
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPermissions, canConfirmPayment, UserRole } from '@/lib/roles';
 import LineIcon from '@/components/ui/LineIcon';
+import { useXacNhan } from '@/components/ui/XacNhan';
+import InfoTip from '@/components/ui/InfoTip';
 import { useToast } from '@/components/ui/Toast';
 
 // ── Types ──────────────────────────────────────────────────
@@ -120,6 +122,7 @@ function PLSkeleton() {
 
 // ── Main Page ──────────────────────────────────────────────
 export default function PLPage() {
+  const xacNhan = useXacNhan();
   const { user, loading } = useAuth();
   const router = useRouter();
   const [allProjects, setAllProjects] = useState<ProjectPL[]>([]);
@@ -164,8 +167,8 @@ export default function PLPage() {
       await navigator.clipboard.writeText(tin);
       toast('Đã chép tin nhắc thu', 'success');
     } catch {
-      // iOS Safari/webview có thể chặn clipboard — cho người dùng tự chép
-      window.prompt('Chép tin nhắc thu:', tin);
+      // iOS Safari/webview có thể chặn clipboard — hiện tin trong hộp của app để người dùng nhấn giữ rồi tự chép
+      void xacNhan(tin, { tieuDe: 'Nhấn giữ để chép tin nhắc thu', nut: 'Xong' });
     }
   };
 
@@ -541,7 +544,7 @@ export default function PLPage() {
               <div className="glass-card p-4 md:p-5 border-l-2" style={{ borderLeftColor: summary.margin >= 50 ? '#10B981' : summary.margin >= 20 ? '#F59E0B' : '#EF4444' }}>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] md:text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Biên lợi nhuận</p>
+                    <p className="text-[10px] md:text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Biên lợi nhuận <InfoTip text="Lợi nhuận chia cho doanh thu, tính bằng %. Ví dụ thu 100 triệu, chi 80 triệu → lời 20 triệu → biên 20%. Biên thấp hoặc âm là dự án đang ăn vào tiền lời." /></p>
                     <p
                       className="text-lg md:text-2xl font-bold"
                       style={{ color: summary.margin >= 50 ? '#10B981' : summary.margin >= 20 ? '#F59E0B' : '#EF4444' }}
@@ -762,7 +765,7 @@ export default function PLPage() {
                           {formatCurrency(sortedProjects.reduce((s, p) => s + p.profit, 0))}
                         </td>
                         <td className="p-3 text-right">
-                          <span className="text-xs font-bold px-2 py-1 rounded-lg bg-[#C9A96E]/15 text-[#C9A96E]">
+                          <span className="text-xs font-bold px-2 py-1 rounded-lg bg-[var(--gold-500)]/15 text-[var(--gold-500)]">
                             {(() => {
                               const totalRev = sortedProjects.reduce((s, p) => s + p.revenue, 0);
                               const totalCost = sortedProjects.reduce((s, p) => s + p.costs, 0);
@@ -784,7 +787,7 @@ export default function PLPage() {
                   Không có dự án trong khoảng thời gian đã chọn
                 </div>
               ) : sortedProjects.map((p, idx) => (
-                <div key={p.project_id} className="glass-card p-4">
+                <div key={p.project_id} className="glass-card p-4 cursor-pointer" onClick={() => setDetailProject(p)}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-2">
@@ -851,7 +854,7 @@ export default function PLPage() {
                     </div>
                     <div>
                       <p className="text-[10px] text-[var(--text-muted)] uppercase">Biên LN</p>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#C9A96E]/15 text-[#C9A96E]">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-[var(--gold-500)]/15 text-[var(--gold-500)]">
                         {(() => {
                           const r = sortedProjects.reduce((s, p) => s + p.revenue, 0);
                           const c = sortedProjects.reduce((s, p) => s + p.costs, 0);
@@ -927,7 +930,7 @@ export default function PLPage() {
             )}
 
             <button
-              onClick={() => { setDetailProject(null); router.push('/projects'); }}
+              onClick={() => { const id = detailProject?.project_id; setDetailProject(null); router.push(id ? `/projects?id=${id}` : '/projects'); }}
               className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-white"
               style={{ background: 'var(--gold-500)' }}
             >

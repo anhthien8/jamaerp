@@ -5,7 +5,7 @@
 // và hàng đã đặt chờ Giám sát ra công trình xác nhận.
 // 24/11: BGĐ không được giao đầu việc nên trang từng trống → thêm khối «Việc cần Ban Giám đốc quyết» ở đầu.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
@@ -13,9 +13,11 @@ import { useToast } from '@/components/ui/Toast';
 import { api, ApprovalItem, DongVatTu, ViecBgd, ViecCuaToi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import ViecCanBgdQuyet from '@/components/viec/ViecCanBgdQuyet';
+import { nenAnh } from '@/lib/anh';
 
 type Nhom = 'qua_han' | 'hom_nay' | 'sap_toi' | 'khong_han';
-type Loc = 'hom_nay' | 'qua_han' | 'cho_duyet' | 'dang_mo';
+const LOC = ['hom_nay', 'qua_han', 'cho_duyet', 'dang_mo'] as const;
+type Loc = typeof LOC[number];
 
 function ngay(s: string) { return new Date(s.endsWith('Z') || s.includes('+') ? s : s + 'Z'); }
 function nhom(han: string | null): Nhom {
@@ -41,8 +43,21 @@ export default function ViecCuaToiPage() {
   const [vtNhan, setVtNhan] = useState<DongVatTu[]>([]);
   const [loc, setLoc] = useState<Loc>('dang_mo');
 
+  // Lần tải đầu chọn tab: theo `?loc=` trên link (Tổng quan dẫn sang), không có thì mở sẵn
+  // «Đang chờ duyệt» khi có đơn — người duyệt vào trang là thấy việc đang chặn người khác.
+  const daChonTab = useRef(false);
+
   const tai = useCallback(async () => {
     const [viec, pd, vt] = await Promise.allSettled([api.viecCuaToi(), api.approvalsPendingForMe(), api.vatTuViecDatNhan()]);
+    if (!daChonTab.current) {
+      daChonTab.current = true;
+      const tuLink = new URLSearchParams(window.location.search).get('loc');
+      const hop = LOC.find(k => k === tuLink);
+      const soDon = (pd.status === 'fulfilled' ? pd.value.items.length : 0)
+        + (vt.status === 'fulfilled' && vt.value.la_leader_thu_mua ? vt.value.cho_duyet.length : 0);
+      if (hop) setLoc(hop);
+      else if (soDon > 0) setLoc('cho_duyet');
+    }
     if (viec.status === 'fulfilled') setDs(viec.value);
     else { toast(viec.reason instanceof Error ? viec.reason.message : 'Không tải được', 'error'); setDs([]); }
     setDuyet(pd.status === 'fulfilled' ? pd.value.items : []);
@@ -61,9 +76,51 @@ export default function ViecCuaToiPage() {
     api.viecBgd().then(d => setViecBgd(d.viec)).catch(() => setLoiBgd(true));
   }, [laBgd]);
 
+  // Một khoá chung cho mọi nút trên thẻ (đổi trạng thái / đăng ảnh / duyệt đơn): giữ id thẻ đang chạy.
+  const [dangChay, setDangChay] = useState('');
+
   const doi = async (t: ViecCuaToi, status: string) => {
-    try { await api.updateTaskStatus(t.id, status); toast(status === 'done' ? 'Đã xong việc' : 'Đã bắt đầu', 'success'); tai(); }
+    if (dangChay) return;
+    setDangChay(t.id);
+    try {
+      // Sửa thẳng danh sách đang có, không tải lại: lượt tải ngay sau khi ghi hay trả về trạng thái cũ
+      // (máy chủ chốt giao dịch sau khi trả lời) → nút vẫn hiện «Bắt đầu» dù đã đổi xong.
+      await api.updateTaskStatus(t.id, status);
+      setDs(prev => (prev || []).flatMap(x => (x.id !== t.id ? [x] : status === 'done' ? [] : [{ ...x, status }])));
+      toast(status === 'done' ? 'Đã xong việc' : 'Đã bắt đầu', 'success');
+    }
     catch (e) { toast(e instanceof Error ? e.message : 'Không đổi được', 'error'); }
+    finally { setDangChay(''); }
+  };
+
+  // Nút máy ảnh trên thẻ việc: chụp/chọn ảnh → vào Kho ảnh dự án + ghi vào lịch sử đầu việc.
+  // Trước 24/11 phải mở dự án → mở việc → Đính kèm ảnh → Đăng cập nhật (6+ chạm, 2 cửa sổ chồng nhau).
+  const oAnh = useRef<HTMLInputElement>(null);
+  const viecAnh = useRef<ViecCuaToi | null>(null);
+  const dangAnh = async (files: File[]) => {
+    const t = viecAnh.current;
+    if (!t || !files.length || dangChay) return;
+    setDangChay(t.id);
+    try {
+      const blobs = (await Promise.all(files.slice(0, 10).map(f => nenAnh(f)))).filter((b): b is Blob => !!b);
+      if (!blobs.length) throw new Error('Không đọc được ảnh');
+      const up = await api.uploadMediaBatch(blobs, { projectId: t.project_id, kind: 'tien_do', caption: t.title });
+      for (let i = 0; i < up.items.length; i++) {
+        await api.createTaskActivity(t.id, `📷 Ảnh ${i + 1}/${up.items.length}`, up.items[i].url, 'tien_do');
+      }
+      toast(`Đã đăng ${up.items.length} ảnh vào «${t.title}»`, 'success');
+    } catch (e) { toast(e instanceof Error ? e.message : 'Không đăng được ảnh', 'error'); }
+    finally { setDangChay(''); }
+  };
+
+  // Đơn nghỉ phép duyệt ngay trên thẻ (không có số tiền, cùng luật với «Duyệt tất cả đơn nghỉ» ở trang Phê duyệt).
+  // Từ chối cần ghi lý do → vẫn sang trang Phê duyệt.
+  const duyetDon = async (a: ApprovalItem) => {
+    if (dangChay) return;
+    setDangChay(a.id);
+    try { await api.approveRequest(a.id); setDuyet(prev => prev.filter(x => x.id !== a.id)); toast(`Đã duyệt: ${a.title}`, 'success'); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Không duyệt được', 'error'); }
+    finally { setDangChay(''); }
   };
 
   const viec = ds || [];
@@ -87,9 +144,28 @@ export default function ViecCuaToiPage() {
           {t.project_code} · {t.project_name}{t.han ? ` · hạn ${ngay(t.han).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` : ''}
         </div>
       </Link>
+      <button type="button" aria-label={`Đăng ảnh công trình cho việc ${t.title}`} disabled={!!dangChay}
+        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
+        style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+        onClick={() => { viecAnh.current = t; oAnh.current?.click(); }}>
+        <LineIcon name={dangChay === t.id ? 'hourglass' : 'camera'} size={18} color="currentColor" />
+      </button>
       {t.status === 'not_started'
-        ? <button className="text-xs px-3 py-1.5 rounded-full shrink-0" style={{ border: '1px solid var(--border-subtle)', color: 'var(--gold-400)' }} onClick={() => doi(t, 'in_progress')}>Bắt đầu</button>
-        : <button className="text-xs px-3 py-1.5 rounded-full font-medium shrink-0" style={{ background: 'var(--gold-400)', color: '#000' }} onClick={() => doi(t, 'done')}>Xong</button>}
+        ? <button className="text-sm px-4 min-h-[40px] rounded-full shrink-0 disabled:opacity-50" disabled={!!dangChay} style={{ border: '1px solid var(--border-subtle)', color: 'var(--gold-400)' }} onClick={() => doi(t, 'in_progress')}>Bắt đầu</button>
+        : <button className="text-sm px-4 min-h-[40px] rounded-full font-medium shrink-0 disabled:opacity-50" disabled={!!dangChay} style={{ background: 'var(--gold-400)', color: '#000' }} onClick={() => doi(t, 'done')}>Xong</button>}
+    </div>
+  );
+
+  const theDonNghi = (a: ApprovalItem) => (
+    <div key={a.id} className="rounded-2xl p-3 flex items-center gap-3" style={the}>
+      <Link href="/approvals" className="flex-1 min-w-0">
+        <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{a.title}</div>
+        <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{a.type_label}{a.requester_name ? ` · ${a.requester_name}` : ''} · chạm để xem / từ chối</div>
+      </Link>
+      <button className="text-sm px-4 min-h-[40px] rounded-full font-medium shrink-0 disabled:opacity-50" disabled={!!dangChay}
+        style={{ background: 'var(--gold-400)', color: '#000' }} onClick={() => duyetDon(a)}>
+        {dangChay === a.id ? 'Đang duyệt…' : 'Duyệt'}
+      </button>
     </div>
   );
 
@@ -112,7 +188,7 @@ export default function ViecCuaToiPage() {
 
   const dsChoDuyet = (
     <>
-      {khoi('Đơn chờ bạn duyệt', 'var(--gold-400)', duyet.length, duyet.map(a => theLink(a.id, '/approvals', a.title,
+      {khoi('Đơn chờ bạn duyệt', 'var(--gold-400)', duyet.length, duyet.map(a => a.type === 'leave' ? theDonNghi(a) : theLink(a.id, '/approvals', a.title,
         `${a.type_label}${a.requester_name ? ` · ${a.requester_name}` : ''}${a.amount ? ` · ${a.amount.toLocaleString('vi-VN')}đ` : ''}`, 'Duyệt')))}
       {khoi('Đơn vật tư vượt báo giá', 'var(--gold-400)', vtDuyet.length, vtDuyet.map(d => theLink(d.id, '/vat-tu?tab=dat-nhan',
         `${d.ma || d.ma_tu_do || 'Vật tư'} · ${d.phong}`, `${d.project_code || ''} · ${d.ly_do_vuot || 'Vượt báo giá'}`, 'Duyệt')))}
@@ -125,6 +201,9 @@ export default function ViecCuaToiPage() {
     <Sidebar>
       <div className="max-w-3xl mx-auto p-4 space-y-5">
         <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Việc của tôi</h1>
+        {/* Một ô chọn ảnh dùng chung cho mọi thẻ việc. Không đặt `capture`: điện thoại sẽ hỏi «Chụp ảnh» hay «Thư viện». */}
+        <input ref={oAnh} type="file" accept="image/*" multiple className="hidden"
+          onChange={e => { const fs = Array.from(e.target.files || []); e.target.value = ''; void dangAnh(fs); }} />
 
         {laBgd && !loiBgd && <ViecCanBgdQuyet ds={viecBgd} />}
         {laBgd && <div className="text-sm font-semibold pt-1" style={{ color: 'var(--text-secondary)' }}>Việc giao đích danh cho bạn</div>}

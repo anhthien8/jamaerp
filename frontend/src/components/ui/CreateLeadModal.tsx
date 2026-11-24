@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { api, ApiError, Team, User } from '@/lib/api';
-import { TINH_THANH_TRUC_THUOC_TW, TINH_THANH_TINH, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS } from '@/lib/utils';
+import { TINH_THANH_TRUC_THUOC_TW, TINH_THANH_TINH, NGAN_SACH_OPTIONS, ALL_TAGS, TAG_COLORS, PLAN_TYPE_LABELS, mauNhat } from '@/lib/utils';
 import MoneyInput from '@/components/ui/MoneyInput';
 import LineIcon from '@/components/ui/LineIcon';
 
@@ -419,9 +419,9 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
                     onClick={() => setForm(prev => ({ ...prev, plan_type: p.value }))}
                     className="flex-1 min-w-[100px] py-2 rounded-lg text-xs font-medium transition-all"
                     style={{
-                      background: form.plan_type === p.value ? `${pColor}20` : 'var(--surface-2)',
+                      background: form.plan_type === p.value ? mauNhat(pColor, 13) : 'var(--surface-2)',
                       color: form.plan_type === p.value ? pColor : 'var(--text-tertiary)',
-                      border: `1px solid ${form.plan_type === p.value ? `${pColor}40` : 'var(--border-subtle)'}`,
+                      border: `1px solid ${form.plan_type === p.value ? mauNhat(pColor, 25) : 'var(--border-subtle)'}`,
                     }}
                   >
                     {p.label}
@@ -444,9 +444,9 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
                     onClick={() => toggleTag(tag)}
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                     style={{
-                      background: selected ? `${color}25` : 'var(--surface-2)',
+                      background: selected ? mauNhat(color, 15) : 'var(--surface-2)',
                       color: selected ? color : 'var(--text-tertiary)',
-                      border: `1px solid ${selected ? `${color}50` : 'var(--border-subtle)'}`,
+                      border: `1px solid ${selected ? mauNhat(color, 31) : 'var(--border-subtle)'}`,
                     }}
                   >
                     {selected ? '✓ ' : ''}{tag}
@@ -466,9 +466,9 @@ export default function CreateLeadModal({ isOpen, onClose, initialData, canAssig
                   onClick={() => setForm(prev => ({ ...prev, priority: p.value }))}
                   className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: form.priority === p.value ? `${p.color}20` : 'var(--surface-2)',
+                    background: form.priority === p.value ? mauNhat(p.color, 13) : 'var(--surface-2)',
                     color: form.priority === p.value ? p.color : 'var(--text-tertiary)',
-                    border: `1px solid ${form.priority === p.value ? `${p.color}40` : 'var(--border-subtle)'}`,
+                    border: `1px solid ${form.priority === p.value ? mauNhat(p.color, 25) : 'var(--border-subtle)'}`,
                   }}
                 >
                   {p.label}

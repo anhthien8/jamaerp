@@ -36,7 +36,7 @@ export default function ConfirmDialog({
 
   return (
     <Modal open={open} onClose={onCancel} title={title} size="sm" persistent>
-      <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+      <p className="text-sm mb-6 whitespace-pre-line" style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
         {message}
       </p>
 

@@ -4,6 +4,7 @@
 // Giá vốn/NCC/lãi chỉ hiện khi backend trả thay_gia_von (Giám đốc, Thu mua, Trưởng phòng);
 // sale/thiết kế không bao giờ nhận các cột đó trong JSON — FE chỉ vẽ cái có.
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -11,6 +12,8 @@ import { api, mediaUrl, type DongVatTu, type GoiYNcc, type MauVatTu, type PhieuV
 import { useAuth } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
+import InfoTip from '@/components/ui/InfoTip';
+import { useToast } from '@/components/ui/Toast';
 import { tien } from '@/lib/tien-gon';
 import { compressImage } from '@/lib/nhan-su';
 import { chuanHoaTim } from '@/lib/utils';
@@ -142,9 +145,10 @@ function VatTuNoiDung() {
   const tabUrl = sp.get('tab') as Tab | null;
   const tab: Tab = tabUrl && TAB_IDS.includes(tabUrl) ? tabUrl : projectParam ? 'du-an' : 'danh-muc';
   const setTab = (t: Tab) => window.history.replaceState(null, '', `/vat-tu?${new URLSearchParams({ ...(projectParam ? { project: projectParam } : {}), tab: t }).toString()}`);
-  const [thongBao, setThongBao] = useState<{ loai: 'ok' | 'loi'; text: string } | null>(null);
+  // Thông báo đi qua toast chung của app (24/11): dải cũ nằm ở đầu trang, đang đứng giữa danh sách dài thì không thấy.
   // Một hàm giữ nguyên qua các lần vẽ: các tab để `bao` trong dependency của lệnh tải — hàm đổi là tải lại
-  const bao = useCallback((loai: 'ok' | 'loi', text: string) => { setThongBao({ loai, text }); setTimeout(() => setThongBao(null), 4000); }, []);
+  const { toast } = useToast();
+  const bao = useCallback((loai: 'ok' | 'loi', text: string) => toast(text, loai === 'ok' ? 'success' : 'error'), [toast]);
 
   useEffect(() => { api.vatTuTongQuan().then(setTongQuan).catch(() => setTongQuan(null)); }, [tab]);
 
@@ -175,15 +179,12 @@ function VatTuNoiDung() {
             <h1 className="text-xl sm:text-2xl font-semibold text-[var(--text-primary)] flex items-center gap-2"><LineIcon name="package" size={22} /> Vật tư</h1>
             <p className="text-sm text-[var(--text-muted)]">Khách chọn mẫu → Thu mua hỏi NCC, chốt giá vốn → đặt hàng → Giám sát nhận. Giá bán theo giá chuẩn Giám đốc đặt (mẫu chưa có giá chuẩn: giá vốn + % lãi nhóm).</p>
           </div>
-          {thongBao && (
-            <div className={`rounded-xl px-3 py-2 text-sm ${thongBao.loai === 'ok' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'}`}>{thongBao.text}</div>
-          )}
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
           {tabs.filter(t => !t.an).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`${btn} whitespace-nowrap ${tab === t.id ? 'bg-[var(--surface-3)] text-[var(--text-primary)] border-[var(--gold-400)]' : 'text-[var(--text-secondary)] border-[var(--border-subtle)]'}`}>
+              className={`${btn} shrink-0 whitespace-nowrap ${tab === t.id ? 'bg-[var(--surface-3)] text-[var(--text-primary)] border-[var(--gold-400)]' : 'text-[var(--text-secondary)] border-[var(--border-subtle)]'}`}>
               <LineIcon name={t.icon} size={14} /> {t.nhan}
               {t.so !== undefined && t.so > 0 && <span className="ml-1 rounded-full bg-[var(--gold-400)]/20 text-[var(--gold-400)] px-1.5 text-xs">{t.so}</span>}
             </button>
@@ -292,7 +293,10 @@ function DanhMuc({ thayGiaVon, laThuMua, laAdmin, bao }: { thayGiaVon: boolean; 
       )}
 
       {sua && (
-        <div className="glass-card p-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70" />
+        <div className="relative mx-auto my-[5vh] w-[calc(100%-2rem)] max-w-3xl rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-2" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+          <div className="sm:col-span-3 text-sm font-semibold text-[var(--text-primary)]">{sua.id ? 'Sửa mẫu' : 'Thêm mẫu'}</div>
           <input className={inp} placeholder="Mã *" value={sua.ma || ''} onChange={e => setSua({ ...sua, ma: e.target.value })} />
           <input className={inp} placeholder="Hãng" value={sua.hang || ''} onChange={e => setSua({ ...sua, hang: e.target.value })} />
           {nhomMoi || (sua.nhom && !nhoms.some(n => n.nhom === sua.nhom) && sua.nhom !== 'Khác') ? (
@@ -328,7 +332,8 @@ function DanhMuc({ thayGiaVon, laThuMua, laAdmin, bao }: { thayGiaVon: boolean; 
           <NccGoiY /><input className={inp} list="ds-ncc" placeholder="NCC quen — gõ để chọn NCC có sẵn" value={sua.ncc_gan_nhat_ten || ''} onChange={e => setSua({ ...sua, ncc_gan_nhat_ten: e.target.value })} />
           <input className={`${inp} sm:col-span-2`} placeholder="Ghi chú" value={sua.ghi_chu || ''} onChange={e => setSua({ ...sua, ghi_chu: e.target.value })} />
           <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={sua.is_active !== false} onChange={e => setSua({ ...sua, is_active: e.target.checked })} /> Đang dùng</label>
-          <div className="flex gap-2 sm:col-span-3"><button className={btnGold} onClick={luuMau}><LineIcon name="check" size={14} color="currentColor" /> Lưu</button><button className={btnGhost} onClick={() => setSua(null)}>Huỷ</button></div>
+          <div className="flex gap-2 sm:col-span-3"><button className={`${btnGold} min-h-[40px]`} onClick={luuMau}><LineIcon name="check" size={14} color="currentColor" /> Lưu</button><button className={`${btnGhost} min-h-[40px]`} onClick={() => setSua(null)}>Huỷ</button></div>
+        </div>
         </div>
       )}
 
@@ -388,11 +393,14 @@ function ChonMau({ onChon, placeholder = 'Gõ mã hoặc hãng…' }: { onChon: 
 
 // ───────────────────────── Phiếu dự án ─────────────────────────
 function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, tenNV, bao }: { projectId: string | null; thayGiaVon: boolean; laAdmin: boolean; q: QuyenDatNhan; userId?: string; tenNV?: string; bao: (l: 'ok' | 'loi', t: string) => void }) {
+  const xacNhan = useXacNhan();
   const [duAns, setDuAns] = useState<Project[]>([]);
   const [pid, setPid] = useState(projectId || '');
   const [phieu, setPhieu] = useState<PhieuVatTu | null>(null);
   const [loading, setLoading] = useState(false);
   const [moThem, setMoThem] = useState(false);
+  const [lanThem, setLanThem] = useState(0); // đổi key để ô chọn mẫu trống lại sau mỗi dòng
+  const [dangThem, setDangThem] = useState(false);
   const [form, setForm] = useState<{ phong: string; hang_muc: string; mau_id: string | null; ma_tu_do: string; so_luong: number; don_vi: string; ghi_chu: string; can_ngay: string }>({ phong: 'Chung', hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, don_vi: 'm2', ghi_chu: '', can_ngay: '' });
   const [dongY, setDongY] = useState<{ id: string; ghi_chu: string } | null>(null);
   const [tin, setTin] = useState<TinSoan | null>(null);
@@ -409,16 +417,21 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, tenNV, bao }: { 
   useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
   const them = async () => {
+    if (dangThem) return;
     if (!form.mau_id && !form.ma_tu_do.trim()) { bao('loi', 'Chọn mẫu hoặc gõ mã'); return; }
+    setDangThem(true);
     try {
       const d = await api.vatTuThemDong(pid, { phong: form.phong || 'Chung', hang_muc: form.hang_muc || null, mau_id: form.mau_id, ma_tu_do: form.mau_id ? null : form.ma_tu_do, so_luong: form.so_luong, don_vi: form.don_vi, ghi_chu: form.ghi_chu || null, can_ngay: form.can_ngay || null });
       // Mã gõ tay trùng mã một mẫu trong danh mục → server gắn mẫu đó và lấy đơn vị của mẫu (giá chuẩn tính trên đơn vị đó)
       bao('ok', d.mau_id && d.don_vi !== form.don_vi ? `Đã thêm vào phiếu — mã có trong danh mục nên đơn vị theo mẫu: ${d.don_vi}` : 'Đã thêm vào phiếu');
-      setMoThem(false); setForm(f => ({ ...f, hang_muc: '', mau_id: null, ma_tu_do: '', so_luong: 1, ghi_chu: '', can_ngay: '' })); tai();
+      // Giữ form mở, giữ phòng + hạng mục + ngày cần: ngồi với khách thường chọn liền mấy mẫu cho cùng một phòng.
+      // Chỉ xoá mẫu, số lượng và ghi chú.
+      setForm(f => ({ ...f, mau_id: null, ma_tu_do: '', so_luong: 1, ghi_chu: '' })); setLanThem(n => n + 1); tai();
     } catch (e) { bao('loi', loi(e, 'Không thêm được')); }
+    finally { setDangThem(false); }
   };
   const xoa = async (d: DongVatTu) => {
-    if (!confirm(`Xoá dòng ${d.ma || d.ma_tu_do}?`)) return;
+    if (!await xacNhan(`Xoá dòng ${d.ma || d.ma_tu_do}?`)) return;
     try { await api.vatTuXoaDong(d.id); tai(); } catch (e) { bao('loi', loi(e, 'Không xoá được')); }
   };
   // Endpoint không lưu ai bấm thay khách → chèn tên nhân viên vào ghi chú để còn vết
@@ -499,14 +512,14 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, tenNV, bao }: { 
           <input className={inp} list="ds-phong" placeholder="Phòng / khu vực" value={form.phong} onChange={e => setForm({ ...form, phong: e.target.value })} />
           <datalist id="ds-phong">{dsPhong.map(p => <option key={p} value={p} />)}</datalist>
           <input className={inp} placeholder="Hạng mục (sàn, tường, ốp bếp…)" value={form.hang_muc} onChange={e => setForm({ ...form, hang_muc: e.target.value })} />
-          <div className="lg:col-span-2"><ChonMau onChon={(m, ma) => setForm(f => ({ ...f, mau_id: m?.id || null, ma_tu_do: ma, don_vi: m?.don_vi || f.don_vi }))} /></div>
+          <div className="lg:col-span-2"><ChonMau key={lanThem} onChon={(m, ma) => setForm(f => ({ ...f, mau_id: m?.id || null, ma_tu_do: ma, don_vi: m?.don_vi || f.don_vi }))} /></div>
           <input className={inp} type="number" min={0} step="0.1" placeholder="Số lượng" value={form.so_luong} onChange={e => setForm({ ...form, so_luong: Number(e.target.value) })} />
           {/* Dòng có mẫu trong danh mục luôn lấy đơn vị của mẫu (server bỏ qua đơn vị gõ khác) → khoá ô, chỉ mã gõ tay mới gõ đơn vị */}
           <input className={`${inp} disabled:opacity-60`} placeholder="Đơn vị" aria-label="Đơn vị" value={form.don_vi} disabled={!!form.mau_id} title={form.mau_id ? 'Đơn vị theo mẫu trong danh mục' : undefined} onChange={e => setForm({ ...form, don_vi: e.target.value })} />
           <input className={`${inp} lg:col-span-2`} placeholder="Ghi chú cho Thu mua" value={form.ghi_chu} onChange={e => setForm({ ...form, ghi_chu: e.target.value })} />
           <label className="text-xs text-[var(--text-muted)] flex items-center gap-2">Cần có trước ngày
             <input className={inp} type="date" value={form.can_ngay} onChange={e => setForm({ ...form, can_ngay: e.target.value })} /></label>
-          <div className="flex gap-2 sm:col-span-2 lg:col-span-4"><button className={btnGold} onClick={them}><LineIcon name="check" size={14} color="currentColor" /> Thêm dòng</button><button className={btnGhost} onClick={() => setMoThem(false)}>Đóng</button></div>
+          <div className="flex gap-2 sm:col-span-2 lg:col-span-4"><button className={`${btnGold} min-h-[40px]`} disabled={dangThem} onClick={them}><LineIcon name="check" size={14} color="currentColor" /> {dangThem ? 'Đang thêm…' : 'Thêm dòng'}</button><button className={`${btnGhost} min-h-[40px]`} onClick={() => setMoThem(false)}>Xong</button></div>
         </div>
       )}
 
@@ -517,7 +530,7 @@ function PhieuDuAn({ projectId, thayGiaVon, laAdmin, q, userId, tenNV, bao }: { 
             <div><span className="text-[var(--text-muted)]">Dự án</span> <span className="text-[var(--text-primary)] font-medium">{duAn ? `${duAn.code} · ${duAn.name}` : pid}</span></div>
             <div><span className="text-[var(--text-muted)]">Dòng</span> <span className="text-[var(--text-primary)] font-medium">{phieu.items.length}</span></div>
             <div><span className="text-[var(--text-muted)]">Tổng giá bán (dòng đã có giá)</span> <span className="text-[var(--gold-400)] font-semibold">{tien(phieu.tong_gia_ban)}</span></div>
-            {thayGiaVon && phieu.tong_lai !== undefined && <div><span className="text-[var(--text-muted)]">Lãi dự kiến</span> <span className="text-emerald-400 font-semibold">{tien(phieu.tong_lai)}</span></div>}
+            {thayGiaVon && phieu.tong_lai !== undefined && <div><span className="text-[var(--text-muted)]">Lãi dự kiến <InfoTip text="Tổng (giá bán − giá vốn) × số lượng của các dòng đã chốt giá vốn. Dòng chưa chốt giá chưa được cộng. Chỉ Thu mua, Kế toán và Giám đốc thấy số này." /></span> <span className="text-emerald-400 font-semibold">{tien(phieu.tong_lai)}</span></div>}
           </div>
           {qDuAn.laThuMua && thayGiaVon && <DatTheoBaoGia key={phieu.items.map(d => `${d.id}${d.trang_thai}`).join()} items={phieu.items} tai={tai} bao={bao} />}
           {phieu.items.length === 0 && <div className="glass-card p-8 text-center text-[var(--text-muted)]">Chưa có dòng nào. Bấm «Khách chọn mẫu» khi ngồi cùng khách.</div>}
@@ -659,6 +672,24 @@ function DatTheoBaoGia({ items, tai, bao }: { items: DongVatTu[]; tai: () => voi
   );
 }
 
+/** Hai nút tách riêng: «Chụp ảnh» mở thẳng máy ảnh, «Chọn từ máy» mở thư viện (chọn nhiều ảnh).
+ *  Trước 24/11 một ô vừa `capture` vừa `multiple` → điện thoại chỉ mở máy ảnh, không chọn được ảnh đã chụp. */
+function ChonAnh({ them, disabled }: { them: (fs: File[]) => void; disabled?: boolean }) {
+  const nhan = (e: React.ChangeEvent<HTMLInputElement>) => { them(Array.from(e.target.files || [])); e.target.value = ''; };
+  return (
+    <div className="flex flex-wrap gap-2">
+      <label className={`${btnGhost} min-h-[44px] cursor-pointer`}>
+        <LineIcon name="camera" size={16} /> Chụp ảnh
+        <input type="file" accept="image/*" capture="environment" className="hidden" disabled={disabled} onChange={nhan} />
+      </label>
+      <label className={`${btnGhost} min-h-[44px] cursor-pointer`}>
+        <LineIcon name="image" size={16} /> Chọn từ máy
+        <input type="file" accept="image/*" multiple className="hidden" disabled={disabled} onChange={nhan} />
+      </label>
+    </div>
+  );
+}
+
 async function anhSangBlob(f: File): Promise<Blob> {
   const nen = await compressImage(f).catch(() => null);
   if (!nen) return f;
@@ -754,7 +785,7 @@ function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; x
   const vuotTruoc = [
     slSo > d.so_luong ? `khối lượng ${slSo} > báo giá ${d.so_luong}` : '',
     // Cùng ngưỡng với server (vat_tu.py dat_hang): lệch quá 0,5đ mới là vượt
-    doiGia && d.gia_von != null && giaSo > d.gia_von + 0.5 ? `đơn giá ${tien(giaSo)} > ${tien(d.gia_von)}` : '',
+    doiGia && d.gia_von != null && giaSo > d.gia_von + 0.5 ? `đơn giá ${tienDu(giaSo)} > ${tienDu(d.gia_von)}` : '',
   ].filter(Boolean);
 
   const datHang = () => chay(() => api.vatTuDatHang(d.id, {
@@ -817,7 +848,7 @@ function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; x
             <label className="text-xs text-[var(--text-muted)]">Khối lượng ({d.don_vi}) — báo giá {d.so_luong}
               <input className={inp} inputMode="decimal" value={sl} onChange={e => setSl(e.target.value)} /></label>
             {q.thayGiaVon && d.gia_von != null && (
-              <label className="text-xs text-[var(--text-muted)]">Đơn giá — đã chốt {tien(d.gia_von)}
+              <label className="text-xs text-[var(--text-muted)]">Đơn giá — đã chốt {tienDu(d.gia_von)}
                 <input className={inp} inputMode="numeric" value={gia} onChange={e => setGia(e.target.value)} /></label>
             )}
           </div>
@@ -879,11 +910,7 @@ function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; x
               ))}
             </div>
           )}
-          <label className={`${btnGhost} text-xs cursor-pointer w-fit`}>
-            <LineIcon name="camera" size={12} /> Chụp / chọn ảnh hiện trường
-            <input type="file" accept="image/*" capture="environment" multiple className="hidden"
-              onChange={e => { const fs = Array.from(e.target.files || []); setAnh(a => [...a, ...fs].slice(0, 10)); e.target.value = ''; }} />
-          </label>
+          <ChonAnh them={fs => setAnh(a => [...a, ...fs].slice(0, 10))} disabled={dangGui} />
           {xem.length > 0 && (
             <div className="flex gap-1.5 flex-wrap">
               {xem.map((u, i) => (
@@ -897,8 +924,8 @@ function HanhDongDatNhan({ d, q, xong, bao }: { d: DongVatTu; q: QuyenDatNhan; x
           )}
           <div className={`text-xs ${anh.length >= q.soAnh ? 'text-emerald-400' : 'text-amber-300'}`}>{anh.length}/{q.soAnh} ảnh tối thiểu — ảnh vào Kho ảnh dự án.</div>
           <div className="flex gap-2">
-            <button className={btnGold} disabled={dangGui || anh.length < q.soAnh || (ketQua === 'thieu' && (!ghiChu.trim() || !!loiSlNhan))} onClick={nhanHang}>{dangGui ? 'Đang tải ảnh…' : 'Xác nhận'}</button>
-            <button className={btnGhost} onClick={() => { setMo(null); setAnh([]); }}>Huỷ</button>
+            <button className={`${btnGold} min-h-[44px]`} disabled={dangGui || anh.length < q.soAnh || (ketQua === 'thieu' && (!ghiChu.trim() || !!loiSlNhan))} onClick={nhanHang}>{dangGui ? 'Đang tải ảnh…' : 'Xác nhận'}</button>
+            <button className={`${btnGhost} min-h-[44px]`} onClick={() => { setMo(null); setAnh([]); }}>Huỷ</button>
           </div>
         </div>
       )}
@@ -974,7 +1001,9 @@ function NhomChoNhan({ ds, cuaToi, q, tai, bao }: { ds: DongVatTu[]; cuaToi: Set
   const xem = useMemo(() => anh.map(f => URL.createObjectURL(f)), [anh]);
   useEffect(() => () => xem.forEach(u => URL.revokeObjectURL(u)), [xem]);
 
-  const dsChon = ds.filter(d => cuaToi.has(d.id) && chon.has(d.id));
+  const dsCuaToi = ds.filter(d => cuaToi.has(d.id));
+  const dsChon = dsCuaToi.filter(d => chon.has(d.id));
+  const daChonHet = dsChon.length === dsCuaToi.length;
   const doi = (id: string) => { setDaDem(false); setChon(c => { const m = new Set(c); if (m.has(id)) m.delete(id); else m.add(id); return m; }); };
 
   const nhan = async () => {
@@ -1006,11 +1035,19 @@ function NhomChoNhan({ ds, cuaToi, q, tai, bao }: { ds: DongVatTu[]; cuaToi: Set
 
   return (
     <div className="border-b border-[var(--border-subtle)] last:border-b-0">
+      {dsCuaToi.length > 1 && (
+        <div className="px-3 pt-2">
+          <button type="button" className={`${btnGhost} min-h-[44px]`} disabled={!!dangGui}
+            onClick={() => { setDaDem(false); setChon(daChonHet ? new Set() : new Set(dsCuaToi.map(d => d.id))); }}>
+            <LineIcon name="tick" size={16} /> {daChonHet ? 'Bỏ chọn tất cả' : `Chọn cả ${dsCuaToi.length} dòng`}
+          </button>
+        </div>
+      )}
       <div className="divide-y divide-[var(--border-subtle)]">
         {ds.map(d => (
           <DongDatNhan key={d.id} d={d} q={{ ...q, laGiamSat: q.laGiamSat || cuaToi.has(d.id) }} xong={tai} bao={bao}
             truoc={cuaToi.has(d.id) ? (
-              <input type="checkbox" className="mt-3 w-5 h-5 shrink-0 accent-[var(--gold-400)]" disabled={!!dangGui}
+              <input type="checkbox" className="mt-2.5 w-6 h-6 shrink-0 accent-[var(--gold-400)]" disabled={!!dangGui}
                 aria-label={`Chọn ${d.ma || d.ma_tu_do || 'dòng'} để nhận đủ`} checked={chon.has(d.id)} onChange={() => doi(d.id)} />
             ) : undefined} />
         ))}
@@ -1021,11 +1058,8 @@ function NhomChoNhan({ ds, cuaToi, q, tai, bao }: { ds: DongVatTu[]; cuaToi: Set
           <ul className="text-xs text-[var(--text-secondary)] space-y-0.5">
             {dsChon.map(d => <li key={d.id}>{d.ma || d.ma_tu_do} — đặt <b className="text-[var(--text-primary)]">{d.sl_dat ?? d.so_luong} {d.don_vi}</b> · {d.phong}</li>)}
           </ul>
-          <label className={`${btnGhost} text-xs cursor-pointer w-fit`}>
-            <LineIcon name="camera" size={12} /> Chụp / chọn ảnh hiện trường (dùng chung cho các dòng)
-            <input type="file" accept="image/*" capture="environment" multiple className="hidden" disabled={!!dangGui}
-              onChange={e => { const fs = Array.from(e.target.files || []); setAnh(a => [...a, ...fs].slice(0, 10)); setAnhIds(null); e.target.value = ''; }} />
-          </label>
+          <div className="text-xs text-[var(--text-muted)]">Ảnh hiện trường — dùng chung cho các dòng đã chọn</div>
+          <ChonAnh them={fs => { setAnh(a => [...a, ...fs].slice(0, 10)); setAnhIds(null); }} disabled={!!dangGui} />
           {xem.length > 0 && (
             <div className="flex gap-1.5 flex-wrap">
               {xem.map((u, i) => (
@@ -1043,10 +1077,10 @@ function NhomChoNhan({ ds, cuaToi, q, tai, bao }: { ds: DongVatTu[]; cuaToi: Set
             Tôi đã đếm đủ số lượng của {dsChon.length} dòng trên
           </label>
           <div className="flex flex-wrap gap-2">
-            <button className={btnGold} disabled={!!dangGui || !daDem || anh.length < q.soAnh} onClick={nhan}>
+            <button className={`${btnGold} min-h-[44px]`} disabled={!!dangGui || !daDem || anh.length < q.soAnh} onClick={nhan}>
               <LineIcon name="truck" size={14} color="currentColor" /> {dangGui || `Nhận đủ ${dsChon.length} dòng đã chọn`}
             </button>
-            <button className={btnGhost} disabled={!!dangGui} onClick={() => { setChon(new Set()); setDaDem(false); }}>Bỏ chọn</button>
+            <button className={`${btnGhost} min-h-[44px]`} disabled={!!dangGui} onClick={() => { setChon(new Set()); setDaDem(false); }}>Bỏ chọn</button>
           </div>
         </div>
       )}
@@ -1064,6 +1098,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
   // Đang gửi lệnh chốt của dòng nào — chặn bấm đúp ở cả ba lối chốt (mỗi lần chốt gõ tay server ghi thêm một
   // dòng báo giá và báo lại thiết kế / KD / giám sát)
   const [dangChot, setDangChot] = useState<string | null>(null);
+  const [dangThem, setDangThem] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mo, setMo] = useState<string | null>(null);
   const [bg, setBg] = useState({ ncc_ten: '', gia: '', con_hang: true, ngay_giao: '', ghi_chu: '' });
@@ -1080,17 +1115,27 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
   }, [bao]);
   useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
 
-  const themBaoGia = async (id: string) => {
+  // `chotLuon`: «Thêm & chốt» — ghi báo giá rồi chốt luôn theo đúng dòng báo giá vừa ghi (một chạm thay ba).
+  const themBaoGia = async (id: string, chotLuon = false) => {
+    if (dangThem) return; // bấm đúp từng tạo hai dòng báo giá giống hệt
     if (!bg.ncc_ten.trim() || !bg.gia) { bao('loi', 'Cần tên NCC và giá'); return; }
+    setDangThem(true);
     try {
-      await api.vatTuThemBaoGia(id, { ncc_ten: bg.ncc_ten.trim(), gia: Number(bg.gia), con_hang: bg.con_hang, ngay_giao: bg.ngay_giao || undefined, ghi_chu: bg.ghi_chu || undefined });
-      setBg({ ncc_ten: '', gia: '', con_hang: true, ngay_giao: '', ghi_chu: '' }); tai();
+      const truoc = new Set((items.find(d => d.id === id)?.bao_gia || []).map(b => b.id));
+      const d = await api.vatTuThemBaoGia(id, { ncc_ten: bg.ncc_ten.trim(), gia: Number(bg.gia), con_hang: bg.con_hang, ngay_giao: bg.ngay_giao || undefined, ghi_chu: bg.ghi_chu || undefined });
+      // Giữ tên NCC: một NCC thường báo giá liền cho nhiều dòng → khỏi gõ lại ở dòng kế.
+      setBg(b => ({ ncc_ten: b.ncc_ten, gia: '', con_hang: true, ngay_giao: '', ghi_chu: '' }));
+      const moi = (d.bao_gia || []).find(b => !truoc.has(b.id));
+      if (chotLuon && moi) { await chot(id, moi.id); return; }
+      if (chotLuon) bao('ok', 'Đã thêm báo giá — bấm «Chốt giá này» ở dòng vừa thêm để chốt');
+      tai();
     } catch (e) { bao('loi', loi(e, 'Không thêm được báo giá')); }
+    finally { setDangThem(false); }
   };
   const chot = async (id: string, bao_gia_id: string) => {
     if (dangChot) return;
     setDangChot(id);
-    try { const d = await api.vatTuChot(id, { bao_gia_id }); bao('ok', `Đã chốt — giá bán ${tien(d.gia_ban || 0)}/${d.don_vi}`); setMo(null); tai(); }
+    try { const d = await api.vatTuChot(id, { bao_gia_id }); bao('ok', `Đã chốt — giá bán ${tienDu(d.gia_ban || 0)}/${d.don_vi}`); setMo(null); tai(); }
     catch (e) { bao('loi', loi(e, 'Không chốt được')); }
     finally { setDangChot(null); }
   };
@@ -1100,7 +1145,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
     // 22/11/2026: giá vốn phải rõ của NCC nào — thiếu thì server cũng trả 400
     if (!giaTay.ncc_ten.trim()) { bao('loi', 'Chốt giá phải kèm nhà cung cấp — chọn hoặc gõ tên NCC'); return; }
     setDangChot(giaTay.id);
-    try { const d = await api.vatTuChot(giaTay.id, { gia_von: Number(giaTay.gia_von), ncc_ten: giaTay.ncc_ten.trim() }); bao('ok', `Đã chốt — giá bán ${tien(d.gia_ban || 0)}/${d.don_vi}`); setGiaTay(null); tai(); }
+    try { const d = await api.vatTuChot(giaTay.id, { gia_von: Number(giaTay.gia_von), ncc_ten: giaTay.ncc_ten.trim() }); bao('ok', `Đã chốt — giá bán ${tienDu(d.gia_ban || 0)}/${d.don_vi}`); setGiaTay(null); tai(); }
     catch (e) { bao('loi', loi(e, 'Không chốt được')); }
     finally { setDangChot(null); }
   };
@@ -1108,7 +1153,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
   const chotGanNhat = async (d: DongVatTu) => {
     if (!d.gia_von_gan_nhat || dangChot) return;
     setDangChot(d.id);
-    try { const r = await api.vatTuChot(d.id, { gia_von: d.gia_von_gan_nhat, supplier_id: d.ncc_gan_nhat_id || null, ncc_ten: d.ncc_gan_nhat_ten || undefined }); bao('ok', `Đã chốt — giá bán ${tien(r.gia_ban || 0)}/${r.don_vi}`); tai(); }
+    try { const r = await api.vatTuChot(d.id, { gia_von: d.gia_von_gan_nhat, supplier_id: d.ncc_gan_nhat_id || null, ncc_ten: d.ncc_gan_nhat_ten || undefined }); bao('ok', `Đã chốt — giá bán ${tienDu(r.gia_ban || 0)}/${r.don_vi}`); tai(); }
     catch (e) { bao('loi', loi(e, 'Không chốt được')); }
     finally { setDangChot(null); }
   };
@@ -1181,7 +1226,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
                   {d.client_name && <> · {d.client_name}</>} · {d.phong}{d.hang_muc ? ` · ${d.hang_muc}` : ''} · {d.so_luong} {d.don_vi}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
-                  {d.so_bao_gia} báo giá{d.gia_von_gan_nhat ? ` · giá gần nhất ${tien(d.gia_von_gan_nhat)}` : d.gia_tham_khao ? ` · tham khảo ${tien(d.gia_tham_khao)}` : ''}
+                  {d.so_bao_gia} báo giá{d.gia_von_gan_nhat ? ` · giá gần nhất ${tienDu(d.gia_von_gan_nhat)}` : d.gia_tham_khao ? ` · tham khảo ${tienDu(d.gia_tham_khao)}` : ''}
                   {d.can_ngay && <> · <span className="text-amber-300">cần trước {new Date(d.can_ngay).toLocaleDateString('vi-VN')}</span></>}
                   {d.ghi_chu && <> · {d.ghi_chu}</>}
                 </div>
@@ -1191,7 +1236,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
             {laThuMua && d.gia_von_gan_nhat && d.ncc_gan_nhat_ten && !d.gia_gan_nhat_cu && (
               <div className="px-3 pb-3 -mt-1">
                 <button className={`${btn} text-xs text-emerald-300 border-emerald-500/40`} disabled={dangChot === d.id} onClick={() => chotGanNhat(d)}>
-                  <LineIcon name="check" size={12} /> Chốt {tien(d.gia_von_gan_nhat)} · {d.ncc_gan_nhat_ten}{d.gia_von_cap_nhat_luc ? ` (giá ngày ${new Date(d.gia_von_cap_nhat_luc).toLocaleDateString('vi-VN')})` : ''}
+                  <LineIcon name="check" size={12} /> Chốt {tienDu(d.gia_von_gan_nhat)} · {d.ncc_gan_nhat_ten}{d.gia_von_cap_nhat_luc ? ` (giá ngày ${new Date(d.gia_von_cap_nhat_luc).toLocaleDateString('vi-VN')})` : ''}
                 </button>
               </div>
             )}
@@ -1203,7 +1248,7 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
                     {bgs.map((b, i) => (
                       <div key={b.id} className={`flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm ${i === 0 ? 'bg-emerald-500/10' : 'bg-[var(--surface-2)]'}`}>
                         <span className="font-medium text-[var(--text-primary)]">{b.ncc_ten}</span>
-                        <span className="text-[var(--gold-400)] font-semibold">{tien(b.gia)}</span>
+                        <span className="text-[var(--gold-400)] font-semibold">{tienDu(b.gia)}</span>
                         {i === 0 && <span className="text-xs text-emerald-400">rẻ nhất</span>}
                         {!b.con_hang && <span className="text-xs text-red-300">hết hàng</span>}
                         {b.ngay_giao && <span className="text-xs text-[var(--text-muted)]">giao {b.ngay_giao}</span>}
@@ -1220,12 +1265,13 @@ function CanHoiGia({ laThuMua, soNgayGiaCu, bao }: { laThuMua: boolean; soNgayGi
                 )}
                 {laThuMua && (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                       <NccGoiY /><input className={inp} list="ds-ncc" placeholder="Tên NCC *" value={bg.ncc_ten} onChange={e => setBg({ ...bg, ncc_ten: e.target.value })} />
                       <input className={inp} type="number" placeholder={`Giá vốn/${d.don_vi} *`} value={bg.gia} onChange={e => setBg({ ...bg, gia: e.target.value })} />
                       <input className={inp} placeholder="Giao (vd 3 ngày)" value={bg.ngay_giao} onChange={e => setBg({ ...bg, ngay_giao: e.target.value })} />
                       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] px-1"><input type="checkbox" checked={bg.con_hang} onChange={e => setBg({ ...bg, con_hang: e.target.checked })} /> Còn hàng</label>
-                      <button className={btnGhost} onClick={() => themBaoGia(d.id)}><LineIcon name="plus" size={14} /> Thêm báo giá</button>
+                      <button className={`${btnGhost} justify-center`} disabled={dangThem} onClick={() => themBaoGia(d.id)}><LineIcon name="plus" size={14} /> Thêm báo giá</button>
+                      <button className={`${btnGold} justify-center`} disabled={dangThem || !!dangChot || !bg.con_hang} title={bg.con_hang ? 'Ghi báo giá này rồi chốt luôn' : 'Báo giá hết hàng thì không chốt được'} onClick={() => themBaoGia(d.id, true)}><LineIcon name="check" size={14} color="currentColor" /> Thêm &amp; chốt</button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {giaTay?.id === d.id ? (
@@ -1312,8 +1358,8 @@ function GoiYNccKhoi({ mauId, quaHan, onDung }: { mauId: string; quaHan: (iso?: 
         <div key={(g.supplier_id || g.ncc_ten) + i} className="flex flex-wrap items-center gap-2 text-sm">
           <span className={i === 0 ? 'text-emerald-400 font-medium' : 'text-[var(--text-primary)]'}>{i + 1}. {g.ncc_ten}</span>
           {g.hang && NHAN_HANG_NCC[g.hang] && <span className="text-xs rounded-full bg-[var(--surface-3)] px-2 text-[var(--text-secondary)]">{NHAN_HANG_NCC[g.hang]}</span>}
-          <span className="text-[var(--gold-400)]">{tien(g.gia_sau_ck)}</span>
-          {g.chiet_khau_pct > 0 && <span className="text-xs text-[var(--text-muted)]">(CK {g.chiet_khau_pct}% từ {tien(g.gia)})</span>}
+          <span className="text-[var(--gold-400)]">{tienDu(g.gia_sau_ck)}</span>
+          {g.chiet_khau_pct > 0 && <span className="text-xs text-[var(--text-muted)]">(CK {g.chiet_khau_pct}% từ {tienDu(g.gia)})</span>}
           {g.da_mua > 0 && <span className="text-xs text-[var(--text-muted)]">đã mua {tien(g.da_mua)}</span>}
           {!g.con_hang && <span className="text-xs text-red-300">hết hàng</span>}
           {g.bao_gia_luc && <span className="text-xs text-[var(--text-muted)]">báo giá {ngayThang(g.bao_gia_luc)}</span>}

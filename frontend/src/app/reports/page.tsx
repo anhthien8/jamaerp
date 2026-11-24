@@ -95,7 +95,7 @@ export default function ReportsPage() {
                           <div key={i} className="flex items-center gap-3">
                             <span className="text-xs w-20 text-[var(--text-muted)] truncate">{labelOf(TX_CATEGORY_LABELS, item.category)}</span>
                             <div className="flex-1 h-2 rounded-full bg-white/10">
-                              <div className="h-full rounded-full bg-[#C9A96E]" style={{ width: `${pct}%` }} />
+                              <div className="h-full rounded-full bg-[var(--gold-500)]" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="text-xs font-medium w-16 text-right">{formatCurrency(item.total)}</span>
                           </div>
@@ -181,7 +181,7 @@ export default function ReportsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-mono">{team.total_leads} leads</p>
-                          <p className="text-xs text-[#C9A96E] font-semibold">{team.signed} ký HĐ</p>
+                          <p className="text-xs text-[var(--gold-500)] font-semibold">{team.signed} ký HĐ</p>
                         </div>
                       </div>
                     ))}
@@ -202,7 +202,7 @@ export default function ReportsPage() {
                           <tr key={i} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                             <td className="p-2 font-medium">{team.team}</td>
                             <td className="p-2 text-right">{team.total_leads}</td>
-                            <td className="p-2 text-right text-[#C9A96E]">{team.signed}</td>
+                            <td className="p-2 text-right text-[var(--gold-500)]">{team.signed}</td>
                             <td className="p-2 text-right">{team.conversion.toFixed(1)}%</td>
                           </tr>
                         ))}

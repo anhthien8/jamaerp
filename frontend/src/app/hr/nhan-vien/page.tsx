@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
@@ -60,6 +61,7 @@ const TABS = [
 ] as const;
 
 function NhanVienContent() {
+  const xacNhan = useXacNhan();
   const { user, loading: authLoading, capNhatUser } = useAuth();
   const roleOf = useRoleLabels();
   const router = useRouter();
@@ -480,7 +482,7 @@ function NhanVienContent() {
                     <div className="flex items-center justify-between gap-1 mt-1">
                       <p className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>{labelOf(DOC_LABELS, d.doc_type)}</p>
                       {canEdit && (
-                        <button onClick={() => { if (confirm(`Xóa ${labelOf(DOC_LABELS, d.doc_type)} (${d.filename})?`)) { void api.deleteEmployeeDocument(targetId, d.id).then(() => loadProfile()).catch(e => toast(e instanceof Error ? e.message : 'Xóa thất bại', 'error')); } }} className="text-xs shrink-0" style={{ color: '#F87171' }}>Xóa</button>
+                        <button onClick={async () => { if (await xacNhan(`Xóa ${labelOf(DOC_LABELS, d.doc_type)} (${d.filename})?`)) { void api.deleteEmployeeDocument(targetId, d.id).then(() => loadProfile()).catch(e => toast(e instanceof Error ? e.message : 'Xóa thất bại', 'error')); } }} className="text-xs shrink-0" style={{ color: '#F87171' }}>Xóa</button>
                       )}
                     </div>
                     <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }} title={d.filename}>{(d.size_bytes / 1024).toFixed(0)}KB · {d.uploaded_by_name || ''}</p>

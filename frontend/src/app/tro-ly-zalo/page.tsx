@@ -10,6 +10,7 @@
  * • Chỉ NGHE: hệ thống không bao giờ nhắn vào Zalo. Tin gốc tự xóa sau 7 ngày.
  */
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -55,6 +56,7 @@ function nhanNgay(day: string) {
 }
 
 export default function TroLyZaloPage() {
+  const xacNhan = useXacNhan();
   const { user, loading } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<'tin_hieu' | 'tom_tat'>('tin_hieu');
@@ -281,7 +283,7 @@ export default function TroLyZaloPage() {
                   >{dangLam === 'lam' ? 'Đang tóm tắt…' : 'Làm tóm tắt hôm nay'}</button>
                   <button
                     disabled={!!dangLam}
-                    onClick={() => { if (confirm('Gửi bản tóm tắt hôm nay qua Telegram cho BGĐ và trưởng phòng?')) lamTomTat(true); }}
+                    onClick={async () => { if (await xacNhan('Gửi bản tóm tắt hôm nay qua Telegram cho BGĐ và trưởng phòng?')) lamTomTat(true); }}
                     className="min-h-[44px] px-4 rounded-full text-sm font-semibold"
                     style={{ background: 'rgba(96,165,250,0.15)', color: '#60A5FA' }}
                   >{dangLam === 'gui' ? 'Đang gửi…' : 'Gửi Telegram ngay'}</button>

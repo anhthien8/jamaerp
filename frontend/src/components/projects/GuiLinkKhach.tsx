@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useEffect, useState } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
 import { useToast } from '@/components/ui/Toast';
@@ -31,6 +32,7 @@ export default function GuiLinkKhach({ layLink, phone, soanTin, nhan, choGoi, ch
   choGoi?: boolean;
   choTaoLai?: boolean;
 }) {
+  const xacNhan = useXacNhan();
   const { toast } = useToast();
   const [pl, setPl] = useState<PortalLink | null>(null);
   const [dangXuLy, setDangXuLy] = useState(false);
@@ -70,8 +72,8 @@ export default function GuiLinkKhach({ layLink, phone, soanTin, nhan, choGoi, ch
     finally { setDangXuLy(false); }
   };
 
-  const batLai = () => {
-    if (!confirm('Link theo dõi của khách này đang TẮT (có thể đã được tắt có chủ ý). Bật lại để khách xem được?')) return;
+  const batLai = async () => {
+    if (!await xacNhan('Link theo dõi của khách này đang TẮT (có thể đã được tắt có chủ ý). Bật lại để khách xem được?')) return;
     void chay(async () => {
       const r = await api.setPortalEnabled(pl.customer_id, true);
       setPl({ ...pl, portal_enabled: r.portal_enabled });
@@ -79,8 +81,8 @@ export default function GuiLinkKhach({ layLink, phone, soanTin, nhan, choGoi, ch
     });
   };
 
-  const taoLai = () => {
-    if (!confirm('Tạo lại link? Link cũ đã gửi cho khách sẽ hết hiệu lực ngay.')) return;
+  const taoLai = async () => {
+    if (!await xacNhan('Tạo lại link? Link cũ đã gửi cho khách sẽ hết hiệu lực ngay.')) return;
     void chay(async () => {
       const r = await api.generatePortalLink(pl.customer_id);
       setPl({ ...pl, portal_token: r.portal_token, portal_enabled: true });

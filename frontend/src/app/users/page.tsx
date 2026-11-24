@@ -1,5 +1,7 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
+import LineIcon from '@/components/ui/LineIcon';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -68,6 +70,7 @@ function truocDay(iso: string | null): string {
 }
 
 export default function UsersPage() {
+  const xacNhan = useXacNhan();
   const router = useRouter();
   const { user, loading, effectivePermissions, permsReady, permsError } = useAuth();
   const { toast } = useToast();
@@ -84,6 +87,15 @@ export default function UsersPage() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [editId, setEditId] = useState('');
   const [pwForm, setPwForm] = useState({ password: '', confirm: '' });
+  const [hienMk, setHienMk] = useState(false);
+  /** Mật khẩu ngẫu nhiên 12 ký tự, bỏ các ký tự dễ nhầm (0/O, 1/l/I) để đọc qua điện thoại không sai. */
+  const taoMatKhau = () => {
+    const bang = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const so = crypto.getRandomValues(new Uint32Array(12));
+    const mk = Array.from(so, n => bang[n % bang.length]).join('');
+    setPwForm({ password: mk, confirm: mk });
+    setHienMk(true);
+  };
   const [saving, setSaving] = useState(false);
   const [grades, setGrades] = useState<SalaryGrade[]>([]);
   const [error, setError] = useState('');
@@ -236,7 +248,7 @@ export default function UsersPage() {
       toast('Không tải được quyền riêng của người này — lưu hồ sơ sẽ giữ nguyên quyền cũ', 'error');
     });
   };
-  const openPassword = (u: User) => { setEditId(u.id); setPwForm({ password: '', confirm: '' }); setModal('password'); setError(''); };
+  const openPassword = (u: User) => { setEditId(u.id); setPwForm({ password: '', confirm: '' }); setHienMk(false); setModal('password'); setError(''); };
 
   const handleCreate = async () => {
     if (!form.full_name || !form.email || !form.password) { setError('Vui lòng điền đầy đủ'); return; }
@@ -297,6 +309,9 @@ export default function UsersPage() {
     try {
       await api.updateUser(u.id, { is_active: next });
       loadTeamsData(); // người nghỉ/làm lại đổi trạng thái tick trong modal đội
+      // Công tắc 1 chạm, bấm nhầm là khoá tài khoản của người đang làm việc → cho hoàn tác ngay trên thông báo.
+      toast(next ? `Đã bật lại tài khoản ${u.full_name}` : `Đã tắt tài khoản ${u.full_name}`, 'success',
+        { nhan: 'Hoàn tác', lam: () => void handleToggleActive({ ...u, is_active: next }) });
     } catch (e) {
       // Lỗi → hoàn tác + báo bằng toast (trước đây set vào state error nhưng không render → trông như "không bấm được")
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: u.is_active } : x));
@@ -394,7 +409,7 @@ export default function UsersPage() {
     const t = teams.find(x => x.id === teamEditId);
     // Vừa tạo đội xong mà getTeams chưa kịp về thì đừng câm lặng (phản biện vá 14/08)
     if (!t) { toast('Danh sách đội chưa tải xong — chờ vài giây rồi thử lại', 'error'); return; }
-    const ok = window.confirm(
+    const ok = await xacNhan(
       `Giải tán đội ${t.name}? ${t.member_count ?? 0} thành viên sẽ về «chưa xếp đội», `
       + 'data đang gắn nhãn đội chỉ mất nhãn (người phụ trách giữ nguyên). Không hoàn tác được.'
     );
@@ -734,7 +749,7 @@ export default function UsersPage() {
       {modal && (modal === 'create' || modal === 'edit') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md rounded-2xl p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] shadow-2xl" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">{modal === 'create' ? 'Tạo tài khoản mới' : 'Chỉnh sửa tài khoản'}</h2>
             {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
             <div className="space-y-3">
@@ -933,11 +948,28 @@ export default function UsersPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Mật khẩu mới * (tối thiểu 8 ký tự)</label>
-                <input type="password" value={pwForm.password} onChange={e => setPwForm({ ...pwForm, password: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" autoFocus />
+                <div className="flex gap-2">
+                  <input type={hienMk ? 'text' : 'password'} value={pwForm.password} onChange={e => setPwForm({ ...pwForm, password: e.target.value })} className="flex-1 min-w-0 px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" autoFocus />
+                  <button type="button" onClick={() => setHienMk(v => !v)} aria-label={hienMk ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={hienMk}
+                    className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-[var(--surface-2)] border border-[var(--border-subtle)]" style={{ color: hienMk ? 'var(--gold-400)' : 'var(--text-muted)' }}>
+                    <LineIcon name="eye" size={16} color="currentColor" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button type="button" onClick={taoMatKhau} className="px-3 min-h-[36px] rounded-full text-xs font-medium bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                    <LineIcon name="key" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Tạo ngẫu nhiên
+                  </button>
+                  {pwForm.password && (
+                    <button type="button" onClick={() => { void navigator.clipboard.writeText(pwForm.password).then(() => toast('Đã sao chép mật khẩu — gửi riêng cho nhân viên', 'success')).catch(() => toast('Không sao chép được, hãy bấm biểu tượng mắt rồi chép tay', 'error')); }}
+                      className="px-3 min-h-[36px] rounded-full text-xs font-medium bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                      <LineIcon name="copy" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Sao chép
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Xác nhận mật khẩu</label>
-                <input type="password" value={pwForm.confirm} onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
+                <input type={hienMk ? 'text' : 'password'} value={pwForm.confirm} onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)]" />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">

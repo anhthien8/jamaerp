@@ -11,6 +11,8 @@
  * Admin sửa; Kế toán xem + chốt. Mọi con số do backend tính (services/che_do_thuong.py).
  */
 
+import InfoTip from '@/components/ui/InfoTip';
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -51,7 +53,7 @@ const nhanKy = (ky: string) => `T${Number(ky.slice(5))}/${ky.slice(0, 4)}`;
 function Cong({ bat, doi, khoa }: { bat: boolean; doi: (v: boolean) => void; khoa?: boolean }) {
   return (
     <button type="button" role="switch" aria-checked={bat} disabled={khoa} onClick={() => doi(!bat)}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-60 ${bat ? 'bg-[#C9A96E]' : 'bg-white/15'}`}>
+      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-60 ${bat ? 'bg-[var(--gold-500)]' : 'bg-white/15'}`}>
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${bat ? 'translate-x-5' : ''}`} />
     </button>
   );
@@ -131,6 +133,7 @@ function TheChuongTrinh({ ten, mo_ta, bat, chu_ky, doiBat, doiChuKy, khoa, child
 // ── Trang ───────────────────────────────────────────────────────────────────
 
 export default function CheDoThuongPage() {
+  const xacNhan = useXacNhan();
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -202,7 +205,7 @@ export default function CheDoThuongPage() {
 
   async function chot() {
     if (!bang) return;
-    if (!confirm(`Chốt bảng thưởng ${nhanKy(ky)}: ${bang.so_nguoi_nhan} người, tổng ${tien(bang.tong_chi)}?\nSẽ tạo khoản thưởng chờ duyệt và gửi 1 đơn sang Phê duyệt.`)) return;
+    if (!await xacNhan(`Chốt bảng thưởng ${nhanKy(ky)}: ${bang.so_nguoi_nhan} người, tổng ${tien(bang.tong_chi)}?\nSẽ tạo khoản thưởng chờ duyệt và gửi 1 đơn sang Phê duyệt.`)) return;
     setDangChot(true);
     try {
       const r = await api.cdtChot(ky);
@@ -244,7 +247,7 @@ export default function CheDoThuongPage() {
             <div className={`text-h2 font-mono ${bang?.vuot_tran ? 'text-[var(--danger)]' : ''}`}>{bang ? tien(bang.tong_chi) : '…'}</div></div>
           <div className="stat-card"><div className="text-caption text-[var(--text-muted)]">Người có thưởng</div>
             <div className="text-h2 font-mono">{bang ? `${bang.so_nguoi_nhan}/${bang.so_nguoi}` : '…'}</div></div>
-          <div className="stat-card"><div className="text-caption text-[var(--text-muted)]">Quỹ trần / tháng</div>
+          <div className="stat-card"><div className="text-caption text-[var(--text-muted)]">Quỹ trần / tháng <InfoTip text="Mức tổng tiền thưởng một tháng công ty dự kiến chi. Vượt mức này app chỉ cảnh báo để Giám đốc biết, không tự cắt thưởng của ai." /></div>
             <div className="text-h2 font-mono">{cfg ? tien(cfg.quy_tran_thang) : '…'}</div></div>
         </div>
 
@@ -348,7 +351,7 @@ export default function CheDoThuongPage() {
                     const co = ct.danh_gia.thoi_diem.includes(ma);
                     return (
                       <button key={ma} disabled={khoa} onClick={() => sua('danh_gia', { thoi_diem: co ? ct.danh_gia.thoi_diem.filter(x => x !== ma) : [...ct.danh_gia.thoi_diem, ma] })}
-                        className={`px-3 py-1 rounded-full text-xs border ${co ? 'border-[#C9A96E] text-[#C9A96E]' : 'border-white/10 text-[var(--text-muted)]'}`}>
+                        className={`px-3 py-1 rounded-full text-xs border ${co ? 'border-[var(--gold-500)] text-[var(--gold-500)]' : 'border-white/10 text-[var(--text-muted)]'}`}>
                         {co ? '✓ ' : ''}{ten}
                       </button>
                     );
@@ -372,7 +375,7 @@ export default function CheDoThuongPage() {
 
               {/* Điểm JAMA */}
               <div className="card p-4 sm:p-5">
-                <h3 className="text-h3">Điểm JAMA</h3>
+                <h3 className="text-h3">Điểm JAMA <InfoTip text="Điểm 0–100 của mỗi người trong kỳ, cộng từ các phần (doanh số, chuyên cần, phản hồi khách, khách đánh giá) theo trọng số của phòng mình. Điểm càng cao thì hệ số nhân phần thưởng từ hũ càng lớn." /></h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">Trọng số theo phòng (%). Thành phần chưa có số → chia lại cho phần còn lại, không phạt.</p>
                 <div className="table-scroll mt-3">
                   <table className="w-full text-sm">
@@ -450,7 +453,7 @@ export default function CheDoThuongPage() {
             )}
 
             {!khoa && (
-              <div className="fixed bottom-0 inset-x-0 lg:left-auto lg:right-6 lg:bottom-6 z-30 p-3 lg:p-0 bg-[var(--card-bg)] lg:bg-transparent border-t border-white/10 lg:border-0"
+              <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 lg:left-auto lg:right-6 lg:bottom-6 z-30 p-3 lg:p-0 bg-[var(--card-bg)] lg:bg-transparent border-t border-white/10 lg:border-0"
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                 <div className="flex gap-2 justify-end">
                   <button className="btn-ghost" onClick={() => setTab('bang')}>Xem thử bảng thưởng</button>
@@ -489,7 +492,7 @@ export default function CheDoThuongPage() {
               <div className="card p-4 text-sm flex flex-wrap gap-x-6 gap-y-1">
                 <span>Doanh số: <b className="font-mono">{tien(bang.hu.doanh_so)}</b></span>
                 <span>Mốc đạt: <b className="font-mono">{bang.hu.so_moc_dat}/{bang.hu.moc.length}</b></span>
-                <span>Quỹ hũ mở: <b className="font-mono text-[#C9A96E]">{tien(bang.hu.quy_mo)}</b></span>
+                <span>Quỹ hũ mở: <b className="font-mono text-[var(--gold-500)]">{tien(bang.hu.quy_mo)}</b></span>
                 {bang.hu.moc_tiep && <span className="text-[var(--text-muted)]">Còn {tien(bang.hu.con_thieu)} tới «{bang.hu.moc_tiep.nhan}»</span>}
               </div>
             )}

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/ui/Toast";
+import { XacNhanProvider } from "@/components/ui/XacNhan";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import InstallBanner from "@/components/ui/InstallBanner";
 import { AppShell } from "@/components/layout/Sidebar";
@@ -45,7 +46,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <ToastProvider>
-              <AppShell>{children}</AppShell>
+              <XacNhanProvider><AppShell>{children}</AppShell></XacNhanProvider>
             </ToastProvider>
             <InstallBanner />
           </AuthProvider>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -14,6 +15,8 @@ import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
 import TroLyHoiDap from '@/components/ui/TroLyHoiDap';
 import BottomNav from '@/components/layout/BottomNav';
+import TaoNhanh from '@/components/layout/TaoNhanh';
+import ChamHienGhiChu from '@/components/ui/ChamHienGhiChu';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_SALES_DASHBOARD } from '@/lib/features';
 import { duocDoiChieu, VAI_TRO_DU_LIEU_CHUNG } from '@/lib/du-lieu-chung';
@@ -152,6 +155,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const xacNhan = useXacNhan();
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, effectivePermissions } = useAuth();
@@ -188,6 +192,24 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // Esc đóng cửa sổ đè trên cùng (24/11/2026). App có ~48 cửa sổ tự dựng không nghe phím Esc; thay vì sửa từng cái,
+  // Esc «bấm hộ» vào nền của cửa sổ trên cùng — đúng thao tác bấm ra ngoài để đóng. Cửa sổ cố ý không đóng khi bấm
+  // ra ngoài (form dài) thì Esc cũng không đóng. Đang gõ dở trong ô nhập: Esc lần đầu chỉ rời ô, lần hai mới đóng.
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const ds = [...document.querySelectorAll<HTMLElement>('div.fixed.inset-0')]
+        .filter(el => ['z-50', 'z-[60]', 'z-[70]', 'z-[80]'].some(z => el.classList.contains(z)));
+      const tren = ds[ds.length - 1];
+      if (!tren) return;
+      const dangGo = document.activeElement as HTMLElement | null;
+      if (dangGo && tren.contains(dangGo) && /^(INPUT|TEXTAREA|SELECT)$/.test(dangGo.tagName)) { dangGo.blur(); return; }
+      (tren.querySelector<HTMLElement>(':scope > .absolute.inset-0') ?? tren).click();
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
   }, []);
 
   // Close mobile sidebar on route change
@@ -251,7 +273,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const dangXuatMayKhac = async () => {
     setAccountOpen(false);
-    if (!window.confirm('Đăng xuất tài khoản khỏi mọi điện thoại/máy tính khác? Máy này vẫn giữ đăng nhập.')) return;
+    if (!await xacNhan('Đăng xuất tài khoản khỏi mọi điện thoại/máy tính khác? Máy này vẫn giữ đăng nhập.')) return;
     try {
       const r = await api.logoutOtherDevices();
       toast(r.message || 'Đã đăng xuất các thiết bị khác', 'success');
@@ -462,8 +484,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-center lg:hidden"
         style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-subtle)' }}
       >
-        <span className="text-sm font-semibold tracking-wide" style={{ color: 'var(--gold-400)' }}>JAMA HOME</span>
+        {/* Tên trang đang mở (24/11) — chữ «JAMA HOME» cố định không cho biết mình đang ở đâu */}
+        <span className="text-sm font-semibold tracking-wide truncate max-w-[52%]" style={{ color: 'var(--gold-400)' }}>
+          {ALL_ITEMS.filter(i => laTrangDangMo(pathname, i.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label || 'JAMA HOME'}
+        </span>
       </div>
+
+      {/* Tìm kiếm trên điện thoại — trước đây chỉ mở được bằng Ctrl+K hoặc qua menu */}
+      <button
+        onClick={() => setSearchOpen(true)}
+        className="fixed top-[9px] right-[60px] z-40 p-2 rounded-xl lg:hidden"
+        aria-label="Tìm kiếm"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+        </svg>
+      </button>
 
       {/* Mobile hamburger */}
       <button
@@ -518,8 +554,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           transition: 'margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* Mode Banner */}
-        <div className="mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl flex items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
+        {/* Mode Banner — chỉ máy tính (24/11): trên điện thoại dải này chiếm 56px đầu MỌI màn hình mà không đổi bao giờ */}
+        <div className="hidden lg:flex mx-4 mt-4 px-4 lg:pr-14 py-2.5 rounded-xl items-center justify-between" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-semibold text-emerald-400">CHẾ ĐỘ LÀM VIỆC</span>
@@ -556,7 +592,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TroLyHoiDap />
 
       {/* Bottom nav mobile — thao tác chính trong tầm ngón cái */}
-      <BottomNav perms={effectivePermissions} />
+      <BottomNav perms={effectivePermissions} trangChinh={ROLE_MAIN_ROUTE[user?.role || '']} />
+
+      {/* Nút «+» tạo nhanh (chỉ điện thoại) + bong bóng ghi chú `title` cho màn hình cảm ứng */}
+      <TaoNhanh perms={effectivePermissions} user={user} />
+      <ChamHienGhiChu />
     </div>
   );
 }

@@ -4,6 +4,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { TO } from './BangDua';
 
 /** Thanh tiến độ mảnh vẽ bằng div — app không dùng thư viện biểu đồ. */
 export function Thanh({ pct, mau, cao = 6 }: { pct: number; mau: string; cao?: number }) {
@@ -21,8 +22,8 @@ export function Khoi({ tieuDe, phu, children, className, id }: {
   return (
     <section id={id} className={`glass-card p-5 ${className || ''}`}>
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{tieuDe}</h2>
-        {phu && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{phu}</p>}
+        <h2 className={`${TO} text-lg text-[var(--text-primary)]`}>{tieuDe}</h2>
+        {phu && <p className="text-[11px] text-[var(--text-muted)] mt-1.5">{phu}</p>}
       </div>
       {children}
     </section>

@@ -87,13 +87,13 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
             id: String(l.id), type: 'lead' as const,
             title: String(l.name || ''),
             subtitle: `${l.phone || ''} · ${l.source || ''} · ${l.stage || ''}`,
-            icon: 'user', href: '/leads',
+            icon: 'user', href: `/leads?id=${l.id}`,
           })),
           ...(projects as unknown as Array<Record<string, unknown>>).map(p => ({
             id: String(p.id), type: 'project' as const,
             title: `${p.code || ''} — ${p.name || ''}`,
             subtitle: `${p.client_name || ''} · ${p.progress ?? 0}%`,
-            icon: 'crane', href: '/projects',
+            icon: 'crane', href: `/projects?id=${p.id}`,
           })),
         ]);
         setLoading(false);

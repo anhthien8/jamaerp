@@ -76,7 +76,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Trên **máy tính**: menu nằm cột trái, chia **2 tầng**: dưới **Tổng quan** là các khối **Việc hằng ngày** (Phê duyệt, Chấm công, Dự án, KPI), **Kinh doanh** (Quy trình, Khách hàng, Báo giá, Hợp đồng…), **Kho hàng**, **Tài chính**, **Nhân sự**, **Trợ giúp** (Sổ tay, Cài app & thông báo, Có gì mới, Góp ý, Cài đặt). Bấm tên khối để mở/đóng; con số xám cạnh khối là số mục bên trong. Khối chứa trang bạn đang xem tự mở sẵn, và app nhớ khối nào bạn đã mở/đóng. Bạn chỉ thấy mục mình có quyền dùng. Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án."
+        "text": "Trên **máy tính**: menu nằm cột trái, chia **2 tầng**: dưới **Tổng quan** là các khối **Việc hằng ngày** (Phê duyệt, Chấm công, Dự án, KPI), **Kinh doanh** (Quy trình, Khách hàng, Báo giá, Hợp đồng…), **Kho hàng**, **Tài chính**, **Nhân sự**, **Trợ giúp** (Sổ tay, Cài app & thông báo, Có gì mới, Góp ý, Cài đặt). Bấm tên khối để mở/đóng; con số xám cạnh khối là số mục bên trong. Khối chứa trang bạn đang xem tự mở sẵn, và app nhớ khối nào bạn đã mở/đóng. Bạn chỉ thấy mục mình có quyền dùng. Trên cùng cột trái có ô **Tìm kiếm...** — bấm vào (hoặc nhấn Ctrl+K) để tìm nhanh khách, dự án. Trên **điện thoại**: thanh trên ghi tên trang đang mở, có nút **kính lúp** để tìm kiếm cạnh chuông thông báo; thanh nút dưới đáy xếp theo vai — ai cũng có **Tổng quan** và **Việc của tôi**, ở giữa là trang làm việc chính của vai (Kế toán thấy **Kế toán**, Sale thấy **Quy trình**, Giám sát thấy **Dự án**…), cuối là **Chấm công**. Nút **«+»** tròn vàng ở góc trái dưới là **tạo nhanh**: «Lead mới» mở form ngay tại chỗ, «Báo giá nhanh», «Dự án mới», «Giao dịch mới» (tuỳ quyền). Những chỗ có ghi chú khi rê chuột trên máy tính thì trên điện thoại **chạm vào** là hiện. Cửa sổ đang mở đóng được bằng phím **Esc**; riêng form dài (Báo giá, Hợp đồng, Dự án, Giao dịch) chỉ đóng bằng nút **Hủy** để không mất phần đang gõ. Thao tác một chạm như chuyển giai đoạn lead có nút **«Hoàn tác»** ngay trên thông báo trong vài giây."
       },
       {
         "type": "p",
@@ -104,7 +104,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Dải chữ **CHẾ ĐỘ LÀM VIỆC — Dữ liệu thật từ hệ thống** ở đầu mỗi trang nhắc bạn: mọi số liệu đang là **dữ liệu thật** của công ty. Sửa gì là sửa thật, nên cẩn thận nhé."
+        "text": "Dải chữ **CHẾ ĐỘ LÀM VIỆC — Dữ liệu thật từ hệ thống** ở đầu mỗi trang (trên máy tính; điện thoại đã bỏ dải này cho rộng màn hình) nhắc bạn: mọi số liệu đang là **dữ liệu thật** của công ty. Sửa gì là sửa thật, nên cẩn thận nhé."
       },
       {
         "type": "h3",
@@ -339,9 +339,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới. Chưa rõ giai đoạn nào nghĩa là gì: rê chuột lên nút (hoặc chạm icon «i» cạnh tiêu đề) để xem ghi chú.",
+          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới — chuyển xong thẻ vẫn mở để ghi chú tiếp (chỉ đóng khi chuyển sang Mất, Ngủ đông hoặc Deal đã thắng). Chưa rõ giai đoạn nào nghĩa là gì: rê chuột lên nút (hoặc chạm icon «i» cạnh tiêu đề) để xem ghi chú.",
+          "Lọc nhanh: bấm chip **«Của tôi»**, **«Quá hạn»**, **«Hôm nay»** ngay cạnh ô tìm — bấm lần nữa để bỏ. Trên điện thoại các ô lọc còn lại nằm sau nút **«Bộ lọc»** (con số trong ngoặc là số bộ lọc đang bật).",
           "Kéo thẻ vào cột **«Mất»**: thẻ chi tiết tự mở kèm ô chọn lý do (Ngân sách không phù hợp / Đã chọn đối thủ / Không phản hồi / Thay đổi kế hoạch / Lý do khác). Chọn xong bấm **«Xác nhận mất lead»** — không chọn lý do thì không chuyển được.",
           "Thêm khách mới: bấm nút **«+ Thêm Lead»** màu vàng ở góc phải trên.",
+          "Liên hệ khách 1 chạm: trên mỗi thẻ (và mỗi dòng ở chế độ Danh sách trên điện thoại) có nút **Zalo** (bong bóng chat) và **Gọi** (ống nghe). Bấm Gọi là gọi thật và app tự ghi một dòng «Gọi…» vào lịch sử. Mở thẻ chi tiết cũng có hai nút này ở thanh tiêu đề, kèm nút **sao chép số** cạnh số điện thoại (tiện khi dùng máy tính).",
+          "Đóng thẻ chi tiết: bấm ✕, bấm ra ngoài, hoặc phím **Esc**. App nhớ chế độ xem lần trước (Kanban / Danh sách / Lịch). Ở chế độ Lịch, ngày có nhiều khách thì bấm **«+N nữa»** để xem hết.",
+          "Tìm nhanh: bấm ô **Tìm kiếm** (hoặc Ctrl+K), gõ tên/số điện thoại rồi chọn — app mở thẳng thẻ khách hoặc dự án đó, không phải tìm lại lần hai.",
           "Cột đông khách chỉ hiện 25 thẻ đầu (số trên đầu cột vẫn là tổng thật). Cuộn xuống cuối cột, bấm **«Hiện thêm … thẻ»** để xem tiếp, bấm **«Thu gọn»** để gọn lại."
         ]
       },
@@ -465,7 +469,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Chọn kiểu công trình: **«🏗️ Xây mới»** hoặc **«🔨 Cải tạo»**.",
           "Xây mới có 2 cách nhập: **«📐 Nhập số liệu»** (điền Diện tích m² — bắt buộc, Loại nhà, Phòng ngủ, Ngân sách) hoặc **«🤖 Paste tin Zalo (AI)»** — dán nguyên tin nhắn khách nhắn, AI tự đọc ra số liệu.",
           "Cải tạo thì điền: Diện tích mỗi tầng, Số tầng, Ngân sách khách.",
-          "Bấm **«⚡ Tạo báo giá»** và chờ vài giây."
+          "Bấm **«⚡ Tạo báo giá»** và chờ vài giây.",
+          "Mở từ thẻ lead (nút **«Báo giá nhanh»**) thì số liệu đã điền sẵn; nút copy đổi thành **«Copy & mở Zalo khách»** — bấm là chép nội dung, mở khung chat Zalo của đúng khách đó và ghi một dòng vào lịch sử lead. «Lưu thành báo giá nháp» cũng tự gắn với lead."
         ]
       },
       {
@@ -498,9 +503,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Bấm vào thẻ lead, cuộn xuống «Lịch sử hoạt động».",
+          "Bấm vào thẻ lead — ô ghi chú và các chip 1 chạm nằm ngay dưới khối «Thông tin liên hệ», kèm 5 dòng lịch sử gần nhất (bấm **«Xem thêm … dòng cũ hơn»** để xem hết).",
           "Vội thì bấm **chip 1 chạm**: «Không nghe máy», «Đã gặp khách», «Đã Zoom», «Khách lên văn phòng», «Đã gửi báo giá» — một cái bấm là ghi xong, đúng loại việc như nút trên tin Telegram. Gặp khách, Zoom, khách lên văn phòng tính là đã liên hệ khách. Chip «Đã gửi báo giá» chỉ ghi lịch sử, không tự chuyển cột.",
           "Hẹn lại thì bấm **«Hẹn gọi lại…»** hoặc **«Hẹn khảo sát…»** rồi chọn **«Mai»**, **«3 ngày»** hoặc **«1 tuần»** (9 giờ sáng hôm đó); muốn giờ khác thì bấm **«Chọn ngày»**, chọn giờ rồi bấm **«Lưu hẹn»** (hẹn xa nhất 6 tháng). Giờ đã hẹn hiện ở dòng **«Đang hẹn: …»** ngay trên các chip; chưa tới giờ hẹn thì bot không nhắc, không thu hồi khách và thẻ không bị nhãn «Quá hạn».",
+          "Cần ra giá cho khách này: bấm **«Báo giá nhanh»** ở khối «Nhu cầu & Dự án» — trang Báo giá tức thì mở ra đã điền sẵn diện tích, loại nhà, ngân sách của khách.",
           "Muốn ghi kỹ hơn: gõ vào ô **«Thêm ghi chú...»** rồi bấm **«Gửi»** (hoặc phím Enter). Có ảnh (ảnh nhà khách, ảnh chụp tin nhắn...) thì bấm **📷** cạnh ô ghi chú hoặc dán ảnh thẳng vào ô, tối đa 6 ảnh mỗi ghi chú; ảnh hiện ngay trong lịch sử, bấm để phóng to. Ảnh lead chỉ người xem được lead mới thấy.",
           "Gọi khách ngay trên bảng: bấm **biểu tượng điện thoại** trên thẻ — máy gọi thật và hệ thống tự ghi nhận cuộc gọi kèm giờ."
         ]
@@ -602,10 +608,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Bấm vào tên đầu việc → mở cửa sổ chi tiết việc.",
+          "**Nhanh nhất (chỉ cần ảnh):** mở **Việc của tôi**, bấm nút **máy ảnh** ngay trên thẻ việc → chụp hoặc chọn ảnh (tối đa 10 ảnh mỗi lần). Ảnh vào thẳng Kho ảnh dự án và lịch sử của đầu việc đó, không phải mở dự án.",
+          "Đang đứng trong thẻ dự án: hàng nút dính trên đầu có **Gọi khách · Chỉ đường · Thêm ảnh · Vật tư** — cuộn tới đâu cũng bấm được.",
+          "Cần kèm ghi chú: bấm vào tên đầu việc → mở cửa sổ chi tiết việc.",
           "Gõ nội dung vào ô **«Thêm cập nhật ghi chú & hình ảnh»**.",
           "Bấm **«📷 Đính kèm ảnh»** để chọn ảnh (chọn được nhiều ảnh). App tự nén ảnh cho gọn nên ảnh chụp điện thoại cỡ nào cũng gửi được. Ảnh hiện trước ở dạng thu nhỏ, bấm dấu × để bỏ ảnh chọn nhầm.",
-          "Bấm **«Đăng cập nhật»** — ảnh được lưu vào **Kho ảnh công trình**, ghi chú và ảnh vào mục «Lịch sử cập nhật công việc», cả đội cùng thấy. Nếu mạng yếu chỉ gửi được một phần, cứ bấm «Đăng cập nhật» lần nữa để gửi nốt ảnh còn lại."
+          "Bấm **«Đăng cập nhật»** — ảnh được lưu vào **Kho ảnh công trình**, ghi chú và ảnh vào mục «Lịch sử cập nhật công việc», cả đội cùng thấy. Nếu mạng yếu chỉ gửi được một phần, cứ bấm «Đăng cập nhật» lần nữa để gửi nốt ảnh còn lại.",
+          "Đổi trạng thái việc: bấm nút **«Bắt đầu»** rồi **«Xong»** ngay trên dòng việc (cả hai kiểu xem). Việc đã xong muốn mở lại thì vào chi tiết việc, đổi ở ô trạng thái."
         ]
       },
       {
@@ -951,7 +960,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Nhập **Tiêu đề hợp đồng** (bắt buộc), chọn Dự án nếu có.",
           "Điền Giá trị hợp đồng, Số ngày thi công, Ngày bắt đầu, Ngày ký, Ghi chú.",
           "Bấm **Tạo hợp đồng** để lưu. Muốn sửa lại, bấm nút **Sửa** màu xanh ở cuối dòng hợp đồng đó.",
-          "Phát sinh hoặc giảm trừ: mở hợp đồng gốc → **«+ Phụ lục»** → nhập nội dung và giá trị (giảm trừ ghi số âm). Phụ lục có mã «…-PL1», giá trị dự án tự cộng."
+          "Phát sinh hoặc giảm trừ: mở hợp đồng gốc → **«+ Phụ lục»** → nhập nội dung, chọn **Phát sinh tăng** hoặc **Giảm trừ**, rồi gõ giá trị theo **nghìn đồng** như mọi ô tiền khác (dòng vàng bên dưới hiện số đầy đủ để soát). Phụ lục có mã «…-PL1», giá trị dự án tự cộng."
         ]
       },
       {
@@ -1033,7 +1042,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Bấm **+ Tạo báo giá mới** ở góc phải trên.",
           "Nhập **Tiêu đề** (bắt buộc), chọn Loại báo giá (Thiết kế / Thi công) và Dự án nếu có.",
           "Ở phần **Mục báo giá**, bấm **+ Thêm hạng mục** cho từng dòng: tên hạng mục, đơn vị (gói / m2 / bộ), số lượng, đơn giá. Thành tiền tự tính.",
-          "Điền Thuế, Hiệu lực đến, Ghi chú nếu cần, rồi bấm **Tạo mới**."
+          "Điền Thuế (bấm **«VAT 10%»** để app tự tính), Ghi chú nếu cần, rồi bấm **Tạo mới**. «Hiệu lực đến» đã điền sẵn hôm nay + 15 ngày, sửa được. Chọn dự án khi ô tiêu đề còn trống thì app điền luôn tiêu đề; ô Đơn vị có gợi ý sẵn (gói, m2, bộ…)."
         ]
       },
       {
@@ -1091,7 +1100,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { "type": "h3", "text": "Thiết kế / Kinh doanh — ngồi cùng khách" },
       { "type": "steps", "items": [
         "Mở dự án → bấm **«Phiếu vật tư của dự án»** (hoặc menu Vật tư → tab Phiếu dự án → gõ mã/tên dự án vào ô tìm; dự án có hoạt động 7 ngày gần nhất nằm sẵn ở mục **Gần đây**).",
-        "Bấm **«Khách chọn mẫu»**: chọn phòng (Phòng khách, Bếp, WC…), hạng mục (sàn, tường…), gõ mã hoặc hãng để chọn trong danh mục có ảnh; nhập số lượng. Mã chưa có trong danh mục thì gõ tự do.",
+        "Bấm **«Khách chọn mẫu»**: chọn phòng (Phòng khách, Bếp, WC…), hạng mục (sàn, tường…), gõ mã hoặc hãng để chọn trong danh mục có ảnh; nhập số lượng. Mã chưa có trong danh mục thì gõ tự do. Bấm **«Thêm dòng»** xong form **vẫn mở**, giữ nguyên phòng và hạng mục để chọn tiếp mẫu kế — chọn hết thì bấm **«Xong»**.",
         "Dòng mới ở trạng thái **Khách chọn** — Thu mua tự thấy ở bảng «Cần hỏi giá», không cần nhắn.",
         "Dòng có giá bán là bấm được **«Khách đã đồng ý»** ngay, không cần chờ Thu mua chốt giá vốn. Ghi chú khách nói gì, qua kênh nào; app ghi lại ai bấm. Lời đồng ý giữ nguyên cho tới khi giá bán của dòng đổi.",
         "Gõ tay đúng mã đang có trong danh mục thì app tự gắn về mẫu đó, giá theo giá chuẩn. Đổi sang mẫu khác thì giá bán đổi theo mẫu mới và phải hỏi lại khách.",
@@ -1107,6 +1116,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { "type": "steps", "items": [
         "Tab **Cần hỏi giá** gom mọi dòng chờ của tất cả dự án. Bấm một dòng để mở.",
         "Nhập từng báo giá NCC: tên NCC, giá vốn, còn hàng không, ngày giao. Báo giá **rẻ nhất tự lên đầu**.",
+        "Ghi báo giá NCC: gõ tên NCC + giá rồi bấm **«Thêm báo giá»**, hoặc **«Thêm & chốt»** để ghi và chốt luôn trong một chạm. Tên NCC được giữ lại cho dòng kế tiếp — một NCC báo nhiều mã thì chỉ gõ tên một lần. Giá ở đây viết đủ số (1.275.000đ).",
         "Bấm **«Chốt giá này»**, hoặc gõ giá vốn rồi bấm **«Chốt»**. **Bắt buộc có nhà cung cấp**: gõ giá tay thì phải ghi tên NCC, app lưu thành một báo giá «gõ tay». App ghi «giá gần nhất» về mẫu và báo Thiết kế / Kinh doanh / PM của dự án.",
         "Mẫu có giá chuẩn: chốt giá vốn **không đổi giá bán**. Nếu giá vốn mới làm lời xuống dưới hệ số của nhóm, Giám đốc nhận thông báo để xét lại giá chuẩn.",
         "Hết hàng: bấm **«Hết hàng / đề xuất thay»**, chọn mã thay và lý do → dòng chuyển sang chờ khách duyệt lại.",
@@ -1119,7 +1129,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "Đặt **trong** khối lượng, đơn giá và ngân sách của báo giá → **tự duyệt**, đi đặt luôn.",
         "Vượt **bất kỳ** mức nào (khối lượng, đơn giá hoặc ngân sách) → đơn chờ **Leader Thu mua** duyệt hoặc từ chối kèm lý do. Đơn chờ duyệt hiện ở «Việc của tôi» của Leader. **Leader tự đặt đơn vượt cũng phải chờ người khác duyệt** (Leader khác hoặc Giám đốc).",
         "**Ngân sách dự án là trần toàn bộ chi phí**: vật tư đã đặt cộng các khoản chi khác của dự án (nhân công, thầu phụ…). Khoản chi loại «Vật liệu» không cộng lần hai.",
-        "Hàng về công trình: **Giám sát** chụp **tối thiểu 2 ảnh hiện trường** rồi mới bấm được **Đủ** hoặc **Thiếu**. Thiếu thì ghi **tổng số đã nhận tới giờ** và ghi chú; hàng lỗi chọn lý do (sai mẫu / hư hỏng / khác). Mỗi lần nhận được lưu riêng thành **lịch sử nhận hàng** dưới dòng. Thu mua chỉ xem.",
+        "Hàng về công trình: **Giám sát** chụp **tối thiểu 2 ảnh hiện trường** rồi mới bấm được **Đủ** hoặc **Thiếu** — có hai nút riêng: **«Chụp ảnh»** (mở thẳng máy ảnh) và **«Chọn từ máy»** (lấy ảnh đã chụp, chọn được nhiều). Cả chuyến xe về đủ: bấm **«Chọn cả N dòng»** rồi nhận một lần. Thiếu thì ghi **tổng số đã nhận tới giờ** và ghi chú; hàng lỗi chọn lý do (sai mẫu / hư hỏng / khác). Mỗi lần nhận được lưu riêng thành **lịch sử nhận hàng** dưới dòng. Thu mua chỉ xem.",
         "Dòng đã đặt hàng **không sửa khối lượng, không đổi mẫu, không xoá**. Chỉ Leader Thu mua (hoặc Giám đốc) huỷ được, bắt buộc ghi lý do. Dòng giao thiếu mà đã nhận một phần thì nút là **«Chốt số đã nhận, bỏ phần còn lại»**. Dòng đã đặt rồi huỷ thì không mở lại được, cần mua lại thì tạo dòng mới.",
         "Giá vốn dựa trên báo giá NCC quá **60 ngày** hiện nhãn **«giá cũ»**: bấm **«Hỏi lại giá»** để đưa dòng về tab «Cần hỏi giá», ghi báo giá mới rồi chốt lại. Chốt lại đúng giá cũ, cùng NCC cũ không làm giá «mới» lại."
       ] },
@@ -1160,7 +1170,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Trang **Kho vật tư** có 4 ô tổng (Tổng mặt hàng, Giá trị tồn kho, Cảnh báo hết hàng, Danh mục) và bảng vật tư: mã, tên, danh mục, tồn kho, đơn giá, giá trị, nhà cung cấp. Vật tư nào **tồn kho xuống bằng hoặc dưới mức tối thiểu** sẽ đỏ lên kèm khung cảnh báo «Vật tư sắp hết» ở đầu trang. Dùng ô **Tìm vật tư...** và các nút lọc theo Danh mục / NCC để tìm nhanh."
+        "text": "Trang **Kho vật tư** có 4 ô tổng (Tổng mặt hàng, Giá trị tồn kho, Cảnh báo hết hàng, Danh mục) và bảng vật tư: mã, tên, danh mục, tồn kho, đơn giá, giá trị, nhà cung cấp. Vật tư nào **tồn kho xuống bằng hoặc dưới mức tối thiểu** sẽ đỏ lên kèm khung cảnh báo «Vật tư sắp hết» ở đầu trang. Dùng ô **Tìm vật tư...** và các nút lọc theo Danh mục / NCC để tìm nhanh. Sửa tồn kho một mặt hàng: bấm **«Nhập / xuất»** trên dòng đó, chọn **Nhập thêm** hoặc **Xuất bớt** rồi gõ số lượng (không phải gõ số tồn mới) — app hiện tồn kho sau khi lưu để soát."
       },
       {
         "type": "steps",
@@ -1189,7 +1199,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "**Hạng NCC** (từ 23/11/2026): mỗi nhóm hàng nên có 1 NCC **Chính** và ít nhất 1 **Dự phòng**; NCC mới để **Đang thử**. Chọn hạng ở hồ sơ NCC hoặc nút **Sửa**; lọc danh sách theo hạng. Hạng quyết định thứ tự trong «Gợi ý NCC» ở Vật tư.",
           "Không mua nữa: bấm **«Ngừng dùng»** (bấm **«Dùng lại»** để mở lại). NCC ngừng dùng ẩn khỏi danh sách và gợi ý; bật **«Hiện NCC đã ngừng»** để xem.",
           "Lỡ có 2 NCC trùng: Giám đốc bấm **«Gộp vào NCC khác»**, chọn NCC giữ lại. Mọi báo giá, dòng vật tư, giá nhập chuyển sang NCC giữ lại, NCC kia bị xoá. Không hoàn tác được.",
-          "Ghi báo giá NCC vừa gửi: chọn NCC đó, bấm **+ Thêm báo giá**, điền tên vật tư, đơn giá, số lượng tối thiểu, số ngày giao hàng."
+          "Ghi báo giá NCC vừa gửi: chọn NCC đó, bấm **+ Thêm báo giá**, điền tên vật tư, đơn giá, số lượng tối thiểu, số ngày giao hàng.",
+          "NCC báo giá mới cho vật tư đã có: bấm **«Cập nhật giá»** ngay trên dòng báo giá — form mở sẵn tên, đơn vị, số lượng tối thiểu, chỉ cần sửa con số. Nút **«So sánh»** cạnh đó so luôn vật tư ấy giữa các NCC.",
+          "Gọi hoặc nhắn Zalo NCC: bấm biểu tượng **điện thoại / tin nhắn** ngay trên dòng NCC trong danh sách."
         ]
       },
       {
@@ -1254,8 +1266,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "**Duyệt hoa hồng** (chỉ Giám đốc, Kế toán): ở dòng đang «Chờ duyệt», bấm nút **✓ Duyệt** bên phải.",
-          "Khi đã chi tiền thật, bấm tiếp **💵 Đã chi trả** — trạng thái chuyển sang «Đã trả»."
+          "**Duyệt hoa hồng** (chỉ Giám đốc, Kế toán): ở dòng đang «Chờ duyệt», bấm nút **Duyệt** bên phải. Nhiều khoản: bấm **«Duyệt tất cả N khoản»** ở đầu bảng (app hỏi lại kèm tổng tiền). Các chip **Chờ duyệt / Đã duyệt / Đã trả / Chờ mốc** lọc bảng theo trạng thái.",
+          "Khi đã chi tiền thật, bấm tiếp **Đã chi trả** — trạng thái chuyển sang «Đã trả». Chi trả luôn bấm từng khoản, không có nút chi cả loạt."
         ]
       },
       {
@@ -1299,8 +1311,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "**Bậc lương** — bảng lương gross và các mức BHXH/BHYT/BHTN theo bậc. Tab này **chỉ Giám đốc và Kế toán thấy**; Ban Quản Trị mở trang sẽ vào thẳng tab Chi phí cố định.",
-          "**Chi phí cố định** — mặt bằng, điện nước… theo từng tháng. Đổi tháng bằng ô chọn tháng ở góc phải bảng.",
-          "**Chi phí biến phí** — chi phí phát sinh theo tháng, có cột ghi rõ thuộc dự án nào.",
+          "**Chi phí cố định** — mặt bằng, điện nước… theo từng tháng. Đổi tháng bằng ô chọn tháng ở góc phải bảng. Giám đốc và Kế toán bấm **«Thêm khoản»** để ghi, biểu tượng bút / thùng rác trên dòng để sửa / xoá; **«Chép từ tháng trước»** mang các khoản của tháng trước sang tháng đang xem (khoản trùng tên đã có thì bỏ qua), sau đó sửa số nếu khác. Số tiền gõ theo **nghìn đồng**.",
+          "**Chi phí biến phí** — chi phí phát sinh theo tháng, có cột ghi rõ thuộc dự án nào. Thêm / sửa / xoá như Chi phí cố định, có ô chọn dự án.",
           "**Cơ cấu hoa hồng** — tỷ lệ % hoa hồng của từng phòng ban và ngày bắt đầu áp dụng."
         ]
       },
@@ -1414,7 +1426,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "list",
         "items": [
           "**Cách nhanh nhất — qua Telegram:** nhắn `/checkin` cho bot khi bắt đầu làm, `/checkout` khi về. Vào ca văn phòng mà bot đòi vị trí thì bấm nút **«📍 Gửi vị trí hiện tại»** bot hiện ra. Đang ở công trường thì nhắn `/checkin` kèm mã dự án, bot sẽ ghi kèm vị trí GPS.",
-          "**Trên web:** vào trang Chấm công, bấm nút **Vào ca** (màu vàng) khi bắt đầu, bấm **Tan ca** khi về. Cách này dùng khi đang ngồi máy tính.",
+          "**Trên web:** vào trang Chấm công, bấm nút **Vào ca** (màu vàng) khi bắt đầu, bấm **Tan ca** khi về. Nút hiện **«Đang lấy vị trí…»** trong lúc chờ GPS (tối đa 9 giây) — đừng bấm lại. Đang ở công trình: bấm chip **«Vào ca tại <mã dự án>»** bên dưới (hiện với các dự án bạn đang có việc) — giống lệnh `/checkin [Mã dự án]` của bot, vị trí vẫn được ghi kèm.",
           "**Mất mạng giữa chừng?** Cứ yên tâm — hệ thống tự gửi lại lần chấm công đó ngay khi có sóng."
         ]
       },
@@ -1503,7 +1515,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "Trang **Nhân sự** có 4 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Sơ đồ** (cây mạng lưới công ty), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**. Ở mọi cách xem, **bấm vào thẻ một người là mở Hồ sơ 360°** của người đó để xem/sửa. Dòng của chính bạn luôn nằm đầu danh sách, tô vàng kèm nhãn «Bạn»."
+        "text": "Trang **Nhân sự** có 4 nút chuyển cách xem ở góc phải trên: **Danh sách** (bảng đầy đủ tên, vai trò, phòng ban, email, SĐT, trạng thái), **Sơ đồ** (cây mạng lưới công ty), **Phòng ban** (gom theo Kinh doanh / Giám sát-Vận hành / Kế toán / Ban Giám đốc) và **Đội nhóm**. Ở mọi cách xem, **bấm vào thẻ một người là mở Hồ sơ 360°** của người đó để xem/sửa. Dòng của chính bạn luôn nằm đầu danh sách, tô vàng kèm nhãn «Bạn». Ở kiểu **Danh sách** có ô **tìm** theo tên / email / số điện thoại, ba nút lọc **Đang làm · Đã nghỉ · Tất cả** (mặc định Đang làm) và ô chọn phòng ban; số điện thoại bấm là gọi."
       },
       {
         "type": "h3",
@@ -1943,7 +1955,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Đọc bảng Phân quyền:** các cột chia 2 nhóm — **Vai trò có sẵn** (Giám đốc, Trưởng phòng, Nhân viên Sale, Kế toán / Nhân sự) và **Vai trò tự tạo** (thêm ở trang Tài khoản, ví dụ Thiết kế, Thu mua). Bấm ô tròn để bật/tắt, xong bấm **Lưu tất cả thay đổi**. Nút mũi tên vòng nhỏ dưới tên vai trò có sẵn = khôi phục quyền mặc định của vai trò đó."
+        "text": "**Đọc bảng Phân quyền:** các cột chia 2 nhóm — **Vai trò có sẵn** (Giám đốc, Trưởng phòng, Nhân viên Sale, Kế toán / Nhân sự) và **Vai trò tự tạo** (thêm ở trang Tài khoản, ví dụ Thiết kế, Thu mua). Bấm ô tròn để bật/tắt — thanh vàng dính đáy màn hình ghi tên các vai chưa lưu, bấm **«Lưu N vai trò»** là xong (chỉ gửi đúng các vai đã đổi). Mỗi quyền là một dòng: «Quy trình + Báo giá tức thì», «Kho vật tư + Nhà cung cấp», «Kế toán + Tài chính» đi chung một công tắc. Nút mũi tên vòng nhỏ dưới tên vai trò có sẵn = khôi phục quyền mặc định của vai trò đó."
       }
     ]
   },
@@ -2010,7 +2022,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình. **Ban Giám đốc** thấy thêm khối **«Việc cần Ban Giám đốc quyết»** ở đầu trang: chỉ nêu việc đã vượt tầm người phụ trách trực tiếp, xếp theo độ gấp, mỗi việc kèm lý do, tên người hoặc dự án cụ thể và nút mở thẳng nơi xử lý. Các mốc đang dùng: đơn chờ duyệt kẹt quá 2 ngày; lead chưa có sale phụ trách quá 24 giờ; cả đội từ 5 lead quá hạn chăm; người giữ quá 25 lead (kèm gợi ý ai đang nhẹ để chuyển sang); doanh số dưới 70% mốc hôm nay (kèm các lead gần chốt giá trị lớn nhất); mục tiêu tháng gấp đôi doanh số tháng trước trở lên; người dưới 60 điểm KPI hai tháng liền; đầu việc dự án quá hạn hơn 3 ngày; dự án qua ngày bàn giao dự kiến; dự án tạm dừng quá 14 ngày; mẫu vật tư đang dùng chưa có giá chuẩn; bài học của trợ lý AI chờ duyệt. Xử lý xong thì mục tự biến mất; không có gì vượt mốc thì khối ghi rõ hôm nay không có việc cần quyết."
+        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình. Có đơn chờ duyệt thì trang mở sẵn ô đó; **đơn nghỉ phép bấm «Duyệt» ngay trên thẻ** (từ chối thì chạm vào thẻ để sang trang Phê duyệt ghi lý do). Mỗi thẻ việc có nút **máy ảnh** để đăng ảnh công trình trong một chạm. **Ban Giám đốc** thấy thêm khối **«Việc cần Ban Giám đốc quyết»** ở đầu trang: chỉ nêu việc đã vượt tầm người phụ trách trực tiếp, xếp theo độ gấp, mỗi việc kèm lý do, tên người hoặc dự án cụ thể và nút mở thẳng nơi xử lý. Các mốc đang dùng: đơn chờ duyệt kẹt quá 2 ngày; lead chưa có sale phụ trách quá 24 giờ; cả đội từ 5 lead quá hạn chăm; người giữ quá 25 lead (kèm gợi ý ai đang nhẹ để chuyển sang); doanh số dưới 70% mốc hôm nay (kèm các lead gần chốt giá trị lớn nhất); mục tiêu tháng gấp đôi doanh số tháng trước trở lên; người dưới 60 điểm KPI hai tháng liền; đầu việc dự án quá hạn hơn 3 ngày; dự án qua ngày bàn giao dự kiến; dự án tạm dừng quá 14 ngày; mẫu vật tư đang dùng chưa có giá chuẩn; bài học của trợ lý AI chờ duyệt. Xử lý xong thì mục tự biến mất; không có gì vượt mốc thì khối ghi rõ hôm nay không có việc cần quyết."
       },
       {
         "type": "tip",
@@ -2068,7 +2080,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "type": "steps",
         "items": [
           "**Xem điểm của mình**: Hồ sơ nhân viên → tab **Tiền** → khối «Điểm JAMA» (hiện khi Admin bật «Nhân viên tự xem điểm»).",
-          "**Hũ trên Tổng quan**: hũ vàng đầy dần theo doanh số công ty — mỗi lead chuyển «Thắng» thì giá trị dự án vừa tạo cộng ngay vào hũ (dự án hủy hoặc tạo tay không tính; dự án chưa nhập giá trị thì chưa cộng), kèm số còn thiếu tới mốc tiếp. Bảng «Ai đang đẩy hũ» chỉ ghi doanh số, không ghi tiền thưởng từng người.",
+          "**Hũ trên Tổng quan**: hũ vàng đầy dần theo doanh số công ty — mỗi lead chuyển «Thắng» thì giá trị dự án vừa tạo cộng ngay vào hũ (dự án hủy hoặc tạo tay không tính; dự án chưa nhập giá trị thì chưa cộng), kèm số còn thiếu tới mốc tiếp. Đầu khối ghi **hạng của bạn** trong kỳ; đồng hồ cung cho thấy doanh số công ty đã tới đâu so với từng mốc, mỗi mốc một thẻ «Đã đạt» hoặc «còn thiếu …». **«Đường đua»** xếp hạng cá nhân / nhóm theo doanh số (dòng của bạn tô vàng), bên dưới có câu «còn bao nhiêu nữa là vượt người ngay trên, khoảng bao nhiêu mỗi ngày». Đường đua chỉ ghi doanh số; thẻ vàng **«Thưởng dự kiến»** chỉ hiện tiền thưởng của chính bạn, tính theo số hôm nay.",
           "**Cuối kỳ**: Kế toán mở tab **Bảng thưởng** → kiểm tra → **«Chốt kỳ → gửi duyệt»**. Phiếu «Bảng thưởng» vào trang Phê duyệt; duyệt xong mới vào lương."
         ]
       },

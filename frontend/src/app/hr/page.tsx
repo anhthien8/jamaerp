@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
@@ -9,6 +10,7 @@ import { api, User, Team, extractItems, type EmployeeProfileData } from '@/lib/a
 import { useToast } from '@/components/ui/Toast';
 import PermsErrorBanner from '@/components/ui/PermsErrorBanner';
 import { LEAD_STAGE_LABELS, labelOf } from '@/lib/labels';
+import { chuanHoaTim } from '@/lib/utils';
 import LineIcon from '@/components/ui/LineIcon';
 import Avatar, { nenAnhDaiDien } from '@/components/ui/Avatar';
 import SoDoCongTy from '@/components/hr/SoDoCongTy';
@@ -63,6 +65,7 @@ interface ResignPreviewData {
 }
 
 export default function HRPage() {
+  const xacNhan = useXacNhan();
   const { user, loading, effectivePermissions, permsReady, permsError } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -70,10 +73,18 @@ export default function HRPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   // Tài khoản đang đăng nhập luôn đứng đầu danh sách (tô vàng + nhãn «Bạn»)
-  const dsHienThi = useMemo(
-    () => [...users].sort((a, b) => Number(b.id === user?.id) - Number(a.id === user?.id)),
-    [users, user?.id],
-  );
+  // Tìm + lọc danh sách (24/11): trước đó 60 người xếp một cột, tìm một người phải cuộn.
+  const [tim, setTim] = useState('');
+  const [locTT, setLocTT] = useState<'all' | 'dang_lam' | 'da_nghi'>('dang_lam');
+  const [locPhong, setLocPhong] = useState('');
+  const dsHienThi = useMemo(() => {
+    const k = chuanHoaTim(tim);
+    return users
+      .filter(u => locTT === 'all' || (locTT === 'dang_lam') === !!u.is_active)
+      .filter(u => !locPhong || (u.department || 'Khác') === locPhong)
+      .filter(u => !k || chuanHoaTim(`${u.full_name} ${u.email} ${u.phone || ''}`).includes(k))
+      .sort((a, b) => Number(b.id === user?.id) - Number(a.id === user?.id));
+  }, [users, user?.id, tim, locTT, locPhong]);
   const [loadingData, setLoadingData] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'tree' | 'org' | 'teams'>('list');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -174,7 +185,7 @@ export default function HRPage() {
 
   // Xoá người đã nghỉ khỏi danh sách (10/11/2026) — ẩn hẳn, giữ lịch sử dữ liệu.
   const handleXoaDaNghi = async (u: User) => {
-    if (!window.confirm(`Xoá ${u.full_name} khỏi danh sách nhân sự?
+    if (!await xacNhan(`Xoá ${u.full_name} khỏi danh sách nhân sự?
 Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return;
     try {
       const result = await api.xoaNhanSuDaNghi(u.id);
@@ -214,7 +225,7 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
     if (!newUser.email.trim()) errs.email = 'Vui lòng nhập email';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email.trim())) errs.email = 'Email không hợp lệ';
     if (!newUser.password) errs.password = 'Vui lòng nhập mật khẩu';
-    else if (newUser.password.length < 6) errs.password = 'Tối thiểu 6 ký tự';
+    else if (newUser.password.length < 8) errs.password = 'Tối thiểu 8 ký tự';
     if (Object.keys(errs).length > 0) {
       setUserErrors(errs);
       toast('Vui lòng điền đủ trường bắt buộc: Họ tên, Email, Mật khẩu', 'error');
@@ -320,7 +331,7 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
           {user?.role === 'admin' && (
             <button
               onClick={() => { moFormTao(); }}
-              className="px-4 py-2 rounded-full bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all"
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white text-sm font-medium hover:from-[#D4B97E] hover:to-[var(--gold-500)] transition-all"
             >
               + Thêm nhân viên
             </button>
@@ -346,8 +357,38 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
         ))}
       </div>
 
+      {viewMode === 'list' && !loadingData && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"><LineIcon name="search" size={16} color="currentColor" /></span>
+            <input value={tim} onChange={e => setTim(e.target.value)} placeholder="Tìm tên, email, số điện thoại…" aria-label="Tìm nhân viên"
+              className="w-full pl-9 pr-3 min-h-[40px] rounded-full text-base sm:text-sm outline-none"
+              style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+          </div>
+          {([['dang_lam', 'Đang làm'], ['da_nghi', 'Đã nghỉ'], ['all', 'Tất cả']] as const).map(([k, nhan]) => (
+            <button key={k} type="button" onClick={() => setLocTT(k)} aria-pressed={locTT === k}
+              className="px-3.5 min-h-[40px] rounded-full text-xs font-semibold"
+              style={locTT === k
+                ? { background: 'var(--gold-500)', color: 'var(--surface-0)' }
+                : { background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+              {nhan} ({k === 'all' ? users.length : users.filter(u => (k === 'dang_lam') === !!u.is_active).length})
+            </button>
+          ))}
+          <select value={locPhong} onChange={e => setLocPhong(e.target.value)} aria-label="Lọc theo phòng ban"
+            className="px-3 min-h-[40px] rounded-full text-base sm:text-xs outline-none"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+            <option value="">Mọi phòng ban</option>
+            {Object.keys(byDept).map(d => <option key={d} value={d}>{deptLabel(d)} ({byDept[d].length})</option>)}
+          </select>
+        </div>
+      )}
+
       {loadingData ? (
         <div className="p-12 text-center text-[var(--text-muted)]">Đang tải...</div>
+      ) : viewMode === 'list' && dsHienThi.length === 0 ? (
+        <div className="p-10 text-center text-sm text-[var(--text-muted)] rounded-2xl" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+          Không có nhân viên nào khớp bộ lọc.
+        </div>
       ) : viewMode === 'list' ? (
         /* List view */
         <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
@@ -464,7 +505,9 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
                     </td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{deptLabel(u.department)}</td>
                     <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.email}</td>
-                    <td className="px-5 py-3.5 text-[var(--text-secondary)]">{u.phone || '—'}</td>
+                    <td className="px-5 py-3.5 text-[var(--text-secondary)]" onClick={e => e.stopPropagation()}>
+                      {u.phone ? <a href={`tel:${u.phone.replace(/[^\d+]/g, '')}`} className="hover:text-[var(--gold-400)] underline-offset-2 hover:underline">{u.phone}</a> : '—'}
+                    </td>
                     <td className="px-5 py-3.5 text-center" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: u.is_active ? '#34d399' : '#f87171' }} />
@@ -692,7 +735,7 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
               </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Mật khẩu ban đầu <span className="text-red-400">*</span></label>
-                <input name="nv-mat-khau-moi" type="password" autoComplete="new-password" placeholder="Tối thiểu 6 ký tự" value={newUser.password} onChange={e => { setNewUser({...newUser, password: e.target.value}); setUserErrors(p => ({ ...p, password: undefined })); }} className={INPUT_CLS} />
+                <input name="nv-mat-khau-moi" type="password" autoComplete="new-password" placeholder="Tối thiểu 8 ký tự" value={newUser.password} onChange={e => { setNewUser({...newUser, password: e.target.value}); setUserErrors(p => ({ ...p, password: undefined })); }} className={INPUT_CLS} />
                 {userErrors.password && <p className="text-[10px] text-red-400 mt-1">{userErrors.password}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -786,7 +829,7 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
           </div>
           <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <button type="button" onClick={() => setShowCreateForm(false)} disabled={savingUser} className="flex-1 py-2.5 rounded-full text-sm border border-[var(--border-subtle)] text-[var(--text-secondary)]">Hủy</button>
-            <button type="submit" disabled={savingUser} className="flex-1 py-2.5 rounded-full text-sm bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-medium disabled:opacity-50">{savingUser ? 'Đang lưu...' : 'Thêm nhân viên'}</button>
+            <button type="submit" disabled={savingUser} className="flex-1 py-2.5 rounded-full text-sm bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white font-medium disabled:opacity-50">{savingUser ? 'Đang lưu...' : 'Thêm nhân viên'}</button>
           </div>
         </form>
       </div>
@@ -795,7 +838,7 @@ Lead, đầu việc, hợp đồng cũ vẫn giữ tên người này.`)) return
     {/* Resignation Modal */}
     {resignTarget && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeResignModal}>
-        <div className="glass-card p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+        <div className="glass-card p-6 w-full max-w-lg mx-4 max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
           {/* Loading state */}
           {resignLoading && (

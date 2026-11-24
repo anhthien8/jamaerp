@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, ApiError, InstantQuoteResult, PriceItemDTO } from '@/lib/api';
+import { api, ApiError, InstantQuoteResult, Lead, PriceItemDTO } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
 import Link from 'next/link';
 import { getPermissions, UserRole } from '@/lib/roles';
@@ -71,6 +71,21 @@ export default function QuoteToolPage() {
     if (!loading && !user) router.push(duongDangNhap());
   }, [user, loading, router]);
 
+  // Mở từ thẻ lead (/quote-tool?lead=<id>): điền sẵn diện tích, loại nhà, ngân sách — sale khỏi gõ lại.
+  // Đọc thẳng location thay vì useSearchParams để trang không phải bọc Suspense.
+  const [lead, setLead] = useState<Lead | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const id = new URLSearchParams(window.location.search).get('lead');
+    if (!id) return;
+    api.getLead(id).then(l => {
+      setLead(l);
+      if (l.area_sqm) setArea(String(l.area_sqm));
+      if (PROPERTY_TYPES.some(p => p.value === l.property_type)) setPtype(l.property_type!);
+      if (l.estimated_budget) setBudget(String(Math.round(l.estimated_budget / 1_000_000)));
+    }).catch(() => setMessage('Không mở được lead này — vẫn báo giá được, chỉ là phải nhập tay.'));
+  }, [user]);
+
   const generate = async () => {
     setGenerating(true);
     setMessage('');
@@ -110,13 +125,22 @@ export default function QuoteToolPage() {
     }
   };
 
+  const soZalo = (lead?.phone || '').replace(/[^0-9]/g, '');
   const copyZalo = () => {
     if (!result) return;
     // Xây mới: lấy text của phương án đang chọn (không phải lúc nào cũng là phương án gợi ý).
     navigator.clipboard.writeText(result.zalo_texts?.[activeTier] ?? result.zalo_text).then(
-      () => setMessage('✅ Đã copy — dán vào Zalo gửi khách ngay!'),
+      () => setMessage(soZalo ? '✅ Đã copy — dán vào khung chat Zalo vừa mở.' : '✅ Đã copy — dán vào Zalo gửi khách ngay!'),
       () => setMessage('❌ Không copy được'),
     );
+    // Có lead: mở luôn Zalo của khách + ghi một dòng vào lịch sử lead. Mở ngay trong lượt bấm
+    // (không đợi copy xong) kẻo iOS chặn cửa sổ mới.
+    if (lead && soZalo) {
+      window.open(`https://zalo.me/${soZalo}`, '_blank', 'noopener');
+      const k = result.mode === 'renovation' ? result : result.tiers?.[activeTier];
+      const khoang = k?.range_low && k?.range_high ? ` ${fmtVND(k.range_low)} – ${fmtVND(k.range_high)}` : '';
+      api.createActivity(lead.id, { type: 'note', content: `📤 Soạn báo giá sơ bộ${khoang}, mở Zalo gửi khách` }).catch(() => {});
+    }
   };
 
   // Lưu kết quả đang xem thành báo giá NHÁP ở /quotations — vẫn phải qua nút Duyệt như mọi báo giá.
@@ -141,7 +165,8 @@ export default function QuoteToolPage() {
       // Không gửi total_amount: backend tự cộng các dòng nên tổng luôn khớp hạng mục.
       const created = await api.createQuotation({
         type: 'construction',
-        title: `Báo giá sơ bộ ${loai} ${result.area_sqm}m²${tier ? ` - ${tier.label}` : ''}${result.parsed?.name ? ` - ${result.parsed.name}` : ''}`,
+        title: `Báo giá sơ bộ ${loai} ${result.area_sqm}m²${tier ? ` - ${tier.label}` : ''}${lead ? ` - ${lead.name}` : result.parsed?.name ? ` - ${result.parsed.name}` : ''}`,
+        lead_id: lead?.id,
         items,
         valid_until: `${han.getFullYear()}-${pad(han.getMonth() + 1)}-${pad(han.getDate())}`,
         notes: result.disclaimer,
@@ -175,12 +200,12 @@ export default function QuoteToolPage() {
         <>
           <LineIcon name="check" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />
           Đã lưu báo giá nháp {savedDraft} — cần duyệt trước khi gửi khách.{' '}
-          <Link href="/quotations" className="underline text-[#C9A96E]">Mở danh sách Báo giá</Link>
+          <Link href="/quotations" className="underline text-[var(--gold-500)]">Mở danh sách Báo giá</Link>
         </>
       ) : message}
     </p>
   );
-  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[var(--gold-500)]';
 
   return (
     <Sidebar>
@@ -197,6 +222,13 @@ export default function QuoteToolPage() {
         <p className="text-sm text-[var(--text-muted)] mb-6">
           Báo giá sơ bộ trong 30 giây — gửi khách khi còn &quot;nóng&quot;, chốt lịch khảo sát.
         </p>
+        {lead && (
+          <div className="flex items-center gap-2 flex-wrap mb-4 px-3 py-2 rounded-xl text-sm max-w-3xl" style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}>
+            <LineIcon name="user" size={14} color="var(--gold-500)" />
+            <span>Báo giá cho <b>{lead.name}</b>{lead.phone ? ` · ${lead.phone}` : ''} — đã điền sẵn từ thẻ lead.</span>
+            <Link href={`/leads?id=${lead.id}`} className="ml-auto underline text-[var(--gold-500)] whitespace-nowrap">Về thẻ lead</Link>
+          </div>
+        )}
 
         {/* ── Price book ── */}
         {showPriceBook && (
@@ -253,13 +285,13 @@ export default function QuoteToolPage() {
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => switchQuoteMode('new')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'new' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'new' ? 'bg-[var(--gold-500)] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
           >
             <LineIcon name="crane" size={16} className="inline-block align-[-2px] mr-1.5" />Xây mới
           </button>
           <button
             onClick={() => switchQuoteMode('renovation')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'renovation' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${quoteMode === 'renovation' ? 'bg-[var(--gold-500)] text-black' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
           >
             <LineIcon name="hammer" size={16} className="inline-block align-[-2px] mr-1.5" />Cải tạo
           </button>
@@ -271,13 +303,13 @@ export default function QuoteToolPage() {
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setInputMode('form')}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'form' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'form' ? 'bg-[var(--gold-500)] text-black' : 'bg-white/5 border border-white/10'}`}
               >
                 <LineIcon name="ruler" size={16} className="inline-block align-[-2px] mr-1.5" />Nhập số liệu
               </button>
               <button
                 onClick={() => setInputMode('paste')}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'paste' ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold ${inputMode === 'paste' ? 'bg-[var(--gold-500)] text-black' : 'bg-white/5 border border-white/10'}`}
               >
                 <LineIcon name="robot" size={16} className="inline-block align-[-2px] mr-1.5" />Paste tin Zalo (AI)
               </button>
@@ -338,7 +370,7 @@ export default function QuoteToolPage() {
             <button
               onClick={generate}
               disabled={generating}
-              className="px-6 py-2.5 rounded-xl bg-[#C9A96E] text-black text-sm font-bold hover:opacity-90 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-[var(--gold-500)] text-black text-sm font-bold hover:opacity-90 disabled:opacity-50"
             >
               {generating ? 'Đang tính...' : <><LineIcon name="zap" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Tạo báo giá</>}
             </button>
@@ -376,7 +408,7 @@ export default function QuoteToolPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-[var(--text-muted)]">Tổng dự kiến</p>
-                      <p className="text-2xl font-bold text-[#C9A96E]">{fmtVND(result.range_low!)} – {fmtVND(result.range_high!)}</p>
+                      <p className="text-2xl font-bold text-[var(--gold-500)]">{fmtVND(result.range_low!)} – {fmtVND(result.range_high!)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-[var(--text-muted)]">Per m²</p>
@@ -392,7 +424,7 @@ export default function QuoteToolPage() {
                       <button
                         key={cat}
                         onClick={() => setActiveRenoCat(cat)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeRenoCat === cat ? 'bg-[#C9A96E] text-black' : 'bg-white/5 border border-white/10 text-[var(--text-secondary)]'}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeRenoCat === cat ? 'bg-[var(--gold-500)] text-black' : 'bg-white/5 border border-white/10 text-[var(--text-secondary)]'}`}
                       >
                         {RENO_CATEGORY_LABELS[cat] || cat} ({fmtVND(data.total)})
                       </button>
@@ -461,7 +493,7 @@ export default function QuoteToolPage() {
                 {/* Actions + disclaimer */}
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
-                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
+                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />{soZalo ? 'Copy & mở Zalo khách' : 'Copy text gửi Zalo'}
                   </button>
                   {saveDraftButton}
                 </div>
@@ -481,15 +513,15 @@ export default function QuoteToolPage() {
                       <button
                         key={tier}
                         onClick={() => setActiveTier(tier)}
-                        className={`glass-card p-5 text-left transition-all ${isActive ? 'ring-2 ring-[#C9A96E]' : 'hover:bg-white/5'}`}
+                        className={`glass-card p-5 text-left transition-all ${isActive ? 'ring-2 ring-[var(--gold-500)]' : 'hover:bg-white/5'}`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold">{t.label}</span>
                           {isSuggested && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#C9A96E] text-black font-bold">GỢI Ý</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--gold-500)] text-black font-bold">GỢI Ý</span>
                           )}
                         </div>
-                        <p className="text-xl font-bold text-[#C9A96E]">{fmtVND(t.range_low)} – {fmtVND(t.range_high)}</p>
+                        <p className="text-xl font-bold text-[var(--gold-500)]">{fmtVND(t.range_low)} – {fmtVND(t.range_high)}</p>
                         <p className="text-xs text-[var(--text-muted)] mt-1">≈ {fmtVND(t.per_sqm)}/m²</p>
                       </button>
                     );
@@ -499,7 +531,7 @@ export default function QuoteToolPage() {
                 {/* Actions */}
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={copyZalo} className="px-5 py-2.5 rounded-xl bg-[#1A535C] text-white text-sm font-semibold hover:opacity-90">
-                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />Copy text gửi Zalo
+                    <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />{soZalo ? 'Copy & mở Zalo khách' : 'Copy text gửi Zalo'}
                   </button>
                   {saveDraftButton}
                 </div>

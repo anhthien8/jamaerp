@@ -502,7 +502,7 @@ export default function NotificationCenter({ leads: leadsProp, projects: project
         <div className="fixed inset-0 z-[100] lg:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            className="absolute bottom-0 left-0 right-0 max-h-[85vh] rounded-t-2xl overflow-hidden animate-slideUp"
+            className="absolute bottom-0 left-0 right-0 max-h-[85vh] flex flex-col rounded-t-2xl overflow-hidden animate-slideUp"
             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}
             onClick={e => e.stopPropagation()}
           >

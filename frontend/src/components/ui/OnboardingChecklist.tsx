@@ -316,7 +316,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
                     <LineIcon name={card.icon} size={20} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white group-hover:text-[#C9A96E] transition-colors">{card.title}</p>
+                      <p className="text-sm font-semibold text-white group-hover:text-[var(--gold-500)] transition-colors">{card.title}</p>
                       <p className="text-xs text-[var(--text-muted)] truncate">{card.description}</p>
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
@@ -391,7 +391,7 @@ export default function OnboardingChecklist({ forceOpen = false, onComplete }: O
                 style={{ background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.3)' }}>
                 <LineIcon name="compass" size={18} />
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[#C9A96E]">Bắt đầu hướng dẫn từng bước</p>
+                  <p className="text-sm font-bold text-[var(--gold-500)]">Bắt đầu hướng dẫn từng bước</p>
                   <p className="text-[10px] text-[var(--text-muted)]">Đi qua từng trang theo workflow của bạn</p>
                 </div>
               </button>

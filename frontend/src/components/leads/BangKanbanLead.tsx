@@ -2,6 +2,7 @@
 
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
+import InfoTip from '@/components/ui/InfoTip';
 import { NEEDS_LABELS, STAGE_CONFIG, cn, formatCurrency, formatDealValue, timeAgo } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { KANBAN_PAGE_SIZE, isOverdueLead, BOARD_STAGES, PROPERTY_LABELS, SOURCE_LABELS, TagBadge } from './shared';
@@ -99,56 +100,64 @@ export default function BangKanbanLead({
                   onClick={() => openLeadDetail(lead)}
                   title={lead.stage === 'signed_design' ? 'Deal đã thắng — đã tạo Khách hàng + Dự án, không kéo lùi được' : 'Kéo thả sang cột khác để đổi trạng thái'}
                   className={cn(
-                    'glass-card p-3 border-l-2 cursor-pointer hover:bg-white/8 transition-all group',
+                    'glass-card px-3 py-2.5 border-l-2 cursor-pointer hover:bg-white/8 transition-all group',
                     lead.stage !== 'signed_design' && 'cursor-grab active:cursor-grabbing',
                     lead.priority === 'urgent' ? 'border-l-red-500' :
                     lead.priority === 'high' ? 'border-l-amber-500' :
                     lead.priority === 'medium' ? 'border-l-blue-500' : 'border-l-gray-500'
                   )}
                 >
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-sm font-medium text-white group-hover:text-[#C9A96E] transition-colors">
+                  {/* Thẻ gọn 24/11: 7 hàng → 4 hàng. Hàng 1 tên + tiền/AI; hàng 2 SĐT · lần liên hệ cuối · nguồn;
+                      hàng 3 loại nhà · m² · khu vực · nhu cầu; hàng 4 phụ trách + đổi giai đoạn, Zalo, gọi. */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="min-w-0 text-sm font-medium leading-snug text-[var(--text-primary)] group-hover:text-[var(--gold-500)] transition-colors">
                       {lead.name}
                       {isOverdueLead(lead) && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium ml-1">
-                          <LineIcon name="alert" size={16} className="inline-block align-[-2px] mr-1.5" />Quá hạn
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium ml-1.5 whitespace-nowrap" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
+                          <LineIcon name="alert" size={11} color="currentColor" className="inline-block align-[-1px] mr-1" />Quá hạn
                         </span>
                       )}
                     </h3>
-                    {lead.deal_value ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#C9A96E]/15 text-[#C9A96E] font-semibold">
-                        {formatDealValue(lead.deal_value)}
-                      </span>
-                    ) : lead.estimated_budget ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#C9A96E]/15 text-[#C9A96E]">
-                        {formatCurrency(lead.estimated_budget)}
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {lead.deal_value ? (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'color-mix(in srgb, var(--gold-500) 15%, transparent)', color: 'var(--gold-500)' }}>
+                          {formatDealValue(lead.deal_value)}
+                        </span>
+                      ) : lead.estimated_budget ? (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'color-mix(in srgb, var(--gold-500) 15%, transparent)', color: 'var(--gold-500)' }}>
+                          {formatCurrency(lead.estimated_budget)}
+                        </span>
+                      ) : null}
+                      {lead.ai_score != null && lead.ai_score > 0 && (() => {
+                        const mau = lead.ai_score >= 80 ? 'var(--success)' : lead.ai_score >= 60 ? 'var(--warning)' : 'var(--danger)';
+                        return (
+                          <InfoTip text={`Điểm AI ${lead.ai_score}/100 — khả năng chốt do AI chấm. Từ 80: nóng, 60–79: ấm, dưới 60: cần chăm thêm.`}>
+                            <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold tabular-nums" style={{ background: `color-mix(in srgb, ${mau} 14%, transparent)`, color: mau }}>
+                              AI {lead.ai_score}
+                            </span>
+                          </InfoTip>
+                        );
+                      })()}
+                    </div>
                   </div>
-                  <p className="text-xs text-[var(--text-muted)] mt-1"><LineIcon name="smartphone" size={12} color="currentColor" className="inline-block align-[-2px] mr-1.5" />{lead.phone}</p>
-                  {lead.last_contacted_at && (
-                    <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                      <LineIcon name="clock" size={16} className="inline-block align-[-2px] mr-1.5" />{timeAgo(lead.last_contacted_at)}
-                    </p>
-                  )}
-                  {lead.property_type && (
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                      <LineIcon name="home" size={16} className="inline-block align-[-2px] mr-1.5" />{PROPERTY_LABELS[lead.property_type] || lead.property_type} {lead.area_sqm ? `· ${lead.area_sqm}m²` : ''}
-                    </p>
-                  )}
-                  {/* Region + Segment line */}
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    {lead.region && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                        <LineIcon name="pin" size={16} className="inline-block align-[-2px] mr-1.5" />{lead.region}
-                      </span>
-                    )}
-                    {lead.segment && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                        <LineIcon name="flag" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />{NEEDS_LABELS[lead.segment] || lead.segment}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1 tabular-nums">
+                    {lead.phone}
+                    <span className="text-[var(--text-muted)]">
+                      {lead.last_contacted_at && <> · {timeAgo(lead.last_contacted_at)}</>}
+                      {' · '}{SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
+                    </span>
+                  </p>
+                  {(() => {
+                    const dong = [
+                      lead.property_type && (PROPERTY_LABELS[lead.property_type] || lead.property_type),
+                      lead.area_sqm && `${lead.area_sqm}m²`,
+                      lead.region,
+                      lead.segment && (NEEDS_LABELS[lead.segment] || lead.segment),
+                    ].filter(Boolean);
+                    return dong.length > 0 ? (
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">{dong.join(' · ')}</p>
+                    ) : null;
+                  })()}
                   {/* Tags — tags may be a JSON string like '["VIP"]' or a real array */}
                   {(() => {
                     const parsedTags = Array.isArray(lead.tags)
@@ -162,31 +171,15 @@ export default function BangKanbanLead({
                       </div>
                     ) : null;
                   })()}
-                  {lead.ai_score != null && lead.ai_score > 0 && (
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <div className="flex-1 h-1.5 rounded-full bg-white/10">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${lead.ai_score}%`,
-                            backgroundColor: lead.ai_score >= 80 ? '#10B981' : lead.ai_score >= 60 ? '#F59E0B' : '#EF4444',
-                          }}
-                        />
-                      </div>
-                      <span className="text-[9px] text-[var(--text-muted)]">AI {lead.ai_score}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                    <span className="text-[10px] text-[var(--text-muted)]">
-                      {lead.assigned_user_name || '—'}
+                  <div className="flex items-center justify-between gap-2 mt-1.5 pt-1.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]">
+                      {lead.assigned_user_name || 'Chưa phân công'}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-[var(--text-muted)]">
-                        {SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
-                      </span>
+                    <div className="flex items-center flex-shrink-0">
                       {/* Quick stage change */}
                       <select
-                        className="text-[9px] px-1 py-0.5 rounded bg-white/5 border border-white/10 text-[var(--text-muted)] max-w-[80px] truncate cursor-pointer"
+                        aria-label="Đổi giai đoạn"
+                        className="text-[11px] px-1.5 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-secondary)] max-w-[104px] truncate cursor-pointer mr-0.5"
                         value={lead.stage}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
@@ -206,9 +199,23 @@ export default function BangKanbanLead({
                           <option key={s} value={s}>{STAGE_CONFIG[s]?.label || s}</option>
                         ))}
                       </select>
+                      {lead.phone && (
+                        <a
+                          href={`https://zalo.me/${lead.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Nhắn Zalo ${lead.phone}`}
+                          title="Nhắn Zalo"
+                          className="rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[var(--gold-500)] w-9 h-9 flex items-center justify-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <LineIcon name="message" size={16} color="currentColor" />
+                        </a>
+                      )}
                       <a
                         href={lead.phone ? `tel:${lead.phone}` : undefined}
-                        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[#C9A96E] min-w-[36px] min-h-[36px] flex items-center justify-center"
+                        aria-label={lead.phone ? `Gọi ${lead.phone}` : 'Chưa có SĐT'}
+                        className="rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-[var(--gold-500)] w-9 h-9 flex items-center justify-center"
                         title={lead.phone ? `Gọi ${lead.phone}` : 'Chưa có SĐT'}
                         onClick={(e) => {
                           e.stopPropagation();

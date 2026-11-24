@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
@@ -13,6 +14,27 @@ import BatThongBaoMay from '@/components/BatThongBaoMay';
 import LineIcon from '@/components/ui/LineIcon';
 import { DoiAnhDaiDien } from '@/components/ui/Avatar';
 import { DEPARTMENT_LABELS } from '@/lib/labels';
+
+/** Dòng trạng thái của các khối Cài đặt. Câu báo vẫn mở đầu bằng ký hiệu ✅ ❌ ⏳ ⚠️ ✓ (nhiều chỗ ghép chuỗi),
+ *  nhưng khi vẽ thì ký hiệu thành icon nét + màu theo theme — emoji mỗi máy vẽ một kiểu, và lệch tông với cả app. */
+const KY_HIEU: [string, string, string][] = [
+  ['✅', 'check', 'var(--success)'], ['❌', 'xCircle', 'var(--danger)'], ['⏳', 'hourglass', 'var(--text-muted)'],
+  ['⚠️', 'alert', 'var(--warning)'], ['✓', 'tick', 'var(--success)'],
+];
+function TrangThai({ text }: { text: string }) {
+  const tim = KY_HIEU.map(k => ({ vt: text.indexOf(k[0]), k })).filter(x => x.vt >= 0).sort((a, b) => a.vt - b.vt)[0];
+  if (!tim) return <>{text}</>;
+  const [kyHieu, icon, mau] = tim.k;
+  return (
+    <>
+      {text.slice(0, tim.vt)}
+      <span style={{ color: mau }}>
+        <LineIcon name={icon} size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />
+        {text.slice(tim.vt + kyHieu.length).trimStart()}
+      </span>
+    </>
+  );
+}
 import { useRoleLabels, deptLabel } from '@/lib/nhan-su';
 import { RELEASES } from '@/lib/releases';
 
@@ -40,7 +62,7 @@ function ChangePasswordSection() {
     } finally { setSaving(false); }
   };
 
-  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[var(--gold-500)]';
   return (
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="lock" />Đổi mật khẩu</h2>
@@ -49,10 +71,10 @@ function ChangePasswordSection() {
         <input type="password" placeholder="Mật khẩu mới (≥ 6 ký tự)" value={newPass} onChange={e => setNewPass(e.target.value)} className={inputCls} autoComplete="new-password" />
         <input type="password" placeholder="Nhập lại mật khẩu mới" value={confirm} onChange={e => setConfirm(e.target.value)} className={inputCls} autoComplete="new-password" />
         <button onClick={save} disabled={saving || !oldPass || !newPass}
-          className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {saving ? 'Đang lưu...' : 'Đổi mật khẩu'}
         </button>
-        {message && <p className="text-xs" style={{ color: message.ok ? '#34D399' : '#F87171' }}>{message.text}</p>}
+        {message && <p className="text-xs" style={{ color: message.ok ? 'var(--success)' : 'var(--danger)' }}><TrangThai text={message.text} /></p>}
         <p className="text-[11px] text-[var(--text-muted)]">Quên mật khẩu? Đăng xuất rồi bấm &quot;Quên mật khẩu?&quot; ở trang đăng nhập — mã xác nhận gửi qua Telegram đã liên kết.</p>
       </div>
     </div>
@@ -99,14 +121,14 @@ function MyAIKeySection() {
     } finally { setBusy(false); }
   };
 
-  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E] font-mono';
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[var(--gold-500)] font-mono';
   return (
     <div className="glass-card p-6">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><LineIcon name="zap" />Khóa AI cá nhân</h2>
       <div className="space-y-3">
         <p className="text-xs text-[var(--text-secondary)]">
           Không bắt buộc — hệ thống đã có khóa AI chung. Nếu bạn thêm khóa riêng (tạo miễn phí tại{' '}
-          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-[#C9A96E] hover:underline">console.groq.com</a>),
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-[var(--gold-500)] hover:underline">console.groq.com</a>),
           các tính năng AI sẽ <strong>ưu tiên dùng khóa của bạn</strong>; khóa lỗi thì tự quay về khóa chung.
         </p>
         {keySet && (
@@ -127,10 +149,10 @@ function MyAIKeySection() {
         <input type="password" placeholder={keySet ? 'Dán khóa mới để thay (gsk_...)' : 'Dán khóa Groq của bạn (gsk_...)'}
           value={newKey} onChange={e => setNewKey(e.target.value)} className={inputCls} autoComplete="off" />
         <button onClick={() => save(newKey.trim())} disabled={busy || !newKey.trim()}
-          className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {busy ? 'Đang xử lý...' : 'Lưu khóa'}
         </button>
-        {message && <p className="text-xs" style={{ color: message.ok ? '#34D399' : '#F87171' }}>{message.text}</p>}
+        {message && <p className="text-xs" style={{ color: message.ok ? 'var(--success)' : 'var(--danger)' }}><TrangThai text={message.text} /></p>}
       </div>
     </div>
   );
@@ -205,7 +227,7 @@ function TelegramLinkSection({ userId, initialTgId }: { userId: string; initialT
           </button>
         </div>
         {message && (
-          <p className="text-xs" style={{ color: message.ok ? '#34d399' : '#f87171' }}>{message.text}</p>
+          <p className="text-xs" style={{ color: message.ok ? 'var(--success)' : 'var(--danger)' }}><TrangThai text={message.text} /></p>
         )}
         <div className="text-xs text-[var(--text-muted)] space-y-1">
           <p className="font-medium text-[var(--text-secondary)]">Cách lấy Telegram ID (1 phút):</p>
@@ -382,8 +404,8 @@ function ZaloSection() {
                   <span className="font-semibold" style={{ color: 'var(--gold-500)' }}>[{s.group_name}]</span> {s.summary}
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => api.zaloActSignal(s.id, 'actioned').then(load)} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}>✓</button>
-                  <button onClick={() => api.zaloActSignal(s.id, 'dismissed').then(load)} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>✕</button>
+                  <button onClick={() => api.zaloActSignal(s.id, 'actioned').then(load)} aria-label="Đã xử lý" title="Đã xử lý" className="w-8 h-8 rounded-lg inline-flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.15)', color: 'var(--success)' }}><LineIcon name="tick" size={14} color="currentColor" /></button>
+                  <button onClick={() => api.zaloActSignal(s.id, 'dismissed').then(load)} aria-label="Bỏ qua" title="Bỏ qua" className="w-8 h-8 rounded-lg inline-flex items-center justify-center" style={{ background: 'rgba(107,114,128,0.15)', color: 'var(--text-muted)' }}><LineIcon name="x" size={14} color="currentColor" /></button>
                 </div>
               </div>
             ))}
@@ -399,6 +421,7 @@ function ZaloSection() {
 }
 
 function OfficeCheckinSection() {
+  const xacNhan = useXacNhan();
   const { toast } = useToast();
   const [networks, setNetworks] = useState('');
   const [lat, setLat] = useState('');
@@ -451,7 +474,7 @@ function OfficeCheckinSection() {
   };
 
   const rotate = async () => {
-    if (!confirm('Tạo khóa mới sẽ VÔ HIỆU khóa cũ — máy chấm công đang nối phải cập nhật lại. Tiếp tục?')) return;
+    if (!await xacNhan('Tạo khóa mới sẽ VÔ HIỆU khóa cũ — máy chấm công đang nối phải cập nhật lại. Tiếp tục?')) return;
     try {
       const res = await api.rotateDeviceKey();
       setNewKey(res.api_key);
@@ -652,7 +675,7 @@ function BackupSection() {
   const toggle = (checked: boolean, onChange: (v: boolean) => void) => (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[var(--gold-500)]' : 'bg-white/15'}`}
       aria-checked={checked}
       role="switch"
     >
@@ -713,7 +736,7 @@ function BackupSection() {
             <select
               value={form.hour}
               onChange={e => setForm(f => ({ ...f, hour: parseInt(e.target.value, 10) }))}
-              className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]"
+              className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[var(--gold-500)]"
             >
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
@@ -734,7 +757,7 @@ function BackupSection() {
             <input
               type="number" min={1} max={180} value={form.retention_days}
               onChange={e => setForm(f => ({ ...f, retention_days: Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)) }))}
-              className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+              className="w-20 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[var(--gold-500)]"
             />
             <span className="text-sm text-[var(--text-secondary)]">ngày</span>
           </div>
@@ -757,7 +780,7 @@ function BackupSection() {
             value={form.telegram_chat_id}
             onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value.trim() }))}
             placeholder="-1001234567890 (gõ /id trong nhóm để lấy)"
-            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
+            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[var(--gold-500)]"
           />
           <p className="text-xs text-[var(--text-muted)] mt-2">
             Tạo nhóm Telegram riêng tư, thêm bot làm admin, gõ <code className="px-1 rounded bg-white/10">/id</code> để lấy Chat ID. File backup chứa toàn bộ dữ liệu — chỉ thêm người thật sự cần vào nhóm.
@@ -769,7 +792,7 @@ function BackupSection() {
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Đang lưu...' : 'Lưu cài đặt'}
           </button>
@@ -780,7 +803,7 @@ function BackupSection() {
           >
             {running ? <><LineIcon name="hourglass" size={16} className="inline-block align-[-2px] mr-1.5" />Đang sao lưu...</> : <><LineIcon name="save" size={16} className="inline-block align-[-2px] mr-1.5" />Sao lưu ngay</>}
           </button>
-          {message && <span className="text-xs" style={{ color: msgColor }}>{message}</span>}
+          {message && <span className="text-xs" style={{ color: msgColor }}><TrangThai text={message} /></span>}
         </div>
       </div>
     </div>
@@ -915,7 +938,7 @@ function AISettingsSection() {
 
   if (!data) return null;
 
-  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[#C9A96E]';
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-[var(--gold-500)]';
 
   return (
     <div className="glass-card p-6">
@@ -1023,7 +1046,7 @@ function AISettingsSection() {
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Đang lưu...' : 'Lưu cấu hình AI'}
           </button>
@@ -1035,7 +1058,7 @@ function AISettingsSection() {
             <LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Test kết nối
           </button>
         </div>
-        {message && <p className="text-xs text-[var(--text-secondary)] whitespace-pre-line">{message}</p>}
+        {message && <p className="text-xs text-[var(--text-secondary)] whitespace-pre-line"><TrangThai text={message} /></p>}
       </div>
     </div>
   );
@@ -1084,7 +1107,7 @@ function KhoAnhSection({ value, onChange }: { value: string; onChange: (v: strin
         value={value}
         onChange={e => onChange(e.target.value.trim())}
         placeholder="Chat ID nhóm Kho ảnh, vd: -1001234567890"
-        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
+        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[var(--gold-500)]"
       />
       {st && (
         <div className="text-xs text-[var(--text-muted)] space-y-0.5">
@@ -1109,7 +1132,7 @@ function KhoAnhSection({ value, onChange }: { value: string; onChange: (v: strin
           </button>
         )}
       </div>
-      {msg && <p className="text-xs">{msg}</p>}
+      {msg && <p className="text-xs"><TrangThai text={msg} /></p>}
     </div>
   );
 }
@@ -1206,14 +1229,14 @@ function AutomationSection() {
       max={max}
       value={value}
       onChange={e => onChange(Math.max(min, Math.min(max, parseInt(e.target.value, 10) || min)))}
-      className="w-16 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+      className="w-16 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[var(--gold-500)]"
     />
   );
 
   const toggle = (checked: boolean, onChange: (v: boolean) => void) => (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-[var(--gold-500)]' : 'bg-white/15'}`}
       aria-checked={checked}
       role="switch"
     >
@@ -1325,7 +1348,7 @@ function AutomationSection() {
             value={form.telegram_group_chat_id}
             onChange={e => setForm(f => ({ ...f, telegram_group_chat_id: e.target.value.trim() }))}
             placeholder="Chat ID nhóm, vd: -1001234567890 (gõ /id trong nhóm để lấy)"
-            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[#C9A96E]"
+            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-[var(--gold-500)]"
           />
         </div>
 
@@ -1338,7 +1361,7 @@ function AutomationSection() {
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Đang lưu...' : 'Lưu cài đặt'}
           </button>
@@ -1360,7 +1383,7 @@ function AutomationSection() {
           >
             <LineIcon name="megaphone" size={16} className="inline-block align-[-2px] mr-1.5" />Gửi briefing nhóm
           </button>
-          {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
+          {message && <span className="text-xs text-[var(--text-secondary)]"><TrangThai text={message} /></span>}
         </div>
       </div>
     </div>
@@ -1435,7 +1458,7 @@ function TaskSlaSection() {
       max={max}
       value={value}
       onChange={e => onChange(Math.max(1, Math.min(max, parseInt(e.target.value, 10) || 1)))}
-      className="w-14 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[#C9A96E]"
+      className="w-14 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm text-right focus:outline-none focus:border-[var(--gold-500)]"
     />
   );
 
@@ -1455,7 +1478,7 @@ function TaskSlaSection() {
           </div>
           <button
             onClick={() => setBat(!bat)}
-            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${bat ? 'bg-[#C9A96E]' : 'bg-white/15'}`}
+            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${bat ? 'bg-[var(--gold-500)]' : 'bg-white/15'}`}
             aria-checked={bat}
             role="switch"
           >
@@ -1486,7 +1509,7 @@ function TaskSlaSection() {
         <div className="pt-3 border-t border-white/5">
           <button
             onClick={() => setMoRong(!moRong)}
-            className="text-sm flex items-center gap-2 hover:text-[#C9A96E]"
+            className="text-sm flex items-center gap-2 hover:text-[var(--gold-500)]"
           >
             {moRong ? '▾' : '▸'} Từng đầu việc mẫu ({Object.keys(cfg.mac_dinh_dau_viec).length} việc)
           </button>
@@ -1500,7 +1523,7 @@ function TaskSlaSection() {
                     <span className="text-xs text-[var(--text-secondary)] truncate" title={ten}>
                       {ten}
                       {khacMacDinh && (
-                        <span className="text-[10px] text-[#C9A96E] ml-1">(mặc định {cfg.mac_dinh_dau_viec[ten]}n)</span>
+                        <span className="text-[10px] text-[var(--gold-500)] ml-1">(mặc định {cfg.mac_dinh_dau_viec[ten]}n)</span>
                       )}
                     </span>
                     {oNgay(ngay, v => setDauViec(p => ({ ...p, [ten]: v })))}
@@ -1515,7 +1538,7 @@ function TaskSlaSection() {
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-[#C9A96E] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[var(--gold-500)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Đang lưu...' : 'Lưu chuẩn SLA'}
           </button>
@@ -1525,7 +1548,7 @@ function TaskSlaSection() {
           >
             <LineIcon name="play" size={16} className="inline-block align-[-2px] mr-1.5" />Quét &amp; nhắc ngay
           </button>
-          {message && <span className="text-xs text-[var(--text-secondary)]">{message}</span>}
+          {message && <span className="text-xs text-[var(--text-secondary)]"><TrangThai text={message} /></span>}
         </div>
       </div>
     </div>
@@ -1602,7 +1625,7 @@ export default function SettingsPage() {
         {(user.role === 'admin' || user.role === 'accountant') && (
           <div className="max-w-5xl">
             {groupLabel('wallet', 'Nhân sự', 'chế độ thưởng, điểm JAMA')}
-            <Link href="/che-do-thuong" className="glass-card p-5 flex items-center justify-between gap-4 hover:border-[#C9A96E]/40 transition-colors">
+            <Link href="/che-do-thuong" className="glass-card p-5 flex items-center justify-between gap-4 hover:border-[var(--gold-500)]/40 transition-colors">
               <div className="min-w-0">
                 <div className="font-semibold flex items-center gap-2"><LineIcon name="wallet" />Chế độ thưởng</div>
                 <p className="text-xs text-[var(--text-muted)] mt-1">Hũ doanh số, chuyên cần, phản hồi khách, khách đánh giá, ngôi sao quý — bật/tắt theo tháng hoặc quý.</p>
@@ -1638,7 +1661,7 @@ export default function SettingsPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[var(--text-secondary)] flex-shrink-0">Phiên bản</span>
-                <a href="/changelog" className="font-mono text-[#C9A96E] hover:underline text-right">Beta {RELEASES[0]?.date?.slice(0, 5) || ''} — Có gì mới?</a>
+                <a href="/changelog" className="font-mono text-[var(--gold-500)] hover:underline text-right">Beta {RELEASES[0]?.date?.slice(0, 5) || ''} — Có gì mới?</a>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Backend</span>

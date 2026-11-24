@@ -48,7 +48,7 @@ export default function ThanhThaoTacHangLoat({
         <>
           <button
             onClick={() => { void loadAssignableUsers(); setBulkAssignOpen(true); }}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all whitespace-nowrap"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 transition-all whitespace-nowrap"
           >
             <LineIcon name="user" size={16} className="inline-block align-[-2px] mr-1.5" />Giao cho…
           </button>
@@ -119,7 +119,7 @@ export default function ThanhThaoTacHangLoat({
           <button
             onClick={() => void runBulkStage()}
             disabled={bulkBusy || !bulkStageValue || (bulkStageValue === 'lost' && !bulkLostReason.trim())}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-40 transition-all whitespace-nowrap"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 disabled:opacity-40 transition-all whitespace-nowrap"
           >
             {bulkBusy ? 'Đang chuyển…' : 'Chuyển'}
           </button>

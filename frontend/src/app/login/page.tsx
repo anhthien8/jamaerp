@@ -75,7 +75,7 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0A0F1C] via-[#111827] to-[#1A535C]/30" />
-      <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-[#C9A96E]/10 rounded-full blur-3xl" />
+      <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-[var(--gold-500)]/10 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-[#1A535C]/20 rounded-full blur-3xl" />
 
       {/* Login Card */}
@@ -116,7 +116,7 @@ function LoginForm() {
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[#C9A96E] focus:ring-1 focus:ring-[#C9A96E]/50 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[var(--gold-500)] focus:ring-1 focus:ring-[var(--gold-500)]/50 outline-none transition-all"
                 placeholder="admin (hoặc admin@jamahome.vn)"
                 required
                 autoComplete="username"
@@ -133,7 +133,7 @@ function LoginForm() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[#C9A96E] focus:ring-1 focus:ring-[#C9A96E]/50 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-[var(--gold-500)] focus:ring-1 focus:ring-[var(--gold-500)]/50 outline-none transition-all"
                 placeholder="* * * * * * * *"
                 required
                 autoComplete="current-password"
@@ -156,7 +156,7 @@ function LoginForm() {
               id="login-submit"
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white font-semibold hover:from-[#D4B97E] hover:to-[#C9A96E] disabled:opacity-50 transition-all duration-200 shadow-lg shadow-[#C9A96E]/20"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white font-semibold hover:from-[#D4B97E] hover:to-[var(--gold-500)] disabled:opacity-50 transition-all duration-200 shadow-lg shadow-[var(--gold-500)]/20"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -176,7 +176,7 @@ function LoginForm() {
           <div className="mt-4">
             {!forgotOpen ? (
               <button type="button" onClick={() => { setForgotOpen(true); setFpEmail(email); setFpMsg(''); }}
-                className="text-xs text-[var(--text-muted)] hover:text-[#C9A96E] transition-colors underline">
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-500)] transition-colors underline">
                 Quên mật khẩu?
               </button>
             ) : (
@@ -189,21 +189,21 @@ function LoginForm() {
                   <>
                     <p className="text-xs text-[var(--text-muted)]">Mã xác nhận sẽ gửi qua <b>Telegram</b> bạn đã liên kết trong Cài đặt. Chưa liên kết? Nhờ Admin đặt lại hộ.</p>
                     <input type="text" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="Email hoặc tên đăng nhập"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[var(--gold-500)]" />
                     <button type="button" onClick={fpRequest} disabled={fpBusy}
-                      className="w-full py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                      className="w-full py-2 rounded-lg bg-[var(--gold-500)] text-black text-sm font-semibold disabled:opacity-50">
                       {fpBusy ? 'Đang gửi...' : 'Gửi mã qua Telegram'}
                     </button>
                   </>
                 ) : (
                   <>
                     <input type="text" inputMode="numeric" value={fpCode} onChange={e => setFpCode(e.target.value)} placeholder="Mã 6 số từ Telegram"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white font-mono focus:outline-none focus:border-[#C9A96E]" />
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white font-mono focus:outline-none focus:border-[var(--gold-500)]" />
                     <input type="password" value={fpNewPass} onChange={e => setFpNewPass(e.target.value)} placeholder="Mật khẩu mới (≥ 6 ký tự)"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C9A96E]" />
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[var(--gold-500)]" />
                     <div className="flex gap-2">
                       <button type="button" onClick={fpReset} disabled={fpBusy}
-                        className="flex-1 py-2 rounded-lg bg-[#C9A96E] text-black text-sm font-semibold disabled:opacity-50">
+                        className="flex-1 py-2 rounded-lg bg-[var(--gold-500)] text-black text-sm font-semibold disabled:opacity-50">
                         {fpBusy ? 'Đang đặt lại...' : 'Đặt lại mật khẩu'}
                       </button>
                       <button type="button" onClick={() => setFpStep('request')} className="px-3 py-2 rounded-lg text-xs text-[var(--text-muted)] border border-white/10">Gửi lại mã</button>

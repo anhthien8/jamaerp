@@ -32,21 +32,20 @@ const FEATURES: Feature[] = [
   // Bật quyền này là mở CẢ thẻ "Bảng xếp hạng" (top 5 hiện tên, còn lại ẩn danh
   // "Nhân viên #n") — ghi rõ để người bật biết mình đang cho thấy những gì.
   { key: 'canViewKPI', label: 'KPI (Cá nhân + Bảng xếp hạng)' },
-  { key: 'canViewLeads', label: 'ERP - Quy trình' },
+  // Một khoá quyền = MỘT dòng (24/11). Trước đó «Quy trình» và «Báo giá tức thì» là hai dòng cùng khoá canViewLeads
+  // (tương tự Kho/NCC, Kế toán/Tài chính): tích dòng này thì dòng kia tự tích theo, người dùng tưởng app lỗi.
+  { key: 'canViewLeads', label: 'Quy trình + Báo giá tức thì' },
   { key: 'canViewApprovals', label: 'Phê duyệt' },
   { key: 'canViewProjects', label: 'Dự án' },
   { key: 'canViewAttendance', label: 'Chấm công' },
-  { key: 'canViewLeads', label: 'Báo giá tức thì', note: '(quy trình)' },
   { key: 'canEditCustomers', label: 'Khách hàng', note: '(sửa hồ sơ)' },
   { key: 'canViewContracts', label: 'Hợp đồng' },
   { key: 'canViewQuotations', label: 'Báo giá' },
-  { key: 'canViewInventory', label: 'Kho vật tư' },
-  { key: 'canViewInventory', label: 'Nhà cung cấp', note: '(xem — theo kho)' },
+  { key: 'canViewInventory', label: 'Kho vật tư + Nhà cung cấp', note: '(xem)' },
   { key: 'canEditSuppliers', label: 'Nhà cung cấp', note: '(sửa hồ sơ)' },
   { key: 'canViewPnL', label: 'P&L' },
-  { key: 'canViewAccounting', label: 'Kế toán' },
+  { key: 'canViewAccounting', label: 'Kế toán + Tài chính' },
   { key: 'canViewHR', label: 'Nhân sự' },
-  { key: 'canViewAccounting', label: 'Tài chính', note: '(kế toán)' },
   { key: 'canViewReports', label: 'Báo cáo' },
   { key: 'canViewFeedback', label: 'Góp ý' },
   { key: 'canManageUsers', label: 'Tài khoản' },
@@ -73,7 +72,11 @@ export default function PermissionsPage() {
   const [customRoles, setCustomRoles] = useState<CustomRoleInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  // Vai nào đã bị đổi mà chưa lưu. «Lưu tất cả» chỉ gửi đúng các vai này — trước đó gửi lại mọi vai (6 vai hệ thống +
+  // vai tuỳ chỉnh), mỗi vai một lượt gọi + một thông báo, và ghi đè cả vai không hề đụng tới.
+  const [daDoi, setDaDoi] = useState<Set<string>>(new Set());
+  const hasChanges = daDoi.size > 0;
+  const danhDau = (role: string) => setDaDoi(prev => new Set(prev).add(role));
 
   const allRoleKeys: string[] = [...ROLES, ...customRoles.map(r => r.role_key)];
   const findCustom = (role: string) => customRoles.find(r => r.role_key === role);
@@ -116,7 +119,7 @@ export default function PermissionsPage() {
     }
     setOverrides(normalized);
     setLoading(false);
-    setHasChanges(false);
+    setDaDoi(new Set());
   }, []);
 
   useEffect(() => {
@@ -142,10 +145,10 @@ export default function PermissionsPage() {
     if (!newOverrides[role]) newOverrides[role] = {};
     newOverrides[role][featureKey] = !current;
     setOverrides(newOverrides);
-    setHasChanges(true);
+    danhDau(role);
   };
 
-  const handleSaveRole = async (role: string, skipReset = false) => {
+  const handleSaveRole = async (role: string) => {
     setSaving(role);
     try {
       const roleOverrides = overrides[role] || {};
@@ -175,7 +178,7 @@ export default function PermissionsPage() {
         setOverrides(prev => { const next = { ...prev }; delete next[role]; return next; });
       }
       toast(`Đã lưu phân quyền vai trò ${roleLabelOf(role)}`, 'success');
-      if (!skipReset) setHasChanges(false);
+      setDaDoi(prev => { const con = new Set(prev); con.delete(role); return con; });
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Lưu thất bại', 'error');
     } finally {
@@ -184,17 +187,14 @@ export default function PermissionsPage() {
   };
 
   const handleSaveAll = async () => {
-    for (const role of allRoleKeys) {
-      await handleSaveRole(role, true); // pass true to skip individual hasChanges reset
-    }
-    setHasChanges(false);
+    for (const role of [...daDoi]) await handleSaveRole(role); // vai lưu lỗi vẫn nằm lại trong `daDoi` để bấm lưu lại
   };
 
   const handleResetRole = (role: string) => {
     const newOverrides = { ...overrides };
     delete newOverrides[role];
     setOverrides(newOverrides);
-    setHasChanges(true);
+    danhDau(role);
   };
 
   if (user?.role !== 'admin') {
@@ -367,6 +367,20 @@ export default function PermissionsPage() {
             </div>
           )}
         </div>
+
+        {/* Thanh Lưu dính đáy — bảng dài, nút Lưu ở đầu trang cuộn xuống là mất */}
+        {hasChanges && (
+          <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-4 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--gold-500)', boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Chưa lưu: <b style={{ color: 'var(--text-primary)' }}>{[...daDoi].map(roleLabelOf).join(', ')}</b>
+            </span>
+            <button onClick={handleSaveAll} disabled={!!saving}
+              className="px-4 min-h-[40px] rounded-xl text-sm font-semibold disabled:opacity-50" style={{ background: 'var(--gold-500)', color: 'var(--surface-0)' }}>
+              {saving ? 'Đang lưu…' : `Lưu ${daDoi.size} vai trò`}
+            </button>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="mt-4 flex flex-wrap gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>

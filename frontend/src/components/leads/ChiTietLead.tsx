@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
 import InfoTip from '@/components/ui/InfoTip';
-import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, STAGE_HINT, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, STAGE_HINT, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo, mauNhat } from '@/lib/utils';
 import { dayKey, toDayKey } from '@/lib/date-filter';
 import { AnhLead, DONG_ANH } from '@/components/ui/AnhGhiChuLead';
 import { api, ApiError } from '@/lib/api';
@@ -156,6 +157,27 @@ export default function ChiTietLead({
   setDormantReason: Dispatch<SetStateAction<string>>;
   doStageChange: (lead: Lead, newStage: string, opts?: { reason?: string | undefined; contractValue?: number | undefined; } | undefined) => Promise<void>;
 }) {
+  // Phím Esc đóng thẻ (trước 24/11 chỉ đóng được bằng nút ✕ hoặc bấm ra ngoài).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLeadDetail(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [closeLeadDetail]);
+
+  // Bấm gọi = gọi thật (tel:) + tự ghi một dòng «Gọi…» vào lịch sử, giống nút gọi trên thẻ Kanban.
+  const ghiNhanGoi = () => {
+    api.createActivity(selectedLead.id, { type: 'call', content: `📞 Gọi ${selectedLead.phone} lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` })
+      .then(act => { setActivities(prev => [act, ...prev]); toast('Đang gọi + đã ghi nhận', 'success'); })
+      .catch(() => {});
+  };
+  const soZalo = (selectedLead.phone || '').replace(/\D/g, '');
+  // Lịch sử: mới nhất trước (máy chủ đã trả theo thứ tự đó), mặc định 5 dòng — đủ biết lần chạm
+  // gần nhất, không đẩy phần còn lại xuống.
+  const [xemHet, setXemHet] = useState(false);
+  const dongLichSu = timelineActivities;
+  const lichSuHien = xemHet ? dongLichSu : dongLichSu.slice(0, 5);
+  const nutDau = 'w-10 h-10 rounded-full flex items-center justify-center transition-colors text-[var(--text-secondary)] hover:text-[var(--gold-500)] hover:bg-white/10';
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[6vh]"
@@ -169,41 +191,56 @@ export default function ChiTietLead({
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b" style={{ background: 'var(--surface-1)', borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 flex-shrink-0 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--gold-500), var(--gold-700))' }}>
               <span className="text-lg font-bold text-white">{selectedLead.name?.charAt(0) || '?'}</span>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">{selectedLead.name}</h2>
-              <p className="text-xs text-[var(--text-muted)]">{selectedLead.contact_person || selectedLead.name}</p>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] truncate">{selectedLead.name}</h2>
+              {/* Người liên hệ chỉ hiện khi khác tên lead — trước đây lặp lại y nguyên tên. */}
+              {selectedLead.contact_person && selectedLead.contact_person !== selectedLead.name && (
+                <p className="text-xs text-[var(--text-muted)] truncate">{selectedLead.contact_person}</p>
+              )}
             </div>
           </div>
-          <button
-            onClick={closeLeadDetail}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-[var(--text-muted)]"
-          >
-            ✕
-          </button>
+          {/* Gọi / Zalo 1 chạm — nằm ở thanh tiêu đề dính nên cuộn tới đâu cũng bấm được. */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {selectedLead.phone && (
+              <>
+                <a href={`tel:${selectedLead.phone}`} onClick={ghiNhanGoi} aria-label={`Gọi ${selectedLead.phone}`} title="Gọi (tự ghi vào lịch sử)" className={nutDau}>
+                  <LineIcon name="phone" size={18} color="currentColor" />
+                </a>
+                <a href={`https://zalo.me/${soZalo}`} target="_blank" rel="noopener noreferrer" aria-label={`Nhắn Zalo ${selectedLead.phone}`} title="Nhắn Zalo" className={nutDau}>
+                  <LineIcon name="message" size={18} color="currentColor" />
+                </a>
+              </>
+            )}
+            <button onClick={closeLeadDetail} aria-label="Đóng" title="Đóng (Esc)" className={nutDau}>
+              <LineIcon name="x" size={18} color="currentColor" />
+            </button>
+          </div>
         </div>
 
         <div className="p-4 sm:p-5 space-y-5">
           {/* Status bar */}
           <div className="flex flex-wrap gap-2">
             <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
-              background: `${STAGE_CONFIG[selectedLead.stage]?.color}20`,
+              background: mauNhat(STAGE_CONFIG[selectedLead.stage]?.color, 13),
               color: STAGE_CONFIG[selectedLead.stage]?.color,
             }}>
               <LineIcon name={STAGE_CONFIG[selectedLead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[selectedLead.stage]?.label}
             </span>
-            <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
-              background: `${PRIORITY_LABELS[selectedLead.priority]?.color}20`,
-              color: PRIORITY_LABELS[selectedLead.priority]?.color,
-            }}>
-              {PRIORITY_LABELS[selectedLead.priority]?.label}
-            </span>
+            {PRIORITY_LABELS[selectedLead.priority] && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
+                background: mauNhat(PRIORITY_LABELS[selectedLead.priority].color, 13),
+                color: PRIORITY_LABELS[selectedLead.priority].color,
+              }}>
+                {PRIORITY_LABELS[selectedLead.priority].label}
+              </span>
+            )}
             {selectedLead.property_class && PROPERTY_CLASS_LABELS[selectedLead.property_class] && (
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
-                background: `${PROPERTY_CLASS_LABELS[selectedLead.property_class].color}20`,
+                background: mauNhat(PROPERTY_CLASS_LABELS[selectedLead.property_class].color, 13),
                 color: PROPERTY_CLASS_LABELS[selectedLead.property_class].color,
               }}>
                 <LineIcon name="flag" size={12} color="currentColor" className="inline-block align-[-2px] mr-1" />{PROPERTY_CLASS_LABELS[selectedLead.property_class].label}
@@ -211,7 +248,7 @@ export default function ChiTietLead({
             )}
             {selectedLead.plan_type && selectedLead.plan_type !== 'none' && PLAN_TYPE_LABELS[selectedLead.plan_type] && (
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
-                background: `${PLAN_TYPE_LABELS[selectedLead.plan_type].color}20`,
+                background: mauNhat(PLAN_TYPE_LABELS[selectedLead.plan_type].color, 13),
                 color: PLAN_TYPE_LABELS[selectedLead.plan_type].color,
               }}>
                 <LineIcon name="clipboard" size={16} className="inline-block align-[-2px] mr-1.5" />{PLAN_TYPE_LABELS[selectedLead.plan_type].label}
@@ -234,47 +271,34 @@ export default function ChiTietLead({
             </div>
           )}
 
-          {/* Contact Info */}
+          {/* Thông tin liên hệ — gọn lại 24/11: hàng chính = SĐT (bấm gọi) + Phụ trách,
+              dòng phụ = email · địa chỉ, khu vực · nguồn. Khu vực gộp vào địa chỉ, bỏ ô trùng ở «Nhu cầu & Dự án». */}
           <div className="glass-card p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Thông tin liên hệ</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <LineIcon name="smartphone" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                <span className="text-white font-medium">{selectedLead.phone}</span>
+            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2.5">Thông tin liên hệ</h3>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <div className="flex items-center gap-1">
+                <a href={`tel:${selectedLead.phone}`} onClick={ghiNhanGoi} className="flex items-center gap-2 text-base font-semibold tabular-nums text-[var(--text-primary)] hover:text-[var(--gold-500)] transition-colors">
+                  <LineIcon name="phone" size={15} color="currentColor" className="text-[var(--text-muted)]" />
+                  {selectedLead.phone}
+                </a>
+                {/* Máy tính không gọi được bằng tel: → sao chép số để dán vào Zalo/điện thoại. */}
+                <button
+                  onClick={() => { void navigator.clipboard?.writeText(selectedLead.phone || '').then(() => toast('Đã sao chép số điện thoại', 'success')); }}
+                  aria-label="Sao chép số điện thoại"
+                  title="Sao chép số"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--gold-500)] hover:bg-white/10 transition-colors"
+                >
+                  <LineIcon name="copy" size={14} color="currentColor" />
+                </button>
               </div>
-              {selectedLead.email && (
-                <div className="flex items-center gap-2">
-                  <LineIcon name="mail" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                  <span className="text-white">{selectedLead.email}</span>
-                </div>
-              )}
-              {selectedLead.address && (
-                <div className="flex items-center gap-2 md:col-span-2">
-                  <LineIcon name="pin" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                  <span className="text-[var(--text-secondary)]">{selectedLead.address}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <LineIcon name="megaphone" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                <span className="text-[var(--text-secondary)]">Nguồn: {SOURCE_LABELS[selectedLead.source || ''] || selectedLead.source}</span>
-              </div>
-              {selectedLead.region && (
-                <div className="flex items-center gap-2">
-                  <LineIcon name="globe" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                  <span className="text-[var(--text-secondary)]">Khu vực: {selectedLead.region}</span>
-                </div>
-              )}
               {/* Phụ trách — LUÔN hiển thị; admin/leader gắn/đổi nhân viên KD ngay tại đây */}
-              <div className="flex items-center gap-2 flex-wrap sm:col-span-2">
-                <LineIcon name="user" size={16} color="currentColor" className="text-[var(--text-muted)]" />
-                <span className="text-[var(--text-secondary)]">
-                  Phụ trách:{' '}
-                  {selectedLead.assigned_user_name ? (
-                    <span className="text-white font-medium">{selectedLead.assigned_user_name}</span>
-                  ) : (
-                    <span style={{ color: '#F59E0B' }}>Chưa phân công</span>
-                  )}
-                </span>
+              <div className="flex items-center gap-1.5 text-sm min-w-0">
+                <LineIcon name="user" size={14} color="currentColor" className="text-[var(--text-muted)] flex-shrink-0" />
+                {selectedLead.assigned_user_name ? (
+                  <span className="text-[var(--text-primary)] font-medium truncate">{selectedLead.assigned_user_name}</span>
+                ) : (
+                  <span style={{ color: '#F59E0B' }}>Chưa phân công</span>
+                )}
                 {canAssign && (
                   assignOpen ? (
                     <div className="flex items-center gap-1.5">
@@ -302,22 +326,185 @@ export default function ChiTietLead({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={openAssign}
-                      className="text-[11px] px-2 py-1 rounded-lg font-medium transition-all hover:opacity-80"
-                      style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
-                    >
-                      <LineIcon name="edit" size={16} className="inline-block align-[-2px] mr-1.5" />Đổi
-                    </button>
+                    <InfoTip text="Đổi nhân viên kinh doanh phụ trách lead này. Việc đổi được ghi vào Lịch sử hoạt động.">
+                      <button
+                        onClick={openAssign}
+                        className="flex-shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium transition-all hover:opacity-80"
+                        style={{ background: 'rgba(201,169,110,0.15)', color: '#C9A96E', border: '1px solid rgba(201,169,110,0.3)' }}
+                      >
+                        <LineIcon name="edit" size={11} color="currentColor" className="inline-block align-[-1px] mr-1" />Đổi
+                      </button>
+                    </InfoTip>
                   )
                 )}
               </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)]">
+              {selectedLead.email && (
+                <span className="flex items-center gap-1 min-w-0">
+                  <LineIcon name="mail" size={13} color="currentColor" className="text-[var(--text-muted)] flex-shrink-0" />
+                  <span className="truncate">{selectedLead.email}</span>
+                </span>
+              )}
+              {(selectedLead.address || selectedLead.region) && (
+                <span className="flex items-center gap-1 min-w-0">
+                  <LineIcon name="pin" size={13} color="currentColor" className="text-[var(--text-muted)] flex-shrink-0" />
+                  <span>{[selectedLead.address, selectedLead.region].filter(Boolean).join(', ')}</span>
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <LineIcon name="megaphone" size={13} color="currentColor" className="text-[var(--text-muted)] flex-shrink-0" />
+                Nguồn: {SOURCE_LABELS[selectedLead.source || ''] || selectedLead.source || '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* Ghi nhanh + lịch sử — 24/11 đưa lên ngay dưới khối liên hệ: mở thẻ là ghi được,
+              không phải cuộn qua khối AI, CSKH và toàn bộ lịch sử. */}
+          <div className="glass-card p-4">
+            {/* Add Note */}
+            <div className="space-y-2">
+              {/* Chip ghi chú 1 chạm — sales trên xe ngại gõ dấu (spec 08 §2.1, H8).
+                  key = lead: đổi lead là panel hẹn đóng, khoá chống bấm lặp làm lại từ đầu. */}
+              <ChipGhiNhanh
+                key={selectedLead.id}
+                lead={selectedLead}
+                setActivities={setActivities}
+                toast={toast}
+                onLeadPatched={onLeadPatched}
+              />
+              <div className="flex gap-2">
+                <input
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddNote()}
+                  onPaste={e => {
+                    const files = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
+                    if (files.length) { e.preventDefault(); themAnhCho(files); }
+                  }}
+                  placeholder="Thêm ghi chú (dán ảnh được)..."
+                  className="flex-1 px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[var(--gold-500)]"
+                />
+                <input
+                  ref={chonAnhRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={e => { if (e.target.files) themAnhCho(e.target.files); e.target.value = ''; }}
+                />
+                <button
+                  type="button"
+                  onClick={() => chonAnhRef.current?.click()}
+                  disabled={dangGuiNote || anhCho.length >= 6}
+                  title="Đính ảnh (tối đa 6)"
+                  aria-label="Đính ảnh"
+                  className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[var(--gold-500)] hover:text-[var(--gold-500)] disabled:opacity-30 transition-all"
+                >
+                  <LineIcon name="camera" size={16} color="currentColor" />
+                </button>
+                <button
+                  onClick={handleAddNote}
+                  disabled={dangGuiNote || (!newNote.trim() && !anhCho.length)}
+                  className="px-3 py-2 rounded-lg text-sm font-medium bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 disabled:opacity-30 transition-all"
+                >
+                  {dangGuiNote ? '...' : 'Gửi'}
+                </button>
+              </div>
+              {anhCho.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {anhCho.map((src, i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt={`Ảnh chờ gửi ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setAnhCho(prev => prev.filter((_, j) => j !== i))}
+                        disabled={dangGuiNote}
+                        aria-label="Bỏ ảnh này"
+                        className="absolute top-0.5 right-0.5 w-7 h-7 rounded-full bg-black/70 text-white text-base leading-none"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">
+              Lịch sử hoạt động ({timelineActivities.length})
+            </h3>
+            {loadingActivities ? (
+              <div className="text-center py-4 text-sm text-[var(--text-muted)]">Đang tải...</div>
+            ) : timelineActivities.length === 0 ? (
+              <div className="text-center py-4 text-sm text-[var(--text-muted)]">Chưa có hoạt động</div>
+            ) : (
+              <div className="space-y-3">
+                {lichSuHien.map((act, i) => (
+                  <div key={act.id || i} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <LineIcon name={ACTIVITY_ICONS[act.type] || 'pin'} size={16} className="shrink-0" />
+                      {i < lichSuHien.length - 1 && (
+                        <div className="w-px flex-1 mt-1" style={{ background: 'var(--border-subtle)' }} />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-3">
+                      <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
+                        {(act.content || '').split('\n').filter(l => !DONG_ANH.test(l)).map((line, li, chu) => {
+                          if (line.startsWith('📎')) {
+                            const url = line.replace('📎', '').trim();
+                            return (
+                              <a key={li} href={url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[var(--gold-500)] hover:underline text-xs mt-1"
+                              >
+                                <LineIcon name="link" size={12} color="currentColor" />{url.replace('https://drive.google.com/', 'drive.google.com/...')}
+                              </a>
+                            );
+                          }
+                          return <span key={li}>{line}{li < chu.length - 1 && <br />}</span>;
+                        })}
+                      </div>
+                      {(() => {
+                        const anhIds = (act.content || '').split('\n').map(l => l.match(DONG_ANH)?.[1]).filter((x): x is string => !!x);
+                        return anhIds.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {anhIds.map(id => <AnhLead key={id} leadId={selectedLead.id} anhId={id} />)}
+                          </div>
+                        );
+                      })()}
+                      <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                        {act.user_name || 'System'} · {new Date(act.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!loadingActivities && dongLichSu.length > 5 && (
+              <button
+                onClick={() => setXemHet(v => !v)}
+                className="w-full mt-1 min-h-[36px] rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--gold-500)] hover:bg-white/5 transition-colors"
+              >
+                {xemHet ? 'Thu gọn' : `Xem thêm ${dongLichSu.length - 5} dòng cũ hơn`}
+              </button>
+            )}
             </div>
           </div>
 
           {/* Property & Budget */}
           <div className="glass-card p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Nhu cầu & Dự án</h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Nhu cầu & Dự án</h3>
+              {/* Mang sẵn diện tích, loại nhà, ngân sách sang Báo giá tức thì — khỏi gõ lại. */}
+              <Link
+                href={`/quote-tool?lead=${selectedLead.id}`}
+                className="flex-shrink-0 inline-flex items-center px-3 min-h-[36px] rounded-full text-xs font-medium transition-all hover:opacity-80"
+                style={{ background: mauNhat('var(--gold-500)', 15), color: 'var(--gold-500)', border: `1px solid ${mauNhat('var(--gold-500)', 30)}` }}
+              >
+                <LineIcon name="zap" size={13} color="currentColor" className="mr-1.5" />Báo giá nhanh
+              </Link>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-3">
               <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                 <p className="text-xs text-[var(--text-muted)]">Loại BĐS</p>
@@ -331,7 +518,7 @@ export default function ChiTietLead({
                 <p className="text-xs text-[var(--text-muted)]">Ngân sách</p>
                 {/* Ưu tiên MỨC (sale nào cũng chọn được ngay), số chính xác
                     hiện thêm bên dưới nếu khách đã nói rõ (chốt 22/09). */}
-                <p className="text-sm font-semibold mt-1 text-[#C9A96E]">
+                <p className="text-sm font-semibold mt-1 text-[var(--gold-500)]">
                   {selectedLead.ngan_sach_khoang
                     ? NGAN_SACH_LABELS[selectedLead.ngan_sach_khoang] || selectedLead.ngan_sach_khoang
                     : formatCurrency(selectedLead.estimated_budget)}
@@ -361,7 +548,7 @@ export default function ChiTietLead({
               {!selectedLead.survey_date && <span className="text-xs text-[var(--text-muted)]">Chưa khảo sát</span>}
             </div>
             {/* New Lark CRM fields grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-3 empty:hidden">
               {selectedLead.segment && (
                 <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                   <p className="text-xs text-[var(--text-muted)]">Nhu cầu</p>
@@ -371,13 +558,7 @@ export default function ChiTietLead({
               {selectedLead.price_per_sqm && (
                 <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
                   <p className="text-xs text-[var(--text-muted)]">Đơn giá/m²</p>
-                  <p className="text-sm font-semibold mt-1 text-[#C9A96E]">{formatPricePerSqm(selectedLead.price_per_sqm)}</p>
-                </div>
-              )}
-              {selectedLead.region && (
-                <div className="p-3 rounded-lg text-center" style={{ background: 'var(--surface-2)' }}>
-                  <p className="text-xs text-[var(--text-muted)]">Khu vực</p>
-                  <p className="text-sm font-semibold mt-1"><LineIcon name="pin" size={14} className="inline-block align-[-2px] mr-1.5" />{selectedLead.region}</p>
+                  <p className="text-sm font-semibold mt-1 text-[var(--gold-500)]">{formatPricePerSqm(selectedLead.price_per_sqm)}</p>
                 </div>
               )}
             </div>
@@ -407,7 +588,7 @@ export default function ChiTietLead({
               <button
                 onClick={xinGoiY}
                 disabled={dangXinGoiY}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-40 transition-all min-h-[36px]"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 disabled:opacity-40 transition-all min-h-[36px]"
               >
                 {dangXinGoiY ? 'Đang nghĩ...' : goiY ? 'Xin gợi ý khác' : 'Xin gợi ý'}
               </button>
@@ -419,7 +600,7 @@ export default function ChiTietLead({
                   <span
                     className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
                     style={{
-                      background: `${PRIORITY_LABELS[goiY.priority]?.color || 'var(--info)'}20`,
+                      background: mauNhat(PRIORITY_LABELS[goiY.priority]?.color || 'var(--info)', 13),
                       color: PRIORITY_LABELS[goiY.priority]?.color || 'var(--info)',
                     }}
                   >
@@ -450,7 +631,7 @@ export default function ChiTietLead({
                     <button
                       onClick={() => ghiNhanGoiY('skipped')}
                       disabled={dangGhiNhan}
-                      className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-40 transition-all min-h-[36px]"
+                      className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:border-[var(--gold-500)] hover:text-[var(--gold-500)] disabled:opacity-40 transition-all min-h-[36px]"
                     >
                       <LineIcon name="arrowRight" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Bỏ qua
                     </button>
@@ -508,7 +689,7 @@ export default function ChiTietLead({
                   onChange={e => setNewCskhNote(e.target.value)}
                   rows={3}
                   placeholder="Gọi lại khách để đánh giá chất lượng chăm sóc của team KD. VD: Khách khen bạn Mai tư vấn nhiệt tình, nhưng phàn nàn 3 ngày chưa nhận được báo giá."
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[#C9A96E] resize-y"
+                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[var(--gold-500)] resize-y"
                 />
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[10px] text-[var(--text-muted)]">
@@ -517,7 +698,7 @@ export default function ChiTietLead({
                   <button
                     onClick={handleAddCskhNote}
                     disabled={!newCskhNote.trim() || savingCskh}
-                    className="flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-30 transition-all min-h-[36px]"
+                    className="flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 disabled:opacity-30 transition-all min-h-[36px]"
                   >
                     {savingCskh ? 'Đang lưu...' : 'Lưu đánh giá'}
                   </button>
@@ -547,129 +728,6 @@ export default function ChiTietLead({
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Activity Timeline */}
-          <div className="glass-card p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">
-              Lịch sử hoạt động ({timelineActivities.length})
-            </h3>
-            {loadingActivities ? (
-              <div className="text-center py-4 text-sm text-[var(--text-muted)]">Đang tải...</div>
-            ) : timelineActivities.length === 0 ? (
-              <div className="text-center py-4 text-sm text-[var(--text-muted)]">Chưa có hoạt động</div>
-            ) : (
-              <div className="space-y-3">
-                {[...timelineActivities].reverse().map((act, i) => (
-                  <div key={act.id || i} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <LineIcon name={ACTIVITY_ICONS[act.type] || 'pin'} size={16} className="shrink-0" />
-                      {i < timelineActivities.length - 1 && (
-                        <div className="w-px flex-1 mt-1" style={{ background: 'var(--border-subtle)' }} />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-3">
-                      <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
-                        {(act.content || '').split('\n').filter(l => !DONG_ANH.test(l)).map((line, li, chu) => {
-                          if (line.startsWith('📎')) {
-                            const url = line.replace('📎', '').trim();
-                            return (
-                              <a key={li} href={url} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[#C9A96E] hover:underline text-xs mt-1"
-                              >
-                                <LineIcon name="link" size={12} color="currentColor" />{url.replace('https://drive.google.com/', 'drive.google.com/...')}
-                              </a>
-                            );
-                          }
-                          return <span key={li}>{line}{li < chu.length - 1 && <br />}</span>;
-                        })}
-                      </div>
-                      {(() => {
-                        const anhIds = (act.content || '').split('\n').map(l => l.match(DONG_ANH)?.[1]).filter((x): x is string => !!x);
-                        return anhIds.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {anhIds.map(id => <AnhLead key={id} leadId={selectedLead.id} anhId={id} />)}
-                          </div>
-                        );
-                      })()}
-                      <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                        {act.user_name || 'System'} · {new Date(act.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add Note */}
-            <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
-              {/* Chip ghi chú 1 chạm — sales trên xe ngại gõ dấu (spec 08 §2.1, H8).
-                  key = lead: đổi lead là panel hẹn đóng, khoá chống bấm lặp làm lại từ đầu. */}
-              <ChipGhiNhanh
-                key={selectedLead.id}
-                lead={selectedLead}
-                setActivities={setActivities}
-                toast={toast}
-                onLeadPatched={onLeadPatched}
-              />
-              <div className="flex gap-2">
-                <input
-                  value={newNote}
-                  onChange={e => setNewNote(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddNote()}
-                  onPaste={e => {
-                    const files = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
-                    if (files.length) { e.preventDefault(); themAnhCho(files); }
-                  }}
-                  placeholder="Thêm ghi chú (dán ảnh được)..."
-                  className="flex-1 px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder-white/30 outline-none focus:border-[#C9A96E]"
-                />
-                <input
-                  ref={chonAnhRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={e => { if (e.target.files) themAnhCho(e.target.files); e.target.value = ''; }}
-                />
-                <button
-                  type="button"
-                  onClick={() => chonAnhRef.current?.click()}
-                  disabled={dangGuiNote || anhCho.length >= 6}
-                  title="Đính ảnh (tối đa 6)"
-                  aria-label="Đính ảnh"
-                  className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-[var(--text-secondary)] hover:border-[#C9A96E] hover:text-[#C9A96E] disabled:opacity-30 transition-all"
-                >
-                  <LineIcon name="camera" size={16} color="currentColor" />
-                </button>
-                <button
-                  onClick={handleAddNote}
-                  disabled={dangGuiNote || (!newNote.trim() && !anhCho.length)}
-                  className="px-3 py-2 rounded-lg text-sm font-medium bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 disabled:opacity-30 transition-all"
-                >
-                  {dangGuiNote ? '...' : 'Gửi'}
-                </button>
-              </div>
-              {anhCho.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {anhCho.map((src, i) => (
-                    <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={`Ảnh chờ gửi ${i + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setAnhCho(prev => prev.filter((_, j) => j !== i))}
-                        disabled={dangGuiNote}
-                        aria-label="Bỏ ảnh này"
-                        className="absolute top-0.5 right-0.5 w-7 h-7 rounded-full bg-black/70 text-white text-base leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Lost Reason (shown when stage is lost) */}
@@ -844,13 +902,15 @@ function ChipGhiNhanh({ lead, setActivities, toast, onLeadPatched }: {
 
   const ghiChip = (chip: ChipGhi) => chay(chip.type, async () => {
     try {
-      await api.createActivity(lead.id, { type: chip.type, content: chip.content });
+      // Chèn thẳng dòng máy chủ vừa trả về, không tải lại danh sách: lượt tải ngay sau khi ghi hay chạy trước khi
+      // máy chủ chốt giao dịch → dòng mới không hiện dù đã lưu.
+      const act = await api.createActivity(lead.id, { type: chip.type, content: chip.content });
+      if (conMo.current) setActivities(prev => [act, ...prev]);
     } catch (e) {
       toast(loiMayChu(e, 'Lỗi khi ghi nhận'), 'error');
       return;
     }
     toast('Đã ghi nhận', 'success');
-    await taiLaiLichSu();
   });
 
   const hen = CHIP_HEN.find(c => c.kieu === henMo);

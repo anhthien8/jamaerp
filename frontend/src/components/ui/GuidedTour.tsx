@@ -390,7 +390,7 @@ export default function GuidedTour() {
         <ul className="space-y-1.5 mb-3">
           {current.points.map((p, i) => (
             <li key={i} className="flex gap-2 text-xs text-[var(--text-secondary)] leading-relaxed">
-              <span className="text-[#C9A96E] flex-shrink-0 mt-0.5">•</span>
+              <span className="text-[var(--gold-500)] flex-shrink-0 mt-0.5">•</span>
               <span>{p}</span>
             </li>
           ))}

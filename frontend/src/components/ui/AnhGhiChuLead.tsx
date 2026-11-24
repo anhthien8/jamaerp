@@ -49,7 +49,7 @@ export function AnhLead({ leadId, anhId }: { leadId: string; anhId: string }) {
       <button
         type="button"
         onClick={() => src && setPhongTo(true)}
-        className="w-20 h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-[#C9A96E] transition-all"
+        className="w-20 h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-[var(--gold-500)] transition-all"
         aria-label="Xem ảnh lớn"
       >
         {src

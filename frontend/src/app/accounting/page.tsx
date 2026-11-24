@@ -1,24 +1,32 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems } from '@/lib/api';
+import { api, Transaction, AccountingSummary, Commission, PayrollEntry, Project, User, extractItems, fetchAllPages } from '@/lib/api';
 import { formatCurrency, formatDate, cn, chuanHoaTim } from '@/lib/utils';
 import { labelOf, TX_CATEGORY_LABELS, COMMISSION_TYPE_LABELS, MILESTONE_LABELS, ROLE_LABELS } from '@/lib/labels';
 import { useToast } from '@/components/ui/Toast';
 import AccessDenied from '@/components/ui/AccessDenied';
 import LineIcon from '@/components/ui/LineIcon';
+import InfoTip from '@/components/ui/InfoTip';
 
 type Tab = 'overview' | 'transactions' | 'commissions' | 'payroll';
 
 export default function AccountingPage() {
+  const xacNhan = useXacNhan();
   const { user, loading, effectivePermissions } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [tab, setTab] = useState<Tab>('overview');
+  // Mở đúng tab theo link (`/accounting?tab=payroll` từ Tổng quan). Đọc lúc khởi tạo: trang trả null khi chưa có
+  // người dùng nên máy chủ và trình duyệt vẫn dựng ra cùng một thứ.
+  const [tab, setTab] = useState<Tab>(() => {
+    const tuLink = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+    return (['transactions', 'commissions', 'payroll'] as const).find(k => k === tuLink) || 'overview';
+  });
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -76,9 +84,11 @@ export default function AccountingPage() {
     // allSettled: một mục hỏng thì chỉ mục đó trống, phần còn lại vẫn hiện.
     const [sRes, tRes, cRes, pRes] = await Promise.allSettled([
       canSeePnL ? api.getAccountingSummary() : Promise.resolve(null),
-      canSeePnL ? api.getTransactions() : Promise.resolve([]),
-      api.getCommissions(),
-      canSeePayroll ? api.getPayroll() : Promise.resolve([]),
+      // Tải ĐỦ mọi trang (24/11): trước đây chỉ lấy 50 dòng đầu rồi cộng «Tổng thu / Tổng chi /
+      // Lợi nhuận» như thể đủ sổ — sổ vượt 50 dòng là tổng sai mà nhìn vẫn bình thường.
+      canSeePnL ? fetchAllPages(q => api.getTransactions(q)) : Promise.resolve([]),
+      fetchAllPages(q => api.getCommissions(q)),
+      canSeePayroll ? fetchAllPages(q => api.getPayroll(q)) : Promise.resolve([]),
     ]);
     if (sRes.status === 'fulfilled') setSummary(sRes.value);
     if (tRes.status === 'fulfilled') setTransactions(extractItems(tRes.value));
@@ -105,10 +115,10 @@ export default function AccountingPage() {
   // Quyền backend về sau (tải nền) có thể tắt P&L khi đang đứng ở tab bị ẩn — nhảy
   // sang tab Hoa hồng thay vì để người dùng kẹt trên tab trống không bấm lại được.
   useEffect(() => {
-    if (user && !canSeePnL && (tab === 'overview' || tab === 'transactions')) {
+    if (user && ((!canSeePnL && (tab === 'overview' || tab === 'transactions')) || (!canSeePayroll && tab === 'payroll'))) {
       void Promise.resolve().then(() => setTab('commissions'));
     }
-  }, [user, canSeePnL, tab]);
+  }, [user, canSeePnL, canSeePayroll, tab]);
 
   // Format number with thousand separators for VND display
   const formatAmountInput = (raw: string) => {
@@ -157,17 +167,53 @@ export default function AccountingPage() {
     setTxAmountDisplay(formatAmountInput(digits));
   };
 
+  // `?tab=transactions&new=1` từ nút «+» tạo nhanh: mở sẵn form Giao dịch mới, một lần, rồi gỡ tham số khỏi URL.
+  useEffect(() => {
+    if (!canEditAccounting || new URLSearchParams(window.location.search).get('new') !== '1') return;
+    window.history.replaceState(null, '', '/accounting?tab=transactions');
+    void Promise.resolve().then(() => openTxForm());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEditAccounting]);
+
   // Duyệt / đánh dấu chi trả hoa hồng (admin + kế toán) — trước đây tab chỉ xem,
   // hoa hồng kẹt ở "Chờ" vĩnh viễn không ai chuyển trạng thái được (audit 22/07)
   const canActCommission = user?.role === 'admin' || user?.role === 'accountant';
+  /** Số tiền viết đủ cho dòng chi tiết. `formatCurrency` làm tròn về triệu (12.700.000 đ → «13 triệu») — chỉ hợp thẻ tổng. */
+  const tienDu = (v?: number | null) => (v == null ? '—' : `${Math.round(v).toLocaleString('vi-VN')} đ`);
+  // Lọc theo trạng thái + khoá nút khi đang gửi (id khoản đang gửi, hoặc 'loat' khi duyệt cả loạt).
+  const [hhLoc, setHhLoc] = useState('all');
+  const [hhDang, setHhDang] = useState('');
   const handleCommissionStatus = async (id: string, status: 'approved' | 'paid') => {
+    if (hhDang) return;
+    setHhDang(id);
     try {
       await api.updateCommissionStatus(id, status);
       setCommissions(prev => prev.map(c => (c.id === id ? { ...c, status } : c)));
       toast(status === 'approved' ? 'Đã duyệt hoa hồng' : 'Đã đánh dấu chi trả', 'success');
     } catch (e) {
       toast(`Lỗi: ${e instanceof Error ? e.message : 'Không cập nhật được hoa hồng'}`, 'error');
+    } finally { setHhDang(''); }
+  };
+  /** Duyệt mọi khoản đang «Chờ duyệt». Gửi tuần tự: khoản nào máy chủ từ chối (VD kỳ lương đã khoá) thì bỏ qua,
+   *  các khoản còn lại vẫn duyệt, cuối cùng báo rõ được mấy khoản. Chỉ DUYỆT — chi trả vẫn bấm từng khoản. */
+  const duyetTatCaHoaHong = async () => {
+    const ds = commissions.filter(c => c.status === 'pending');
+    if (!ds.length || hhDang) return;
+    const tong = ds.reduce((s, c) => s + (c.commission_amount || 0), 0);
+    if (!await xacNhan(`Duyệt ${ds.length} khoản hoa hồng đang chờ, tổng ${tienDu(tong)}?`)) return;
+    setHhDang('loat');
+    let ok = 0;
+    let loiDau = '';
+    for (const c of ds) {
+      try {
+        await api.updateCommissionStatus(c.id, 'approved');
+        ok += 1;
+        setCommissions(prev => prev.map(x => (x.id === c.id ? { ...x, status: 'approved' } : x)));
+      } catch (e) { loiDau ||= e instanceof Error ? e.message : 'lỗi không rõ'; }
     }
+    setHhDang('');
+    if (ok === ds.length) toast(`Đã duyệt ${ok} khoản hoa hồng`, 'success');
+    else toast(`Đã duyệt ${ok}/${ds.length} khoản — ${ds.length - ok} khoản không duyệt được: ${loiDau}`, 'error');
   };
 
   const commissionChip = (status: string) =>
@@ -186,11 +232,11 @@ export default function AccountingPage() {
 
   /** Nhân bản khoản chi lặp lại (thuê VP, điện, internet…): mở form TẠO MỚI điền sẵn,
    *  ngày = hôm nay; kế toán soát rồi mới bấm «Tạo giao dịch». Cảnh báo nếu tháng này đã có khoản giống hệt. */
-  const nhanBanTx = (tx: Transaction) => {
+  const nhanBanTx = async (tx: Transaction) => {
     const thang = new Date().toISOString().slice(0, 7);
     const daCo = transactions.some(t => t.type === tx.type && t.description === tx.description
       && Number(t.amount) === Number(tx.amount) && (t.date || '').slice(0, 7) === thang);
-    if (daCo && !confirm('Tháng này đã có giao dịch cùng mô tả và số tiền. Vẫn nhân bản?')) return;
+    if (daCo && !await xacNhan('Tháng này đã có giao dịch cùng mô tả và số tiền. Vẫn nhân bản?')) return;
     openTxForm(tx, true);
   };
 
@@ -292,11 +338,13 @@ export default function AccountingPage() {
   const PERIOD_LABEL: Record<string, string> = { all: 'tất cả', month: 'tháng này', quarter: 'quý này', year: 'năm nay' };
 
   // Filter commissions based on role
-  const visibleCommissions = commissions.filter(c => {
+  const hhTheoQuyen = commissions.filter(c => {
     if (user.role === 'data_entry') return c.user_id === user.id;
     if (user.role === 'leader') return true; // team sees all for now
     return true; // admin/accountant see all
   });
+  const visibleCommissions = hhTheoQuyen.filter(c => hhLoc === 'all' || c.status === hhLoc);
+  const soHhCho = hhTheoQuyen.filter(c => c.status === 'pending').length;
 
   return (
     <Sidebar>
@@ -330,7 +378,7 @@ export default function AccountingPage() {
               className={cn(
                 'flex-1 py-2 rounded-lg text-xs font-medium transition-all',
                 tab === t.key
-                  ? 'bg-[#C9A96E]/20 text-[#C9A96E] shadow-sm'
+                  ? 'bg-[var(--gold-500)]/20 text-[var(--gold-500)] shadow-sm'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               )}
             >
@@ -631,14 +679,14 @@ export default function AccountingPage() {
                                 {tx.type === 'income' ? '↑ Thu' : '↓ Chi'} · {labelOf(TX_CATEGORY_LABELS, tx.category)}
                               </span>
                               <span className={cn('text-sm font-semibold', tx.type === 'income' ? 'text-emerald-400' : 'text-red-400')}>
-                                {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                {tx.type === 'income' ? '+' : '-'}{tienDu(tx.amount)}
                               </span>
                             </div>
                             <div className="flex items-center justify-between mt-1">
                               <p className="text-[10px] text-[var(--text-muted)]">{formatDate(tx.date)}</p>
                               {canEditAccounting && tx.type === 'expense' && !tx.code.startsWith('THU-') && (
                                 <button onClick={() => nhanBanTx(tx)} title="Mở form tạo mới điền sẵn nội dung giao dịch này, ngày hôm nay"
-                                  className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                  className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[var(--gold-500)]/15 hover:text-[var(--gold-500)] transition-all">
                                   Nhân bản
                                 </button>
                               )}
@@ -679,7 +727,7 @@ export default function AccountingPage() {
                                 </td>
                                 <td className="p-3 text-right font-semibold">
                                   <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}>
-                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                    {tx.type === 'income' ? '+' : '-'}{tienDu(tx.amount)}
                                   </span>
                                 </td>
                                 <td className="p-3 text-xs text-[var(--text-muted)]">{formatDate(tx.date)}</td>
@@ -695,19 +743,19 @@ export default function AccountingPage() {
                                   <div className="flex items-center justify-end gap-1">
                                     {canEditAccounting && (
                                       <button onClick={() => openTxForm(tx)}
-                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[var(--gold-500)]/15 hover:text-[var(--gold-500)] transition-all">
                                         Sửa
                                       </button>
                                     )}
                                     {canEditAccounting && tx.type === 'expense' && !tx.code.startsWith('THU-') && (
                                       <button onClick={() => nhanBanTx(tx)} title="Mở form tạo mới điền sẵn nội dung giao dịch này, ngày hôm nay"
-                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                                        className="text-[10px] px-2 py-1 rounded bg-white/5 text-[var(--text-muted)] hover:bg-[var(--gold-500)]/15 hover:text-[var(--gold-500)] transition-all">
                                         Nhân bản
                                       </button>
                                     )}
                                     {user?.role === 'admin' && (
                                       <button onClick={async () => {
-                                        if (!confirm('Xóa giao dịch này?')) return;
+                                        if (!await xacNhan('Xóa giao dịch này?')) return;
                                         try {
                                           await api.deleteTransaction(tx.id);
                                           setTransactions(prev => prev.filter(t => t.id !== tx.id));
@@ -734,6 +782,29 @@ export default function AccountingPage() {
             {/* ── Commissions Tab ── */}
             {tab === 'commissions' && (
               <div className="glass-card overflow-hidden">
+                {/* Lọc theo trạng thái + duyệt cả loạt */}
+                <div className="p-3 flex flex-wrap items-center gap-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {([['all', 'Tất cả'], ['pending', 'Chờ duyệt'], ['approved', 'Đã duyệt'], ['paid', 'Đã trả'], ['cho_moc', 'Chờ mốc']] as const).map(([k, nhan]) => {
+                    const so = k === 'all' ? hhTheoQuyen.length : hhTheoQuyen.filter(c => c.status === k).length;
+                    if (k !== 'all' && so === 0) return null;
+                    return (
+                      <button key={k} type="button" onClick={() => setHhLoc(k)} aria-pressed={hhLoc === k}
+                        className="px-3 min-h-[36px] rounded-full text-xs font-medium"
+                        style={hhLoc === k
+                          ? { background: 'var(--gold-500)', color: 'var(--surface-0)' }
+                          : { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                        {nhan} ({so})
+                      </button>
+                    );
+                  })}
+                  {canActCommission && soHhCho > 0 && (
+                    <button type="button" onClick={duyetTatCaHoaHong} disabled={!!hhDang}
+                      className="ml-auto px-3 min-h-[36px] rounded-full text-xs font-semibold disabled:opacity-50" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
+                      <LineIcon name="tick" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />
+                      {hhDang === 'loat' ? 'Đang duyệt…' : `Duyệt tất cả ${soHhCho} khoản`}
+                    </button>
+                  )}
+                </div>
                 {/* Mobile card view */}
                 <div className="md:hidden p-3 space-y-2">
                   {visibleCommissions.length === 0 ? (
@@ -754,20 +825,20 @@ export default function AccountingPage() {
                       </div>
                       {c.note && <p className="text-[10px] text-[var(--text-muted)] mb-1">{c.note}</p>}
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {formatCurrency(c.base_amount)} · {+(c.rate * 100).toFixed(2)}%</span>
-                        <span className="text-sm font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Cơ sở: {tienDu(c.base_amount)} · {+(c.rate * 100).toFixed(2)}%</span>
+                        <span className="text-sm font-semibold text-[var(--gold-500)]">{tienDu(c.commission_amount)}</span>
                       </div>
                       {canActCommission && c.status !== 'paid' && (
                         <div className="flex gap-2 mt-2">
                           {c.status === 'pending' && (
-                            <button onClick={() => handleCommissionStatus(c.id, 'approved')}
-                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px]" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
-                              ✓ Duyệt
+                            <button disabled={!!hhDang} onClick={() => handleCommissionStatus(c.id, 'approved')}
+                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px] disabled:opacity-50" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
+                              <LineIcon name="tick" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Duyệt
                             </button>
                           )}
                           {c.status === 'approved' && (
-                            <button onClick={() => handleCommissionStatus(c.id, 'paid')}
-                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px]" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
+                            <button disabled={!!hhDang} onClick={() => handleCommissionStatus(c.id, 'paid')}
+                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold min-h-[36px] disabled:opacity-50" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
                               <LineIcon name="cash" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Đã chi trả
                             </button>
                           )}
@@ -783,8 +854,8 @@ export default function AccountingPage() {
                       <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">Nhân viên</th>
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">Loại</th>
-                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mốc</th>
-                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Cơ sở</th>
+                        <th className="text-left p-3 text-xs text-[var(--text-muted)]">Mốc <InfoTip text="Thời điểm khoản hoa hồng này được tính: ký hợp đồng, thu từng đợt… Khoản «Chờ mốc» là đã tính sẵn nhưng chưa tới mốc chi, chưa duyệt được." /></th>
+                        <th className="text-right p-3 text-xs text-[var(--text-muted)]">Cơ sở <InfoTip text="Số tiền dùng để tính hoa hồng (giá trị hợp đồng hoặc số tiền đợt thu). Hoa hồng = Cơ sở × Tỷ lệ." /></th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">Tỷ lệ</th>
                         <th className="text-right p-3 text-xs text-[var(--text-muted)]">Hoa hồng</th>
                         <th className="text-left p-3 text-xs text-[var(--text-muted)]">TT</th>
@@ -805,9 +876,9 @@ export default function AccountingPage() {
                             {labelOf(MILESTONE_LABELS, c.milestone)}
                             {c.period && <div className="text-[10px] text-[var(--text-muted)]">Kỳ {c.period}</div>}
                           </td>
-                          <td className="p-3 text-right text-xs">{formatCurrency(c.base_amount)}</td>
+                          <td className="p-3 text-right text-xs">{tienDu(c.base_amount)}</td>
                           <td className="p-3 text-right text-xs">{+(c.rate * 100).toFixed(2)}%</td>
-                          <td className="p-3 text-right font-semibold text-[#C9A96E]">{formatCurrency(c.commission_amount)}</td>
+                          <td className="p-3 text-right font-semibold text-[var(--gold-500)]">{tienDu(c.commission_amount)}</td>
                           <td className="p-3">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap', commissionChip(c.status).cls)}>
                               {commissionChip(c.status).label}
@@ -816,14 +887,14 @@ export default function AccountingPage() {
                           {canActCommission && (
                             <td className="p-3 text-right">
                               {c.status === 'pending' && (
-                                <button onClick={() => handleCommissionStatus(c.id, 'approved')}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
-                                  ✓ Duyệt
+                                <button disabled={!!hhDang} onClick={() => handleCommissionStatus(c.id, 'approved')}
+                                  className="px-2.5 min-h-[32px] rounded-lg text-[11px] font-semibold whitespace-nowrap disabled:opacity-50" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
+                                  <LineIcon name="tick" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Duyệt
                                 </button>
                               )}
                               {c.status === 'approved' && (
-                                <button onClick={() => handleCommissionStatus(c.id, 'paid')}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
+                                <button disabled={!!hhDang} onClick={() => handleCommissionStatus(c.id, 'paid')}
+                                  className="px-2.5 min-h-[32px] rounded-lg text-[11px] font-semibold whitespace-nowrap disabled:opacity-50" style={{ background: 'rgba(52,211,153,0.12)', color: '#34D399' }}>
                                   <LineIcon name="cash" size={14} color="currentColor" className="inline-block align-[-2px] mr-1" />Đã chi trả
                                 </button>
                               )}
@@ -856,14 +927,14 @@ export default function AccountingPage() {
                       </div>
                       <p className="text-[10px] text-[var(--text-muted)] mb-1.5">{p.period}</p>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Lương CB</span><span className="text-[var(--text-secondary)]">{formatCurrency(p.base_salary)}</span></div>
-                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Hoa hồng</span><span className="text-[#C9A96E]">{formatCurrency(p.commission_total)}</span></div>
-                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Thưởng</span><span className="text-emerald-400">{formatCurrency(p.bonus)}</span></div>
-                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Khấu trừ</span><span className="text-red-400">{formatCurrency(p.deductions)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Lương CB</span><span className="text-[var(--text-secondary)]">{tienDu(p.base_salary)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Hoa hồng</span><span className="text-[var(--gold-500)]">{tienDu(p.commission_total)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Thưởng</span><span className="text-emerald-400">{tienDu(p.bonus)}</span></div>
+                        <div className="flex justify-between"><span className="text-[var(--text-muted)]">Khấu trừ</span><span className="text-red-400">{tienDu(p.deductions)}</span></div>
                       </div>
                       <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                         <span className="text-[10px] text-[var(--text-muted)]">Thực lĩnh</span>
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(p.net_salary)}</span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{tienDu(p.net_salary)}</span>
                       </div>
                     </div>
                   ))}
@@ -890,11 +961,11 @@ export default function AccountingPage() {
                         <tr key={p.id} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-subtle)' }}>
                           <td className="p-3 font-medium">{p.user_name || '—'}</td>
                           <td className="p-3 text-xs">{p.period}</td>
-                          <td className="p-3 text-right text-xs">{formatCurrency(p.base_salary)}</td>
-                          <td className="p-3 text-right text-xs text-[#C9A96E]">{formatCurrency(p.commission_total)}</td>
-                          <td className="p-3 text-right text-xs text-emerald-400">{formatCurrency(p.bonus)}</td>
-                          <td className="p-3 text-right text-xs text-red-400">{formatCurrency(p.deductions)}</td>
-                          <td className="p-3 text-right font-semibold">{formatCurrency(p.net_salary)}</td>
+                          <td className="p-3 text-right text-xs">{tienDu(p.base_salary)}</td>
+                          <td className="p-3 text-right text-xs text-[var(--gold-500)]">{tienDu(p.commission_total)}</td>
+                          <td className="p-3 text-right text-xs text-emerald-400">{tienDu(p.bonus)}</td>
+                          <td className="p-3 text-right text-xs text-red-400">{tienDu(p.deductions)}</td>
+                          <td className="p-3 text-right font-semibold">{tienDu(p.net_salary)}</td>
                           <td className="p-3">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
                               (p.status === 'paid' || p.status === 'approved') ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
@@ -914,7 +985,7 @@ export default function AccountingPage() {
 
         {/* ── Create Transaction Modal ── */}
         {showTxForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTxForm(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className="relative glass-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold mb-4 gold-gradient">{editingTx ? 'Sửa giao dịch' : 'Tạo giao dịch mới'}</h3>
@@ -1015,7 +1086,7 @@ export default function AccountingPage() {
                     ))}
                   </select>
                   <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                    Lương chi tiết TỪNG NHÂN VIÊN (công, OT, BHXH, thuế) quản lý ở <a href="/attendance" className="underline text-[#C9A96E]">Chấm công → Chốt sổ</a> — hệ thống tự sinh bảng lương. Ô này dùng khi ghi sổ khoản chi lẻ cho một người cụ thể.
+                    Lương chi tiết TỪNG NHÂN VIÊN (công, OT, BHXH, thuế) quản lý ở <a href="/attendance" className="underline text-[var(--gold-500)]">Chấm công → Chốt sổ</a> — hệ thống tự sinh bảng lương. Ô này dùng khi ghi sổ khoản chi lẻ cho một người cụ thể.
                   </p>
                 </div>
               )}

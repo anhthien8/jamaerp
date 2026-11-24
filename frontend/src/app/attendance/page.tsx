@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { duongDangNhap } from '@/lib/dang-nhap';
@@ -61,6 +62,7 @@ type Tab = 'attendance' | 'leave' | 'payslip';
 function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
   period: string; needsReview: number; otPending: number; onRefresh: () => void;
 }) {
+  const xacNhan = useXacNhan();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [payroll, setPayroll] = useState<{ status: string | null; total_net: number; items: (PayrollRow & { full_name: string })[] } | null>(null);
@@ -110,7 +112,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
           const res = await api.payrollGenerate(period) as { missing_grade?: number };
           // Không gán bậc lương = lương 0đ — báo ngay để kế toán biết đường xử lý
           if (res?.missing_grade) {
-            toast(`⚠️ ${res.missing_grade} nhân viên CHƯA gán bậc lương (lương = 0đ) — vào Tài khoản → Sửa để gán trước khi trình duyệt`, 'error');
+            toast(`${res.missing_grade} nhân viên CHƯA gán bậc lương (lương = 0đ) — vào Tài khoản → Sửa để gán trước khi trình duyệt`, 'error');
           }
           return res;
         }, `Đã sinh bảng lương kỳ ${period}`)}
@@ -122,7 +124,7 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
     {
       key: 'submit', label: '4. Trình Giám đốc duyệt', done: !!status && status !== 'draft',
       detail: status === 'draft' ? 'Bảng lương đang ở bản nháp' :
-              status === 'pending_approval' ? '⏳ Đang chờ Giám đốc duyệt (nhắc qua Telegram sau 72h)' :
+              status === 'pending_approval' ? 'Đang chờ Giám đốc duyệt (nhắc qua Telegram sau 72h)' :
               status === 'approved' ? 'Đã duyệt — kỳ đã KHÓA' :
               status === 'paid' ? 'Đã duyệt và đã chi' : '—',
       action: status === 'draft' && (
@@ -159,8 +161,8 @@ function ClosingStepper({ period, needsReview, otPending, onRefresh }: {
         </button>
       ) : status === 'approved' && (
         <button disabled={busy}
-          onClick={() => {
-            if (!confirm(`Xác nhận đã chi lương kỳ ${monthLabelVN(period)}: ${tongNguoi} người, tổng thực lĩnh ${fmtMoney(payroll?.total_net ?? 0)}?\nHệ thống sẽ ghi phiếu chi lương vào sổ và gửi phiếu lương cho từng người.`)) return;
+          onClick={async () => {
+            if (!await xacNhan(`Xác nhận đã chi lương kỳ ${monthLabelVN(period)}: ${tongNguoi} người, tổng thực lĩnh ${fmtMoney(payroll?.total_net ?? 0)}?\nHệ thống sẽ ghi phiếu chi lương vào sổ và gửi phiếu lương cho từng người.`)) return;
             void run(() => api.payrollPay(period), r => `Đã chi · ${ketQuaGui(r)}`);
           }}
           className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40" style={{ background: '#34d399' }}>
@@ -206,6 +208,7 @@ function layGPS(): Promise<{ latitude?: number; longitude?: number }> {
 }
 
 export default function AttendancePage() {
+  const xacNhan = useXacNhan();
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -219,6 +222,18 @@ export default function AttendancePage() {
   const [pendingOT, setPendingOT] = useState<(AttendanceRecord & { full_name: string })[]>([]);
   const [busy, setBusy] = useState(false);
   const lyDoRef = useRef<HTMLTextAreaElement>(null);
+  // GPS có thể chờ tới 9 giây — nút phải nói rõ đang làm gì, không thì nhân viên bấm lại liên tục.
+  const [dangViTri, setDangViTri] = useState(false);
+  // Dự án mình đang có việc mở → chip «Vào ca tại <mã>» (tối đa 3).
+  const [duAnCuaToi, setDuAnCuaToi] = useState<{ id: string; code: string }[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    api.viecCuaToi().then(ds => {
+      const m = new Map<string, string>();
+      ds.forEach(v => { if (!m.has(v.project_id)) m.set(v.project_id, v.project_code); });
+      setDuAnCuaToi([...m].slice(0, 3).map(([id, code]) => ({ id, code })));
+    }).catch(() => {});
+  }, [user]);
   // Gợi ý ủy quyền duyệt sau khi gửi đơn nghỉ: ngày kết thúc nghỉ
   const [goiYUyQuyen, setGoiYUyQuyen] = useState<string | null>(null);
   // Đồng hồ «Đang làm» trên thẻ hôm nay — nhảy mỗi phút
@@ -311,7 +326,7 @@ export default function AttendancePage() {
         await api.attendanceCheckin(gps.latitude != null ? gps : undefined);
       } else await api.attendanceCheckout();
       localStorage.removeItem(QUEUE_KEY);
-      toast('✅ Đã gửi lại chấm công thành công (lúc trước mất mạng)', 'success');
+      toast('Đã gửi lại chấm công thành công (lúc trước mất mạng)', 'success');
       await loadAttendance();
     } catch (e) {
       // Server từ chối hẳn (vd. ngoài bán kính GPS văn phòng) → bỏ hàng đợi,
@@ -332,27 +347,31 @@ export default function AttendancePage() {
   const isNetworkError = (e: unknown) =>
     e instanceof TypeError || (e instanceof Error && /fetch|network|Failed/i.test(e.message));
 
-  const doCheckin = async () => {
+  // `projectId`: vào ca tại công trình (cùng luật với lệnh /checkin [Mã dự án] của bot — server miễn bán kính văn phòng
+  // khi dự án có thật). Vẫn gửi kèm GPS để bản ghi có toạ độ đối chiếu.
+  const doCheckin = async (projectId?: string) => {
     setBusy(true);
+    setDangViTri(true);
     try {
       const gps = await layGPS();
-      const res = await api.attendanceCheckin(gps.latitude != null ? gps : undefined);
+      setDangViTri(false);
+      const res = await api.attendanceCheckin({ ...(gps.latitude != null ? gps : {}), ...(projectId ? { project_id: projectId } : {}) });
       toast(res.message, res.created ? 'success' : 'info');
       await loadAttendance();
     } catch (e) {
       if (isNetworkError(e)) {
         localStorage.setItem(QUEUE_KEY, JSON.stringify({ type: 'checkin', at: Date.now() }));
-        toast('📶 Mất mạng — sẽ tự vào ca lại khi có sóng. Hoặc dùng Telegram: /checkin', 'info');
+        toast('Mất mạng — sẽ tự vào ca lại khi có sóng. Hoặc dùng Telegram: /checkin', 'info');
       } else {
         const msg = e instanceof Error ? e.message : '';
         toast(
           /GPS|vị trí|cách văn phòng/i.test(msg)
-            ? `📍 ${msg}. Nếu chưa bật: biểu tượng 🔒 cạnh địa chỉ web → Vị trí → Cho phép, rồi bấm lại.`
+            ? `${msg}. Nếu chưa bật: biểu tượng ổ khoá cạnh địa chỉ web → Vị trí → Cho phép, rồi bấm lại.`
             : `Vào ca lỗi: ${msg}`,
           'error',
         );
       }
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setDangViTri(false); }
   };
 
   const doCheckout = async () => {
@@ -364,7 +383,7 @@ export default function AttendancePage() {
     } catch (e) {
       if (isNetworkError(e)) {
         localStorage.setItem(QUEUE_KEY, JSON.stringify({ type: 'checkout', at: Date.now() }));
-        toast('📶 Mất mạng — sẽ tự tan ca lại khi có sóng. Hoặc dùng Telegram: /checkout', 'info');
+        toast('Mất mạng — sẽ tự tan ca lại khi có sóng. Hoặc dùng Telegram: /checkout', 'info');
       } else {
         toast(`Tan ca lỗi: ${e instanceof Error ? e.message : ''}`, 'error');
       }
@@ -449,11 +468,11 @@ export default function AttendancePage() {
                     Tan ca viền gần như vô hình → lệch nhau trên điện thoại (23/10/2026). */}
                 <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[260px]">
                   <button
-                    onClick={doCheckin}
+                    onClick={() => doCheckin()}
                     disabled={busy || checkedIn}
                     className={`${!checkedIn ? 'btn-primary' : 'btn-ghost'} w-full justify-center disabled:opacity-40`}
                     style={{ minHeight: 44 }}
-                  ><LineIcon name="check" size={16} className="inline-block align-[-2px] mr-1.5" />Vào ca</button>
+                  ><LineIcon name={dangViTri ? 'pin' : 'check'} size={16} className="inline-block align-[-2px] mr-1.5" />{dangViTri ? 'Đang lấy vị trí…' : 'Vào ca'}</button>
                   <button
                     onClick={doCheckout}
                     disabled={busy || !checkedIn || checkedOut}
@@ -462,6 +481,18 @@ export default function AttendancePage() {
                   ><LineIcon name="flag" size={16} className="inline-block align-[-2px] mr-1.5" />Tan ca</button>
                 </div>
               </div>
+              {!checkedIn && duAnCuaToi.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Đang ở công trình?</span>
+                  {duAnCuaToi.map(p => (
+                    <button key={p.id} type="button" disabled={busy} onClick={() => doCheckin(p.id)}
+                      className="inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-medium disabled:opacity-40"
+                      style={{ minHeight: 40, background: 'var(--surface-1)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>
+                      <LineIcon name="pin" size={14} color="currentColor" />Vào ca tại {p.code}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="text-xs mt-2 p-2 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)' }}>
                 <LineIcon name="star" size={16} className="inline-block align-[-2px] mr-1.5" /><b>Cách nhanh nhất — Telegram:</b> nhắn <code className="px-1 rounded bg-white/10">/checkin</code> với bot (công trường: <code className="px-1 rounded bg-white/10">/checkin [Mã dự án]</code> kèm GPS, tan ca: <code className="px-1 rounded bg-white/10">/checkout</code>). Vào ca văn phòng cần bật vị trí và đứng trong bán kính văn phòng (mặc định 20 m), hoặc dùng mạng văn phòng.
               </div>
@@ -737,7 +768,7 @@ export default function AttendancePage() {
                         {(l.status === 'pending' || l.status === 'approved') && (
                           <button className="text-xs px-3 py-1 rounded-full" style={{ border: '1px solid var(--border-subtle)', color: '#f87171' }}
                             onClick={async () => {
-                              if (!confirm('Rút đơn nghỉ này? Đơn đã duyệt sẽ được hoàn lại ngày phép.')) return;
+                              if (!await xacNhan('Rút đơn nghỉ này? Đơn đã duyệt sẽ được hoàn lại ngày phép.')) return;
                               try { await api.huyDonNghi(l.id); toast('Đã rút đơn nghỉ', 'success'); loadLeave(); loadAttendance(); }
                               catch (e) { toast(e instanceof Error ? e.message : 'Không rút được', 'error'); }
                             }}>Rút đơn</button>

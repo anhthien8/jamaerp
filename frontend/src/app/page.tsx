@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [acctSummary, setAcctSummary] = useState<AccountingSummary | null>(null);
   const [deptProjects, setDeptProjects] = useState<DeptProject[]>([]);
-  const [leaderCounts, setLeaderCounts] = useState<{ approvals: number; ot: number } | null>(null);
+  const [leaderCounts, setLeaderCounts] = useState<{ approvals: number } | null>(null);
   const [error, setError] = useState('');
   // Bộ lọc theo kỳ (22/09/2026) — trước đây Tổng quan luôn cộng dồn toàn bộ
   // lịch sử Quy trình + Dự án, không có cách xem riêng một khoảng thời gian.
@@ -73,8 +73,10 @@ export default function DashboardPage() {
 
       // Khối điều hành nhanh cho leader (spec 08 §2.4)
       if (user.role === 'leader' || user.role === 'admin') {
-        Promise.all([api.approvalsPendingForMe(), api.pendingOT()])
-          .then(([approvals, ot]) => setLeaderCounts({ approvals: approvals.count, ot: ot.items.length }))
+        // Tăng ca không còn chờ duyệt (tự ghi nhận làm điểm chuyên cần) → bỏ ô «Tăng ca chờ» luôn hiện 0
+        // và dẫn tới trang không có danh sách nào.
+        api.approvalsPendingForMe()
+          .then(approvals => setLeaderCounts({ approvals: approvals.count }))
           .catch(() => setLeaderCounts(null));
       }
     }
@@ -409,12 +411,12 @@ export default function DashboardPage() {
 
         {/* Personal: Today's Tasks */}
         {/* Spec 08 §2.4 — Điều hành nhanh cho leader/admin: 3 số + đi thẳng */}
-        {leaderCounts && (leaderCounts.approvals > 0 || leaderCounts.ot > 0 || (data?.overdue_leads ?? 0) > 0) && (
+        {leaderCounts && (leaderCounts.approvals > 0 || (data?.overdue_leads ?? 0) > 0) && (
           <div className="glass-card p-5">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3"><LineIcon name="zap" size={16} className="inline-block align-[-2px] mr-1.5" />Cần xử lý ngay</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Vạch màu trái thay nền pastel nhiều màu (góp ý UI Designer A6) — màu ngữ nghĩa qua stage vars để hợp cả 2 theme */}
-              <button onClick={() => router.push('/leads')}
+              <button onClick={() => router.push('/leads?filter=overdue')}
                 className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
                 style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-lost)' }}>
                 <span className="text-sm text-[var(--text-secondary)]">Khách quá hạn</span>
@@ -425,12 +427,6 @@ export default function DashboardPage() {
                 style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-survey)' }}>
                 <span className="text-sm text-[var(--text-secondary)]">Đơn chờ duyệt</span>
                 <span className="text-xl font-bold" style={{ color: 'var(--stage-survey)' }}>{leaderCounts.approvals}</span>
-              </button>
-              <button onClick={() => router.push('/attendance')}
-                className="flex items-center justify-between p-3 rounded-xl transition-all hover:opacity-80 text-left min-h-[56px]"
-                style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--stage-dormant)' }}>
-                <span className="text-sm text-[var(--text-secondary)]">Tăng ca chờ</span>
-                <span className="text-xl font-bold" style={{ color: 'var(--stage-dormant)' }}>{leaderCounts.ot}</span>
               </button>
             </div>
           </div>
@@ -451,7 +447,7 @@ export default function DashboardPage() {
                 <div
                   key={p.id}
                   className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
-                  onClick={() => router.push('/projects')}
+                  onClick={() => router.push(`/projects?id=${p.id}`)}
                 >
                   <span className="text-[10px] font-mono text-[var(--text-muted)] flex-shrink-0">{p.code}</span>
                   <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{p.name}</span>
@@ -531,7 +527,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-[var(--text-muted)] mt-1">Xem hợp đồng đã ký</p>
               </button>
               <button
-                onClick={() => router.push('/accounting')}
+                onClick={() => router.push('/accounting?tab=commissions')}
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
@@ -549,7 +545,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold mb-4"><LineIcon name="chart" size={16} className="inline-block align-[-2px] mr-1.5" />Tổng quan Tài chính</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
-                onClick={() => router.push('/accounting')}
+                onClick={() => router.push('/accounting?tab=transactions')}
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >
@@ -558,7 +554,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-[var(--text-muted)] mt-1">Quản lý thu chi chi tiết</p>
               </button>
               <button
-                onClick={() => router.push('/accounting')}
+                onClick={() => router.push('/accounting?tab=payroll')}
                 className="p-4 rounded-xl text-left transition-all hover:bg-white/5"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
               >

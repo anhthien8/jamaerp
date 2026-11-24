@@ -61,14 +61,27 @@ function SoDienThoai({ so }: { so?: string | null }) {
   if (!so) return <span className="text-[var(--text-muted)]">Chưa có</span>;
   if (so.includes('*')) return <span>{so}</span>;
   return (
-    <a
-      href={`tel:${so.replace(/[^\d+]/g, '')}`}
-      onClick={e => e.stopPropagation()}
-      title="Bấm để gọi"
-      className="inline-flex items-center gap-1.5 hover:text-[var(--gold-500)] hover:underline underline-offset-4 transition-colors"
-    >
-      <LineIcon name="phone" size={13} color="currentColor" />{so}
-    </a>
+    <span className="inline-flex items-center gap-1">
+      <a
+        href={`tel:${so.replace(/[^\d+]/g, '')}`}
+        onClick={e => e.stopPropagation()}
+        title="Bấm để gọi"
+        className="inline-flex items-center gap-1.5 hover:text-[var(--gold-500)] hover:underline underline-offset-4 transition-colors"
+      >
+        <LineIcon name="phone" size={13} color="currentColor" />{so}
+      </a>
+      <a
+        href={`https://zalo.me/${so.replace(/\D/g, '')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        aria-label={`Nhắn Zalo ${so}`}
+        title="Nhắn Zalo"
+        className="w-9 h-9 -my-2 rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--gold-500)] hover:bg-white/10 transition-colors"
+      >
+        <LineIcon name="message" size={14} color="currentColor" />
+      </a>
+    </span>
   );
 }
 
@@ -156,6 +169,12 @@ export default function CustomersPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  // Gõ xong 300ms mới gọi máy chủ — trước đây mỗi phím một lượt tải cả danh sách.
+  const [searchTre, setSearchTre] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTre(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   const [typeFilter, setTypeFilter] = useState('all');
   const [selected, setSelected] = useState<Customer | null>(null);
   const [customerDetail, setCustomerDetail] = useState<Customer | null>(null);
@@ -209,7 +228,7 @@ export default function CustomersPage() {
     try {
       const params: Record<string, string> = {};
       if (typeFilter !== 'all') params.type = typeFilter;
-      if (search.trim()) params.search = search.trim();
+      if (searchTre) params.search = searchTre;
       // Lấy đủ mọi trang — lọc/sắp xếp chạy phía trình duyệt (xem fetchAllPages).
       const data = await fetchAllPages(p => api.getCustomers(p), params);
       setCustomers(data);
@@ -220,7 +239,7 @@ export default function CustomersPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [search, typeFilter, toast]);
+  }, [searchTre, typeFilter, toast]);
 
   useEffect(() => { if (user) void Promise.resolve().then(load); }, [user, load]);
 
@@ -311,7 +330,7 @@ export default function CustomersPage() {
           {canEditCustomers && (
             <button
               onClick={openCreate}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white text-sm font-semibold hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all active:scale-95 shadow-lg shadow-[#C9A96E]/10"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white text-sm font-semibold hover:from-[#D4B97E] hover:to-[var(--gold-500)] transition-all active:scale-95 shadow-lg shadow-[var(--gold-500)]/10"
             >
               + Thêm khách hàng
             </button>
@@ -326,7 +345,7 @@ export default function CustomersPage() {
               placeholder="Tìm theo tên, SĐT, email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:border-[#C9A96E]"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:border-[var(--gold-500)]"
               style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             />
           </div>
@@ -351,7 +370,7 @@ export default function CustomersPage() {
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Chưa có khách hàng</h3>
               <p className="text-sm text-[var(--text-muted)] mb-4">Khách hàng sẽ xuất hiện khi lead ký hợp đồng</p>
               {canEditCustomers && (
-                <button onClick={openCreate} className="px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white hover:from-[#D4B97E] hover:to-[#C9A96E] transition-all">
+                <button onClick={openCreate} className="px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white hover:from-[#D4B97E] hover:to-[var(--gold-500)] transition-all">
                   + Thêm khách hàng
                 </button>
               )}
@@ -394,7 +413,7 @@ export default function CustomersPage() {
                     </p>
                     {canEditCustomers && (
                       <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                        <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                        <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[var(--gold-500)]/15 hover:text-[var(--gold-500)] transition-all">
                           Sửa
                         </button>
                       </div>
@@ -444,7 +463,7 @@ export default function CustomersPage() {
                       <td className="px-5 py-3.5 text-center text-[var(--text-secondary)]">{c.so_hop_dong || 0}</td>
                       <td className="px-5 py-3.5 text-right">
                         {canEditCustomers && (
-                          <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[#C9A96E]/15 hover:text-[#C9A96E] transition-all">
+                          <button onClick={e => { e.stopPropagation(); openEdit(c); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-[var(--text-secondary)] hover:bg-[var(--gold-500)]/15 hover:text-[var(--gold-500)] transition-all">
                             Sửa
                           </button>
                         )}
@@ -516,7 +535,7 @@ export default function CustomersPage() {
                 {([
                   ['Họ tên', selected.name, true],
                   ['SĐT', <SoDienThoai key="sdt" so={selected.phone} />, true],
-                  ['Địa chỉ', selected.address, true],
+                  ['Địa chỉ', selected.address ? <a key="dc" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.address)}`} target="_blank" rel="noopener noreferrer" title="Mở chỉ đường" className="hover:text-[var(--gold-500)] hover:underline underline-offset-4"><LineIcon name="pin" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />{selected.address}</a> : '', true],
                   ['Email', selected.email ? <a key="mail" href={`mailto:${selected.email}`} className="hover:text-[var(--gold-500)] hover:underline underline-offset-4 break-all">{selected.email}</a> : '', true],
                   ['Sinh nhật', selected.birthday ? selected.birthday.split('-').reverse().join('/') : '', true],
                   ['Số CCCD', selected.national_id, false],
@@ -585,7 +604,7 @@ export default function CustomersPage() {
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setSelected(null)} className="px-3 py-2 rounded-xl text-sm bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 transition-all">Đóng</button>
                 {canEditCustomers && (
-                  <button onClick={() => openEdit(selected)} className="px-3 py-2 rounded-xl text-sm bg-[#C9A96E]/20 text-[#C9A96E] hover:bg-[#C9A96E]/30 transition-all">Sửa hồ sơ</button>
+                  <button onClick={() => openEdit(selected)} className="px-3 py-2 rounded-xl text-sm bg-[var(--gold-500)]/20 text-[var(--gold-500)] hover:bg-[var(--gold-500)]/30 transition-all">Sửa hồ sơ</button>
                 )}
               </div>
             </div>
@@ -604,7 +623,7 @@ export default function CustomersPage() {
                 <button type="button" onClick={() => !saving && setFormOpen(false)} className="p-2 rounded-lg hover:bg-white/10 text-[var(--text-muted)]">✕</button>
               </div>
 
-              <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer border border-dashed border-white/15 hover:border-[#C9A96E] transition-all">
+              <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer border border-dashed border-white/15 hover:border-[var(--gold-500)] transition-all">
                 <LineIcon name="camera" size={22} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm text-[var(--text-primary)]">{docCccd ? 'Đang đọc CCCD…' : 'Tải ảnh CCCD — tự điền họ tên, ngày sinh, số, địa chỉ'}</span>
@@ -615,11 +634,11 @@ export default function CustomersPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="space-y-1">
                   <span className="text-xs text-[var(--text-muted)]">Ngày sinh (nhắc sale tặng quà)</span>
-                  <input type="date" value={form.birthday} onChange={e => setForm({ ...form, birthday: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                  <input type="date" value={form.birthday} onChange={e => setForm({ ...form, birthday: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)]" />
                 </label>
                 <label className="space-y-1">
                   <span className="text-xs text-[var(--text-muted)]">Số CCCD</span>
-                  <input inputMode="numeric" value={form.national_id} onChange={e => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                  <input inputMode="numeric" value={form.national_id} onChange={e => setForm({ ...form, national_id: e.target.value })} className="w-full px-3 py-2 rounded-xl text-base sm:text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)]" />
                 </label>
                 {[
                   ['name', 'Tên khách hàng *'],
@@ -630,12 +649,12 @@ export default function CustomersPage() {
                 ].map(([key, label]) => (
                   <label key={key} className="space-y-1">
                     <span className="text-xs text-[var(--text-muted)]">{label}</span>
-                    <input type={key === 'email' ? 'email' : 'text'} inputMode={key === 'phone' ? 'tel' : undefined} value={form[key as keyof CustomerForm]} onChange={e => setForm({ ...form, [key]: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                    <input type={key === 'email' ? 'email' : 'text'} inputMode={key === 'phone' ? 'tel' : undefined} value={form[key as keyof CustomerForm]} onChange={e => setForm({ ...form, [key]: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)]" />
                   </label>
                 ))}
                 <label className="space-y-1">
                   <span className="text-xs text-[var(--text-muted)]">Loại khách hàng</span>
-                  <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]">
+                  <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)]">
                     <option value="individual">Cá nhân</option>
                     <option value="company">Doanh nghiệp</option>
                   </select>
@@ -643,15 +662,15 @@ export default function CustomersPage() {
               </div>
               <label className="block space-y-1">
                 <span className="text-xs text-[var(--text-muted)]">Địa chỉ</span>
-                <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E]" />
+                <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)]" />
               </label>
               <label className="block space-y-1">
                 <span className="text-xs text-[var(--text-muted)]">Ghi chú nội bộ</span>
-                <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[#C9A96E] resize-none" />
+                <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} className="w-full px-3 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-[var(--gold-500)] resize-none" />
               </label>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" disabled={saving} onClick={() => setFormOpen(false)} className="px-4 py-2 rounded-xl text-sm bg-white/5 text-[var(--text-secondary)] hover:bg-white/10 disabled:opacity-40 transition-all">Hủy</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#C9A96E] to-[#B8935A] text-white disabled:opacity-50 transition-all">
+                <button type="submit" disabled={saving} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-[var(--gold-500)] to-[#B8935A] text-white disabled:opacity-50 transition-all">
                   {saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Tạo khách hàng'}
                 </button>
               </div>

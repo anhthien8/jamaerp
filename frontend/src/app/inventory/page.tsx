@@ -35,6 +35,9 @@ export default function InventoryPage() {
   const [pageInfo, setPageInfo] = useState<{ page: number; total_pages: number; total: number }>({ page: 1, total_pages: 1, total: 0 });
   const [error, setError] = useState<string | null>(null);
   // Import báo giá/vật tư từ file CSV (Bước 1 gói NCC — 22/07)
+  // Điều chỉnh tồn kho một mặt hàng (24/11): trước đây sửa một con số phải nhập lại cả tệp CSV.
+  const [chinh, setChinh] = useState<{ m: Material; sl: string; giam: boolean } | null>(null);
+  const [dangChinh, setDangChinh] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRows, setImportRows] = useState<Array<Record<string, unknown>>>([]);
   const [importIssues, setImportIssues] = useState<string[]>([]);
@@ -207,6 +210,29 @@ export default function InventoryPage() {
     );
   }
 
+  const soChinh = chinh ? Number(chinh.sl.replace(',', '.')) : 0;
+  const tonSau = chinh ? chinh.m.quantity_in_stock + (chinh.giam ? -soChinh : soChinh) : 0;
+  const luuChinh = async () => {
+    if (!chinh || dangChinh) return;
+    if (!(soChinh > 0)) { toast('Nhập số lượng lớn hơn 0', 'error'); return; }
+    if (tonSau < 0) { toast('Xuất nhiều hơn số đang tồn', 'error'); return; }
+    setDangChinh(true);
+    try {
+      const moi = await api.request<Material>(`/inventory/${chinh.m.id}/adjust-stock`, { method: 'POST', body: { quantity: chinh.giam ? -soChinh : soChinh } });
+      setMaterials(prev => prev.map(x => (x.id === moi.id ? moi : x)));
+      setLowStock(prev => { const con = prev.filter(x => x.id !== moi.id); return moi.quantity_in_stock <= moi.min_stock ? [...con, moi] : con; });
+      toast(`${moi.name}: tồn kho giờ là ${fmtNum(moi.quantity_in_stock)} ${moi.unit}`, 'success');
+      setChinh(null);
+    } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Không điều chỉnh được tồn kho', 'error'); }
+    finally { setDangChinh(false); }
+  };
+  const nutChinh = (m: Material) => (
+    <button type="button" onClick={() => setChinh({ m, sl: '', giam: false })}
+      className="px-3 min-h-[36px] rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'rgba(201,169,110,0.15)', color: 'var(--gold-400)' }}>
+      <LineIcon name="edit" size={13} color="currentColor" className="inline-block align-[-2px] mr-1" />Nhập / xuất
+    </button>
+  );
+
   const categories = ['all', ...Array.from(new Set(materials.map(m => m.category)))];
   const suppliers = ['all', ...Array.from(new Set(materials.map(m => m.supplier).filter(Boolean) as string[]))];
 
@@ -363,6 +389,7 @@ export default function InventoryPage() {
                           <span className="font-semibold text-[var(--text-primary)]">{fmtVND(m.unit_price)}</span>
                         </div>
                       </div>
+                      <div className="flex justify-end mt-3">{nutChinh(m)}</div>
                     </div>
                   );
                 })}
@@ -379,6 +406,7 @@ export default function InventoryPage() {
                       <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Đơn giá</th>
                       <th className="text-right px-5 py-3 text-[var(--text-tertiary)] font-medium">Giá trị</th>
                       <th className="text-left px-5 py-3 text-[var(--text-tertiary)] font-medium">NCC</th>
+                      <th className="px-5 py-3" aria-label="Thao tác" />
                     </tr>
                   </thead>
                   <tbody>
@@ -407,6 +435,7 @@ export default function InventoryPage() {
                           <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price)}</td>
                           <td className="px-5 py-3.5 text-right text-[var(--text-secondary)]">{fmtVND(m.unit_price * m.quantity_in_stock)}</td>
                           <td className="px-5 py-3.5 text-[var(--text-muted)] max-w-[150px] truncate">{m.supplier || '—'}</td>
+                          <td className="px-5 py-2 text-right">{nutChinh(m)}</td>
                         </tr>
                       );
                     })}
@@ -414,6 +443,44 @@ export default function InventoryPage() {
                 </table>
               </div>
             </>
+          )}
+          {/* Form nhập / xuất tồn kho */}
+          {chinh && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/70" onClick={() => !dangChinh && setChinh(null)} />
+              <div className="relative w-full max-w-sm rounded-2xl p-5 space-y-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)' }}>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">Nhập / xuất tồn kho</h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{chinh.m.code} · {chinh.m.name} — đang tồn <b className="text-[var(--text-primary)]">{fmtNum(chinh.m.quantity_in_stock)} {chinh.m.unit}</b></p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {([[false, 'Nhập thêm'], [true, 'Xuất bớt']] as const).map(([giam, nhan]) => (
+                    <button key={nhan} type="button" onClick={() => setChinh(c => c && ({ ...c, giam }))}
+                      className="min-h-[40px] rounded-full text-sm font-medium"
+                      style={chinh.giam === giam
+                        ? { background: 'var(--gold-500)', color: 'var(--surface-0)' }
+                        : { background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                      {nhan}
+                    </button>
+                  ))}
+                </div>
+                <input autoFocus inputMode="decimal" value={chinh.sl} onChange={e => setChinh(c => c && ({ ...c, sl: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && luuChinh()}
+                  placeholder={`Số lượng (${chinh.m.unit})`}
+                  className="w-full px-3 py-2.5 rounded-xl text-base outline-none"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+                <p className="text-xs" style={{ color: tonSau < 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  {soChinh > 0 ? (tonSau < 0 ? 'Xuất nhiều hơn số đang tồn.' : <>Tồn kho sau khi lưu: <b className="text-[var(--text-primary)]">{fmtNum(tonSau)} {chinh.m.unit}</b></>) : 'Gõ số lượng nhập thêm hoặc xuất bớt — không phải số tồn mới.'}
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setChinh(null)} disabled={dangChinh} className="flex-1 min-h-[40px] rounded-xl text-sm font-medium" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Hủy</button>
+                  <button type="button" onClick={luuChinh} disabled={dangChinh || !(soChinh > 0) || tonSau < 0}
+                    className="flex-1 min-h-[40px] rounded-xl text-sm font-semibold disabled:opacity-40" style={{ background: 'var(--gold-500)', color: 'var(--surface-0)' }}>
+                    {dangChinh ? 'Đang lưu…' : 'Lưu'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
           {/* Pagination info */}
           {!loadingData && (
@@ -433,7 +500,7 @@ export default function InventoryPage() {
             <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
               File CSV (Excel: <b>Lưu dưới dạng → CSV UTF-8</b>). Cột bắt buộc: <b>Tên vật tư</b>; tùy chọn: Mã, Danh mục, Đơn vị, Đơn giá, NCC, Tồn kho, Tồn tối thiểu.
               Trùng Mã/Tên = cập nhật giá & NCC (báo giá mới); chưa có = tạo mới.{' '}
-              <button onClick={downloadTemplate} className="underline text-[#C9A96E]">Tải file mẫu</button>
+              <button onClick={downloadTemplate} className="underline text-[var(--gold-500)]">Tải file mẫu</button>
             </p>
 
             <label className="block w-full p-6 rounded-xl text-center cursor-pointer transition-all hover:opacity-80 mb-3" style={{ border: '2px dashed var(--border-default)', color: 'var(--text-secondary)' }}>

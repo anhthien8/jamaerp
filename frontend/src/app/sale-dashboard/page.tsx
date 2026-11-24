@@ -26,6 +26,7 @@ import { api, SalesDashboard, SalesKpiCard, SalesPerson, SalesTargets } from '@/
 import { formatCurrency, SOURCE_LABELS } from '@/lib/utils';
 import { DATE_PRESETS, nhanKy, resolveDateRange } from '@/lib/date-filter';
 import { Khoi, Thanh, Trong } from '@/components/dashboard/KhoiDashboard';
+import { CauThuc, DongHo, DuongDua, SO, TO, VANG } from '@/components/dashboard/BangDua';
 
 // Phải khớp `VAI_TRO_XEM` ở backend và `VAI_TRO_SALE_DASHBOARD` ở Sidebar.
 const DUOC_XEM = ['admin'];
@@ -140,18 +141,43 @@ export default function SaleDashboardPage() {
 
   if (!user || !DUOC_XEM.includes(user.role)) return null;
 
+  // ── Số liệu cho các khối kiểu «bảng đua» (24/11/2026) ──
+  const dt = data?.kpi.find(k => k.ma === 'doanh_thu');
+  // Kỳ «Tháng này» chạy từ mồng 1 tới HÔM NAY nên `muc_tieu` của kỳ đã chia theo ngày; đích thật để đua là
+  // mục tiêu CẢ THÁNG. Các kỳ khác (tháng trước, quý…) thì đích = mục tiêu của chính kỳ đó, không có «ngày còn lại».
+  const laThangNay = datePreset === 'this_month';
+  const dich = dt ? (laThangNay ? dt.muc_tieu_thang : dt.muc_tieu) : 0;
+  const pctDich = dt && dich > 0 ? Math.round((dt.thuc_te / dich) * 100) : 0;
+  const nay = data ? new Date(data.cap_nhat_luc) : null;
+  const conNgay = laThangNay && nay ? new Date(nay.getFullYear(), nay.getMonth() + 1, 0).getDate() - nay.getDate() : 0;
+  const duaNhom = [...(data?.hieu_suat_nhom || [])].sort((a, b) => b.doanh_so - a.doanh_so)
+    .map((r, i) => ({ id: r.team_id || 'chua-nhom', ten: r.nhom, giaTri: r.doanh_so, hang: i + 1, phu: `${fmtSo(r.ky_hd)} HĐ · ${fmtSo(r.dat_tieu_chuan)} data đạt chuẩn${r.pct_muc_tieu === null ? '' : ` · ${r.pct_muc_tieu}% mục tiêu`}` }));
+  const tongNhom = duaNhom.reduce((s, r) => s + r.giaTri, 0);
+  const duaNguoi = (data?.top_nhan_vien || []).map((p, i) => ({ id: p.user_id, ten: p.ten, giaTri: p.doanh_so, hang: i + 1, phu: `${p.nhom} · ${p.ky_hd} HĐ · ${p.data} data · ${p.pct_muc_tieu}% mục tiêu` }));
+  /** «B còn X nữa là vượt A — khoảng Y mỗi ngày». Chỉ nói về hạng 2 đuổi hạng 1. */
+  const cauDuoi = (ds: { ten: string; giaTri: number }[]) => {
+    if (ds.length < 2 || ds[1].giaTri <= 0) return null; // hạng 2 chưa có số thì chưa gọi là đuổi
+    const thieu = ds[0].giaTri - ds[1].giaTri;
+    return (
+      <CauThuc>
+        <b>{ds[1].ten}</b> còn <b style={{ color: VANG }}>{formatCurrency(thieu)}</b> nữa là <b>vượt {ds[0].ten}</b>
+        {conNgay > 0 ? <> — khoảng {formatCurrency(thieu / conNgay)} mỗi ngày trong {conNgay} ngày còn lại.</> : '.'}
+      </CauThuc>
+    );
+  };
+
   return (
     <Sidebar>
       <div className="p-6 space-y-6 animate-in">
         {/* ── Đầu trang ─────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">
-              Bảng điều khiển <span className="gold-gradient">Kinh doanh</span>
+            <div className="text-xs text-[var(--text-muted)]">
+              Bảng điều khiển Kinh doanh{data ? <> · {tenKy || `${data.ky.tu} → ${data.ky.den}`}{conNgay > 0 ? <> · còn <b className="text-[var(--text-primary)]">{conNgay} ngày</b></> : ''}</> : ''}
+            </div>
+            <h1 className={`${TO} text-[2rem] sm:text-[2.75rem] mt-1.5 text-[var(--text-primary)]`}>
+              {dt && dich > 0 ? <>Doanh thu · {pctDich}% mục tiêu{laThangNay ? ' tháng' : ''}</> : 'Kinh doanh'}
             </h1>
-            <p className="text-[var(--text-secondary)] text-sm mt-1">
-              Hiệu suất phòng kinh doanh theo kỳ — doanh số, chất lượng data, phễu bán hàng và việc cần làm.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -211,27 +237,87 @@ export default function SaleDashboardPage() {
 
         {data && (
           <>
-            {/* ── 5 thẻ KPI ─────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-              {data.kpi.map(k => {
+            {/* ── Doanh thu so mục tiêu (đồng hồ cung) + Dự báo ─────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {dt && (
+                <section className="glass-card p-5 lg:col-span-2">
+                  <div className="flex items-baseline justify-between gap-2 mb-2">
+                    <h2 className={`${TO} text-xl text-[var(--text-primary)]`}>{NHAN_KPI.doanh_thu}</h2>
+                    <Delta pct={dt.delta_pct} />
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5">
+                    <div className="w-full sm:w-1/2 flex flex-col items-center">
+                      <DongHo giaTri={dt.thuc_te} tran={Math.max(dich, dt.thuc_te)} hienThi={formatCurrency(dt.thuc_te)}
+                        vach={[...(dt.muc_tieu_tien_do < dich ? [{ giaTri: dt.muc_tieu_tien_do, nhan: 'hôm nay' }] : []), { giaTri: dich, nhan: formatCurrency(dich) }]}
+                        moTa={`Doanh thu ${formatCurrency(dt.thuc_te)}, ${pctDich}% mục tiêu ${formatCurrency(dich)}`} />
+                      <div className="text-xs text-[var(--text-muted)] -mt-1">{pctDich}% tới mục tiêu {formatCurrency(dich)}</div>
+                    </div>
+                    <div className="w-full sm:w-1/2 grid grid-cols-2 sm:grid-cols-1 gap-2">
+                      {[
+                        // Kỳ đã trọn (năm nay tính tới hôm nay, tháng trước…) thì hai mốc trùng nhau → chỉ giữ một thẻ.
+                        ...(dt.muc_tieu_tien_do < dich ? [{ nhan: `Mục tiêu tới hôm nay · ${formatCurrency(dt.muc_tieu_tien_do)}`, thieu: dt.muc_tieu_tien_do - dt.thuc_te, dat: 'Đúng tiến độ' }] : []),
+                        { nhan: `Mục tiêu ${laThangNay ? 'cả tháng' : 'cả kỳ'} · ${formatCurrency(dich)}`, thieu: dich - dt.thuc_te, dat: 'Đã đạt' },
+                      ].map((m, i) => {
+                        const xong = m.thieu <= 0;
+                        const mau = xong ? 'var(--success)' : i === 0 ? 'var(--warning)' : 'var(--border-subtle)';
+                        const cuoi = m.dat === 'Đã đạt';
+                        return (
+                          <div key={m.nhan} className="rounded-xl px-3 py-2" style={{ border: `1px solid ${mau}`, background: 'var(--surface-2)' }}>
+                            <div className="text-[11px] text-[var(--text-muted)] truncate">{m.nhan}</div>
+                            <div className="text-sm font-bold" style={{ color: xong ? 'var(--success)' : 'var(--text-primary)' }}>
+                              {xong ? m.dat : `còn thiếu ${formatCurrency(m.thieu)}`}
+                            </div>
+                            {!xong && cuoi && conNgay > 0 && <div className="text-[11px] text-[var(--text-muted)]">≈ {formatCurrency(m.thieu / conNgay)} mỗi ngày</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Dự báo có trọng số — thẻ nhấn màu đặc */}
+              <section className="rounded-[var(--radius-card)] p-5" style={{ background: VANG, color: 'var(--surface-0)' }}>
+                <div className="text-overline opacity-80">Dự báo doanh số có trọng số</div>
+                <div className={`${SO} text-[2.25rem] mt-2 break-words`}>{formatCurrency(data.du_bao.du_bao_co_trong_so)}</div>
+                <div className="text-xs opacity-80 mt-1.5">Pipeline đang mở {formatCurrency(data.du_bao.gia_tri_pipeline)} × xác suất thắng của từng bước</div>
+                <div className="rounded-xl px-3 py-1 mt-3" style={{ background: 'rgba(0,0,0,0.14)' }}>
+                  {data.du_bao.theo_buoc.map(b => (
+                    <div key={b.stage} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+                      <span className="min-w-0 truncate opacity-85">{b.nhan} · {fmtSo(b.so_luong)} · ×{Math.round(b.xac_suat * 100)}%</span>
+                      <b className="shrink-0">{formatCurrency(b.du_bao)}</b>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl px-3 py-2.5 mt-3 text-sm font-medium" style={{ background: 'rgba(0,0,0,0.14)' }}>
+                  {data.du_bao.con_thieu > 0
+                    ? <>Cộng cả dự báo vẫn còn thiếu <b>{formatCurrency(data.du_bao.con_thieu)}</b> so với mục tiêu.</>
+                    : <>Tính cả dự báo thì <b>đã đủ mục tiêu</b>.</>}
+                </div>
+              </section>
+            </div>
+
+            {/* ── 4 thẻ KPI còn lại ─────────────────────────────────── */}
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+              {data.kpi.filter(k => k.ma !== 'doanh_thu').map(k => {
                 const dat = k.dat_tien_do;
-                const mau = dat === null ? 'var(--gold-500)' : dat ? '#34D399' : '#FBBF24';
+                const mau = dat === null ? 'var(--gold-500)' : dat ? 'var(--success)' : 'var(--warning)';
                 return (
-                  <div key={k.ma} className="glass-card p-5">
+                  <div key={k.ma} className="glass-card p-4 sm:p-5">
                     <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{NHAN_KPI[k.ma]}</p>
                     <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-xl font-bold text-[var(--text-primary)]">{giaTriKpi(k)}</span>
+                      <span className={`${SO} text-[2rem] text-[var(--text-primary)]`}>{giaTriKpi(k)}</span>
                       <span className="text-xs text-[var(--text-muted)]">{mucTieuKpi(k)}</span>
                     </div>
                     <div className="mt-3"><Thanh pct={k.phan_tram} mau={mau} /></div>
-                    <div className="flex items-center justify-between mt-2 gap-2">
+                    <div className="flex flex-wrap items-center justify-between mt-2 gap-x-2">
                       <Delta pct={k.delta_pct} />
                       <span className="text-[11px] font-semibold" style={{ color: mau }}>{k.phan_tram}%</span>
                     </div>
                     {/* Mục tiêu tới hôm nay: tránh đọc «mới 21%» thành «đang thất bại» */}
                     {!k.la_nguong && (
                       <p className="text-[10px] text-[var(--text-disabled)] mt-1">
-                        Mục tiêu tới hôm nay: {k.don_vi === 'vnd' ? formatCurrency(k.muc_tieu_tien_do) : fmtSo(k.muc_tieu_tien_do)}
+                        Mục tiêu tới hôm nay: {fmtSo(k.muc_tieu_tien_do)}
                         {dat !== null && (dat ? ' · đúng tiến độ' : ' · đang chậm')}
                       </p>
                     )}
@@ -372,6 +458,13 @@ export default function SaleDashboardPage() {
             </div>
 
             {/* ── Hiệu suất theo nhóm ───────────────────────────────── */}
+            {tongNhom > 0 && (
+              <Khoi tieuDe="Đường đua nhóm" phu="Xếp theo giá trị dự án thắng deal trong kỳ">
+                <DuongDua ds={duaNhom} tong={tongNhom} dinhDang={formatCurrency} nhanTong="các nhóm" />
+                {cauDuoi(duaNhom)}
+              </Khoi>
+            )}
+
             <Khoi tieuDe="Hiệu suất theo nhóm" phu="Các cột liên hệ → ký HĐ chỉ tính data đạt tiêu chuẩn">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -425,28 +518,12 @@ export default function SaleDashboardPage() {
 
             {/* ── Top nhân viên + Cần hỗ trợ ────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Khoi tieuDe="Nhân viên hiệu suất cao" phu="Xếp theo giá trị dự án thắng deal trong kỳ">
-                {data.top_nhan_vien.length === 0 ? <Trong chu="Kỳ này chưa có nhân viên nào có số." /> : (
-                  <ul className="space-y-3">
-                    {data.top_nhan_vien.map((p, i) => (
-                      <li key={p.user_id} className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                          style={{
-                            background: i < 3 ? 'rgba(201,169,110,0.15)' : 'var(--surface-3)',
-                            color: i < 3 ? '#C9A96E' : 'var(--text-muted)',
-                          }}>{i + 1}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{p.ten}</p>
-                          <p className="text-[10px] text-[var(--text-muted)]">{p.nhom} · {p.ky_hd} HĐ · {p.data} data</p>
-                        </div>
-                        <div className="w-20 flex-shrink-0">
-                          <Thanh pct={p.pct_muc_tieu} mau={p.pct_muc_tieu >= 100 ? '#34D399' : 'var(--gold-500)'} cao={5} />
-                          <p className="text-[10px] text-right mt-1 text-[var(--text-muted)]">{p.pct_muc_tieu}%</p>
-                        </div>
-                        <span className="text-xs font-semibold text-[var(--text-primary)] w-20 text-right flex-shrink-0">{formatCurrency(p.doanh_so)}</span>
-                      </li>
-                    ))}
-                  </ul>
+              <Khoi tieuDe="Đường đua nhân viên" phu="Xếp theo giá trị dự án thắng deal trong kỳ">
+                {duaNguoi.length === 0 ? <Trong chu="Kỳ này chưa có nhân viên nào có số." /> : (
+                  <>
+                    <DuongDua ds={duaNguoi} tong={0} dinhDang={formatCurrency} nhanTong="" />
+                    {cauDuoi(duaNguoi)}
+                  </>
                 )}
               </Khoi>
 
@@ -570,37 +647,6 @@ export default function SaleDashboardPage() {
                     </table>
                   </div>
                 )}
-              </Khoi>
-
-              {/* (4) Dự báo có trọng số */}
-              <Khoi tieuDe="Dự báo doanh số có trọng số" phu="Pipeline đang mở × xác suất thắng của từng bước">
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <p className="text-[10px] uppercase text-[var(--text-muted)]">Pipeline mở</p>
-                    <p className="text-sm font-bold text-[var(--text-primary)] mt-1">{formatCurrency(data.du_bao.gia_tri_pipeline)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase text-[var(--text-muted)]">Dự báo</p>
-                    <p className="text-sm font-bold gold-gradient mt-1">{formatCurrency(data.du_bao.du_bao_co_trong_so)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase text-[var(--text-muted)]">Còn thiếu so mục tiêu</p>
-                    <p className="text-sm font-bold mt-1" style={{ color: data.du_bao.con_thieu > 0 ? '#F87171' : '#34D399' }}>
-                      {data.du_bao.con_thieu > 0 ? formatCurrency(data.du_bao.con_thieu) : 'Đã đạt'}
-                    </p>
-                  </div>
-                </div>
-                <ul className="space-y-2">
-                  {data.du_bao.theo_buoc.map(b => (
-                    <li key={b.stage} className="flex items-center gap-2 text-xs">
-                      <span className="text-[var(--text-secondary)] w-28 flex-shrink-0 truncate">{b.nhan}</span>
-                      <span className="text-[var(--text-muted)] w-8 text-right">{fmtSo(b.so_luong)}</span>
-                      <span className="text-[10px] text-[var(--text-disabled)] w-10 text-right">×{Math.round(b.xac_suat * 100)}%</span>
-                      <div className="flex-1"><Thanh pct={data.du_bao.du_bao_co_trong_so ? b.du_bao / data.du_bao.du_bao_co_trong_so * 100 : 0} mau="var(--gold-500)" cao={5} /></div>
-                      <span className="text-[var(--text-secondary)] w-20 text-right">{formatCurrency(b.du_bao)}</span>
-                    </li>
-                  ))}
-                </ul>
               </Khoi>
 
               {/* (5) Lý do mất lead */}

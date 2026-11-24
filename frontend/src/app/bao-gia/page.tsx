@@ -76,7 +76,7 @@ export default function PublicQuotePage() {
     }
   }, [form]);
 
-  const inputCls = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A96E]';
+  const inputCls = 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--gold-500)]';
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #0D1117 0%, #131A24 60%, #1A2530 100%)' }}>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useXacNhan } from '@/components/ui/XacNhan';
 import { useEffect, useRef, useState } from 'react';
 import { api, ContractFile } from '@/lib/api';
 import LineIcon from '@/components/ui/LineIcon';
@@ -15,6 +16,7 @@ function coTep(b: number) {
 export default function TepHopDong({ contractId, choTaiLen, laQuanLy, userId }: {
   contractId: string; choTaiLen: boolean; laQuanLy: boolean; userId?: string;
 }) {
+  const xacNhan = useXacNhan();
   const { toast } = useToast();
   const [items, setItems] = useState<ContractFile[]>([]);
   const [dangTai, setDangTai] = useState(false);
@@ -45,7 +47,7 @@ export default function TepHopDong({ contractId, choTaiLen, laQuanLy, userId }: 
     api.openContractFile(contractId, f, xem).catch(() => toast('Không mở được tệp', 'error'));
 
   const go = async (f: ContractFile) => {
-    if (!confirm(`Gỡ tệp «${f.filename}» khỏi hợp đồng?`)) return;
+    if (!await xacNhan(`Gỡ tệp «${f.filename}» khỏi hợp đồng?`)) return;
     try {
       await api.removeContractFile(contractId, f.id);
       setItems(prev => prev.filter(x => x.id !== f.id));
