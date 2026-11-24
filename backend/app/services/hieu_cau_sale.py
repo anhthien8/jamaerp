@@ -121,15 +121,16 @@ TU_DEM = _bo(
     "thêm muốn cần nói bảo báo hỏi trả lời nghe máy bắt thuê bao nhắn tin zalo zoom online meet "
     "call video văn phòng vp công ty cty showroom khảo sát xem nhà trình cafe cà phê tư vấn đo "
     "giá gửi gói trọn thiết kế hợp đồng hđ deal chốt ok oke dạ vâng chút sớm muộn trước sắp "
-    "định dự kiến lịch số đt sđt đuôi anh chị em ấy đó này luôn liền ngay hết quá rất lắm"
+    "định dự kiến lịch số đt sđt đuôi anh chị em ấy đó này luôn liền ngay hết quá rất lắm lần mình"
 )
 # Dạng không dấu của TU_DEM trùng tên người hay gặp → gõ không dấu thì vẫn coi là tên.
 TEN_KHONG_DAU = frozenset(
     "nam mai tuan thu hoa lan an binh ha hai ba tu sau bay tam nhat phong cong van tin gia chi "
-    "trinh ky dat thanh khanh".split()
+    "trinh ky dat thanh khanh minh".split()
 )
 _DEM_DAU = frozenset(_mau(w) for w in TU_DEM)
-_DEM_TRON = frozenset(tron for tron, _ in _DEM_DAU) - TEN_KHONG_DAU
+_TRON_DEM = frozenset(tron for tron, _ in _DEM_DAU)
+_DEM_TRON = _TRON_DEM - TEN_KHONG_DAU
 TU_DIA_CHI = frozenset(
     "duong pho phuong quan huyen xa tinh thanh tp so ap thon khu chung cu toa can ho block tang "
     "lo kdt khu do thi".split()
@@ -177,6 +178,33 @@ def _buoi(t: Tu | None) -> str | None:
     return next((w for w in GIO_BUOI if la(t, w)), None)
 
 
+# «qua công ty / qua nhà» = ghé tới, không phải «tối qua»
+DIEM_DEN = _bo("công cty văn vp showroom nhà bên chỗ đây đó")
+# «lần thứ 2», «phương án thứ 2», «tầng thứ 2» = thứ tự, không phải thứ trong tuần
+THU_TU_TRUOC = _bo("lần đợt án bản tầng người cái căn phòng")
+# «12/5» chỉ là ngày khi vế câu có ngữ cảnh hẹn; không thì là phân số («cọc 1/2»), địa chỉ («số 12/5»)
+CANH_NGAY = _bo("hẹn lịch ngày thứ chủ nhật sáng trưa chiều tối gặp gọi khảo sát zoom lúc")
+KHONG_PHAI_NGAY = _bo("số ngõ ngách hẻm kiệt nhà căn tầng lô phòng cọc đợt ở tại đường phố")
+
+
+def _ve_qua_khu(tus: list[Tu]) -> set[int]:
+    """Vế câu kể chuyện đã qua: «hôm qua/kia», «tối qua gặp…», «3 hôm trước», «tuần qua/rồi»,
+    «cách đây 2 ngày». Chữ thời gian trong các vế này không được thành giờ hẹn."""
+    ve: set[int] = set()
+    for i, t in enumerate(tus):
+        truoc = tus[i - 1] if i and tus[i - 1].ve == t.ve else None
+        sau = tus[i + 1] if i + 1 < len(tus) and tus[i + 1].ve == t.ve else None
+        if la(t, "qua") and la(sau, *DIEM_DEN):
+            continue
+        if ((la(t, "trước", "qua") and _don_vi(truoc) is not None)
+                or (la(t, "kia") and la(truoc, "hôm"))
+                or (la(t, "qua") and _buoi(truoc))
+                or (la(t, "rồi") and la(truoc, "tuần", "tháng"))
+                or (la(t, "cách") and la(sau, "đây"))):
+            ve.add(t.ve)
+    return ve
+
+
 def _gio_tu_chu(goc: str) -> tuple[int, int] | None:
     m = re.match(r"(\d{1,2})(?:[h:g](\d{2})?p?)?$", goc)
     if not m:
@@ -205,9 +233,10 @@ def doc_hen(tus: list[Tu], now: datetime) -> _Hen:
     gio: tuple[int, int] | None = None
     buoi: str | None = None
     thu: int | None = None
-    tuan_sau = qua_khu = False
+    tuan_sau = False
     dung: set[int] = set()
     n = len(tus)
+    qua = _ve_qua_khu(tus)
 
     def lay(i: int) -> Tu | None:
         return tus[i] if 0 <= i < n else None
@@ -216,7 +245,14 @@ def doc_hen(tus: list[Tu], now: datetime) -> _Hen:
     while i < n:
         t, sau, truoc = tus[i], lay(i + 1), lay(i - 1)
         an = 1  # số chữ đã dùng
+        if t.ve in qua:
+            i += 1
+            continue
         if t.loai == "ngay":
+            cung_ve = [x for x in tus if x.ve == t.ve]
+            if la(truoc, *KHONG_PHAI_NGAY) or not any(la(x, *CANH_NGAY) or x.loai == "gio" for x in cung_ve):
+                i += 1  # «cọc 1/2», «số 12/5 Lê Lợi»: không phải ngày
+                continue
             so = [int(x) for x in t.goc.split("/")]
             nam = so[2] if len(so) == 3 else hom_nay.year
             nam = nam + 2000 if nam < 100 else nam
@@ -242,29 +278,40 @@ def doc_hen(tus: list[Tu], now: datetime) -> _Hen:
             if gio is None and h is not None and h < 24 and p < 60:
                 gio = (h, p)
             dung.update(range(i, i + an))
-        elif la(t, "thứ") and 2 <= (_so(sau, t) or 0) <= 7:
+        elif la(t, "thứ") and 2 <= (_so(sau, t) or 0) <= 7 and not la(truoc, *THU_TU_TRUOC) and (
+                t.dau or not (la(truoc, *XUNG_HO) or la(lay(i + 2), "lần", "đợt"))):
             thu, an = (_so(sau, t) or 2) - 2, 2
             dung.update((i, i + 1))
         elif la(t, "chủ") and la(sau, "nhật"):
             thu, an = 6, 2
             dung.update((i, i + 1))
-        elif t.loai == "tu" and (t.tron == "cn" or re.fullmatch(r"t[2-7]", t.tron)):
+        elif t.loai == "tu" and (t.tron == "cn" or re.fullmatch(r"t[2-7]", t.tron)) and not (
+                (truoc is not None and truoc.tron in TU_DIA_CHI)
+                or (sau is not None and sau.loai == "tu" and not sau.goc.isdigit()
+                    and sau.tron not in _TRON_DEM and not la(sau, *XUNG_HO)
+                    and not any(la(x, *KE_HOACH) for x in tus[:i] if x.ve == t.ve))):
             thu = 6 if t.tron == "cn" else int(t.tron[1]) - 2
             dung.add(i)
-        elif la(t, "ngày") and sau is not None and sau.goc.isdigit():
-            # «ngày 20», «ngày 20 tháng 11»
-            dn = int(sau.goc)
-            if la(lay(i + 2), "tháng") and lay(i + 3) and lay(i + 3).goc.isdigit():
-                d = _ngay_hop_le(hom_nay.year, int(lay(i + 3).goc), dn)
+        elif ((la(t, "ngày", "mùng") or (la(t, "mồng") and t.dau)) and sau is not None and sau.goc.isdigit()) or (
+                t.goc.isdigit() and la(sau, "tháng") and lay(i + 2) is not None
+                and lay(i + 2).goc.isdigit() and 1 <= int(lay(i + 2).goc) <= 12):
+            # «ngày 20», «ngày 20 tháng 11», «mùng 1 tháng sau», «5 tháng 12» («mong» không dấu = mong muốn)
+            k = i if t.goc.isdigit() else i + 1  # vị trí số ngày
+            dn, th, mm = int(tus[k].goc), lay(k + 1), lay(k + 2)
+            thang_sau = hom_nay.replace(day=1) + timedelta(days=32)
+            if la(th, "tháng") and mm is not None and mm.goc.isdigit():
+                d = _ngay_hop_le(hom_nay.year, int(mm.goc), dn)
                 if d and d < hom_nay:
                     d = _ngay_hop_le(hom_nay.year + 1, d.month, dn)
-                an = 4
+                an = k - i + 3
+            elif la(th, "tháng") and la(mm, "sau", "tới"):
+                d = _ngay_hop_le(thang_sau.year, thang_sau.month, dn)
+                an = k - i + 3
             else:
                 d = _ngay_hop_le(hom_nay.year, hom_nay.month, dn)
                 if d and d < hom_nay:
-                    thang_sau = hom_nay.replace(day=1) + timedelta(days=32)
                     d = _ngay_hop_le(thang_sau.year, thang_sau.month, dn)
-                an = 2
+                an = k - i + 1
             if d and ngay is None:
                 ngay = d
             dung.update(range(i, i + an))
@@ -297,8 +344,6 @@ def doc_hen(tus: list[Tu], now: datetime) -> _Hen:
         elif la(t, "tuần") and la(sau, "sau", "tới", "nữa"):
             tuan_sau, an = True, 2
             dung.update((i, i + 1))
-        elif la(t, "tuần", "tháng") and la(sau, "trước", "rồi", "qua"):
-            qua_khu, an = True, 2
         elif la(t, "tháng") and la(sau, "sau", "tới"):
             if ngay is None:
                 ngay = hom_nay + timedelta(days=30)
@@ -309,8 +354,6 @@ def doc_hen(tus: list[Tu], now: datetime) -> _Hen:
             dung.add(i)
         i += an
 
-    if qua_khu:
-        return _Hen()
     if ngay is None and thu is not None:
         if tuan_sau:
             ngay = hom_nay + timedelta(days=7 - hom_nay.weekday() + thu)
@@ -360,6 +403,19 @@ _CUM_VIEC: list[tuple[tuple[str, ...], str]] = sorted(
 DI_VP = _bo("lên qua tới đến ghé vào ra")
 PHU_DINH = _bo("chưa không ko k hông chẳng chả")
 KE_HOACH = _bo("hẹn sẽ định dự lịch sắp")
+HUY_BO = ("hoãn", "huỷ", "lỡ")  # chỉ tính khi gõ CÓ dấu: «Huy», «Hoan» không dấu là tên người
+THAT_BAI = (("chưa", "được"), ("chưa", "đc"), ("không", "được"), ("ko", "được"), ("không", "đc"),
+            ("ko", "đc"), ("không", "thành"), ("ko", "thành"), ("hụt",))
+THAT_BAI_GOI = (("chưa", "được"), ("chưa", "đc"))  # «gọi … không được» vẫn là đã gọi (như «không nghe máy»)
+
+
+def _co_dau(t: Tu, *mau: str) -> bool:
+    return t.loai == "tu" and any((t.tron, t.dau) == _mau(w) for w in mau)
+
+
+def _co_cum(tus: list[Tu], cums) -> bool:
+    return any(j + len(c) <= len(tus) and all(la(tus[j + k], w) for k, w in enumerate(c))
+               for c in cums for j in range(len(tus)))
 XONG = _bo("đã xong rồi vừa nãy")
 UU_TIEN = {"vp": 4, "zoom": 3, "gap": 2, "ks": 2, "goi": 1, "goi!": 1}
 VIEC_CUA = {"vp": "vp", "zoom": "zoom", "gap": "gap", "ks": "gap", "goi": "goi", "goi!": "goi"}
@@ -385,7 +441,7 @@ def _tim_viec(tus: list[Tu]) -> list[_Dong]:
         if loai == "noi_vp":
             truoc = [t for t in tus[max(0, i - 3):i] if t.ve == tus[i].ve]
             di = next((t for t in reversed(truoc) if la(t, *DI_VP)), None)
-            if di is not None or (truoc and la(truoc[-1], "tại", "ở")):
+            if di is not None or (truoc and la(truoc[-1], "tại", "ở") and not any(la(t, "làm") for t in truoc[:-1])):
                 ra.append(_Dong("vp", di.vi_tri if di else i, tus[i].ve))
         elif loai:
             ra.append(_Dong(loai, i, tus[i].ve))
@@ -399,9 +455,12 @@ def _phan_loai(tus: list[Tu], dongs: list[_Dong], cho_hen: set[int]) -> tuple[li
     for d in dongs:
         cung_ve = [t for t in tus if t.ve == d.ve]
         truoc = [t for t in cung_ve if t.vi_tri < d.vi_tri]
+        sau = [t for t in cung_ve if t.vi_tri > d.vi_tri]
+        that_bai = not any(la(t, *XONG) for t in cung_ve) and _co_cum(
+            sau, THAT_BAI_GOI if d.loai == "goi" else THAT_BAI)
         if d.loai == "goi!":
             da.append(d)
-        elif any(la(t, *PHU_DINH) for t in truoc[-2:]):
+        elif any(la(t, *PHU_DINH) for t in truoc[-2:]) or any(_co_dau(t, *HUY_BO) for t in truoc) or that_bai:
             continue
         elif any(la(t, *KE_HOACH) for t in truoc) or any(t.vi_tri in cho_hen for t in truoc[-2:]):
             hen.append(d)
@@ -504,6 +563,12 @@ class UngVien:
     lead: Lead
     diem: float
     khop_sdt: bool
+    khop_ro: bool = False  # khớp SĐT, hoặc tên/người liên hệ khớp đúng chữ (sale gõ không dấu cũng tính)
+
+
+def _khop_ro(u: Tu, l: Tu, lead_khong_dau: bool) -> bool:
+    """«Năm» (có dấu) ≈ «Nam» chỉ đủ để GỢI Ý, không đủ để CHẮC; «nam» gõ không dấu thì đủ."""
+    return _khop(u, l, lead_khong_dau) == 1.0 or (not u.dau and u.tron == l.tron)
 
 
 def cham_diem(doc: Doc, leads: list[Lead]) -> list[UngVien]:
@@ -531,7 +596,8 @@ def cham_diem(doc: Doc, leads: list[Lead]) -> list[UngVien]:
         if lead.stage in ("lost", "dormant"):
             diem *= 0.7
         if diem >= NGUONG_DIEM:
-            ra.append(UngVien(lead, diem, khop_sdt))
+            ro = khop_sdt or any(_khop_ro(u, l, kd) for u in doc.tu_do for ds, kd, _ in truong[:2] for l in ds)
+            ra.append(UngVien(lead, diem, khop_sdt, ro))
     ra.sort(key=lambda u: -u.diem)
     return ra
 
@@ -555,9 +621,14 @@ VIEC_AI = frozenset({"goi", "gap", "zoom", "vp", "ghi_chu", "hen", "khac"})
 
 def kiem_ai(raw: object, now: datetime) -> dict | None:
     """Kết quả AI hợp khuôn → dict; sai khuôn → None (dùng bộ luật)."""
-    if not isinstance(raw, dict) or raw.get("viec") not in VIEC_AI:
+    if not isinstance(raw, dict) or not isinstance(raw.get("viec"), str) or raw["viec"] not in VIEC_AI:
         return None
-    if raw.get("la_bao_cham") is not True or raw["viec"] == "khac":
+    co = raw.get("la_bao_cham")
+    if isinstance(co, str) and co.strip().lower() in ("true", "false"):
+        co = co.strip().lower() == "true"
+    if not isinstance(co, bool):
+        return None  # thiếu / sai kiểu → dùng bộ luật
+    if not co or raw["viec"] == "khac":
         return {"la_bao_cham": False}
     hen = None
     ngay = str(raw.get("hen_ngay") or "").strip()
@@ -655,7 +726,8 @@ async def doan_cau_sale(
         return ket_qua
 
     if dung_ai and await llm_available():
-        ai = await _hoi_ai(text, now)
+        # SĐT khách không gửi ra ngoài: so SĐT làm ở máy chủ, AI chỉ cần hiểu việc và giờ hẹn.
+        ai = await _hoi_ai(_DUOI.sub("đuôi [SĐT]", _SDT.sub("[SĐT]", text)), now)
         if ai is not None:
             if not ai["la_bao_cham"]:
                 return ket_qua
@@ -665,7 +737,12 @@ async def doan_cau_sale(
     if viec is None:
         return ket_qua
 
-    chac = bool(ung) and (len(ung) == 1 or ung[0].khop_sdt or ung[0].diem >= 1.5 * ung[1].diem)
+    so_khop_sdt = sum(u.khop_sdt for u in ung)
+    chac = bool(ung) and ung[0].khop_ro and (
+        len(ung) == 1
+        or (ung[0].khop_sdt and so_khop_sdt == 1)  # đuôi/SĐT trùng nhiều lead → hỏi chọn
+        or (so_khop_sdt <= 1 and ung[0].diem >= 1.5 * ung[1].diem)
+    )
     ung = ung[:SO_UNG_VIEN]
     ket_qua.update(
         la_bao_cham=True, chac_chan=chac, viec=viec, nguon=nguon,

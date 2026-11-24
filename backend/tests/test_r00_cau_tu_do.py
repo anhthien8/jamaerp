@@ -300,3 +300,91 @@ async def test_touch_tra_nhan_va_link_mo_erp(client, sales_user, ds_lead):
     assert kq["nhan"] == nhan_viec("gap", moc_hen_sau(3))
     assert kq["lead"]["mo_erp"].startswith("https://")
     assert kq["lead"]["mo_erp"].endswith(f"/leads?id={lead.id}")
+
+
+# ── Rà soát 23/11: câu dễ hiểu sai ───────────────────────────────────────────
+
+
+@pytest.mark.parametrize("cau", [
+    "tối qua gặp anh Nam Vinhomes, anh ưng mẫu", "3 hôm trước gặp anh Nam Vinhomes",
+    "hôm qua 3h chiều gặp chị Mai Ecopark", "cách đây 2 ngày gặp chị Mai Ecopark",
+])
+def test_ke_chuyen_da_qua_la_da_gap_khong_thanh_hen(cau):
+    d = doc_cau(cau, THU_BAY)
+    assert d.viec == "gap" and d.hen is None
+
+
+def test_ve_qua_khu_khong_lam_mat_hen_o_ve_sau():
+    d = doc_cau("1 tuần trước gặp anh Nam, hẹn thứ 3 tuần sau", THU_BAY)
+    assert d.viec == "gap" and d.hen == datetime(2026, 11, 17, 9, 0)
+    assert doc_cau("anh Nam qua công ty rồi", THU_BAY).viec == "vp"
+
+
+@pytest.mark.parametrize("cau,ngay", [
+    ("hẹn 5 tháng 12 gặp anh Nam", datetime(2026, 12, 5, 9, 0)),
+    ("hẹn mùng 1 tháng sau gặp anh Nam", datetime(2026, 12, 1, 9, 0)),
+    ("ngày 20 tháng 11 gặp anh Nam", datetime(2026, 11, 20, 9, 0)),
+])
+def test_ngay_lich_khong_phai_n_thang(cau, ngay):
+    assert doc_cau(cau, THU_BAY).hen == ngay
+
+
+@pytest.mark.parametrize("cau", [
+    "thu 2 dot roi", "khách ở tòa T5 Times City, gặp rồi", "lần thứ 2 gọi không nghe máy",
+    "cọc 1/2 rồi", "gặp anh Nam ở 12/5 Lê Lợi",
+])
+def test_khong_phai_ngay_hen(cau):
+    assert doc_cau(cau, THU_BAY).hen is None
+
+
+def test_hen_t5_van_la_thu_nam():
+    assert doc_cau("hẹn t5 gặp anh Nam", THU_BAY).hen == datetime(2026, 11, 19, 9, 0)
+
+
+@pytest.mark.parametrize("cau", [
+    "gặp anh Nam chưa được", "anh Nam hoãn gặp", "khách huỷ buổi gặp", "zoom với chị Lan không thành",
+])
+def test_gap_khong_thanh_khong_ghi_la_da_gap(cau):
+    assert doc_cau(cau, THU_BAY).viec is None
+
+
+def test_goi_khong_duoc_van_la_da_goi_va_lam_o_cong_ty_khong_phai_len_vp():
+    assert doc_cau("gọi anh Nam không được", THU_BAY).viec == "goi"
+    assert doc_cau("làm ở công ty Viettel, gọi rồi", THU_BAY).viec == "goi"
+
+
+@pytest.mark.asyncio
+async def test_duoi_so_trung_nhieu_lead_thi_hoi_chon(client, db_session, sales_user, ds_lead):
+    db_session.add(Lead(id=_uid(), name="Anh Hùng – Times City", phone="0904555111", stage="interested",
+                        assigned_to=sales_user.id, created_at=datetime.now(timezone.utc)))
+    await db_session.commit()
+    kq = await _doan(client, sales_user, "đuôi 111 gọi rồi")
+    assert kq["la_bao_cham"] and kq["chac_chan"] is False
+    assert {u["duoi_sdt"] for u in kq["ung_vien"][:2]} == {"111"}
+    assert (await _doan(client, sales_user, "đuôi 678 gọi rồi"))["chac_chan"] is True
+
+
+@pytest.mark.asyncio
+async def test_chu_co_dau_trung_ten_khong_dau_chi_goi_y(client, sale_khac, ds_lead):
+    """«anh Năm» (có dấu) ≈ lead «Anh Nam»: gợi ý được nhưng không CHẮC — sale phải chọn."""
+    kq = await _doan(client, sale_khac, "anh Năm gọi rồi")
+    assert kq["la_bao_cham"] and kq["chac_chan"] is False
+    assert kq["ung_vien"][0]["id"] == ds_lead["cua_nguoi_khac"].id
+    # Gõ không dấu thì vẫn chắc
+    assert (await _doan(client, sale_khac, "anh nam vinhomes goi roi"))["chac_chan"] is True
+
+
+def test_kiem_ai_khong_vo_khi_sai_kieu():
+    assert kiem_ai({"la_bao_cham": True, "viec": ["goi"]}, THU_BAY) is None
+    assert kiem_ai({"viec": "goi"}, THU_BAY) is None  # thiếu la_bao_cham → bộ luật
+    assert kiem_ai({"la_bao_cham": "true", "viec": "goi"}, THU_BAY)["viec"] == "goi"
+    assert kiem_ai({"la_bao_cham": "false", "viec": "goi"}, THU_BAY) == {"la_bao_cham": False}
+
+
+@pytest.mark.asyncio
+async def test_ai_khong_nhan_so_dien_thoai(client, sales_user, ds_lead, monkeypatch):
+    goi = _gia_ai(monkeypatch, {"la_bao_cham": True, "viec": "goi", "khach": ""})
+    kq = await _doan(client, sales_user, "0912 345 678 gọi rồi, đuôi 678", dung_ai=True)
+    assert kq["ung_vien"][0]["id"] == ds_lead["mai"].id
+    gui_ai = json.dumps(goi, ensure_ascii=False)
+    assert "0912" not in gui_ai and "345" not in gui_ai and "678" not in gui_ai and "[SĐT]" in gui_ai

@@ -1697,7 +1697,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Gõ tự do cho bot:** nhắn kiểu «gặp anh Nam Vinhomes xong, khách xin 3 ngày», «đã gọi chị Mai, hẹn thứ 3 tuần sau khảo sát» hoặc «đuôi 678 hẹn mai». Bot chỉ tìm trong **khách của chính bạn**, rồi hỏi lại «Ghi vào lead …?» kèm việc và ngày hẹn (có thứ trong tuần để soát). Bot **không tự ghi**: bấm **«Đúng»** mới ghi, **«Chọn lead khác»** để chọn khách khác, **«Huỷ»** là thôi. Gõ có dấu hay không dấu đều được; gửi SĐT của khách chưa có thì bot hiểu là khách mới như trước."
+        "text": "**Gõ tự do cho bot:** nhắn kiểu «gặp anh Nam Vinhomes xong, khách xin 3 ngày», «đã gọi chị Mai, hẹn thứ 3 tuần sau khảo sát» hoặc «đuôi 678 hẹn mai». Bot chỉ tìm trong **khách của chính bạn**, rồi hỏi lại «Ghi vào lead …?» kèm việc và ngày hẹn (có thứ trong tuần để soát). Bot **không tự ghi**: bấm **«Đúng»** mới ghi, **«Chọn lead khác»** để chọn khách khác, **«Huỷ»** là thôi. Gõ có dấu hay không dấu đều được; gửi SĐT của khách chưa có thì bot hiểu là khách mới như trước. Đuôi số trùng nhiều khách, hay tên chưa khớp hẳn, thì bot đưa danh sách để bạn chọn thay vì đoán. Kể chuyện đã qua («tối qua gặp…», «3 hôm trước…») được ghi là đã làm, không thành hẹn; gặp không thành / khách hoãn thì bot không ghi là đã gặp."
       },
       {
         "type": "h3",
