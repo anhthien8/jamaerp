@@ -230,12 +230,10 @@ async def build_group_briefing(db: AsyncSession) -> str:
     open_tasks = (await db.execute(
         select(func.count(Task.id)).where(Task.status.notin_(["done", "cancelled"]))
     )).scalar() or 0
-    overdue_leads = (await db.execute(
-        select(func.count(Lead.id)).where(
-            Lead.stage.in_(("new", "interested", "surveyed", "survey_scheduled", "potential")),
-            Lead.last_contacted_at < now - timedelta(days=3),
-        )
-    )).scalar() or 0
+    # Luật chung automation.ngay_qua_han: hạn theo giai đoạn, lead có hẹn phía trước không
+    # tính. Bản cũ cứng 3 ngày và bỏ sót lead chưa liên hệ lần nào (last_contacted_at NULL).
+    from app.services.automation import ds_lead_qua_han
+    overdue_leads = len(await ds_lead_qua_han(db))
 
     date_str = now.strftime("%d/%m/%Y")
     lines = [
@@ -247,7 +245,7 @@ async def build_group_briefing(db: AsyncSession) -> str:
         f"📋 Công việc đang mở: <b>{open_tasks}</b>",
     ]
     if overdue_leads:
-        lines.append(f"⚠️ Lead quá hạn chăm sóc (3+ ngày): <b>{overdue_leads}</b> — sales lưu ý!")
+        lines.append(f"⚠️ Lead quá hạn chăm sóc (đã trừ khách có hẹn): <b>{overdue_leads}</b> — sales lưu ý!")
     lines += [
         "",
         "💡 Lệnh bot: /duan [Mã] · /baocao · /vatlieu · /suco · /checkin · /pipeline",

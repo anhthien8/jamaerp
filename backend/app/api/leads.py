@@ -4,10 +4,11 @@ from datetime import datetime, timedelta, timezone
 
 import base64
 import binascii
+from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import select, func, case, or_, false as sqlalchemy_false
+from sqlalchemy import select, func, or_, false as sqlalchemy_false
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,7 +27,7 @@ from app.models.lead import (
 )
 from app.services.media_gateway import MediaError, normalize_image
 from app.services.lead_touch import HEN_XA_NHAT_NGAY, dat_hen_tiep, ghi_hoat_dong, moc_hen_sau
-from app.services.automation import gio_vn_naive
+from app.services.automation import ds_lead_qua_han, gio_vn_naive
 from app.models.customer import Customer
 from app.cache import cache
 from app.models.project import Project, Task, sinh_ma_du_an, task_department_for_stage
@@ -97,7 +98,8 @@ def _mask_phone(phone: str | None, current_user=None, lead: Lead | None = None) 
     return phone[:3] + "***" if len(phone) >= 3 else "***"
 
 
-def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act_count: int = 0, current_user=None) -> LeadResponse:
+def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act_count: int = 0, current_user=None,
+                   nhan_luc: datetime | None = None) -> LeadResponse:
     return LeadResponse(
         id=lead.id, name=lead.name, phone=_mask_phone(lead.phone, current_user, lead), email=lead.email,
         contact_person=lead.contact_person, address=lead.address, needs=lead.needs,
@@ -116,7 +118,7 @@ def _lead_response(lead: Lead, user_name: str = None, team_name: str = None, act
         ai_score=lead.ai_score, ai_notes=lead.ai_notes,
         design_contract_value=lead.design_contract_value,
         notes=lead.notes, created_at=lead.created_at, updated_at=lead.updated_at,
-        last_contacted_at=lead.last_contacted_at,
+        last_contacted_at=lead.last_contacted_at, nhan_luc=nhan_luc,
         assigned_user_name=user_name, team_name=team_name,
         activity_count=act_count,
     )
@@ -253,6 +255,15 @@ async def list_leads(
 
     q = q.outerjoin(act_count_sq, Lead.id == act_count_sq.c.lead_id)
     q = q.add_columns(act_count_sq.c.activity_count)
+    # Lúc nhận lead (lần giao gần nhất) — nhãn «Quá hạn» trên web tính như bot / KPI:
+    # người vừa được giao có đủ hạn chăm (automation.ngay_qua_han).
+    giao_sq = (
+        select(Activity.lead_id, func.max(Activity.created_at).label("nhan_luc"))
+        .where(Activity.type == "assignment")
+        .group_by(Activity.lead_id)
+        .subquery()
+    )
+    q = q.outerjoin(giao_sq, Lead.id == giao_sq.c.lead_id).add_columns(giao_sq.c.nhan_luc)
 
     q = q.order_by(Lead.updated_at.desc(), Lead.id)
     q = q.offset((page - 1) * page_size).limit(page_size)
@@ -260,8 +271,8 @@ async def list_leads(
     rows = result.all()
 
     leads = []
-    for lead, user_name, team_name, act_count in rows:
-        leads.append(_lead_response(lead, user_name, team_name, act_count or 0, current_user))
+    for lead, user_name, team_name, act_count, nhan_luc in rows:
+        leads.append(_lead_response(lead, user_name, team_name, act_count or 0, current_user, nhan_luc))
 
     return {
         "items": leads,
@@ -363,11 +374,6 @@ async def team_workload(
     ):
         return []
 
-    # Overdue = active leads not contacted in >7 days (or never contacted)
-    from datetime import timedelta
-    overdue_threshold = datetime.now(timezone.utc) - timedelta(days=7)
-    active_stages = ["new", "interested", "surveyed", "survey_scheduled", "potential"]
-
     # Base query: group by assigned_to
     q = (
         select(
@@ -375,21 +381,6 @@ async def team_workload(
             User.full_name.label("user_name"),
             func.count(Lead.id).label("lead_count"),
             func.coalesce(func.sum(Lead.estimated_budget), 0).label("pipeline_value"),
-            func.count(
-                case(
-                    (
-                        Lead.stage.in_(active_stages),
-                        case(
-                            (
-                                (Lead.last_contacted_at.is_(None)) | (Lead.last_contacted_at < overdue_threshold),
-                                1,
-                            ),
-                            else_=None,
-                        ),
-                    ),
-                    else_=None,
-                )
-            ).label("overdue_count"),
         )
         .outerjoin(User, Lead.assigned_to == User.id)
         .where(Lead.assigned_to.isnot(None))
@@ -405,13 +396,20 @@ async def team_workload(
     result = await db.execute(q)
     rows = result.all()
 
+    # Quá hạn: luật chung automation.ngay_qua_han (hạn theo giai đoạn, có hẹn = đang chăm)
+    # — bản cũ cứng 7 ngày theo last_contacted_at, lệch nhãn «Quá hạn» của danh sách lead.
+    qua_han = Counter(
+        l.assigned_to for l, _ in await ds_lead_qua_han(
+            db, _loc_pham_vi_lead(select(Lead).where(Lead.assigned_to.isnot(None)), current_user))
+    )
+
     return [
         {
             "user_id": r.user_id,
             "user_name": r.user_name or "Chua phan cong",
             "lead_count": r.lead_count,
             "pipeline_value": float(r.pipeline_value),
-            "overdue_count": r.overdue_count,
+            "overdue_count": qua_han.get(r.user_id, 0),
         }
         for r in rows
     ]
@@ -1040,7 +1038,8 @@ async def assign_lead(
         ))
     await db.flush()
 
-    return _lead_response(lead, target_user.full_name, None, 0, current_user)
+    # nhan_luc: web tắt nhãn «Quá hạn» ngay khi giao lại, khỏi chờ tải lại danh sách
+    return _lead_response(lead, target_user.full_name, None, 0, current_user, lead.updated_at)
 
 
 # ── Activities ──

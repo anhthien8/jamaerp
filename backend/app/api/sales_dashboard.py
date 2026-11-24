@@ -36,6 +36,7 @@ from app.api.dashboard import khoang_ngay, trong_ky
 from app.api.leads import STAGE_LABELS
 from app.cache import cache, cached
 from app.services.attendance_service import VN_TZ
+from app.services.automation import _lan_giao_cuoi, gio_vn_naive, ngay_chua_cham
 
 router = APIRouter(prefix="/dashboard/sales", tags=["sales-dashboard"])
 
@@ -319,10 +320,16 @@ async def sales_dashboard(
     co_bao_gia = exists(select(Quotation.id).where(Quotation.lead_id == Lead.id).correlate(Lead))
     co_activity = exists(select(Activity.id).where(Activity.lead_id == Lead.id).correlate(Lead))
 
+    # Ngày chưa được chăm theo luật chung với nhắc của bot và nhãn «Quá hạn»
+    # (automation.ngay_chua_cham, 24/11/2026): mốc chăm = liên hệ thật, lúc nhận lead,
+    # buổi hẹn vừa qua; None = còn hẹn tiếp / ngày khảo sát phía trước (đang chăm).
+    now_vn = gio_vn_naive()
+    giao = await _lan_giao_cuoi(db)
+
     async def tai_lead(d, h):
         q = select(
             Lead.id, Lead.stage, Lead.contact_status, Lead.last_contacted_at,
-            Lead.survey_date, Lead.created_at, Lead.assigned_to, Lead.team_id,
+            Lead.survey_date, Lead.hen_tiep_luc, Lead.created_at, Lead.assigned_to, Lead.team_id,
             Lead.region, Lead.ngan_sach_khoang, Lead.source, Lead.lost_reason,
             Lead.estimated_budget, Lead.deal_value, Lead.design_contract_value,
             co_bao_gia.label("co_bao_gia"), co_activity.label("co_activity"),
@@ -330,13 +337,15 @@ async def sales_dashboard(
         q = trong_ky(q, Lead.created_at, d, h)
         if team_id:
             q = q.where(Lead.team_id == team_id)
-        rows = (await db.execute(q)).mappings().all()
-        ds = [dict(r) for r in rows]
-        for l in ds:
+        ds = []
+        for r in (await db.execute(q)).all():
+            l = dict(r._mapping)
+            l["chua_cham"] = ngay_chua_cham(r, giao.get(r.id), now_vn)
             l["ro"] = phan_loai_data(
                 l["region"], l["ngan_sach_khoang"], l["contact_status"], trong_tam_chuan
             )
             l["do_sau"] = do_sau_pheu(l)
+            ds.append(l)
         return ds
 
     leads = await tai_lead(dau, het)
@@ -592,11 +601,12 @@ async def sales_dashboard(
         o["bao_gia"] += 1 if l["do_sau"] >= 5 else 0
         o["ky_hd"] += 1 if l["do_sau"] >= 7 else 0
         if l["stage"] in STAGE_DANG_MO:
-            moc = l["last_contacted_at"] or l["created_at"]
-            ngay_cho = (now - (moc if moc.tzinfo else moc.replace(tzinfo=timezone.utc))).days
+            ngay_cho = l["chua_cham"] or 0  # có hẹn phía trước = đang chăm, không chờ
             o["tong_ngay_cho"] += max(ngay_cho, 0)
             o["co_moc_cho"] += 1
-            if l["last_contacted_at"] is None and ngay_cho >= 3:
+            # «Chưa liên hệ lần nào»: có hẹn / ngày khảo sát nghĩa là đã nói chuyện với khách
+            chua_lien_he = not (l["last_contacted_at"] or l["hen_tiep_luc"] or l["survey_date"])
+            if chua_lien_he and ngay_cho >= 3:
                 o["ton_qua_han"] += 1
     for h in hd_ky:
         if h["sales_id"] in nv:
@@ -653,16 +663,10 @@ async def sales_dashboard(
         moc = l["created_at"]
         return (now - (moc if moc.tzinfo else moc.replace(tzinfo=timezone.utc))).days
 
-    def ngay_tu_lien_he(l) -> int | None:
-        if not l["last_contacted_at"]:
-            return None
-        moc = l["last_contacted_at"]
-        return (now - (moc if moc.tzinfo else moc.replace(tzinfo=timezone.utc))).days
-
     bao_gia_treo = [
         l for l in dat_chuan
         if l["do_sau"] >= 5 and l["stage"] in STAGE_DANG_MO
-        and (ngay_tu_lien_he(l) is None or ngay_tu_lien_he(l) >= 7)
+        and l["chua_cham"] is not None and l["chua_cham"] >= 7
     ]
     them_canh_bao("bao_gia_treo", "khách đã báo giá quá 7 ngày chưa follow",
                   len(bao_gia_treo), "Cần xử lý ngay", "gap", "leads_by_stage")

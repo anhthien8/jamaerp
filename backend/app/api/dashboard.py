@@ -14,6 +14,7 @@ from app.api.leads import STAGE_LABELS
 from app.models.project import Project, Task
 from app.cache import cache, cached
 from app.services.attendance_service import VN_TZ
+from app.services.automation import ds_lead_qua_han
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -166,14 +167,11 @@ async def executive_dashboard(
     except Exception:
         team_perf = []
 
-    # Overdue (no contact in 3 days for active leads)
-    overdue_cutoff = now - timedelta(days=3)
-    overdue = (await db.execute(loc_lead(
-        select(func.count(Lead.id)).where(
-            Lead.stage.notin_(["lost", "dormant", "signed_design"]),
-            (Lead.last_contacted_at < overdue_cutoff) | (Lead.last_contacted_at.is_(None))
-        )
-    ))).scalar() or 0
+    # Lead quá hạn chăm — luật chung automation.ngay_qua_han (24/11/2026): hạn theo giai
+    # đoạn, có hẹn tiếp / ngày khảo sát phía trước = đang chăm, lúc nhận lead và buổi hẹn
+    # vừa qua là một lần chăm. Bản cũ cứng 3 ngày theo last_contacted_at nên lệch nhãn
+    # «Quá hạn» của /leads?filter=overdue mà thẻ này dẫn tới.
+    overdue = len(await ds_lead_qua_han(db, loc_lead(select(Lead))))
 
     # Việc quá hạn toàn công ty — trước 13/08/2026 FE hiển thị số 0 cứng cho thẻ này
     overdue_tasks = (await db.execute(trong_ky(
@@ -243,19 +241,18 @@ async def personal_dashboard(
         by_stage[lead.stage] = by_stage.get(lead.stage, 0) + 1
         pipeline_value += (lead.estimated_budget or 0)
 
-    # Overdue followup
-    overdue_cutoff = now - timedelta(days=3)
+    # Lead quá hạn chăm — cùng luật với nhãn «Quá hạn», nhắc của bot và KPI
+    # (automation.ngay_qua_han): lead có hẹn phía trước không còn hiện «Cần follow-up».
     overdue = [
         {"id": l.id, "name": l.name, "phone": l.phone, "stage": l.stage,
-         "last_contacted_at": str(l.last_contacted_at) if l.last_contacted_at else None}
-        for l in leads
-        if (l.last_contacted_at and l.last_contacted_at.replace(tzinfo=timezone.utc) < overdue_cutoff)
-           or l.last_contacted_at is None
+         "last_contacted_at": str(l.last_contacted_at) if l.last_contacted_at else None,
+         "so_ngay": so_ngay}
+        for l, so_ngay in await ds_lead_qua_han(db, q)
     ]
 
     # Compute real weekly KPIs from Activity records
     # LƯU Ý: KHÔNG import timedelta ở đây — import trong hàm biến nó thành local
-    # cho TOÀN HÀM → dòng `now - timedelta(days=3)` phía trên ném UnboundLocalError
+    # cho TOÀN HÀM → dòng dùng timedelta trước chỗ import ném UnboundLocalError
     # → 500 cho mọi role personal (bug phát hiện 18/07 khi QC supervisor).
     from sqlalchemy import func as sql_func
     from app.models.lead import Activity as ActivityModel
@@ -290,8 +287,9 @@ async def personal_dashboard(
             "type": "overdue_lead",
             "icon": "🔴",
             "title": f"Cần follow-up: {l['name']}",
-            "subtitle": f"SĐT: {l['phone']} · {STAGE_LABELS.get(l['stage'], l['stage'])}",
-            "href": "/leads",
+            "subtitle": (f"SĐT: {l['phone']} · {STAGE_LABELS.get(l['stage'], l['stage'])}"
+                         f" · {l['so_ngay']} ngày chưa liên hệ"),
+            "href": f"/leads?id={l['id']}",
         })
 
     # 2. Tasks due or overdue in assigned projects

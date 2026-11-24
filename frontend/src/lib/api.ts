@@ -1609,6 +1609,8 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   last_contacted_at?: string;
+  /** Lúc nhận lead = lần giao gần nhất (UTC naive); chỉ danh sách GET /leads và giao lead trả. */
+  nhan_luc?: string | null;
   assigned_user_name?: string;
   team_name?: string;
   activity_count?: number;

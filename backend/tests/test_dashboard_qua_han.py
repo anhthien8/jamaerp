@@ -88,13 +88,14 @@ class TestPersonalOverdue:
         sales_user: User, admin_user: User, project: Project,
     ):
         now = _now_naive()
-        # Lead: 5 ngày không liên hệ → quá hạn; vừa liên hệ → không; của người khác → không tính
+        # Lead: 5 ngày không liên hệ ở bước «mới» (hạn 3 ngày) → quá hạn; vừa liên hệ → không;
+        # của người khác → không tính. Hạn theo giai đoạn từ 24/11/2026 (automation.ngay_qua_han).
         db_session.add_all([
-            Lead(id=_uid(), name="Lead quá hạn", phone="0900000001", stage="potential",
+            Lead(id=_uid(), name="Lead quá hạn", phone="0900000001", stage="new",
                  assigned_to=sales_user.id, last_contacted_at=now - timedelta(days=5)),
-            Lead(id=_uid(), name="Lead vừa liên hệ", phone="0900000002", stage="potential",
+            Lead(id=_uid(), name="Lead vừa liên hệ", phone="0900000002", stage="new",
                  assigned_to=sales_user.id, last_contacted_at=now),
-            Lead(id=_uid(), name="Lead người khác", phone="0900000003", stage="potential",
+            Lead(id=_uid(), name="Lead người khác", phone="0900000003", stage="new",
                  assigned_to=admin_user.id, last_contacted_at=now - timedelta(days=5)),
         ])
         # Task: giao đích danh sales + quá hạn chưa xong → tính; của người khác → không

@@ -46,6 +46,8 @@ Pipeline 7 giai đoạn:
 
 QUY TẮC BẮT BUỘC:
 - Không lặp lại gợi ý mà sale đã ghi "đã làm" hoặc "bỏ qua" — hãy đề xuất bước kế tiếp.
+- Khách có hẹn tiếp / ngày khảo sát "sắp tới" là đang được chăm: KHÔNG gợi ý gọi lại hâm nóng,
+  hãy gợi ý việc chuẩn bị cho buổi hẹn đó.
 - Mọi câu chữ bằng tiếng Việt, xưng "em", gọi khách là "anh/chị" kèm tên khách.
 - CHỈ trả JSON, không giải thích, không rào đầu.
 
@@ -106,7 +108,8 @@ def _ung_vien_theo_luat(
             "message_template": None,
         })
 
-    if not lead.last_contacted_at:
+    # Có hẹn / ngày khảo sát nghĩa là đã nói chuyện với khách, dù chưa ghi liên hệ (R00)
+    if not (lead.last_contacted_at or lead.hen_tiep_luc or lead.survey_date):
         ung_vien.append({
             "code": "call",
             "action": "Gọi điện giới thiệu dịch vụ JAMA HOME",
@@ -212,14 +215,27 @@ def _rule_based_suggestion(lead: Lead, activities: list[Activity]) -> dict:
 # ---------------------------------------------------------------------------
 
 def _so_ngay_im_lang(lead: Lead) -> int | None:
-    if not lead.last_contacted_at:
+    """Số ngày khách chưa được chăm theo luật chung (automation.ngay_chua_cham): buổi hẹn /
+    khảo sát đã qua cũng là một lần gặp khách. None khi chưa liên hệ lần nào, hoặc còn hẹn
+    phía trước (đang chăm — không gợi ý «hâm nóng»). Lúc nhận lead không tính: đây là
+    chuyện khách nguội, không phải hạn của sale."""
+    if not (lead.last_contacted_at or lead.hen_tiep_luc or lead.survey_date):
         return None
-    from datetime import datetime, timezone
+    from app.services.automation import gio_vn_naive, ngay_chua_cham
 
-    moc = lead.last_contacted_at
-    if moc.tzinfo is None:
-        moc = moc.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - moc).days
+    return ngay_chua_cham(lead, None, gio_vn_naive())
+
+
+def _dong_hen(lead: Lead) -> str:
+    """Hẹn tiếp / ngày khảo sát cho bối cảnh LLM, nói rõ sắp tới hay đã qua (giờ VN)."""
+    from app.services.automation import gio_vn_naive
+
+    now_vn = gio_vn_naive()
+    dong = [
+        f"{ten}: {m:%H:%M %d/%m/%Y} ({'sắp tới' if m > now_vn else 'đã qua'})"
+        for ten, m in (("Hẹn tiếp", lead.hen_tiep_luc), ("Ngày khảo sát", lead.survey_date)) if m
+    ]
+    return "\n".join(dong) or "Hẹn tiếp: chưa hẹn"
 
 
 def _tom_tat_lich_su(lich_su: list[AiRun]) -> str:
@@ -268,6 +284,7 @@ def _boi_canh(
         f"Diện tích: {lead.area_sqm or 'N/A'} m²\n"
         f"Nhu cầu: {lead.needs or 'N/A'}\n"
         f"Liên hệ gần nhất: {lead.last_contacted_at or 'Chưa liên hệ'}\n"
+        f"{_dong_hen(lead)}\n"
         f"Số lần tương tác: {len(activities)}\n"
         f"Hoạt động gần nhất: {activities[0].content if activities else 'Chưa có'}\n\n"
         f"{tom_tat_lich_su}"

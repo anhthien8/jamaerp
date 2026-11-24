@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Lead, Project, ServerNotification } from '@/lib/api';
+import { soNgayQuaHan } from '@/components/leads/shared';
 import LineIcon from '@/components/ui/LineIcon';
 import BatThongBaoMay from '@/components/BatThongBaoMay';
 import { cachedFetch } from '@/lib/fetch-cache';
@@ -49,8 +50,6 @@ function storeUnreadCount(count: number) {
 
 // ── Notification generation (from existing demo data, no backend) ─────
 
-const THRESHOLD_DAYS = 3;
-
 function daysSince(isoDate: string | undefined): number {
   if (!isoDate) return Infinity;
   const diff = Date.now() - new Date(isoDate).getTime();
@@ -60,10 +59,12 @@ function daysSince(isoDate: string | undefined): number {
 export function generateNotifications(leads: Lead[], projects: Project[], readIds: Set<string>): Notification[] {
   const notifs: Notification[] = [];
 
-  // Overdue leads (not contacted in 3+ days)
+  // Lead quá hạn — CÙNG luật với nhãn «Quá hạn» ở /leads và thẻ Tổng quan (24/11/2026): hạn
+  // theo giai đoạn, khách có hẹn phía trước không tính, lead đã ký / mất không bao giờ quá hạn.
+  // Bản cũ cứng 3 ngày cho mọi lead, lead chưa liên hệ hiện «Chưa liên hệ Infinity ngày».
   for (const lead of leads) {
-    const days = daysSince(lead.last_contacted_at);
-    if (days >= THRESHOLD_DAYS) {
+    const days = soNgayQuaHan(lead);
+    if (days !== null) {
       const id = `overdue-${lead.id}`;
       notifs.push({
         id,

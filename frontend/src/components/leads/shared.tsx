@@ -1,5 +1,6 @@
 import { TAG_COLORS, mauNhat } from '@/lib/utils';
 import type { Lead } from '@/lib/api';
+import { docGio } from '@/lib/du-lieu-chung';
 
 // Hằng số & helper hiển thị dùng chung giữa trang Lead và các khối tách ra.
 export const PROPERTY_LABELS: Record<string, string> = {
@@ -71,7 +72,7 @@ export function TagBadge({ tag }: { tag: string }) {
 // "Chuyển giai đoạn" trong thẻ chi tiết lại bắn thẳng handleStageChange không lý do.
 export const BOARD_STAGES = [...STAGES, 'lost'];
 export const ALL_STAGES = ['new', 'interested', 'surveyed', 'survey_scheduled', 'potential', 'signed_design', 'lost', 'dormant'];
-// Ngưỡng «Quá hạn» THEO GIAI ĐOẠN (tính từ last_contacted_at hoặc updated_at).
+// Ngưỡng «Quá hạn» THEO GIAI ĐOẠN — khớp HAN_CHAM_THEO_BUOC (backend kpi_engine).
 // Ngưỡng phẳng 3 ngày cũ gắn cờ cho ~73% lead — cờ mọc khắp nơi thì hết ý nghĩa cảnh báo.
 // signed_design/lost/dormant không có trong map = không bao giờ gắn cờ.
 export const OVERDUE_DAYS_BY_STAGE: Record<string, number> = {
@@ -85,23 +86,36 @@ export const OVERDUE_DAYS_BY_STAGE: Record<string, number> = {
 // 137 thẻ từng đẩy trang cao ~28.000px. Chỉ giới hạn render; đếm ở header cột vẫn là tổng thật.
 export const KANBAN_PAGE_SIZE = 25;
 
-// Hẹn tiếp / ngày khảo sát (R00, 14/11/2026): còn ở phía trước = khách đang được chăm →
-// không gắn cờ (bot cũng không nhắc, không thu hồi — automation.co_hen_toi). Hẹn đã qua
-// thì tính như một lần liên hệ: đồng hồ đếm lại từ giờ hẹn.
+// MỘT luật với backend automation.ngay_qua_han (nhắc của bot, Tổng quan, KPI, báo cáo BGĐ):
+// hẹn tiếp / ngày khảo sát còn ở phía trước = khách đang được chăm → không gắn cờ. Mốc chăm gần
+// nhất = liên hệ thật, lúc nhận lead (`nhan_luc` — người vừa được giao có đủ hạn), buổi hẹn đã
+// qua; chưa liên hệ lần nào thì tính từ lúc tạo. Không dùng updated_at (24/11/2026): sửa ghi
+// chú hay AI chấm điểm cũng đẩy nó lên mà không phải chăm khách.
+// Hẹn là giờ VN naive — trình duyệt ở VN đọc đúng bằng new Date(); mốc khác là UTC naive.
 function henMs(lead: Lead): number[] {
   return [lead.hen_tiep_luc, lead.survey_date]
     .map(v => (v ? new Date(v).getTime() : NaN))
     .filter(t => !Number.isNaN(t));
 }
 
-export function isOverdueLead(lead: Lead) {
+/** Số ngày chưa được chăm nếu lead đã quá hạn; null nếu còn trong hạn hoặc có hẹn phía trước. */
+export function soNgayQuaHan(lead: Lead): number | null {
   const days = OVERDUE_DAYS_BY_STAGE[lead.stage];
-  if (!days) return false;
+  if (!days) return null;
   const now = Date.now();
   const hen = henMs(lead);
-  if (hen.some(t => t > now)) return false;
-  const timestamp = lead.last_contacted_at || lead.updated_at;
-  if (!timestamp) return false;
-  const moc = Math.max(new Date(timestamp).getTime(), ...hen);
-  return now - moc > days * 24 * 60 * 60 * 1000;
+  if (hen.some(t => t > now)) return null;
+  const moc = Math.max(
+    ...[lead.last_contacted_at || lead.created_at, lead.nhan_luc]
+      .map(v => (v ? docGio(v).getTime() : NaN))
+      .filter(t => !Number.isNaN(t)),
+    ...hen,
+  );
+  if (!Number.isFinite(moc)) return null;
+  const n = Math.floor((now - moc) / 86_400_000);
+  return n >= days ? n : null;
+}
+
+export function isOverdueLead(lead: Lead) {
+  return soNgayQuaHan(lead) !== null;
 }

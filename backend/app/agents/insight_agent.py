@@ -8,7 +8,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, func, case, and_, or_
+from sqlalchemy import select, func, case, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -275,17 +275,10 @@ async def _gather_metrics(
         )
     ))
 
-    # -- SLA: overdue leads (no contact in 3+ days, still active) --
-    overdue_cutoff = now - timedelta(days=3)
-    m["overdue_leads"] = _scalar(await db.execute(
-        select(func.count(Lead.id)).where(
-            Lead.stage.notin_(["lost", "dormant", "signed_design"]),
-            or_(
-                Lead.last_contacted_at < overdue_cutoff,
-                Lead.last_contacted_at.is_(None),
-            ),
-        )
-    ))
+    # -- SLA: lead quá hạn chăm — luật chung automation.ngay_qua_han (hạn theo giai đoạn,
+    # lead có hẹn tiếp / ngày khảo sát phía trước = đang chăm), khớp thẻ Tổng quan --
+    from app.services.automation import ds_lead_qua_han
+    m["overdue_leads"] = len(await ds_lead_qua_han(db))
 
     # -- Activity volume this period --
     m["activities_period"] = _scalar(await db.execute(
@@ -493,8 +486,8 @@ def _rule_based_insights(metrics: dict, period_days: int) -> dict:
         alerts.append({
             "severity": severity,
             "message": (
-                f"Có {metrics['overdue_leads']} lead chưa liên hệ "
-                f"trên 3 ngày. Cần xử lý ngay."
+                f"Có {metrics['overdue_leads']} lead quá hạn chăm sóc "
+                f"(không tính khách đã có hẹn). Cần xử lý ngay."
             ),
         })
 
@@ -569,7 +562,7 @@ def _rule_based_insights(metrics: dict, period_days: int) -> dict:
         recommendations.append({
             "action": (
                 f"Liên hệ ngay với {metrics['overdue_leads']} lead "
-                f"quá hạn chưa tương tác."
+                f"quá hạn chăm sóc, hoặc đặt hẹn tiếp nếu khách hẹn lại."
             ),
             "priority": "high",
         })

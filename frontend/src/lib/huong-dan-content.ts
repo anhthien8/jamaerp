@@ -359,7 +359,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Thẻ có nhãn đỏ «Quá hạn» nghĩa là khách đã quá hạn chăm của bước đang đứng (Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày) — ưu tiên gọi lại ngay. Điểm KPI «chăm đúng hạn» dùng đúng các hạn này. Khách đã có **hẹn tiếp** hoặc **ngày khảo sát** còn ở phía trước được tính là đang được chăm: không có nhãn này, bot không nhắc, hệ thống không thu hồi và KPI không tính trễ. Qua giờ hẹn thì đếm lại từ lúc hẹn."
+        "text": "Thẻ có nhãn đỏ «Quá hạn» nghĩa là khách đã quá hạn chăm của bước đang đứng (Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày) — ưu tiên gọi lại ngay. Điểm KPI «chăm đúng hạn» dùng đúng các hạn này. Khách đã có **hẹn tiếp** hoặc **ngày khảo sát** còn ở phía trước được tính là đang được chăm: không có nhãn này, bot không nhắc, hệ thống không thu hồi và KPI không tính trễ. Qua giờ hẹn thì đếm lại từ lúc hẹn. Lead vừa được giao cho bạn thì đếm từ lúc bạn nhận, không tính thời gian người trước để quên. Số «khách quá hạn» ở Tổng quan, chuông thông báo, bản tin nhóm Telegram và báo cáo AI đều đếm đúng luật này — bấm vào số là ra đúng chừng ấy khách."
       }
     ]
   },

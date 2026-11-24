@@ -16,6 +16,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/11/2026',
+    title: 'Số «khách quá hạn» khớp nhau ở mọi màn hình, khách có hẹn không bị kêu quá hạn',
+    tag: 'SỬA',
+    fixes: [
+      'Tổng quan («Khách quá hạn», «Lead quá hạn liên hệ», «Cần follow-up»), chuông thông báo, bản tin nhóm Telegram buổi sáng, báo cáo AI và bảng phân công lead giờ đếm cùng một luật với nhãn «Quá hạn» trên thẻ lead: hạn theo giai đoạn (Tiếp nhận mới 3 ngày … Đang đàm phán 14 ngày), khách có hẹn tiếp hoặc ngày khảo sát ở phía trước không tính. Trước đây các nơi này đếm cứng 3 hoặc 7 ngày nên khách đang có hẹn vẫn bị kêu «quá hạn», và số trên thẻ không khớp danh sách khi bấm vào.',
+      'Lead vừa được giao cho bạn không còn hiện nhãn «Quá hạn» ngay: hạn tính từ lúc bạn nhận, như bot và KPI. Lead chưa liên hệ lần nào tính từ lúc tạo hoặc lúc nhận, không còn «trẻ lại» mỗi khi ai đó sửa ghi chú.',
+      'Dòng «Cần follow-up» ở Tổng quan ghi số ngày chưa liên hệ, bấm là mở thẳng thẻ khách đó.',
+      'Chuông thông báo hết dòng «Lead quá hạn» cho khách đã ký hay đã mất, hết lỗi «Chưa liên hệ Infinity ngày».',
+      'Co-Pilot không còn khuyên «liên hệ lại hâm nóng» khách đang có hẹn sắp tới; khách đã có lịch khảo sát không bị coi là «chưa liên hệ lần nào».',
+      'KPI «Việc nên làm tiếp»: số ngày chưa liên hệ tính cả buổi hẹn / khảo sát đã qua.',
+      'Bảng điều khiển Kinh doanh: «data chưa liên hệ sau 3 ngày», «Follow-up chậm» và «khách đã báo giá quá 7 ngày chưa follow» không còn tính khách đang có hẹn.',
+    ],
+    test: [
+      'Tài khoản admin: số «Khách quá hạn» ở Tổng quan bằng số lead hiện ra khi mở Lead lọc «Quá hạn» (/leads?filter=overdue).',
+      'Đặt «Hẹn gọi lại… → Mai» cho một khách đang có nhãn «Quá hạn» → nhãn tắt; tải lại Tổng quan → số giảm 1.',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Gọn hơn, ít chạm hơn: thẻ lead gọn, nút «+» tạo nhanh, nhiều việc xong trong một chạm',
     tag: 'MỚI',
     news: [

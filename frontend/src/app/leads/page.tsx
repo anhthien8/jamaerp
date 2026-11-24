@@ -656,6 +656,8 @@ function LeadsContent() {
         ...l,
         assigned_to: userId,
         assigned_user_name: newName || l.assigned_user_name,
+        // Lúc nhận mới → người nhận có đủ hạn chăm, nhãn «Quá hạn» tắt ngay (như bot / KPI)
+        nhan_luc: updated.nhan_luc ?? l.nhan_luc,
         ...(newTeam !== undefined ? { team_id: newTeam } : {}),
       });
       setSelectedLead(prev => (prev && prev.id === leadId ? applyPatch(prev) : prev));
