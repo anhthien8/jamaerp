@@ -3,13 +3,16 @@
 // «Việc của tôi» (27/10/2026; 13/11 thêm 4 ô đếm): đầu việc mình đảm nhận ở mọi dự án,
 // đơn đang chờ mình duyệt (Phê duyệt + đơn vật tư vượt báo giá cho Leader Thu mua),
 // và hàng đã đặt chờ Giám sát ra công trình xác nhận.
+// 24/11: BGĐ không được giao đầu việc nên trang từng trống → thêm khối «Việc cần Ban Giám đốc quyết» ở đầu.
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
 import { useToast } from '@/components/ui/Toast';
-import { api, ApprovalItem, DongVatTu, ViecCuaToi } from '@/lib/api';
+import { api, ApprovalItem, DongVatTu, ViecBgd, ViecCuaToi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import ViecCanBgdQuyet from '@/components/viec/ViecCanBgdQuyet';
 
 type Nhom = 'qua_han' | 'hom_nay' | 'sap_toi' | 'khong_han';
 type Loc = 'hom_nay' | 'qua_han' | 'cho_duyet' | 'dang_mo';
@@ -29,6 +32,9 @@ const the = { background: 'var(--surface-1)', border: '1px solid var(--border-su
 
 export default function ViecCuaToiPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const laBgd = !!user && ['admin', 'executive'].includes(user.role);
+  const [viecBgd, setViecBgd] = useState<ViecBgd[] | null>(null);
   const [ds, setDs] = useState<ViecCuaToi[] | null>(null);
   const [duyet, setDuyet] = useState<ApprovalItem[]>([]);
   const [vtDuyet, setVtDuyet] = useState<DongVatTu[]>([]);
@@ -47,6 +53,13 @@ export default function ViecCuaToiPage() {
     }
   }, [toast]);
   useEffect(() => { void Promise.resolve().then(() => tai()); }, [tai]);
+
+  // Tải riêng, không chặn danh sách việc: khối này đọc nhiều nguồn nên chậm hơn; lỗi thì ẩn khối, trang vẫn dùng được.
+  const [loiBgd, setLoiBgd] = useState(false);
+  useEffect(() => {
+    if (!laBgd) return;
+    api.viecBgd().then(d => setViecBgd(d.viec)).catch(() => setLoiBgd(true));
+  }, [laBgd]);
 
   const doi = async (t: ViecCuaToi, status: string) => {
     try { await api.updateTaskStatus(t.id, status); toast(status === 'done' ? 'Đã xong việc' : 'Đã bắt đầu', 'success'); tai(); }
@@ -112,6 +125,9 @@ export default function ViecCuaToiPage() {
     <Sidebar>
       <div className="max-w-3xl mx-auto p-4 space-y-5">
         <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Việc của tôi</h1>
+
+        {laBgd && !loiBgd && <ViecCanBgdQuyet ds={viecBgd} />}
+        {laBgd && <div className="text-sm font-semibold pt-1" style={{ color: 'var(--text-secondary)' }}>Việc giao đích danh cho bạn</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {O.map(o => (

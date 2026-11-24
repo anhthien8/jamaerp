@@ -201,6 +201,19 @@ async def executive_dashboard(
     }
 
 
+@router.get("/viec-bgd")
+async def viec_bgd(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """«Việc cần Ban Giám đốc quyết» — khối đầu trang «Việc của tôi» của BGĐ."""
+    from app.middleware.rbac import VAI_TRO_BGD
+    from app.services.viec_bgd import viec_can_bgd_quyet
+    if current_user.role not in VAI_TRO_BGD:
+        raise HTTPException(403, "Chỉ Ban giám đốc xem được mục này")
+    return {"viec": await viec_can_bgd_quyet(db, current_user)}
+
+
 @router.get("/personal")
 async def personal_dashboard(
     tu: str | None = Query(None, description="Từ ngày YYYY-MM-DD (giờ VN)"),

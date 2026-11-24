@@ -15,6 +15,13 @@ export const STAGE_CONFIG: Record<string, { label: string; color: string; icon: 
   dormant: { label: 'Ngủ đông', color: 'var(--stage-dormant)', icon: 'moon' },
 };
 
+/** Màu nhạt (nền/viền chip) từ một màu bất kỳ — kể cả biến CSS.
+ *  Trước 24/11 nhiều chỗ viết `${color}20` (nối mã alpha hex): màu là `var(--stage-x)` thì ra
+ *  CSS hỏng, chip mất nền/viền. color-mix chạy được với cả hex lẫn var(). */
+export function mauNhat(color: string | undefined, phanTram: number): string {
+  return `color-mix(in srgb, ${color || 'currentColor'} ${phanTram}%, transparent)`;
+}
+
 // Ghi chú ngắn cho từng giai đoạn — hiện khi rê chuột/chạm icon «i» (InfoTip).
 export const STAGE_HINT: Record<string, string> = {
   new: 'Lead vừa vào hệ thống, chưa ai liên hệ.',

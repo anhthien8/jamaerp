@@ -347,7 +347,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Thẻ có nhãn đỏ «⚠️ Quá hạn» nghĩa là hơn 3 ngày chưa ai đụng tới khách này — ưu tiên gọi lại ngay."
+        "text": "Thẻ có nhãn đỏ «⚠️ Quá hạn» nghĩa là khách đã quá hạn chăm của bước đang đứng (Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày) — ưu tiên gọi lại ngay. Điểm KPI «chăm đúng hạn» dùng đúng các hạn này."
       }
     ]
   },
@@ -1341,19 +1341,28 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. Trang có 3 tab: **Của tôi**, **Đội nhóm**, **Bảng xếp hạng** — tab Đội nhóm chỉ hiện với Giám đốc, Trưởng phòng, Trưởng nhóm KD, Ban Quản Trị và Điều phối kinh doanh."
+        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. KPI chấm cho **người gánh chỉ tiêu phòng Kinh doanh** (sale và trưởng nhóm KD). Nhân viên thấy tab **Của tôi** và **Bảng xếp hạng**; Trưởng phòng, Trưởng nhóm KD và Điều phối kinh doanh có thêm **Đội nhóm**; Giám đốc và Ban Quản Trị thấy **Toàn công ty**, **Đội nhóm**, **Bảng xếp hạng**."
       },
       {
         "type": "list",
         "items": [
-          "**Của tôi** — vòng tròn điểm KPI (xanh lá từ 80, vàng từ 60, đỏ dưới 60) kèm hạng của bạn trong đội và toàn công ty. Điểm gồm 3 nhóm: **Nỗ lực 30%** (hoạt động, SLA, tốc độ phản hồi), **Kết quả 50%** (số HĐ ký, giá trị, chuyển đổi), **Chất lượng 20%** (tỷ lệ bị thu hồi, mất khách).",
-          "**Đội nhóm** — bảng điểm từng thành viên: điểm, SLA, HĐ ký, hoạt động/ngày. Dành cho trưởng nhóm theo dõi cả đội.",
-          "**Bảng xếp hạng** — top 3 có huy chương 🥇🥈🥉; top 5 hiện tên, từ hạng 6 trở xuống ẩn danh («Nhân viên #n»). Dòng của bạn được viền vàng kèm nhãn «Bạn»."
+          "**Toàn công ty** (chỉ Giám đốc / Ban Quản Trị) — 4 ô số: doanh số thắng deal so với mục tiêu tính đến hôm nay, số deal và dự báo từ lead đang mở, điểm KPI trung bình kèm số người Đạt / Trung bình / Cần kèm, và lead trong kỳ (tiến bước, mất khách, quá hạn chăm). Bên dưới là **Điều cần chú ý** (ai quá tải, ai tụt điểm, bao nhiêu lead quá hạn chăm…), bảng **So sánh các nhóm** và **Cách tính điểm**.",
+          "**Của tôi** — vòng tròn điểm KPI (xanh lá từ 80, vàng từ 60, đỏ dưới 60) kèm hạng của bạn. Ngay dưới là khối **«Việc nên làm tiếp»**, xếp theo độ gấp: gọi lần đầu cho lead mới, liên hệ lại khách quá hạn chăm, các lead gần chốt nhất khi còn hụt mục tiêu, lead đã nói chuyện mà chưa chuyển bước. Mỗi việc ghi rõ tên khách, có nút **Gọi** và **Mở** thẻ lead, kèm số điểm có thể thêm nếu làm xong. Làm xong tải lại trang là điểm cập nhật. Cuối trang ghi từng thành phần đang được bao nhiêu điểm so với mốc nào.",
+          "**Đội nhóm** — bảng điểm từng người, **gom theo nhóm**: mỗi nhóm có dòng tiêu đề ghi tên nhóm, trưởng nhóm, điểm trung bình, doanh số, deal. Bấm tên cột để sắp xếp; bấm vào một người để xem điểm được tính từ đâu. Dưới tên là các cờ cần chú ý (quá tải, lead quá hạn chăm, tụt điểm…).",
+          "**Bảng xếp hạng** — top 3 có huy chương; nhân viên thấy tên top 5, từ hạng 6 trở xuống ẩn danh («Nhân viên #n»), dòng của bạn viền vàng kèm nhãn «Bạn». Giám đốc / Ban Quản Trị thấy đủ tên, kèm nhóm và mức tăng giảm so với kỳ trước."
         ]
       },
       {
+        "type": "p",
+        "text": "**Điểm tính thế nào (0–100).** **Kết quả 50%**: doanh số thắng deal so với mục tiêu (30%) và số deal thắng so với mục tiêu (20%) — mục tiêu đầu người lấy từ mục tiêu tháng ở Bảng điều khiển Kinh doanh, kỳ đang chạy thì chia theo số ngày đã qua. **Chăm khách 30%**: lead đang giữ được chăm đúng hạn của bước nó đang đứng — Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày, trùng với nhãn «Quá hạn» ở trang Lead (15%, đạt 90% là đủ điểm; lead mới nhận hoặc đã có lịch khảo sát phía trước không tính trễ) và tốc độ phản hồi lead mới (15%, đếm từ lúc được giao, chỉ tính giờ làm việc T2–T7 8h–18h; trong 1 giờ là đủ điểm). **Chất lượng 20%**: tỷ lệ lead nhận trong kỳ tiến tới «Đang tư vấn» trở lên (10%, đạt 30% là đủ điểm) và tỷ lệ mất khách (10%, từ 10% trở xuống là đủ điểm)."
+      },
+      {
+        "type": "p",
+        "text": "Phần nào chưa đủ mẫu (nhận dưới 5 lead trong kỳ) thì **không chấm**, trọng số dồn sang phần còn lại. Số hoạt động ghi trên ERP chỉ hiển thị để tham khảo, **không tính điểm**. Doanh số lấy từ giá trị dự án sinh ra khi bấm Thắng deal — cùng nguồn với Hũ doanh số và Bảng điều khiển Kinh doanh."
+      },
+      {
         "type": "tip",
-        "text": "Chưa thấy điểm? KPI chỉ hiện khi kỳ đó bạn có lead hoặc công trình được gán. Thử lùi về tháng trước bằng ô chọn tháng."
+        "text": "Thấy dấu «—» thay cho điểm? Kỳ đó bạn chưa có lead hay deal nào để chấm — đó là «chưa có dữ liệu», không phải 0 điểm. Thử lùi về tháng trước bằng ô chọn tháng."
       },
       {
         "type": "p",
@@ -1964,7 +1973,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình."
+        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình. **Ban Giám đốc** thấy thêm khối **«Việc cần Ban Giám đốc quyết»** ở đầu trang: chỉ nêu việc đã vượt tầm người phụ trách trực tiếp, xếp theo độ gấp, mỗi việc kèm lý do, tên người hoặc dự án cụ thể và nút mở thẳng nơi xử lý. Các mốc đang dùng: đơn chờ duyệt kẹt quá 2 ngày; lead chưa có sale phụ trách quá 24 giờ; cả đội từ 5 lead quá hạn chăm; người giữ quá 25 lead (kèm gợi ý ai đang nhẹ để chuyển sang); doanh số dưới 70% mốc hôm nay (kèm các lead gần chốt giá trị lớn nhất); mục tiêu tháng gấp đôi doanh số tháng trước trở lên; người dưới 60 điểm KPI hai tháng liền; đầu việc dự án quá hạn hơn 3 ngày; dự án qua ngày bàn giao dự kiến; dự án tạm dừng quá 14 ngày; mẫu vật tư đang dùng chưa có giá chuẩn; bài học của trợ lý AI chờ duyệt. Xử lý xong thì mục tự biến mất; không có gì vượt mốc thì khối ghi rõ hôm nay không có việc cần quyết."
       },
       {
         "type": "tip",

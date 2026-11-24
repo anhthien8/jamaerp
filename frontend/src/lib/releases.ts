@@ -37,6 +37,32 @@ export const RELEASES: Release[] = [
   },
   {
     date: '24/11/2026',
+    title: 'KPI: góc nhìn Giám đốc toàn công ty, bảng Đội nhóm gom theo nhóm, điểm bám mục tiêu',
+    tag: 'MỚI',
+    news: [
+      'Ban Giám đốc: trang «Việc của tôi» có thêm khối «Việc cần Ban Giám đốc quyết» ở đầu. Mỗi mục là một việc đã vượt tầm người phụ trách (đơn kẹt duyệt quá 2 ngày, lead chưa ai nhận, lead quá hạn dồn ở ai, người quá tải, doanh số hụt mốc, dự án trễ bàn giao…), kèm lý do, tên cụ thể và nút mở thẳng nơi xử lý. Không có gì vượt mốc thì khối báo hôm nay không có việc cần quyết.',
+      'Tab «Của tôi» có khối «Việc nên làm tiếp»: gọi lần đầu cho lead mới, liên hệ lại khách quá hạn chăm, các lead gần chốt nhất khi còn hụt mục tiêu. Mỗi việc ghi tên khách, có nút Gọi và Mở thẻ lead, kèm số điểm có thể thêm nếu làm xong.',
+      'Hạn chăm trong KPI dùng đúng hạn của nhãn «Quá hạn» ở trang Lead: Tiếp nhận mới 3 ngày, Đang tư vấn 7, Đã khảo sát 5, Đã gửi báo giá 7, Đang đàm phán 14.',
+      'Giám đốc / Ban Quản Trị có tab «Toàn công ty» ở trang KPI: doanh số so với mục tiêu tính đến hôm nay, số deal, điểm trung bình, lead quá hạn chăm, mục «Điều cần chú ý» và bảng so sánh các nhóm.',
+      'Tab «Đội nhóm» gom nhân viên theo từng nhóm — có tên nhóm, trưởng nhóm, điểm trung bình và doanh số của nhóm. Bấm vào một người để xem điểm được tính từ đâu.',
+      'Điểm KPI tính lại theo mục tiêu: Kết quả 50% (doanh số, số deal), Chăm khách 30% (chăm lead đúng hạn, tốc độ phản hồi), Chất lượng 20% (lead tiến bước, mất khách). Cách tính ghi ngay trên trang.',
+      'Giám đốc / Ban Quản Trị thấy đủ tên trên Bảng xếp hạng (trước đây từ hạng 6 chỉ hiện «Nhân viên #6»).',
+    ],
+    fixes: [
+      'Deal không còn bị đếm lại vào tháng sau khi có người sửa lead đã thắng.',
+      'Tốc độ phản hồi đếm từ lúc bạn được giao lead và chỉ tính giờ làm việc; lead đã có lịch hẹn phía trước không bị tính trễ chăm.',
+      'Người chưa có lead hay deal trong kỳ hiện «chưa có dữ liệu» thay vì một con số điểm gây hiểu nhầm.',
+    ],
+    test: [
+      'Giám đốc: mở «Việc của tôi» → khối đầu trang liệt kê việc cần quyết; bấm một dòng tên người/dự án/lead → mở đúng nơi xử lý.',
+      'Sale: mở KPI → tab «Của tôi» → khối «Việc nên làm tiếp» liệt kê đúng tên khách cần gọi; bấm «Gọi» trên điện thoại mở màn hình gọi, bấm «Mở» vào thẳng thẻ lead.',
+      'Sale: ghi một dòng nhật ký cho khách đang quá hạn → tải lại trang KPI → khách đó rời khỏi danh sách.',
+      'Sale: cuối tab «Của tôi» thấy 3 khối Kết quả / Chăm khách / Chất lượng, mỗi dòng ghi số của bạn so với mốc.',
+      'Trưởng nhóm: mở tab «Đội nhóm» → thấy dòng tiêu đề nhóm mình, bấm một người để xem chi tiết.',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Gợi ý AI: tin nhắn mẫu ký đúng tên bạn, giọng gần gũi hơn',
     tag: 'SỬA',
     fixes: [
