@@ -16,6 +16,40 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/11/2026',
+    title: 'Gọn hơn, ít chạm hơn: thẻ lead gọn, nút «+» tạo nhanh, nhiều việc xong trong một chạm',
+    tag: 'MỚI',
+    news: [
+      'Điện thoại: thanh nút dưới đáy xếp theo việc của từng người — ai cũng có «Tổng quan» và «Việc của tôi», ở giữa là trang chính của mình (Kế toán thấy «Kế toán», Sale thấy «Quy trình», Giám sát thấy «Dự án»). Thanh trên ghi tên trang đang mở, có nút kính lúp để tìm. Dải «Chế độ làm việc» không còn chiếm đầu màn hình.',
+      'Điện thoại: nút «+» tròn vàng ở góc trái dưới — «Lead mới» mở form ngay tại chỗ, «Báo giá nhanh», «Dự án mới», «Giao dịch mới» (tuỳ quyền).',
+      'Quy trình: thẻ lead trên bảng gọn còn 3 hàng — tên và số điện thoại chung một dòng, một dòng chi tiết, một hàng nút (đổi giai đoạn, Zalo, gọi). Thêm chip lọc nhanh «Của tôi», «Quá hạn», «Hôm nay»; trên điện thoại các ô lọc gấp sau nút «Bộ lọc».',
+      'Thẻ lead: ô ghi chú và các chip 1 chạm nằm ngay dưới thông tin liên hệ, lịch sử hiện 5 dòng mới nhất (bấm «Xem thêm» để xem hết). Nút «Báo giá nhanh» mở trang báo giá đã điền sẵn diện tích, loại nhà, ngân sách; nút copy mở luôn Zalo của đúng khách. Chuyển giai đoạn xong thẻ vẫn mở.',
+      'Khách hàng: nút Zalo cạnh số điện thoại, bấm địa chỉ là mở chỉ đường. Báo giá và Hợp đồng điền sẵn hạn, ngày ký, tiêu đề, giá trị; nút «VAT 10%». Phụ lục hợp đồng nhập bằng form, gõ theo nghìn đồng như mọi ô tiền khác.',
+      'Việc của tôi: nút máy ảnh trên từng thẻ việc — chụp hoặc chọn ảnh là vào Kho ảnh dự án. Đơn nghỉ phép bấm «Duyệt» ngay trên thẻ. Trong dự án, đổi trạng thái việc bằng nút «Bắt đầu» / «Xong»; đầu thẻ dự án có hàng nút Gọi khách · Chỉ đường · Thêm ảnh · Vật tư.',
+      'Chấm công: nút «Vào ca» báo «Đang lấy vị trí…» khi chờ GPS. Đang ở công trình thì bấm «Vào ca tại <mã dự án>» (hiện với dự án bạn đang có việc).',
+      'Vật tư: nhận hàng có hai nút riêng «Chụp ảnh» và «Chọn từ máy», thêm «Chọn cả N dòng». Hỏi giá: tên NCC được giữ lại cho dòng kế, nút «Thêm & chốt» ghi báo giá và chốt luôn. «Khách chọn mẫu» thêm xong form vẫn mở để chọn tiếp. Giá ở chỗ so báo giá viết đủ số.',
+      'Kế toán: dòng giao dịch, hoa hồng, bảng lương viết đủ số tiền (không còn làm tròn về triệu). Hoa hồng có nút lọc theo trạng thái và «Duyệt tất cả». Tài chính: Giám đốc và Kế toán tự thêm, sửa, xoá chi phí; «Chép từ tháng trước» cho chi phí cố định.',
+      'Nhà cung cấp: nút gọi và Zalo ngay trên dòng; dòng báo giá có «So sánh» và «Cập nhật giá». Kho vật tư: nút «Nhập / xuất» sửa tồn kho từng mặt hàng.',
+      'Tổng quan: khối Hũ doanh số kiểu «bảng đua» — hạng của bạn, đồng hồ doanh số theo từng mốc, đường đua, và thẻ «Thưởng dự kiến» chỉ mình bạn thấy.',
+      'Nhân sự: ô tìm và lọc Đang làm / Đã nghỉ / phòng ban, số điện thoại bấm là gọi. Đặt lại mật khẩu có nút «Tạo ngẫu nhiên» và «Sao chép». Phân quyền: thanh Lưu dính dưới đáy, chỉ lưu các vai đã đổi.',
+      'Toàn app: hộp hỏi lại «Xác nhận» theo giao diện của app; phím Esc đóng cửa sổ đang mở; chuyển giai đoạn lead nhầm thì bấm «Hoàn tác» ngay trên thông báo. Chỗ nào có ghi chú khi rê chuột thì trên điện thoại chạm vào là hiện.',
+    ],
+    fixes: [
+      'Bấm nút «Trong nhà / Ngoài trời» không còn bị khựng vài giây.',
+      'Danh sách lead: cột «Ngân sách» hiện khoảng ngân sách đã chọn khi tạo lead (trước đây toàn «—»); tên giai đoạn đọc rõ ở giao diện Ngoài trời.',
+      'Ghi chú hoặc đổi trạng thái việc xong là thấy ngay, không còn lúc hiện lúc không.',
+      'Form dài (Báo giá, Hợp đồng, Dự án, Giao dịch) không còn tự đóng khi lỡ chạm ra ngoài — đóng bằng nút «Hủy».',
+      'Thanh tab trang Vật tư không còn chồng chữ trên điện thoại. Bỏ ô «Tăng ca chờ» ở Tổng quan (tăng ca đã tự ghi nhận, ô này luôn là 0).',
+    ],
+    test: [
+      'Trên iPhone (Safari) và máy tính bảng Samsung: bấm nút «+» góc trái dưới → «Lead mới» → form mở ngay tại trang đang đứng.',
+      'Mở Quy trình → bấm chip «Quá hạn» → mở một thẻ, bấm một chip ghi nhanh → dòng mới hiện ngay ở đầu lịch sử.',
+      'Giám sát: vào «Việc của tôi» → bấm nút máy ảnh trên một thẻ việc → chụp 1 ảnh → mở dự án xem ảnh đã vào Kho ảnh chưa.',
+      'Kế toán: mở Kế toán → Hoa hồng, soát vài khoản xem số tiền đã viết đủ chưa; thử nút «Duyệt tất cả» nếu có khoản chờ.',
+      'Bấm «Trong nhà / Ngoài trời» ở cuối menu vài lần — còn khựng thì báo ở «Góp ý» kèm tên máy.',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Trợ lý hỏi đáp: nút tròn vàng góc màn hình, hỏi cách dùng phần mềm là có câu trả lời',
     news: [
       'Góc dưới bên phải mọi trang có nút tròn vàng hình bong bóng chat (điện thoại: ngay trên thanh nút đáy). Bấm vào, gõ câu hỏi như nhắn tin — vd «xin nghỉ phép thế nào?», «tạo lead mới ở đâu?» — trợ lý trả lời từng bước.',

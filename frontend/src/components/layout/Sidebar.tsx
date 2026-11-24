@@ -394,6 +394,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           onClick={() => {
             const next = outdoorTheme ? '' : 'outdoor';
             setOutdoorTheme(!outdoorTheme);
+            // Tắt hiệu ứng chuyển màu trong lúc đổi theme. Không tắt thì MỌI phần tử có transition cùng chạy một lượt
+            // (đo 24/11: ~1.200 hiệu ứng trên trang Quy trình 111 thẻ) → giao diện khựng 1–2 giây.
+            const html = document.documentElement;
+            html.classList.add('dang-doi-theme');
+            requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove('dang-doi-theme')));
             if (next) document.documentElement.setAttribute('data-theme', next);
             else document.documentElement.removeAttribute('data-theme');
             localStorage.setItem('jama_theme', next);

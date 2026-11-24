@@ -8,7 +8,7 @@ import { duongDangNhap } from '@/lib/dang-nhap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import LineIcon from '@/components/ui/LineIcon';
-import { STAGE_CONFIG, chuanHoaTim, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc, mauNhat } from '@/lib/utils';
+import { NGAN_SACH_LABELS, STAGE_CONFIG, chuanHoaTim, cn, formatCurrency, formatDealValue, timeAgo, tuyChonKhuVuc, mauNhat } from '@/lib/utils';
 import KhaoSatThang from '@/components/leads/KhaoSatThang';
 import ThanhThaoTacHangLoat from '@/components/leads/ThanhThaoTacHangLoat';
 import BangKanbanLead from '@/components/leads/BangKanbanLead';
@@ -1134,7 +1134,9 @@ function LeadsContent() {
                       <td className="px-4 py-3">
                         <span className="text-[11px] px-2 py-1 rounded-full font-semibold whitespace-nowrap" style={{
                           background: mauNhat(STAGE_CONFIG[lead.stage]?.color, 13),
-                          color: STAGE_CONFIG[lead.stage]?.color,
+                          // Pha màu giai đoạn với màu chữ chính: ở giao diện Ngoài trời màu giai đoạn là tông trầm nhạt,
+                          // dùng nguyên làm chữ 11px trên nền trắng thì gần như không đọc được.
+                          color: `color-mix(in srgb, ${STAGE_CONFIG[lead.stage]?.color || 'var(--text-secondary)'} 60%, var(--text-primary))`,
                         }}>
                           <LineIcon name={STAGE_CONFIG[lead.stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[lead.stage]?.label || lead.stage}
                         </span>
@@ -1147,10 +1149,16 @@ function LeadsContent() {
                         {lead.area_sqm ? <span className="text-[var(--text-muted)]"> · {lead.area_sqm}m²</span> : null}
                       </td>
                       <td className="px-4 py-3 text-right text-[var(--text-secondary)] whitespace-nowrap">
-                        {lead.estimated_budget ? formatCurrency(lead.estimated_budget) : '—'}
+                        {/* Form tạo lead ghi «khoảng ngân sách» (ngan_sach_khoang), ít ai gõ con số (estimated_budget) →
+                            trước 24/11 cột này gần như toàn «—» dù lead đã có ngân sách. */}
+                        {lead.estimated_budget ? formatCurrency(lead.estimated_budget)
+                          : lead.ngan_sach_khoang ? (NGAN_SACH_LABELS[lead.ngan_sach_khoang] || lead.ngan_sach_khoang)
+                          : <span className="text-[var(--text-muted)]" title="Chưa ghi ngân sách — mở thẻ lead, chọn khoảng ngân sách của khách">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#10B981] whitespace-nowrap">
-                        {formatDealValue(lead.deal_value)}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {lead.deal_value
+                          ? <span className="font-semibold" style={{ color: 'var(--success)' }}>{formatDealValue(lead.deal_value)}</span>
+                          : <span className="text-[var(--text-muted)]" title="Chưa có — giá trị hợp đồng chỉ có khi lead đã có giá trị deal / chuyển «Deal đã thắng»">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {lead.ai_score != null && lead.ai_score > 0 ? (

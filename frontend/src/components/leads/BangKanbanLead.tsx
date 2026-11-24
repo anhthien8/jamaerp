@@ -3,7 +3,7 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
 import InfoTip from '@/components/ui/InfoTip';
-import { NEEDS_LABELS, STAGE_CONFIG, cn, formatCurrency, formatDealValue, timeAgo } from '@/lib/utils';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, STAGE_CONFIG, cn, formatCurrency, formatDealValue, timeAgo } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { KANBAN_PAGE_SIZE, isOverdueLead, BOARD_STAGES, PROPERTY_LABELS, SOURCE_LABELS, TagBadge } from './shared';
 import type { Lead } from '@/lib/api';
@@ -107,55 +107,50 @@ export default function BangKanbanLead({
                     lead.priority === 'medium' ? 'border-l-blue-500' : 'border-l-gray-500'
                   )}
                 >
-                  {/* Thẻ gọn 24/11: 7 hàng → 4 hàng. Hàng 1 tên + tiền/AI; hàng 2 SĐT · lần liên hệ cuối · nguồn;
-                      hàng 3 loại nhà · m² · khu vực · nhu cầu; hàng 4 phụ trách + đổi giai đoạn, Zalo, gọi. */}
+                  {/* Thẻ gọn: 7 hàng → 3 hàng. Hàng 1 tên + SĐT cùng một dòng (+ nhãn Quá hạn) và điểm AI; hàng 2 một dòng
+                      chi tiết: lần liên hệ cuối · loại nhà · m² · nhu cầu · khu vực · nguồn, bên phải là giá trị; hàng 3 phụ trách
+                      + đổi giai đoạn, Zalo, gọi. Dòng chi tiết dài thì cắt «…» — rê chuột / chạm để xem đủ. */}
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="min-w-0 text-sm font-medium leading-snug text-[var(--text-primary)] group-hover:text-[var(--gold-500)] transition-colors">
                       {lead.name}
+                      {lead.phone && <span className="ml-1.5 text-xs font-normal tabular-nums text-[var(--text-secondary)] whitespace-nowrap">{lead.phone}</span>}
                       {isOverdueLead(lead) && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium ml-1.5 whitespace-nowrap" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
-                          <LineIcon name="alert" size={11} color="currentColor" className="inline-block align-[-1px] mr-1" />Quá hạn
+                        <span className="text-[10px] font-medium ml-1.5 whitespace-nowrap" style={{ color: 'var(--danger)' }}>
+                          <LineIcon name="alert" size={11} color="currentColor" className="inline-block align-[-1px] mr-0.5" />Quá hạn
                         </span>
                       )}
                     </h3>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {lead.deal_value ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'color-mix(in srgb, var(--gold-500) 15%, transparent)', color: 'var(--gold-500)' }}>
-                          {formatDealValue(lead.deal_value)}
-                        </span>
-                      ) : lead.estimated_budget ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'color-mix(in srgb, var(--gold-500) 15%, transparent)', color: 'var(--gold-500)' }}>
-                          {formatCurrency(lead.estimated_budget)}
-                        </span>
-                      ) : null}
-                      {lead.ai_score != null && lead.ai_score > 0 && (() => {
-                        const mau = lead.ai_score >= 80 ? 'var(--success)' : lead.ai_score >= 60 ? 'var(--warning)' : 'var(--danger)';
-                        return (
-                          <InfoTip text={`Điểm AI ${lead.ai_score}/100 — khả năng chốt do AI chấm. Từ 80: nóng, 60–79: ấm, dưới 60: cần chăm thêm.`}>
-                            <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold tabular-nums" style={{ background: `color-mix(in srgb, ${mau} 14%, transparent)`, color: mau }}>
-                              AI {lead.ai_score}
-                            </span>
-                          </InfoTip>
-                        );
-                      })()}
-                    </div>
+                    {lead.ai_score != null && lead.ai_score > 0 && (() => {
+                      const mau = lead.ai_score >= 80 ? 'var(--success)' : lead.ai_score >= 60 ? 'var(--warning)' : 'var(--danger)';
+                      return (
+                        <InfoTip text={`Điểm AI ${lead.ai_score}/100 — khả năng chốt do AI chấm. Từ 80: nóng, 60–79: ấm, dưới 60: cần chăm thêm.`}>
+                          <span className="flex-shrink-0 text-[11px] px-1.5 py-0.5 rounded font-semibold tabular-nums" style={{ background: `color-mix(in srgb, ${mau} 14%, transparent)`, color: mau }}>
+                            AI {lead.ai_score}
+                          </span>
+                        </InfoTip>
+                      );
+                    })()}
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1 tabular-nums">
-                    {lead.phone}
-                    <span className="text-[var(--text-muted)]">
-                      {lead.last_contacted_at && <> · {timeAgo(lead.last_contacted_at)}</>}
-                      {' · '}{SOURCE_LABELS[lead.source || ''] || lead.source || '—'}
-                    </span>
-                  </p>
                   {(() => {
                     const dong = [
+                      lead.last_contacted_at && timeAgo(lead.last_contacted_at),
                       lead.property_type && (PROPERTY_LABELS[lead.property_type] || lead.property_type),
                       lead.area_sqm && `${lead.area_sqm}m²`,
-                      lead.region,
                       lead.segment && (NEEDS_LABELS[lead.segment] || lead.segment),
-                    ].filter(Boolean);
-                    return dong.length > 0 ? (
-                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">{dong.join(' · ')}</p>
+                      lead.region,
+                      SOURCE_LABELS[lead.source || ''] || lead.source,
+                    ].filter(Boolean).join(' · ');
+                    const tien = lead.deal_value ? formatDealValue(lead.deal_value) : lead.estimated_budget ? formatCurrency(lead.estimated_budget)
+                      : lead.ngan_sach_khoang ? (NGAN_SACH_LABELS[lead.ngan_sach_khoang] || lead.ngan_sach_khoang) : '';
+                    return (dong || tien) ? (
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <p className="min-w-0 truncate text-[11px] text-[var(--text-muted)]" title={dong}>{dong}</p>
+                        {tien && (
+                          <span className={cn('flex-shrink-0 text-[11px] px-1.5 py-0.5 rounded', !!lead.deal_value && 'font-semibold')} style={{ background: 'color-mix(in srgb, var(--gold-500) 15%, transparent)', color: 'var(--gold-500)' }}>
+                            {tien}
+                          </span>
+                        )}
+                      </div>
                     ) : null;
                   })()}
                   {/* Tags — tags may be a JSON string like '["VIP"]' or a real array */}

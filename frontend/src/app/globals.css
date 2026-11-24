@@ -224,6 +224,8 @@
 }
 
 /* Chữ trắng cứng trong component → lật sang than ấm khi ngoài trời */
+/* Đang đổi theme (Sidebar gắn lớp này trong 2 khung hình): không chạy hiệu ứng chuyển màu, đổi là xong ngay. */
+html.dang-doi-theme *, html.dang-doi-theme *::before, html.dang-doi-theme *::after { transition: none !important; }
 [data-theme='outdoor'] .text-white { color: #1C1A15 !important; }
 /* …trừ chữ nằm trên nền ĐẬM: nút tô nền bằng biến vàng (ở theme này là đồng đậm) hoặc xanh/đỏ đặc. Luật trên biến chữ
    trắng thành chữ than → nút chính đọc không ra (24/11/2026). Chỉ bắt nền viết trong style, không bắt viền/chữ. */
