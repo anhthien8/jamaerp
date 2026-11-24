@@ -50,6 +50,7 @@ export const RELEASES: Release[] = [
     ],
     fixes: [
       'Deal không còn bị đếm lại vào tháng sau khi có người sửa lead đã thắng.',
+      'Trưởng nhóm đang giữ quá 25 lead giờ được khuyên giao bớt cho sale trong nhóm, không còn bị khuyên «báo trưởng nhóm san bớt».',
       'Tốc độ phản hồi đếm từ lúc bạn được giao lead và chỉ tính giờ làm việc; lead đã có lịch hẹn phía trước không bị tính trễ chăm.',
       'Người chưa có lead hay deal trong kỳ hiện «chưa có dữ liệu» thay vì một con số điểm gây hiểu nhầm.',
     ],

@@ -26,7 +26,7 @@ from statistics import median
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.middleware.rbac import is_sales_coordinator
+from app.middleware.rbac import is_sales_coordinator, is_team_lead
 from app.models.user import User
 from app.models.lead import ACTIVE_LEAD_STAGES, CSKH_ACTIVITY_TYPE, XAC_SUAT_STAGE, Lead, Activity
 from app.models.project import Project
@@ -196,7 +196,8 @@ def _gia_tri_lead(l: dict) -> float:
 
 def _viec_tiep(*, moc: datetime, dang_giu: list[dict], nhan: list[dict], duoc_cham, da_lien_he,
                diem: dict, tong_w: int, so_duoc_cham: int, doanh_so: float, so_deal: int,
-               mt_ds: float, mt_deal: float, he_so: float, chua_du_lieu: bool) -> list[dict]:
+               mt_ds: float, mt_deal: float, he_so: float, chua_du_lieu: bool,
+               la_truong_nhom: bool = False) -> list[dict]:
     """Việc nên làm tiếp của MỘT người, xếp theo độ gấp, mỗi việc gắn lead cụ thể.
 
     Điểm KPI chỉ nói «đang ở đâu»; danh sách này nói «làm gì để lên». `diem_them`
@@ -302,11 +303,18 @@ def _viec_tiep(*, moc: datetime, dang_giu: list[dict], nhan: list[dict], duoc_ch
                 "Tư vấn tới khi rõ nhu cầu rồi chuyển bước cho lead."),
              (gon(l) for l in ung_vien), them("tien_buoc"))
 
-    # 5. Quá tải — không phải lỗi của sale, nhưng là việc cần báo.
+    # 5. Quá tải — không phải lỗi của sale, nhưng là việc cần báo. Trưởng nhóm không có ai
+    #    «trên» để báo: họ chính là người chia lead, nên việc của họ là giao bớt cho nhóm.
     if len(dang_giu) > LEAD_QUA_TAI:
-        viec("qua_tai", "vang", f"Đang giữ {len(dang_giu)} lead: báo trưởng nhóm san bớt",
-             f"Quá {LEAD_QUA_TAI} lead đang mở thì khó chăm đúng hạn. Lead hết nhu cầu thì chuyển "
-             f"{buoc('dormant')} hoặc {buoc('lost')} để danh sách nhẹ lại.")
+        don_dep = (f"Lead hết nhu cầu thì chuyển {buoc('dormant')} hoặc {buoc('lost')} "
+                   "để danh sách nhẹ lại.")
+        if la_truong_nhom:
+            viec("qua_tai", "vang", f"Đang giữ {len(dang_giu)} lead: giao bớt cho sale trong nhóm",
+                 f"Quá {LEAD_QUA_TAI} lead đang mở thì vừa khó chăm đúng hạn, vừa không còn thời gian kèm "
+                 f"nhóm. Giao bớt cho sale đang nhẹ: mở thẻ lead, đổi người phụ trách. {don_dep}")
+        else:
+            viec("qua_tai", "vang", f"Đang giữ {len(dang_giu)} lead: báo trưởng nhóm san bớt",
+                 f"Quá {LEAD_QUA_TAI} lead đang mở thì khó chăm đúng hạn. {don_dep}")
 
     # 6. Mất khách cao — xem lại, lead còn cơ hội thì kéo về.
     d_mat = diem["mat_khach"][2]
@@ -355,6 +363,7 @@ async def tinh_kpi_ky(db: AsyncSession, period: str, chi_user_ids: list[str] | N
 
     doi = await nguoi_duoc_cham(db)
     nhom_cua: dict[str, str | None] = {u.id: u.team_id for u in doi}
+    truong_nhom = {u.id for u in doi if is_team_lead(u)}
     can_tinh = set(chi_user_ids) if chi_user_ids else set(nhom_cua)
     if not can_tinh:
         return {}
@@ -576,6 +585,7 @@ async def tinh_kpi_ky(db: AsyncSession, period: str, chi_user_ids: list[str] | N
                 moc=moc, dang_giu=dang_giu, nhan=nhan, duoc_cham=duoc_cham, da_lien_he=da_lien_he,
                 diem=diem, tong_w=tong_w, so_duoc_cham=so_duoc_cham, doanh_so=doanh_so,
                 so_deal=so_deal, mt_ds=mt_ds, mt_deal=mt_deal, he_so=he_so, chua_du_lieu=chua_du_lieu,
+                la_truong_nhom=uid in truong_nhom,
             ) if now < het else []
 
     return ket_qua

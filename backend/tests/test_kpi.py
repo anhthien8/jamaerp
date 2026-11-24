@@ -396,6 +396,25 @@ async def test_viec_tiep_nguoi_ngoai_doi_kd_khong_bi_gan_viec(client, db_session
 
 
 @pytest.mark.asyncio
+async def test_viec_qua_tai_truong_nhom_tu_giao_bot_sale_thi_bao_truong_nhom(client, db_session):
+    """Trưởng nhóm chính là người chia lead: khuyên họ «báo trưởng nhóm» là vô nghĩa (thấy trên prod 24/11)."""
+    users = await _create_sales_team(db_session)
+    nay = datetime.now(timezone.utc)
+    for ai, tien_to in ((users["leader"], "095"), (users["sale"], "096")):
+        for i in range(26):
+            db_session.add(Lead(id=_uid(), name=f"Tải {tien_to}-{i}", phone=f"{tien_to}{i:07d}",
+                                assigned_to=ai.id, stage="interested", created_at=nay, last_contacted_at=nay))
+    await db_session.flush()
+
+    kq = await tinh_kpi_ky(db_session, _ky_nay(), kem_viec=True)
+    viec_truong = next(v for v in kq[users["leader"].id]["viec_tiep"] if v["ma"] == "qua_tai")
+    viec_sale = next(v for v in kq[users["sale"].id]["viec_tiep"] if v["ma"] == "qua_tai")
+    assert "giao bớt cho sale trong nhóm" in viec_truong["tieu_de"]
+    assert "báo trưởng nhóm" not in viec_truong["tieu_de"]
+    assert "báo trưởng nhóm san bớt" in viec_sale["tieu_de"]
+
+
+@pytest.mark.asyncio
 async def test_team_kpi_leader(client, db_session):
     users = await _create_sales_team(db_session)
     leader = users["leader"]
