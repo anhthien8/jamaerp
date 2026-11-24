@@ -123,6 +123,8 @@ class LeadResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_contacted_at: datetime | None = None
+    # Lúc nhận lead = lần giao gần nhất (Activity «assignment»); chỉ danh sách GET /leads trả.
+    nhan_luc: datetime | None = None
     # Joined fields
     assigned_user_name: str | None = None
     team_name: str | None = None

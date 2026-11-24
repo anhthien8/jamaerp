@@ -267,7 +267,9 @@ def _viec_tiep(*, moc: datetime, dang_giu: list[dict], nhan: list[dict], duoc_ch
     tre = [l for l in dang_giu if not duoc_cham(l) and l["id"] not in id_moi]
     if tre:
         def ngay_bo(l: dict) -> int:
-            return (moc - max(_utc(l["last_contacted_at"]) or l["nhan_luc"], l["nhan_luc"])).days
+            # Buổi hẹn / khảo sát đã qua cũng là một lần chăm — đếm như bot (automation._moc_cham)
+            hen = [h for h in (_gio_vn(l["survey_date"]), _gio_vn(l["hen_tiep_luc"])) if h]
+            return (moc - max(_utc(l["last_contacted_at"]) or l["nhan_luc"], l["nhan_luc"], *hen)).days
         tre.sort(key=lambda l: (-XAC_SUAT_STAGE.get(l["stage"], 0), -ngay_bo(l)))
         viec("lien_he_lai", "do" if len(tre) >= 5 else "vang",
              f"Liên hệ lại {len(tre)} khách đã quá hạn chăm",

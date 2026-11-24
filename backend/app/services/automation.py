@@ -19,6 +19,7 @@ from app.models.contract import Contract
 from app.models.project import Project
 from app.models.user import User
 from app.models.notification import Notification, SystemSetting, DEFAULT_AUTOMATION_SETTINGS
+from app.services.kpi_engine import HAN_CHAM_THEO_BUOC
 from app.services.telegram_notify import ban_phim, nut_lead, send_telegram
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,31 @@ def _moc_cham(lead: Lead, giao_luc: datetime | None, now_vn: datetime) -> dateti
     return max(moc)
 
 
+def ngay_chua_cham(lead: Lead, giao_luc: datetime | None, now_vn: datetime) -> int | None:
+    """Số ngày từ mốc chăm gần nhất (`_moc_cham`); None khi còn hẹn tiếp / ngày khảo sát
+    ở phía trước — đang chăm, không tính ngày chờ (luật R00 số 3)."""
+    if co_hen_toi(lead, now_vn):
+        return None
+    bay_gio = now_vn.replace(tzinfo=VN).astimezone(timezone.utc)
+    return (bay_gio - _moc_cham(lead, giao_luc, now_vn)).days
+
+
+def ngay_qua_han(lead: Lead, giao_luc: datetime | None, now_vn: datetime,
+                 so_ngay: int | None = None) -> int | None:
+    """MỘT luật «quá hạn chăm» cho nhắc / thu hồi của bot và mọi màn hình (24/11/2026).
+
+    Trả số ngày chưa được chăm khi đã quá hạn, None khi còn trong hạn hoặc có hẹn phía trước.
+    Hạn `so_ngay` cố định là nhịp nhắc / thu hồi của bot (theo cài đặt); bỏ trống = hạn theo
+    giai đoạn `HAN_CHAM_THEO_BUOC` — khớp nhãn «Quá hạn» trên web (isOverdueLead) và KPI.
+    Giai đoạn không có hạn (đã ký, mất, ngủ đông) không bao giờ quá hạn.
+    """
+    han = so_ngay if so_ngay is not None else HAN_CHAM_THEO_BUOC.get(lead.stage)
+    if not han:
+        return None
+    n = ngay_chua_cham(lead, giao_luc, now_vn)
+    return n if n is not None and n >= han else None
+
+
 async def _lan_giao_cuoi(db: AsyncSession) -> dict[str, datetime]:
     """{lead_id: lúc được giao gần nhất} cho lead đang chăm — từ Activity «assignment»
     (giao tay, giao hàng loạt, tự thu hồi đều ghi)."""
@@ -187,31 +213,38 @@ async def _lan_giao_cuoi(db: AsyncSession) -> dict[str, datetime]:
 # 1. Follow-up reminders — nhắc CSKH mỗi 3-5 ngày
 # ---------------------------------------------------------------------------
 
+async def ds_lead_qua_han(db: AsyncSession, q=None, so_ngay: int | None = None) -> list[tuple[Lead, int]]:
+    """Lead quá hạn chăm theo `ngay_qua_han`, trong phạm vi `q` (`select(Lead)` đã lọc người
+    xem / kỳ; bỏ trống = mọi lead). Trả [(lead, số ngày chưa được chăm)], lâu nhất trước.
+
+    Tổng quan, báo cáo BGĐ, insight AI, workload đếm bằng hàm này (hạn theo giai đoạn) nên số
+    trên thẻ khớp danh sách /leads?filter=overdue khi bấm vào.
+    """
+    q = (select(Lead) if q is None else q).where(Lead.stage.in_(ACTIVE_LEAD_STAGES))
+    leads = (await db.execute(q)).scalars().all()
+    now_vn = gio_vn_naive()
+    giao = await _lan_giao_cuoi(db)
+    ra: list[tuple[Lead, int]] = []
+    for lead in leads:
+        n = ngay_qua_han(lead, giao.get(lead.id), now_vn, so_ngay)
+        if n is not None:
+            ra.append((lead, n))
+    ra.sort(key=lambda x: -x[1])
+    return ra
+
+
 async def ds_lead_can_goi(db: AsyncSession, user_id: str | None = None) -> list[tuple[Lead, int]]:
-    """Lead quá hạn chăm: không có hẹn tới, mốc chăm cũ hơn `followup_reminder_days` ngày.
+    """Lead quá hạn chăm theo nhịp nhắc `followup_reminder_days` (không theo giai đoạn).
 
     Trả [(lead, số ngày chưa chạm)], lâu nhất trước. MỘT luật cho nhắc trong chuông
     (run_followup_reminders) và mục «Cần gọi» của bản tin sáng (services/nhip_sale).
     """
     settings = await get_automation_settings(db)
     days = _int_setting(settings, "followup_reminder_days", 3)
-    bay_gio = datetime.now(timezone.utc)
-    cutoff = bay_gio - timedelta(days=days)
-    q = select(Lead).where(Lead.stage.in_(ACTIVE_LEAD_STAGES), Lead.assigned_to.is_not(None))
+    q = select(Lead).where(Lead.assigned_to.is_not(None))
     if user_id:
         q = q.where(Lead.assigned_to == user_id)
-    leads = (await db.execute(q)).scalars().all()
-    now_vn = gio_vn_naive()
-    giao = await _lan_giao_cuoi(db)
-    ra: list[tuple[Lead, int]] = []
-    for lead in leads:
-        if co_hen_toi(lead, now_vn):
-            continue  # có hẹn tương lai = đang chăm, không nhắc
-        moc = _moc_cham(lead, giao.get(lead.id), now_vn)
-        if moc <= cutoff:
-            ra.append((lead, (bay_gio - moc).days))
-    ra.sort(key=lambda x: -x[1])
-    return ra
+    return await ds_lead_qua_han(db, q, so_ngay=days)
 
 
 async def run_followup_reminders(db: AsyncSession) -> dict:
@@ -312,7 +345,6 @@ async def run_lead_recall(db: AsyncSession) -> dict:
         return {"status": "skipped", "reason": "disabled"}
 
     days = _int_setting(settings, "lead_recall_days", 7)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     result = await db.execute(
         select(Lead).where(
@@ -326,10 +358,8 @@ async def run_lead_recall(db: AsyncSession) -> dict:
 
     recalled = 0
     for lead in leads:
-        if co_hen_toi(lead, now_vn):
-            continue  # có hẹn tương lai = đang chăm, không thu hồi
-        if _moc_cham(lead, giao.get(lead.id), now_vn) > cutoff:
-            continue
+        if ngay_qua_han(lead, giao.get(lead.id), now_vn, so_ngay=days) is None:
+            continue  # có hẹn tương lai = đang chăm, hoặc còn trong hạn: không thu hồi
 
         old_user = await db.get(User, lead.assigned_to)
         new_user = await _pick_new_sales(db, lead)
