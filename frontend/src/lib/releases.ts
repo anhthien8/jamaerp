@@ -16,6 +16,19 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: '24/11/2026',
+    title: 'Trợ lý hỏi đáp: nút tròn vàng góc màn hình, hỏi cách dùng phần mềm là có câu trả lời',
+    news: [
+      'Góc dưới bên phải mọi trang có nút tròn vàng hình bong bóng chat (điện thoại: ngay trên thanh nút đáy). Bấm vào, gõ câu hỏi như nhắn tin — vd «xin nghỉ phép thế nào?», «tạo lead mới ở đâu?» — trợ lý trả lời từng bước.',
+      'Câu trả lời dựa đúng theo Sổ tay, kèm nút «Sổ tay: …» để mở mục liên quan đọc kỹ hơn. Chuyển trang thì cuộc trò chuyện vẫn còn.',
+      'Trợ lý chỉ hướng dẫn cách dùng, không xem được dữ liệu khách hay dự án.',
+    ],
+    test: [
+      'Bấm nút tròn vàng → chọn 1 câu gợi ý → đọc câu trả lời, bấm thử nút «Sổ tay: …».',
+      'Hỏi một việc bạn hay làm hằng ngày; trả lời sai hoặc thiếu thì báo ở «Góp ý» kèm câu đã hỏi.',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Làm việc ngay trên tin Telegram: nút bấm + hẹn tiếp',
     tag: 'MỚI',
     news: [

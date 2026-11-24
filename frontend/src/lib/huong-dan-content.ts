@@ -108,6 +108,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Trợ lý hỏi đáp — nút tròn vàng góc dưới phải"
+      },
+      {
+        "type": "p",
+        "text": "Không biết bấm gì? Bấm **nút tròn vàng hình bong bóng chat** ở góc dưới bên phải (điện thoại: ngay trên thanh nút đáy) → gõ câu hỏi như nhắn tin (vd «xin nghỉ phép thế nào?») → nhấn **Enter** hoặc nút gửi. Trợ lý trả lời theo đúng Sổ tay này và kèm các nút **Sổ tay: …** để mở mục liên quan. Chuyển trang thì cuộc trò chuyện vẫn còn; bấm nút **làm mới** trên đầu khung để hỏi lại từ đầu. Trợ lý chỉ hướng dẫn cách dùng, **không xem được dữ liệu khách hay dự án** — cần số liệu thì mở trang tương ứng."
+      },
+      {
+        "type": "h3",
         "text": "Nút ☀️ NGOÀI TRỜI — dành cho anh em công trình"
       },
       {

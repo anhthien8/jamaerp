@@ -1,7 +1,11 @@
 """AI API — parse lead, gợi ý hành động (Sales Co-Pilot), chấm điểm."""
 
+import logging
 import re
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +27,10 @@ from app.models.ai_memory import (
 from app.models.user import User
 from app.models.lead import Lead
 from app.services import ai_memory, ai_tien_hoa
+from app.services.llm_config import llm_available, llm_complete
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+logger = logging.getLogger(__name__)
 
 # Phone patterns
 PHONE_PATTERN = re.compile(r"(?:0|\+84)\d{9,10}")
@@ -262,3 +268,57 @@ async def ai_tien_hoa_quyet_bai_hoc(
     return {"ok": True, "bai_hoc": ban}
 
 
+
+
+# ── Trợ lý hỏi đáp (popup góc màn hình, 24/11/2026) ────────────────────────
+# Nhân viên bấm nút tròn góc phải → hỏi cách dùng ERP. Ngữ cảnh = vài mục Sổ tay
+# (/huong-dan) trình duyệt tự chọn theo từ khoá — nguồn sự thật vẫn là
+# frontend/src/lib/huong-dan-content.ts, backend không giữ bản sao.
+
+HOI_DAP_PROMPT = (
+    "Bạn là Trợ lý JAMA, trả lời nhân viên công ty nội thất JAMA về cách dùng phần mềm ERP nội bộ. "
+    "Trả lời tiếng Việt, ngắn gọn, thân thiện, ưu tiên các bước bấm cụ thể (tên nút/menu in **đậm**). "
+    "Chỉ dựa vào phần SỔ TAY bên dưới; nếu sổ tay không nói tới thì nói thật là chưa có hướng dẫn "
+    "và gợi ý hỏi trưởng phòng hoặc xem trang Sổ tay — KHÔNG bịa nút hay tính năng. "
+    "Không tiết lộ dữ liệu khách hàng, mật khẩu hay khoá API."
+)
+
+
+class _TinNhan(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class HoiDapBody(BaseModel):
+    messages: list[_TinNhan] = Field(min_length=1, max_length=12)
+    ngu_canh: str = Field(default="", max_length=16000)
+
+
+@router.post("/hoi-dap")
+async def hoi_dap(
+    body: HoiDapBody,
+    current_user: User = Depends(get_current_user),
+):
+    """Trợ lý hỏi đáp cách dùng ERP. 503 khi chưa cấu hình model — popup tự chỉ sang Sổ tay."""
+    if body.messages[-1].role != "user":
+        raise HTTPException(status_code=400, detail="Tin cuối phải là câu hỏi")
+    if not await llm_available():
+        raise HTTPException(status_code=503, detail="Trợ lý AI chưa được bật")
+    he_thong = (
+        f"{HOI_DAP_PROMPT}\n\nNgười hỏi: {nfc(current_user.full_name)} (vai trò {current_user.role}).\n\n"
+        f"SỔ TAY:\n{nfc(body.ngu_canh) or '(không tìm thấy mục liên quan)'}"
+    )
+    try:
+        resp = await llm_complete(
+            messages=[{"role": "system", "content": he_thong}]
+            + [{"role": m.role, "content": nfc(m.content)} for m in body.messages],
+            temperature=0.3,
+            max_tokens=700,
+        )
+        tra_loi = (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        logger.warning("Trợ lý hỏi đáp lỗi: %s", e)
+        raise HTTPException(status_code=503, detail="Trợ lý AI đang bận, thử lại sau")
+    if not tra_loi:
+        raise HTTPException(status_code=503, detail="Trợ lý AI không trả lời được, thử lại sau")
+    return {"tra_loi": tra_loi, "model": ai_memory.ten_model(resp)}

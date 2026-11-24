@@ -12,6 +12,7 @@ import NhacBatThongBao from '@/components/ui/NhacBatThongBao';
 import InstallBanner from '@/components/ui/InstallBanner';
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist';
 import GuidedTour from '@/components/ui/GuidedTour';
+import TroLyHoiDap from '@/components/ui/TroLyHoiDap';
 import BottomNav from '@/components/layout/BottomNav';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_SALES_DASHBOARD } from '@/lib/features';
@@ -550,6 +551,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Onboarding Checklist (first login) */}
       <OnboardingChecklist />
       <GuidedTour />
+
+      {/* Trợ lý hỏi đáp — nút tròn góc phải (24/11/2026) */}
+      <TroLyHoiDap />
 
       {/* Bottom nav mobile — thao tác chính trong tầm ngón cái */}
       <BottomNav perms={effectivePermissions} />
