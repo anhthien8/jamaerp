@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import LineIcon from '@/components/ui/LineIcon';
 
 const LOST_REASONS = [
   'Ngân sách không phù hợp',
@@ -31,21 +30,10 @@ export default function LostReasonSelector({ isOpen, setIsOpen, onConfirm, onCan
     setCustomReason('');
   };
 
+  // Nút mở nằm ở trang mẹ (chung hàng với «Ngủ đông» cho gọn) — ở đây chỉ vẽ ô chọn khi đã mở.
+  if (!isOpen) return null;
   return (
     <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-          style={{
-            background: 'rgba(239,68,68,0.1)',
-            color: '#EF4444',
-            border: '1px solid rgba(239,68,68,0.3)',
-          }}
-        >
-          <LineIcon name="xCircle" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chuyển sang Mất lead
-        </button>
-      ) : (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-red-400">Chọn lý do mất lead:</p>
           <div className="flex flex-wrap gap-1.5">
@@ -88,7 +76,6 @@ export default function LostReasonSelector({ isOpen, setIsOpen, onConfirm, onCan
             </button>
           </div>
         </div>
-      )}
     </div>
   );
 }

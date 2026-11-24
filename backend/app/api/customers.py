@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.middleware.rbac import duoc_xem_sdt_day_du, la_truong_phong
+from app.middleware.rbac import duoc_xem_sdt_day_du
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.permissions import quyen_hieu_luc
@@ -57,26 +57,48 @@ async def require_customer_write(
 
 
 async def _loc_pham_vi_khach(q, current_user: User, db: AsyncSession):
+    """Khách người này được thấy — theo NGƯỜI CHĂM SÓC, cùng 3 tầng với lead/dự án.
+
+    24/11/2026 (chủ dự án): nhân viên chỉ thấy khách của mình, trưởng nhóm thấy khách
+    nhóm mình, trưởng phòng thấy khách phòng mình. Ban giám đốc, Kế toán và điều phối
+    KD (Admin CSKH) thấy hết. Trước đó ai có ô «Sửa Khách hàng» là thấy TOÀN BỘ —
+    mà sale (`data_entry`) có sẵn ô đó, nên mọi sale thấy khách của nhau. Nay ô đó
+    chỉ còn quyết định SỬA, không mở rộng phạm vi XEM.
+
+    Khách «của mình» = lead mình được xem, dự án mình là PIC/có đầu việc, hoặc hồ sơ
+    mình (người trong nhóm/phòng mình) tạo tay.
+    """
     from app.api.leads import _loc_pham_vi_lead
     from app.api.projects import dieu_kien_pham_vi_du_an
     from app.middleware.rbac import is_sales_coordinator, pham_vi_du_lieu
     from app.models.lead import Lead
 
-    if pham_vi_du_lieu(current_user) == "tat_ca" or is_sales_coordinator(current_user):
+    pham_vi = pham_vi_du_lieu(current_user)
+    if pham_vi == "tat_ca" or is_sales_coordinator(current_user):
         return q
-    if (await quyen_hieu_luc(current_user, db)).get("canEditCustomers"):
-        return q
-    dieu_kien = []
-    dk_du_an = dieu_kien_pham_vi_du_an(current_user)
-    if dk_du_an is None:
-        return q
-    du_an_thay = select(Project.customer_id).where(dk_du_an, Project.customer_id.is_not(None))
-    lead_du_an = select(Project.lead_id).where(dk_du_an, Project.lead_id.is_not(None))
-    dieu_kien.append(Customer.id.in_(du_an_thay))
-    dieu_kien.append(Customer.lead_id.in_(lead_du_an))
-    lead_thay = _loc_pham_vi_lead(select(Lead.id), current_user)
-    dieu_kien.append(Customer.lead_id.in_(lead_thay))
+    nguoi_tao = [Customer.created_by == current_user.id]
+    if pham_vi == "phong_ban":
+        nguoi_tao.append(Customer.created_by.in_(select(User.id).where(
+            func.upper(func.coalesce(User.department, "")) == (current_user.department or "").upper())))
+    elif pham_vi == "nhom":
+        nguoi_tao.append(Customer.created_by.in_(select(User.id).where(User.team_id == current_user.team_id)))
+    dieu_kien = [*nguoi_tao, Customer.lead_id.in_(_loc_pham_vi_lead(select(Lead.id), current_user))]
+    dk_du_an = dieu_kien_pham_vi_du_an(current_user, gom_chua_phan_cong=False)
+    if dk_du_an is not None:
+        dieu_kien.append(Customer.id.in_(
+            select(Project.customer_id).where(dk_du_an, Project.customer_id.is_not(None))))
+        dieu_kien.append(Customer.lead_id.in_(
+            select(Project.lead_id).where(dk_du_an, Project.lead_id.is_not(None))))
     return q.where(or_(*dieu_kien))
+
+
+async def _khach_trong_pham_vi(db: AsyncSession, customer_id: str, current_user: User) -> Customer:
+    """Một khách, đã qua đúng bộ lọc của danh sách. Ngoài phạm vi trả 404 như không tồn tại."""
+    q = await _loc_pham_vi_khach(select(Customer).where(Customer.id == customer_id), current_user, db)
+    customer = (await db.execute(q)).scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+    return customer
 
 
 @router.get("")
@@ -88,12 +110,7 @@ async def list_customers(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """List customers trong phạm vi người xem.
-
-    22/10 (feedback nhân viên): trước đây ai đăng nhập cũng thấy toàn bộ khách.
-    Nay: admin/BGĐ/kế toán, điều phối KD và người có ô «Sửa Khách hàng» xem hết;
-    còn lại chỉ thấy khách gắn với lead hoặc dự án mình được xem.
-    """
+    """List customers trong phạm vi người xem (luật ở `_loc_pham_vi_khach`)."""
     q = select(Customer).order_by(Customer.created_at.desc())
     q = await _loc_pham_vi_khach(q, current_user, db)
     if type:
@@ -113,6 +130,7 @@ async def list_customers(
     customers = result.scalars().all()
 
     tk = await khach_hang.thong_ke_khach(db, list(customers))
+    cham_soc = await khach_hang.nguoi_cham_soc(db, list(customers))
     hom_nay = vn_today()
     items = []
     for c in customers:
@@ -120,6 +138,7 @@ async def list_customers(
         resp["phone"] = _mask_phone(resp.get("phone"), current_user)
         resp["national_id"] = _mask_phone(resp.get("national_id"), current_user)
         resp.update(tk.get(c.id, {}))
+        resp.update(cham_soc.get(c.id, {}))
         resp["sinh_nhat_con_ngay"] = khach_hang.sinh_nhat_sap_toi(c.birthday, hom_nay)
         items.append(resp)
     return {
@@ -137,13 +156,13 @@ async def get_customer(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get customer detail with linked projects."""
-    if current_user.role not in ("admin", "executive", "leader", "accountant", "data_entry", "supervisor") and not la_truong_phong(current_user):
-        raise HTTPException(status_code=403, detail="Không có quyền xem thông tin khách hàng")
-    result = await db.execute(select(Customer).where(Customer.id == customer_id))
-    customer = result.scalar_one_or_none()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+    """Get customer detail with linked projects.
+
+    24/11/2026: cùng phạm vi với danh sách. Trước đó chặn theo danh sách vai trò cứng
+    — sale vai tùy chỉnh bấm vào khách của chính mình bị 403 (mất khối Dự án), còn
+    vai có tên trong danh sách thì mở được khách bất kỳ bằng id.
+    """
+    customer = await _khach_trong_pham_vi(db, customer_id, current_user)
 
     # Get all projects linked to this customer (direct customer_id or via lead)
     proj_conditions = [Project.customer_id == customer.id]
@@ -166,6 +185,7 @@ async def get_customer(
     resp["projects"] = projects
     resp["project_count"] = len(projects)
     resp.update((await khach_hang.thong_ke_khach(db, [customer])).get(customer.id, {}))
+    resp.update((await khach_hang.nguoi_cham_soc(db, [customer])).get(customer.id, {}))
     resp["sinh_nhat_con_ngay"] = khach_hang.sinh_nhat_sap_toi(customer.birthday, vn_today())
     return resp
 
@@ -209,7 +229,7 @@ async def create_customer(
     current_user: User = Depends(require_customer_write),
 ):
     """Create new customer."""
-    customer = Customer(**data.model_dump())
+    customer = Customer(**data.model_dump(), created_by=current_user.id)
     db.add(customer)
     await db.flush()
     resp = CustomerResponse.model_validate(customer).model_dump()
@@ -334,11 +354,8 @@ async def update_customer(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_customer_write),
 ):
-    """Update customer."""
-    result = await db.execute(select(Customer).where(Customer.id == customer_id))
-    customer = result.scalar_one_or_none()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Khách hàng không tồn tại")
+    """Update customer — chỉ khách trong phạm vi mình được xem."""
+    customer = await _khach_trong_pham_vi(db, customer_id, current_user)
 
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(customer, k, v)

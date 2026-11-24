@@ -309,11 +309,15 @@ async def _stage_progress_map(db: AsyncSession, project_ids: list[str]) -> dict[
     return progress
 
 
-def dieu_kien_pham_vi_du_an(current_user: User):
+def dieu_kien_pham_vi_du_an(current_user: User, gom_chua_phan_cong: bool = True):
     """Điều kiện SQL «dự án người này được thấy» — None nghĩa là thấy tất cả.
 
     Dùng chung cho danh sách, Kanban (feedback 21/10: nhân viên thấy toàn bộ
     dự án trên Kanban) và bot Telegram (chọn dự án bằng nút bấm).
+
+    `gom_chua_phan_cong=False` (danh sách Khách hàng, 24/11): bỏ nhánh «dự án chưa
+    phân công PIC nào thì ai cũng xem» — khách của dự án vô chủ không phải «khách
+    của tôi».
     """
     pham_vi = pham_vi_du_an(current_user)
     if pham_vi == "tat_ca":
@@ -326,9 +330,10 @@ def dieu_kien_pham_vi_du_an(current_user: User):
         Project.sales_id == current_user.id,
         Project.purchasing_id == current_user.id,
         Project.id.in_(du_an_co_task),
-        # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
-        _dieu_kien_chua_phan_cong(),
     ]
+    if gom_chua_phan_cong:
+        # Dự án chưa phân công PIC nào: giữ nguyên như trước, ai cũng xem được.
+        dieu_kien.append(_dieu_kien_chua_phan_cong())
     if pham_vi in ("phong_ban", "nhom"):
         # Trưởng phòng: mọi dự án có PIC thuộc BỘ PHẬN mình.
         # Trưởng nhóm: hẹp hơn một bậc — PIC phải cùng NHÓM (22/09).

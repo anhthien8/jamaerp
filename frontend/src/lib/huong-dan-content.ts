@@ -331,7 +331,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         "type": "steps",
         "items": [
-          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới.",
+          "Muốn đổi giai đoạn: **kéo thẻ** sang cột khác và thả. Hoặc bấm vào thẻ, cuộn xuống phần «Chuyển giai đoạn» rồi bấm nút giai đoạn mới. Chưa rõ giai đoạn nào nghĩa là gì: rê chuột lên nút (hoặc chạm icon «i» cạnh tiêu đề) để xem ghi chú.",
           "Kéo thẻ vào cột **«Mất»**: thẻ chi tiết tự mở kèm ô chọn lý do (Ngân sách không phù hợp / Đã chọn đối thủ / Không phản hồi / Thay đổi kế hoạch / Lý do khác). Chọn xong bấm **«Xác nhận mất lead»** — không chọn lý do thì không chuyển được.",
           "Thêm khách mới: bấm nút **«+ Thêm Lead»** màu vàng ở góc phải trên.",
           "Cột đông khách chỉ hiện 25 thẻ đầu (số trên đầu cột vẫn là tổng thật). Cuộn xuống cuối cột, bấm **«Hiện thêm … thẻ»** để xem tiếp, bấm **«Thu gọn»** để gọn lại."
@@ -347,7 +347,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "Thẻ có nhãn đỏ «Quá hạn» nghĩa là đã lâu chưa ai đụng tới khách này (khách mới: quá 3 ngày; đang quan tâm, đã hẹn khảo sát: quá 7 ngày; đã khảo sát: quá 5 ngày; tiềm năng: quá 14 ngày) — ưu tiên gọi lại ngay. Khách đã có **hẹn tiếp** hoặc **ngày khảo sát** còn ở phía trước được tính là đang được chăm: không có nhãn này, bot không nhắc và hệ thống không thu hồi. Qua giờ hẹn thì đếm lại từ lúc hẹn."
+        "text": "Thẻ có nhãn đỏ «Quá hạn» nghĩa là khách đã quá hạn chăm của bước đang đứng (Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày) — ưu tiên gọi lại ngay. Điểm KPI «chăm đúng hạn» dùng đúng các hạn này. Khách đã có **hẹn tiếp** hoặc **ngày khảo sát** còn ở phía trước được tính là đang được chăm: không có nhãn này, bot không nhắc, hệ thống không thu hồi và KPI không tính trễ. Qua giờ hẹn thì đếm lại từ lúc hẹn."
       }
     ]
   },
@@ -711,15 +711,21 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Trang này là **hồ sơ khách hàng chính thức** — khách tự động xuất hiện ở đây khi lead ký hợp đồng (khách đang tư vấn thì nằm bên mục «Quy trình»). Ai cũng xem được; còn **thêm/sửa** hồ sơ thì chỉ một số vai trò có nút."
+        "text": "Trang này là **hồ sơ khách hàng chính thức** — khách tự động xuất hiện ở đây khi lead ký hợp đồng (khách đang tư vấn thì nằm bên mục «Quy trình»). **Mỗi người chỉ thấy khách của mình**: nhân viên thấy khách mình chăm sóc, trưởng nhóm thấy khách của nhóm, trưởng phòng thấy khách của cả phòng; Ban giám đốc, Kế toán và Admin CSKH thấy toàn bộ. **Thêm/sửa** hồ sơ thì chỉ một số vai trò có nút, và cũng chỉ sửa được khách trong phạm vi mình thấy."
+      },
+      {
+        "type": "p",
+        "text": "**Người chăm sóc** của một khách do ERP tự xác định: sale đang giữ lead của khách → nếu không có thì sale phụ trách dự án → nếu vẫn không có thì người đã tạo hồ sơ. Muốn đổi người chăm sóc thì đổi người phụ trách lead (mục «Quy trình») hoặc sale của dự án."
       },
       {
         "type": "list",
         "items": [
           "Ô tìm kiếm: gõ **tên, SĐT hoặc email** là ra ngay.",
           "Ô lọc bên cạnh: **Tất cả loại KH / Cá nhân / Doanh nghiệp**.",
-          "Bảng danh sách hiện: Tên, Loại, SĐT, Email, **Doanh thu** (tổng giá trị các dự án khách đã mang lại, bỏ dự án hủy) và **Số HĐ**. Khách sắp sinh nhật (trong 7 ngày) có nhãn vàng «Sinh nhật còn N ngày».",
-          "Bấm vào 1 khách → cửa sổ chi tiết: SĐT, email, địa chỉ, mã số thuế, ghi chú nội bộ, và **danh sách dự án** của khách kèm % tiến độ từng dự án."
+          "Bảng danh sách hiện: Tên, Loại, SĐT, **Người chăm sóc**, **Doanh thu** kèm nhãn trạng thái và **Số HĐ**. Khách sắp sinh nhật (trong 7 ngày) có nhãn vàng «Sinh nhật còn N ngày».",
+          "Nhãn cạnh doanh thu: **«Đã chốt»** = deal đã thắng, số tiền là tổng giá trị các dự án của khách (bỏ dự án hủy). **«Đang chốt»** = đã gửi báo giá / đang đàm phán. **«Tiềm năng»** = còn đang tư vấn, khảo sát. Hai nhãn sau hiện **số dự kiến** lấy từ lead — chưa phải doanh thu. Ngoài ra có «Đã mất» và «Đã hủy».",
+          "**Bấm vào số điện thoại là gọi luôn** (trên điện thoại mở trình gọi, trên máy tính mở ứng dụng gọi nếu có). Số đang bị che dạng `091***` thì không bấm gọi được.",
+          "Bấm vào 1 khách → cửa sổ chi tiết: người chăm sóc, doanh thu + trạng thái, rồi khối **Thông tin khách hàng** (họ tên, SĐT, địa chỉ, email, sinh nhật — mục nào còn thiếu ghi «Chưa có» để biết cần hỏi khách), và **danh sách dự án** kèm % tiến độ. **Bấm vào một dự án là mở thẳng chi tiết dự án đó.**"
         ]
       },
       {
@@ -875,7 +881,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Chỉ **admin** thấy. Trên **Tổng quan** có khối **«AI Tiến Hoá · 12 tuần»**; bấm **«Xem chi tiết»** hoặc vào menu **Kinh doanh → AI Tiến Hoá** để mở trang đầy đủ. Số liệu lấy từ việc sale bấm **«Đã làm»** hay **«Bỏ qua»** trên gợi ý của Co-Pilot."
+        "text": "Chỉ **admin** thấy. Trên **Tổng quan** có khối **«AI Tiến Hoá · 12 tuần»**; bấm **«Xem chi tiết»** hoặc vào menu **Trợ giúp → AI Tiến Hoá** để mở trang đầy đủ. Số liệu lấy từ việc sale bấm **«Đã làm»** hay **«Bỏ qua»** trên gợi ý của Co-Pilot."
       },
       {
         "type": "table",
@@ -1340,19 +1346,28 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "p",
-        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. Trang có 3 tab: **Của tôi**, **Đội nhóm**, **Bảng xếp hạng** — tab Đội nhóm chỉ hiện với Giám đốc, Trưởng phòng, Trưởng nhóm KD, Ban Quản Trị và Điều phối kinh doanh."
+        "text": "**Ai thấy mục KPI:** mọi vai trò trừ Kế toán / Nhân sự. Chọn kỳ bằng ô chọn tháng ở góc phải. KPI chấm cho **người gánh chỉ tiêu phòng Kinh doanh** (sale và trưởng nhóm KD). Nhân viên thấy tab **Của tôi** và **Bảng xếp hạng**; Trưởng phòng, Trưởng nhóm KD và Điều phối kinh doanh có thêm **Đội nhóm**; Giám đốc và Ban Quản Trị thấy **Toàn công ty**, **Đội nhóm**, **Bảng xếp hạng**."
       },
       {
         "type": "list",
         "items": [
-          "**Của tôi** — vòng tròn điểm KPI (xanh lá từ 80, vàng từ 60, đỏ dưới 60) kèm hạng của bạn trong đội và toàn công ty. Điểm gồm 3 nhóm: **Nỗ lực 30%** (hoạt động, SLA, tốc độ phản hồi), **Kết quả 50%** (số HĐ ký, giá trị, chuyển đổi), **Chất lượng 20%** (tỷ lệ bị thu hồi, mất khách).",
-          "**Đội nhóm** — bảng điểm từng thành viên: điểm, SLA, HĐ ký, hoạt động/ngày. Dành cho trưởng nhóm theo dõi cả đội.",
-          "**Bảng xếp hạng** — top 3 có huy chương 🥇🥈🥉; top 5 hiện tên, từ hạng 6 trở xuống ẩn danh («Nhân viên #n»). Dòng của bạn được viền vàng kèm nhãn «Bạn»."
+          "**Toàn công ty** (chỉ Giám đốc / Ban Quản Trị) — 4 ô số: doanh số thắng deal so với mục tiêu tính đến hôm nay, số deal và dự báo từ lead đang mở, điểm KPI trung bình kèm số người Đạt / Trung bình / Cần kèm, và lead trong kỳ (tiến bước, mất khách, quá hạn chăm). Bên dưới là **Điều cần chú ý** (ai quá tải, ai tụt điểm, bao nhiêu lead quá hạn chăm…), bảng **So sánh các nhóm** và **Cách tính điểm**.",
+          "**Của tôi** — vòng tròn điểm KPI (xanh lá từ 80, vàng từ 60, đỏ dưới 60) kèm hạng của bạn. Ngay dưới là khối **«Việc nên làm tiếp»**, xếp theo độ gấp: gọi lần đầu cho lead mới, liên hệ lại khách quá hạn chăm, các lead gần chốt nhất khi còn hụt mục tiêu, lead đã nói chuyện mà chưa chuyển bước. Mỗi việc ghi rõ tên khách, có nút **Gọi** và **Mở** thẻ lead, kèm số điểm có thể thêm nếu làm xong. Làm xong tải lại trang là điểm cập nhật. Cuối trang ghi từng thành phần đang được bao nhiêu điểm so với mốc nào.",
+          "**Đội nhóm** — bảng điểm từng người, **gom theo nhóm**: mỗi nhóm có dòng tiêu đề ghi tên nhóm, trưởng nhóm, điểm trung bình, doanh số, deal. Bấm tên cột để sắp xếp; bấm vào một người để xem điểm được tính từ đâu. Dưới tên là các cờ cần chú ý (quá tải, lead quá hạn chăm, tụt điểm…).",
+          "**Bảng xếp hạng** — top 3 có huy chương; nhân viên thấy tên top 5, từ hạng 6 trở xuống ẩn danh («Nhân viên #n»), dòng của bạn viền vàng kèm nhãn «Bạn». Giám đốc / Ban Quản Trị thấy đủ tên, kèm nhóm và mức tăng giảm so với kỳ trước."
         ]
       },
       {
+        "type": "p",
+        "text": "**Điểm tính thế nào (0–100).** **Kết quả 50%**: doanh số thắng deal so với mục tiêu (30%) và số deal thắng so với mục tiêu (20%) — mục tiêu đầu người lấy từ mục tiêu tháng ở Bảng điều khiển Kinh doanh, kỳ đang chạy thì chia theo số ngày đã qua. **Chăm khách 30%**: lead đang giữ được chăm đúng hạn của bước nó đang đứng — Tiếp nhận mới 3 ngày, Đang tư vấn 7 ngày, Đã khảo sát 5 ngày, Đã gửi báo giá 7 ngày, Đang đàm phán 14 ngày, trùng với nhãn «Quá hạn» ở trang Lead (15%, đạt 90% là đủ điểm; lead mới nhận hoặc đã có lịch khảo sát phía trước không tính trễ) và tốc độ phản hồi lead mới (15%, đếm từ lúc được giao, chỉ tính giờ làm việc T2–T7 8h–18h; trong 1 giờ là đủ điểm). **Chất lượng 20%**: tỷ lệ lead nhận trong kỳ tiến tới «Đang tư vấn» trở lên (10%, đạt 30% là đủ điểm) và tỷ lệ mất khách (10%, từ 10% trở xuống là đủ điểm)."
+      },
+      {
+        "type": "p",
+        "text": "Phần nào chưa đủ mẫu (nhận dưới 5 lead trong kỳ) thì **không chấm**, trọng số dồn sang phần còn lại. Số hoạt động ghi trên ERP chỉ hiển thị để tham khảo, **không tính điểm**. Doanh số lấy từ giá trị dự án sinh ra khi bấm Thắng deal — cùng nguồn với Hũ doanh số và Bảng điều khiển Kinh doanh."
+      },
+      {
         "type": "tip",
-        "text": "Chưa thấy điểm? KPI chỉ hiện khi kỳ đó bạn có lead hoặc công trình được gán. Thử lùi về tháng trước bằng ô chọn tháng."
+        "text": "Thấy dấu «—» thay cho điểm? Kỳ đó bạn chưa có lead hay deal nào để chấm — đó là «chưa có dữ liệu», không phải 0 điểm. Thử lùi về tháng trước bằng ô chọn tháng."
       },
       {
         "type": "p",
@@ -1987,7 +2002,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "tip",
-        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình."
+        "text": "**Việc của tôi** (menu bên trái) có 4 ô đếm: **Đến hạn hôm nay, Đã quá hạn, Đang chờ duyệt, Việc đang mở**. Bấm ô nào thì danh sách lọc theo ô đó. «Đang chờ duyệt» gồm đơn Phê duyệt chờ bạn và (với Leader Thu mua) đơn vật tư vượt báo giá; Giám sát thấy thêm hàng chờ nhận tại công trình. **Ban Giám đốc** thấy thêm khối **«Việc cần Ban Giám đốc quyết»** ở đầu trang: chỉ nêu việc đã vượt tầm người phụ trách trực tiếp, xếp theo độ gấp, mỗi việc kèm lý do, tên người hoặc dự án cụ thể và nút mở thẳng nơi xử lý. Các mốc đang dùng: đơn chờ duyệt kẹt quá 2 ngày; lead chưa có sale phụ trách quá 24 giờ; cả đội từ 5 lead quá hạn chăm; người giữ quá 25 lead (kèm gợi ý ai đang nhẹ để chuyển sang); doanh số dưới 70% mốc hôm nay (kèm các lead gần chốt giá trị lớn nhất); mục tiêu tháng gấp đôi doanh số tháng trước trở lên; người dưới 60 điểm KPI hai tháng liền; đầu việc dự án quá hạn hơn 3 ngày; dự án qua ngày bàn giao dự kiến; dự án tạm dừng quá 14 ngày; mẫu vật tư đang dùng chưa có giá chuẩn; bài học của trợ lý AI chờ duyệt. Xử lý xong thì mục tự biến mất; không có gì vượt mốc thì khối ghi rõ hôm nay không có việc cần quyết."
       },
       {
         "type": "tip",

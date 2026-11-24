@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import LineIcon from '@/components/ui/LineIcon';
-import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
+import InfoTip from '@/components/ui/InfoTip';
+import { NEEDS_LABELS, NGAN_SACH_LABELS, PLAN_TYPE_LABELS, PROPERTY_CLASS_LABELS, STAGE_CONFIG, STAGE_HINT, cn, formatCurrency, formatDealValue, formatPricePerSqm, timeAgo } from '@/lib/utils';
 import { dayKey, toDayKey } from '@/lib/date-filter';
 import { AnhLead, DONG_ANH } from '@/components/ui/AnhGhiChuLead';
 import { api, ApiError } from '@/lib/api';
@@ -680,24 +681,66 @@ export default function ChiTietLead({
           )}
 
           {/* Stage Actions */}
+          {/* Gọn lại 24/11: 1 hàng chip giai đoạn + 1 hàng «Mất lead / Ngủ đông» chung một vạch kẻ;
+              rê chuột lên chip hoặc chạm icon «i» để xem giai đoạn đó nghĩa là gì. */}
           <div className="glass-card p-4" ref={lostPickerRef}>
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">Chuyển giai đoạn</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 mb-2.5 text-[var(--text-muted)]">
+              <h3 className="text-xs font-semibold uppercase tracking-wide">Chuyển giai đoạn</h3>
+              <InfoTip text={
+                <div className="space-y-1">
+                  <p>Bấm một giai đoạn để chuyển lead. Mỗi lần chuyển đều ghi vào Lịch sử hoạt động.</p>
+                  {[...STAGES, 'lost', 'dormant'].map(s => (
+                    <p key={s}><b>{STAGE_CONFIG[s]?.label}:</b> {STAGE_HINT[s]}</p>
+                  ))}
+                </div>
+              } />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
               {STAGES.filter(s => s !== selectedLead.stage).map(stage => (
-                <button
-                  key={stage}
-                  onClick={() => handleStageChange(selectedLead, stage)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-                  style={{
-                    background: `${STAGE_CONFIG[stage]?.color}15`,
-                    color: STAGE_CONFIG[stage]?.color,
-                    border: `1px solid ${STAGE_CONFIG[stage]?.color}30`,
-                  }}
-                >
-                  <LineIcon name={STAGE_CONFIG[stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[stage]?.label}
-                </button>
+                <InfoTip key={stage} text={STAGE_HINT[stage]}>
+                  <button
+                    onClick={() => handleStageChange(selectedLead, stage)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all hover:opacity-80"
+                    // Màu giai đoạn là biến CSS (var(--stage-x)) → «var(...)15» là CSS hỏng, nền/viền
+                    // mất hẳn. Pha độ trong bằng color-mix.
+                    style={{
+                      background: `color-mix(in srgb, ${STAGE_CONFIG[stage]?.color} 10%, transparent)`,
+                      color: STAGE_CONFIG[stage]?.color,
+                      border: `1px solid color-mix(in srgb, ${STAGE_CONFIG[stage]?.color} 30%, transparent)`,
+                    }}
+                  >
+                    <LineIcon name={STAGE_CONFIG[stage]?.icon || "info"} size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />{STAGE_CONFIG[stage]?.label}
+                  </button>
+                </InfoTip>
               ))}
             </div>
+            {/* Hàng thoát khỏi phễu: Mất lead + Ngủ đông chung một hàng. Ẩn khi đang mở ô nhập lý do. */}
+            {!lostPickerOpen && !dormantReason && selectedLead.stage !== 'lost' && (
+              <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                {selectedLead.stage !== 'lost' && (
+                  <InfoTip text={STAGE_HINT.lost}>
+                    <button
+                      onClick={() => setLostPickerOpen(true)}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium transition-all hover:opacity-80"
+                      style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                    >
+                      <LineIcon name="xCircle" size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />Mất lead
+                    </button>
+                  </InfoTip>
+                )}
+                {selectedLead.stage !== 'dormant' && selectedLead.stage !== 'lost' && selectedLead.stage !== 'signed_design' && (
+                  <InfoTip text={STAGE_HINT.dormant}>
+                    <button
+                      onClick={() => setDormantReason('__pending__')}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium transition-all hover:opacity-80"
+                      style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
+                    >
+                      <LineIcon name="moon" size={12} color="currentColor" className="inline-block align-[-1px] mr-1" />Ngủ đông
+                    </button>
+                  </InfoTip>
+                )}
+              </div>
+            )}
             {/* Lost reason selector — visible before confirming lost */}
             {selectedLead.stage !== 'lost' && (
               <LostReasonSelector
@@ -713,18 +756,8 @@ export default function ChiTietLead({
                 (QC 05/09: nút chỉ validate, không tạo được). Khách im lặng dài hạn ≠ mất hẳn.
                 Lý do là tuỳ chọn nhưng nên ghi: backend lưu activity type stage_change
                 kèm note, giúp leader hiểu tại sao lead bị cất đi. */}
-            {selectedLead.stage !== 'dormant' && selectedLead.stage !== 'lost' && selectedLead.stage !== 'signed_design' && (
+            {dormantReason && selectedLead.stage !== 'dormant' && selectedLead.stage !== 'lost' && selectedLead.stage !== 'signed_design' && (
               <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                {!dormantReason ? (
-                  <button
-                    onClick={() => setDormantReason('__pending__')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-                    style={{ background: 'rgba(107,114,128,0.12)', color: '#9CA3AF', border: '1px solid rgba(107,114,128,0.3)' }}
-                    title="Khách tạm im lặng nhưng chưa mất — cất vào Ngủ đông, sau này đánh thức lại được"
-                  >
-                    <LineIcon name="moon" size={14} color="currentColor" className="inline-block align-[-2px] mr-1.5" />Chuyển sang Ngủ đông
-                  </button>
-                ) : (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-gray-400">Lý do ngủ đông (tuỳ chọn):</p>
                     <input
@@ -751,7 +784,6 @@ export default function ChiTietLead({
                       </button>
                     </div>
                   </div>
-                )}
               </div>
             )}
           </div>

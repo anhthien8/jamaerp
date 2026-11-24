@@ -286,3 +286,28 @@ async def test_endpoint_ban_tin_cho_briefing(client, db_session, sale, sale_khac
     assert "<b>Cần gọi (1)</b>" in r.json()["text"] and r.json()["reply_markup"]["inline_keyboard"]
     r = await client.get("/api/v1/telegram/ban-tin", headers=auth_header(sale_khac))
     assert r.json() == {"text": None, "reply_markup": None}
+
+
+# ── KPI bản 2 (main) tính hẹn tiếp của R00 ───────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_kpi_hen_tiep_phia_truoc_hoac_vua_qua_khong_tinh_tre(db_session, sale):
+    """KPI «chăm đúng hạn» và «Việc nên làm tiếp»: có hẹn tiếp phía trước (hoặc vừa qua, còn
+    trong hạn) = đang chăm — cùng luật nhắc của bot và nhãn «Quá hạn» trên web."""
+    from app.services.attendance_service import VN_TZ
+    from app.services.kpi_engine import compute_kpi
+
+    nay = datetime.now(timezone.utc)
+    ky = nay.astimezone(VN_TZ).strftime("%Y-%m")
+    cu = nay - timedelta(days=40)
+    gio_vn = gio_vn_naive()
+    for ten, hen in (("Hẹn tới", gio_vn + timedelta(days=2)), ("Vừa hẹn hôm qua", gio_vn - timedelta(days=1)),
+                     ("Hẹn từ tháng trước", gio_vn - timedelta(days=30)), ("Bỏ quên", None)):
+        db_session.add(Lead(id=_uid(), name=ten, phone="0920000009", assigned_to=sale.id, stage="interested",
+                            created_at=cu, last_contacted_at=cu, hen_tiep_luc=hen))
+    await db_session.flush()
+
+    m = (await compute_kpi(db_session, sale.id, ky))["metrics"]
+    assert m["lead_dang_giu"] == 4
+    assert m["lead_tre_cham"] == 2  # «Hẹn từ tháng trước» và «Bỏ quên»

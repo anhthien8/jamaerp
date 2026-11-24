@@ -553,6 +553,11 @@ class ApiClient {
     return this.request<ViecCuaToi[]>('/projects/tasks/mine');
   }
 
+  /** Việc cần Ban Giám đốc quyết — chỉ admin/executive gọi được (vai khác nhận 403). */
+  async viecBgd() {
+    return this.request<{ viec: ViecBgd[] }>('/dashboard/viec-bgd');
+  }
+
   async updateTaskStatus(taskId: string, status: string) {
     return this.request<ProjectTask>(`/projects/tasks/${taskId}/status`, {
       method: 'PUT',
@@ -1517,12 +1522,15 @@ class ApiClient {
 
   // ── KPI ──
   async getKpiMe(period?: string) {
-    return this.request<{ period: string; score: number; metrics: { activity_rate: number; sla_compliance: number; first_touch_hours: number; signed_count: number; signed_value: number; stage_conversion: number; pipeline_value_weighted: number; recall_rate: number; lost_no_response_rate: number }; rank_in_team: number | null; rank_overall: number | null }>(
-      '/kpi/me', { params: period ? { period } : undefined });
+    return this.request<KpiCuaToi>('/kpi/me', { params: period ? { period } : undefined });
   }
   async getKpiTeam(period?: string) {
-    return this.request<{ period: string; members: Array<{ user_id: string; name: string; score: number; metrics: { activity_rate: number; sla_compliance: number; first_touch_hours: number; signed_count: number; signed_value: number; stage_conversion: number; pipeline_value_weighted: number; recall_rate: number; lost_no_response_rate: number } }> }>(
+    return this.request<{ period: string; members: KpiNhanVien[]; cong_thuc: KpiCongThuc }>(
       '/kpi/team', { params: period ? { period } : undefined });
+  }
+  /** Góc nhìn BGĐ: cả công ty + từng nhóm + từng người trong một lần gọi. */
+  async getKpiTongQuan(period?: string) {
+    return this.request<KpiTongQuan>('/kpi/tong-quan', { params: period ? { period } : undefined });
   }
   async getKpiLeaderboard(period?: string) {
     return this.request<{ leaderboard: Array<{ rank: number; score: number; name: string | null; is_me: boolean }> }>(
@@ -2391,6 +2399,12 @@ export interface Customer {
   so_hop_dong?: number;
   so_du_an?: number;
   sinh_nhat_con_ngay?: number | null;
+  /** Người chăm sóc: sale của lead → sale dự án → người tạo hồ sơ. */
+  cham_soc_id?: string | null;
+  cham_soc_ten?: string | null;
+  /** `doanh_thu` chỉ gồm phần đã chốt; `doanh_thu_du_kien` là giá trị lead khi chưa có dự án. */
+  trang_thai_doanh_thu?: 'da_chot' | 'dang_chot' | 'tiem_nang' | 'da_mat' | 'da_huy' | null;
+  doanh_thu_du_kien?: number;
 }
 
 export type NhomMau = 'hop_dong' | 'bien_ban' | 'thanh_toan' | 'phu_luc' | 'khac';
@@ -3196,6 +3210,18 @@ export async function fetchAllPages<T>(
 // Export singleton instance
 export const api = new ApiClient(API_BASE);
 
+/** Một việc cần BGĐ quyết: có số, lý do, đường tới nơi xử lý và vài dòng tên cụ thể. */
+export interface ViecBgd {
+  ma: string;
+  muc: 'do' | 'vang' | 'xam';
+  tieu_de: string;
+  ly_do: string;
+  nut: string;
+  href: string;
+  tong: number;
+  dong: { ten: string; phu: string; href: string }[];
+}
+
 export interface ViecCuaToi {
   id: string; title: string; status: string; stage: string;
   project_id: string; project_code: string; project_name: string; han: string | null;
@@ -3207,4 +3233,79 @@ export interface ThongKeKhaoSat {
   da_ky: number;
   ty_le: number;
   theo_nguoi: { user_id: string | null; ten: string; khao_sat: number; da_ky: number; ty_le: number }[];
+}
+
+// ── KPI (công thức bản 2 — backend/app/services/kpi_engine.py) ──
+export interface KpiThanhPhan {
+  ma: string; ten: string; tru: string; trong_so: number;
+  gia_tri: number | null; moc: number | null; diem: number | null; ly_do: string | null;
+}
+export interface KpiMetrics {
+  phien_ban?: number;
+  tinh_luc?: string;
+  chua_du_lieu?: boolean;
+  do_phu?: number;
+  tru_cot?: Record<string, number | null>;
+  thanh_phan?: KpiThanhPhan[];
+  doanh_so?: number;
+  muc_tieu_doanh_so?: number;
+  muc_tieu_tien_do?: number;
+  dat_muc_tieu_pct?: number | null;
+  deal_thang?: number;
+  lead_nhan?: number;
+  lead_dang_giu?: number;
+  lead_tre_cham?: number;
+  ty_le_cham_dung_han?: number | null;
+  gio_phan_hoi?: number | null;
+  ty_le_tien_buoc?: number | null;
+  ty_le_mat?: number | null;
+  du_bao?: number;
+  hoat_dong?: number;
+  ngay_cong?: number;
+}
+export interface KpiCanhBao { ma: string; muc: 'do' | 'vang' | 'xanh' | 'xam'; noi_dung: string }
+export interface KpiNhanVien {
+  user_id: string; name: string; team_id: string | null; ten_nhom: string | null;
+  la_truong_nhom: boolean; score: number; score_truoc: number | null; delta: number | null;
+  metrics: KpiMetrics; rank_in_team: number | null; rank_overall: number | null;
+  canh_bao: KpiCanhBao[];
+}
+export interface KpiTomTat {
+  so_nguoi: number; doanh_so: number; muc_tieu_thang: number; muc_tieu_tien_do: number;
+  dat_pct: number | null; deal: number; lead_nhan: number; ty_le_tien_buoc: number | null;
+  ty_le_mat: number | null; lead_dang_giu: number; lead_tre_cham: number; du_bao: number;
+  diem_tb: number | null;
+  phan_bo: { dat: number; trung_binh: number; can_kem: number; chua_du_lieu: number };
+}
+export interface KpiCongThuc {
+  phien_ban: number;
+  tru_cot: Array<{ ma: string; ten: string; trong_so: number }>;
+  thanh_phan: Array<{ ma: string; ten: string; tru: string; trong_so: number }>;
+  moc: Record<string, number>;
+  /** Hạn chăm theo bước lead (ngày) — cùng bảng với nhãn «Quá hạn» ở trang Lead. */
+  han_cham?: Record<string, number>;
+}
+export interface KpiViecLead { id: string; ten: string; sdt: string | null; stage: string; ghi_chu: string | null }
+/** Một việc nên làm tiếp của chính người đang xem — gắn lead cụ thể để bấm là làm được. */
+export interface KpiViec {
+  ma: string; muc: 'do' | 'vang' | 'xanh' | 'xam'; tieu_de: string; ly_do: string;
+  diem_them: number | null; tong_lead: number; lead: KpiViecLead[];
+}
+export interface KpiCuaToi {
+  period: string; score: number; metrics: KpiMetrics;
+  rank_in_team: number | null; rank_overall: number | null;
+  thuoc_doi: boolean;
+  tien_do: { ngay_da_qua: number; so_ngay: number; dang_chay: boolean };
+  viec_tiep: KpiViec[];
+  cong_thuc: KpiCongThuc;
+}
+export interface KpiTongQuan {
+  period: string; ky_truoc: string;
+  tien_do: { ngay_da_qua: number; so_ngay: number; dang_chay: boolean };
+  tinh_luc: string | null;
+  tong: KpiTomTat & { doanh_so_truoc: number | null; deal_truoc: number | null; diem_tb_truoc: number | null };
+  nhom: Array<KpiTomTat & { team_id: string | null; ten: string; truong_nhom: string | null }>;
+  nhan_vien: KpiNhanVien[];
+  can_chu_y: Array<{ muc: 'do' | 'vang' | 'xanh' | 'xam'; tieu_de: string; chi_tiet: string }>;
+  cong_thuc: KpiCongThuc;
 }

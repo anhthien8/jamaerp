@@ -5,12 +5,13 @@ Hẹn còn ở tương lai → job nhắc chăm sóc và thu hồi lead bỏ qua
 Naive giờ VN như `survey_date`. Cột trống với mọi lead cũ → không đổi gì khi chạy.
 
 Revision ID: a27_2026b006
-Revises: a29_2026b008
+Revises: a30_2026b009
 Create Date: 2026-11-14
 
-Nối SAU a29 (24/11/2026): a28 (chuẩn hoá NFC) và a29 (vật tư NCC đợt 1) vào main trước,
-cùng từ a26 như migration này → trỏ down_revision vào head của main để chuỗi một đường
-thẳng (a26 → a28 → a29 → a27). Mã a27 giữ nguyên vì chưa môi trường nào chạy nó.
+Nối SAU a30 (24/11/2026): a28 (chuẩn hoá NFC), a29 (vật tư NCC đợt 1), a30 (khách hàng
+người tạo) vào main trước, cùng từ a26 như migration này → trỏ down_revision vào head của
+main để chuỗi một đường thẳng (a26 → a28 → a29 → a30 → a27). Mã a27 giữ nguyên vì chưa
+môi trường nào chạy nó.
 """
 from typing import Sequence, Union
 
@@ -19,7 +20,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'a27_2026b006'
-down_revision: Union[str, Sequence[str], None] = 'a29_2026b008'
+down_revision: Union[str, Sequence[str], None] = 'a30_2026b009'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

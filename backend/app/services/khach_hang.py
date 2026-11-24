@@ -40,9 +40,23 @@ class CccdError(Exception):
 
 # ── Doanh thu + số hợp đồng ────────────────────────────────────────────────
 
+# Trạng thái doanh thu của một khách (24/11/2026) — suy từ dự án rồi tới lead:
+#   da_chot   — có dự án chưa hủy (deal thắng mới sinh dự án)
+#   dang_chot — chưa có dự án, lead ở «Đã gửi báo giá» / «Đang đàm phán»
+#   tiem_nang — chưa có dự án, lead còn ở các bước trước đó (hoặc ngủ đông)
+#   da_mat    — lead đã mất;  da_huy — mọi dự án đều đã hủy
+_LEAD_DANG_CHOT = ("survey_scheduled", "potential")
+
+
 async def thong_ke_khach(db: AsyncSession, khach: list[Customer]) -> dict[str, dict]:
-    """{customer_id: {doanh_thu, so_hop_dong, so_du_an}} cho danh sách khách."""
-    kq = {c.id: {"doanh_thu": 0.0, "so_hop_dong": 0, "so_du_an": 0} for c in khach}
+    """{customer_id: {doanh_thu, so_hop_dong, so_du_an, trang_thai_doanh_thu,
+    doanh_thu_du_kien}} cho danh sách khách.
+
+    `doanh_thu` chỉ gồm phần ĐÃ CHỐT (dự án chưa hủy). `doanh_thu_du_kien` là giá
+    trị lead khi khách chưa có dự án — số ước lượng của sale, chưa phải tiền.
+    """
+    kq = {c.id: {"doanh_thu": 0.0, "so_hop_dong": 0, "so_du_an": 0,
+                 "trang_thai_doanh_thu": None, "doanh_thu_du_kien": 0.0} for c in khach}
     if not khach:
         return kq
     theo_lead = {c.lead_id: c.id for c in khach if c.lead_id}
@@ -52,13 +66,17 @@ async def thong_ke_khach(db: AsyncSession, khach: list[Customer]) -> dict[str, d
         dk = dk | Project.lead_id.in_(list(theo_lead.keys()))
     du_an = (await db.execute(
         select(Project.id, Project.customer_id, Project.lead_id, Project.total_value,
-               Project.design_value, Project.construction_value)
-        .where(dk, Project.status != "cancelled")
+               Project.design_value, Project.construction_value, Project.status)
+        .where(dk)
     )).all()
     du_an_cua: dict[str, str] = {}
-    for pid, cid, lid, tong, tk, tc in du_an:
+    co_du_an_huy: set[str] = set()
+    for pid, cid, lid, tong, tk, tc, trang_thai in du_an:
         chu = cid if cid in kq else theo_lead.get(lid)
         if not chu:
+            continue
+        if trang_thai == "cancelled":
+            co_du_an_huy.add(chu)
             continue
         du_an_cua[pid] = chu
         kq[chu]["so_du_an"] += 1
@@ -71,6 +89,32 @@ async def thong_ke_khach(db: AsyncSession, khach: list[Customer]) -> dict[str, d
         )).scalars().all()
         for pid in hd:
             kq[du_an_cua[pid]]["so_hop_dong"] += 1
+
+    lead_cua: dict[str, tuple] = {}
+    if theo_lead:
+        rows = (await db.execute(
+            select(Lead.id, Lead.stage, Lead.deal_value, Lead.design_contract_value, Lead.estimated_budget)
+            .where(Lead.id.in_(list(theo_lead.keys())))
+        )).all()
+        lead_cua = {theo_lead[r[0]]: r[1:] for r in rows}
+    for cid, tk_khach in kq.items():
+        if tk_khach["so_du_an"]:
+            tk_khach["trang_thai_doanh_thu"] = "da_chot"
+            continue
+        if cid in co_du_an_huy:
+            tk_khach["trang_thai_doanh_thu"] = "da_huy"
+            continue
+        if cid not in lead_cua:
+            continue
+        stage, deal, hd_tk, ngan_sach = lead_cua[cid]
+        if stage == "lost":
+            tk_khach["trang_thai_doanh_thu"] = "da_mat"
+            continue
+        tk_khach["trang_thai_doanh_thu"] = (
+            "da_chot" if stage == "signed_design"
+            else "dang_chot" if stage in _LEAD_DANG_CHOT else "tiem_nang"
+        )
+        tk_khach["doanh_thu_du_kien"] = float(deal or 0) or float(hd_tk or 0) or float(ngan_sach or 0)
     return kq
 
 
@@ -167,7 +211,7 @@ def _sinh_nhat_nam(bd: date, nam: int) -> date:
 
 
 async def sale_phu_trach(db: AsyncSession, khach: list[Customer]) -> dict[str, str]:
-    """{customer_id: user_id}: sale của lead, không có thì sale dự án mới nhất."""
+    """{customer_id: user_id}: sale của lead → sale dự án mới nhất → người tạo hồ sơ."""
     kq: dict[str, str] = {}
     lead_ids = [c.lead_id for c in khach if c.lead_id]
     if lead_ids:
@@ -185,7 +229,21 @@ async def sale_phu_trach(db: AsyncSession, khach: list[Customer]) -> dict[str, s
         )).all()
         for cid, sid in rows:
             kq.setdefault(cid, sid)
+    for c in khach:
+        if c.id not in kq and c.created_by:
+            kq[c.id] = c.created_by
     return kq
+
+
+async def nguoi_cham_soc(db: AsyncSession, khach: list[Customer]) -> dict[str, dict]:
+    """{customer_id: {cham_soc_id, cham_soc_ten}} — để màn Khách hàng ghi rõ khách của ai."""
+    theo = await sale_phu_trach(db, khach)
+    if not theo:
+        return {}
+    ten = dict((await db.execute(
+        select(User.id, User.full_name).where(User.id.in_(set(theo.values())))
+    )).all())
+    return {cid: {"cham_soc_id": uid, "cham_soc_ten": ten.get(uid)} for cid, uid in theo.items()}
 
 
 async def nhac_sinh_nhat(db: AsyncSession, hom_nay: date) -> int:
@@ -248,7 +306,7 @@ def sinh_nhat_sap_toi(bd: date | None, hom_nay: date) -> int | None:
 
 
 __all__ = ["thong_ke_khach", "doc_cccd", "chuan_hoa_cccd", "nhac_sinh_nhat", "sinh_nhat_sap_toi",
-           "CccdError", "sale_phu_trach"]
+           "CccdError", "sale_phu_trach", "nguoi_cham_soc"]
 
 
 async def tim_hoac_tao_khach(db: AsyncSession, lead: Lead) -> Customer:

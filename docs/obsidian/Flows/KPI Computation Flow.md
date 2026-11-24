@@ -1,5 +1,34 @@
 # Flow: KPI Computation (Quy trình Tính KPI)
 
+> **Bản 2 — 24/11/2026.** Phần «Monthly KPI Snapshot Flow» bên dưới mô tả bản 1 (hệ số tự đặt), giữ lại để tra lịch sử.
+> Nguồn sự thật: `backend/app/services/kpi_engine.py` (hằng số đầu file) và mục `bao-cao-kpi` trong `frontend/src/lib/huong-dan-content.ts`.
+
+## Bản 2: điểm bám mục tiêu
+
+```mermaid
+flowchart TD
+    A["tinh_kpi_ky(period) — cả đội một lượt"] --> B["Người được chấm: sale + trưởng nhóm KD<br/>(không BGĐ, không Điều phối KD)"]
+    B --> C["Kết quả 50%<br/>doanh số 30 + deal 20<br/>so mục tiêu đầu người, chia theo ngày đã qua"]
+    B --> D["Chăm khách 30%<br/>chăm đúng hạn theo bước 3/7/5/7/14 ngày<br/>phản hồi lead mới theo giờ làm việc"]
+    B --> E["Chất lượng 20%<br/>tiến bước · mất khách"]
+    C & D & E --> F["Thành phần thiếu mẫu (<5 lead) → không chấm, dồn trọng số"]
+    F --> G["KpiSnapshot (phien_ban 2)<br/>kỳ đang chạy chụp lại ≤10 phút/lần"]
+```
+
+- Doanh số = Project tạo từ lead (cùng nguồn Chế độ thưởng / Bảng điều khiển KD).
+- «Quá hạn chăm» dùng đúng bảng `HAN_CHAM_THEO_BUOC` = `OVERDUE_DAYS_BY_STAGE` của trang Lead.
+- `/kpi/me` kỳ đang chạy tính tại chỗ + `viec_tiep` (`_viec_tiep`): gọi lead mới → liên hệ lại khách quá hạn → lead gần chốt khi hụt mục tiêu → lead chưa chuyển bước → quá tải → xem lại lead mất.
+- `/kpi/tong-quan` (BGĐ): tổng công ty, so nhóm, «Điều cần chú ý» kèm tên.
+
+## Việc cần Ban Giám đốc quyết (`/dashboard/viec-bgd`)
+
+`services/viec_bgd.py`, hiện đầu trang «Việc của tôi» cho admin/executive. Mỗi mục chỉ xuất hiện khi vượt mốc (hằng số đầu file):
+đơn chờ duyệt > 2 ngày · lead chưa giao > 24h · ≥5 lead quá hạn chăm (dồn ở ai) · người giữ > 25 lead (+ ai đang nhẹ) ·
+doanh số < 70% mốc hôm nay (+ lead gần chốt lớn nhất) · mục tiêu ≥ 2× doanh số tháng trước · < 60 điểm hai kỳ ·
+việc dự án trễ > 3 ngày · dự án qua ngày bàn giao · tạm dừng > 14 ngày · mẫu vật tư chưa giá chuẩn (admin) · bài học AI chờ duyệt (admin).
+Mỗi nguồn chạy trong try riêng: một nguồn lỗi chỉ mất mục đó.
+
+
 ## Monthly KPI Snapshot Flow
 
 ```mermaid

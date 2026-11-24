@@ -49,6 +49,66 @@ export const RELEASES: Release[] = [
   },
   {
     date: '24/11/2026',
+    title: 'Khách hàng: mỗi người chỉ thấy khách của mình, ghi rõ ai chăm sóc, bấm số là gọi',
+    tag: 'ĐỔI QUYỀN',
+    news: [
+      'ĐỔI QUYỀN XEM: ở menu «Khách hàng», nhân viên chỉ còn thấy khách mình chăm sóc; trưởng nhóm thấy khách của nhóm; trưởng phòng thấy khách của cả phòng. Ban giám đốc, Kế toán và Admin CSKH vẫn thấy toàn bộ. Danh sách của bạn ngắn lại là đúng, không phải mất dữ liệu.',
+      'Mỗi khách ghi rõ «Người chăm sóc» — ở bảng danh sách và trong cửa sổ chi tiết. App tự lấy theo sale đang giữ lead của khách, không có thì lấy sale của dự án, không có nữa thì lấy người tạo hồ sơ.',
+      'Doanh thu có nhãn trạng thái: «Đã chốt» (deal đã thắng), «Đang chốt» (đã gửi báo giá / đang đàm phán), «Tiềm năng» (còn tư vấn, khảo sát). Hai nhãn sau hiện số dự kiến, chưa phải doanh thu.',
+      'Bấm vào số điện thoại là gọi luôn. Bấm vào một dự án trong cửa sổ khách là mở thẳng chi tiết dự án đó.',
+      'Cửa sổ chi tiết khách luôn hiện đủ Họ tên, SĐT, Địa chỉ, Email, Sinh nhật — mục nào thiếu ghi «Chưa có» để bạn biết cần hỏi khách.',
+    ],
+    fixes: [
+      'Sale bấm vào khách của chính mình không còn bị mất khối «Dự án».',
+      'Không còn sửa được hồ sơ của khách không thuộc phạm vi mình thấy.',
+    ],
+    test: [
+      'Sale: mở «Khách hàng» → chỉ thấy khách của mình; cột «Người chăm sóc» ghi tên bạn.',
+      'Trưởng phòng: mở «Khách hàng» → thấy khách của mọi người trong phòng, mỗi dòng ghi tên người chăm sóc.',
+      'Mở 1 khách trên điện thoại → bấm số điện thoại → máy mở màn hình gọi. Bấm thẻ dự án → vào chi tiết dự án.',
+    ],
+  },
+  {
+    date: '24/11/2026',
+    title: 'KPI: góc nhìn Giám đốc toàn công ty, bảng Đội nhóm gom theo nhóm, điểm bám mục tiêu',
+    tag: 'MỚI',
+    news: [
+      'Ban Giám đốc: trang «Việc của tôi» có thêm khối «Việc cần Ban Giám đốc quyết» ở đầu. Mỗi mục là một việc đã vượt tầm người phụ trách (đơn kẹt duyệt quá 2 ngày, lead chưa ai nhận, lead quá hạn dồn ở ai, người quá tải, doanh số hụt mốc, dự án trễ bàn giao…), kèm lý do, tên cụ thể và nút mở thẳng nơi xử lý. Không có gì vượt mốc thì khối báo hôm nay không có việc cần quyết.',
+      'Tab «Của tôi» có khối «Việc nên làm tiếp»: gọi lần đầu cho lead mới, liên hệ lại khách quá hạn chăm, các lead gần chốt nhất khi còn hụt mục tiêu. Mỗi việc ghi tên khách, có nút Gọi và Mở thẻ lead, kèm số điểm có thể thêm nếu làm xong.',
+      'Hạn chăm trong KPI dùng đúng hạn của nhãn «Quá hạn» ở trang Lead: Tiếp nhận mới 3 ngày, Đang tư vấn 7, Đã khảo sát 5, Đã gửi báo giá 7, Đang đàm phán 14.',
+      'Giám đốc / Ban Quản Trị có tab «Toàn công ty» ở trang KPI: doanh số so với mục tiêu tính đến hôm nay, số deal, điểm trung bình, lead quá hạn chăm, mục «Điều cần chú ý» và bảng so sánh các nhóm.',
+      'Tab «Đội nhóm» gom nhân viên theo từng nhóm — có tên nhóm, trưởng nhóm, điểm trung bình và doanh số của nhóm. Bấm vào một người để xem điểm được tính từ đâu.',
+      'Điểm KPI tính lại theo mục tiêu: Kết quả 50% (doanh số, số deal), Chăm khách 30% (chăm lead đúng hạn, tốc độ phản hồi), Chất lượng 20% (lead tiến bước, mất khách). Cách tính ghi ngay trên trang.',
+      'Giám đốc / Ban Quản Trị thấy đủ tên trên Bảng xếp hạng (trước đây từ hạng 6 chỉ hiện «Nhân viên #6»).',
+    ],
+    fixes: [
+      'Deal không còn bị đếm lại vào tháng sau khi có người sửa lead đã thắng.',
+      'Trưởng nhóm đang giữ quá 25 lead giờ được khuyên giao bớt cho sale trong nhóm, không còn bị khuyên «báo trưởng nhóm san bớt».',
+      'Tốc độ phản hồi đếm từ lúc bạn được giao lead và chỉ tính giờ làm việc; lead đã có lịch hẹn phía trước không bị tính trễ chăm.',
+      'Người chưa có lead hay deal trong kỳ hiện «chưa có dữ liệu» thay vì một con số điểm gây hiểu nhầm.',
+    ],
+    test: [
+      'Giám đốc: mở «Việc của tôi» → khối đầu trang liệt kê việc cần quyết; bấm một dòng tên người/dự án/lead → mở đúng nơi xử lý.',
+      'Sale: mở KPI → tab «Của tôi» → khối «Việc nên làm tiếp» liệt kê đúng tên khách cần gọi; bấm «Gọi» trên điện thoại mở màn hình gọi, bấm «Mở» vào thẳng thẻ lead.',
+      'Sale: ghi một dòng nhật ký cho khách đang quá hạn → tải lại trang KPI → khách đó rời khỏi danh sách.',
+      'Sale: cuối tab «Của tôi» thấy 3 khối Kết quả / Chăm khách / Chất lượng, mỗi dòng ghi số của bạn so với mốc.',
+      'Trưởng nhóm: mở tab «Đội nhóm» → thấy dòng tiêu đề nhóm mình, bấm một người để xem chi tiết.',
+    ],
+  },
+  {
+    date: '24/11/2026',
+    title: 'Gợi ý AI: tin nhắn mẫu ký đúng tên bạn, giọng gần gũi hơn',
+    tag: 'SỬA',
+    fixes: [
+      'Mẫu tin nhắn trong ô «Gợi ý AI» của lead không còn chỗ trống «[Tên]» — app tự ghi tên bạn đang phụ trách lead, ví dụ «em là Mai bên JAMA HOME».',
+      'Giọng tin nhắn đổi sang kiểu nói chuyện thân thiện, chân thành (mở bằng «Dạ», có «nha», «nè»), ngắn gọn, luôn nhắc tên JAMA HOME để khách yên tâm.',
+    ],
+    test: [
+      'Mở 1 lead bạn đang phụ trách → bấm «Xin gợi ý khác» → mẫu tin nhắn có đúng tên bạn, không còn «[Tên]».',
+    ],
+  },
+  {
+    date: '24/11/2026',
     title: 'Vật tư: giá bán theo Bảng giá chuẩn, ngày NCC hẹn giao, lịch sử nhận hàng · gỡ Shopee',
     tag: 'MỚI',
     news: [

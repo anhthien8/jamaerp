@@ -120,11 +120,12 @@ const ALL_ITEMS: NavItem[] = [
 type NavGroup = { key: string; label: string; icon: string; hrefs: string[] };
 const NAV_GROUPS: NavGroup[] = [
   { key: 'hang-ngay', label: 'Việc hằng ngày', icon: 'clipboard', hrefs: ['/viec-cua-toi', '/approvals', '/attendance', '/projects', '/du-lieu-chung', '/doi-chieu', '/kpi'] },
-  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/ai-tien-hoa', '/tro-ly-zalo'] },
+  { key: 'kinh-doanh', label: 'Kinh doanh', icon: 'handshake', hrefs: ['/leads', '/customers', '/quote-tool', '/quotations', '/contracts', '/sale-dashboard', '/tro-ly-zalo'] },
   { key: 'vat-tu', label: 'Kho hàng', icon: 'package', hrefs: ['/vat-tu', '/inventory', '/suppliers'] },
   { key: 'tai-chinh', label: 'Tài chính', icon: 'wallet', hrefs: ['/accounting', '/pl', '/finance', '/reports'] },
   { key: 'nhan-su', label: 'Nhân sự', icon: 'users', hrefs: ['/hr', '/che-do-thuong', '/permissions', '/users'] },
-  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/cai-app', '/changelog', '/feedback', '/settings'] },
+  // AI Tiến Hoá dời từ Kinh doanh sang đây 24/11/2026 — công cụ quản trị, chỉ admin thấy (roles ở ALL_ITEMS)
+  { key: 'tro-giup', label: 'Trợ giúp', icon: 'compass', hrefs: ['/huong-dan', '/cai-app', '/changelog', '/feedback', '/ai-tien-hoa', '/settings'] },
 ];
 const NAV_OPEN_KEY = 'jama_nav_open';
 

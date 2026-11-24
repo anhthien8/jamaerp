@@ -238,6 +238,24 @@ class TestCoPilotKhongLap:
         assert sau["action"] == dau["action"]
 
     @pytest.mark.asyncio
+    async def test_mau_tin_nhan_xung_ten_nguoi_phu_trach(
+        self, db_session: AsyncSession, lead_cua_sale: Lead, sales_user: User
+    ):
+        """Tin nhắn mẫu ký tên đúng sale phụ trách, không để ô trống "[Tên]"."""
+        goi_y = await sales_copilot.suggest_action(lead_cua_sale.id, sales_user.id, db_session)
+        mau = goi_y["message_template"]
+        assert mau
+        assert f"em là {sales_user.full_name.split()[-1]} bên JAMA HOME" in mau
+        assert "[" not in mau
+
+    def test_dien_ten_vao_o_trong_llm_bo_lai(self):
+        mau = "Chào anh/chị Bình, em là [Tên] từ JAMA HOME. [Tên khách] ơi"
+        ra = sales_copilot._dien_ten(mau, "Mai")
+        assert ra == "Chào anh/chị Bình, em là Mai từ JAMA HOME. [Tên khách] ơi"
+        assert sales_copilot._dien_ten("em là [tên nhân viên] nè", None) == "em là tư vấn viên nè"
+        assert sales_copilot._ten_goi("Nguyễn Thị Mai") == "Mai"
+
+    @pytest.mark.asyncio
     async def test_lead_khong_ton_tai(self, db_session: AsyncSession, sales_user: User):
         with pytest.raises(ValueError):
             await sales_copilot.suggest_action(_uid(), sales_user.id, db_session)
