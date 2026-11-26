@@ -29,10 +29,18 @@ Không migration: ngưỡng ở SystemSetting `du_lieu_chung`, lịch sử đố
 trả thêm `kenh_thong_bao` + `truong_phong[].co_thong_bao_may`; tin nhắc gửi người
 chưa bật thông báo kèm dòng mời cài app; `POST /nhac-cai-app` nhắc riêng việc cài
 app + bật thông báo (loại `nhac_cai_app`, 1 tin/người/ngày VN).
+
+26/11/2026 (vòng 4) — trưởng 4 phòng được XEM trang chính cùng BGĐ. CHỈ XEM, không
+mở rộng quyền vốn có: bản của trưởng phòng là bản BGĐ đem LỌC (`_loc_cho_truong_phong`,
+không tính lại) nên số tổng hợp giống hệt BGĐ; tiền ẩn (None) và danh sách không xếp
+theo tiền; dòng chi tiết chỉ còn dự án/lead người đó vốn đã thấy ở trang Dự án/Lead (lọc
+phạm vi TRƯỚC rồi mới cắt 50/200 dòng); GET trả `nguoi_xem` để giao diện khỏi tự suy
+quyền. Các POST nhắc vẫn chỉ BGĐ.
 """
 
 from __future__ import annotations
 
+import copy
 import html
 import json
 from datetime import date, datetime, time, timedelta, timezone
@@ -776,6 +784,31 @@ def _goi_y_giai_doan(d: _DuLieu, p) -> tuple[str | None, str]:
     return goi_y, ly_do
 
 
+# «Hồ sơ cần xem»: phần tử ứng viên là (nhóm, -giá trị, dòng) — nhóm 0 lệch, 1 chưa rõ,
+# 2 thiếu thông tin (dự án KD xét K6/K7 luôn ở nhóm 2).
+
+def _khoa_can_xem_bgd(x: tuple) -> tuple:
+    """BGĐ: lệch → chưa rõ → thiếu; trong nhóm giá trị cao trước, rồi thiếu nhiều trước."""
+    return x[0], x[1], -len(x[2]["thieu"])
+
+
+def _khoa_can_xem_khong_tien(x: tuple) -> tuple:
+    """Người không được xem tiền: cùng nhóm lệch → chưa rõ → thiếu nhưng KHÔNG theo giá trị —
+    tiền ẩn mà thứ tự (hay việc chọn 50 dòng đầu) vẫn theo tiền thì dòng đầu chính là hồ sơ
+    giá trị nhất, vẫn là lộ tiền. Thiếu nhiều trước, rồi mã dự án / tên lead."""
+    r = x[2]
+    return x[0], -len(r["thieu"]), (r["ma"] or r["ten"] or "").lower(), r["id"]
+
+
+def _chon_can_xem(theo_phong: dict[str, list[tuple]], khoa) -> list[dict]:
+    """Mỗi phòng tối đa 50 dòng để phòng nào cũng có mặt, tổng ≤200 — xếp theo `khoa`."""
+    chon: list[tuple] = []
+    for phong in PHONG_4:
+        chon.extend(sorted(theo_phong[phong], key=khoa)[:TOI_DA_CAN_XEM_MOI_PHONG])
+    chon.sort(key=khoa)
+    return [x[2] for x in chon[:TOI_DA_CAN_XEM]]
+
+
 def _tinh(d: _DuLieu) -> dict:  # noqa: C901
     """Toàn bộ số liệu trang «Dữ liệu chung» từ dữ liệu đã nạp."""
     ch = d.ch
@@ -984,13 +1017,11 @@ def _tinh(d: _DuLieu) -> dict:  # noqa: C901
             "lan_nhac_cuoi": _nhac_cuoi(f"dlc:{phong}:"),
         })
 
-    # Hồ sơ cần xem — mỗi phòng tối đa 50 để phòng nào cũng có mặt, tổng ≤200
-    can_xem: list[tuple] = []
-    for phong in PHONG_4:
-        ds = sorted(can_xem_theo_phong[phong], key=lambda x: (x[0], x[1], -len(x[2]["thieu"])))
-        can_xem.extend(ds[:TOI_DA_CAN_XEM_MOI_PHONG])
-    can_xem.sort(key=lambda x: (x[0], x[1], -len(x[2]["thieu"])))
-    can_xem_out = [x[2] for x in can_xem[:TOI_DA_CAN_XEM]]
+    # Hồ sơ cần xem — mỗi phòng tối đa 50 để phòng nào cũng có mặt, tổng ≤200. Giữ cả
+    # danh sách ứng viên CHƯA cắt: bản trưởng phòng lọc phạm vi trước rồi mới cắt
+    # (_loc_cho_truong_phong). Chỉ nuôi danh sách — không số tổng hợp nào đọc nó.
+    d.can_xem_theo_phong = can_xem_theo_phong
+    can_xem_out = _chon_can_xem(can_xem_theo_phong, _khoa_can_xem_bgd)
 
     # Phản ánh
     tong = len(d.projects)
@@ -1107,8 +1138,6 @@ def _kenh_thong_bao(d: _DuLieu) -> dict:
 
     tong = _dem()
     theo_phong = {p: _dem() for p in PHONG_KENH}
-    chua_bat: list[tuple] = []
-    thu_tu = {p: i for i, p in enumerate(PHONG_KENH)}
     for u in d.users.values():
         if not la_nguoi_that(u):
             continue
@@ -1120,17 +1149,33 @@ def _kenh_thong_bao(d: _DuLieu) -> dict:
             dem["co_thong_bao_may"] += int(may)
             dem["co_telegram"] += int(tg)
             dem["chi_chuong"] += int(not may and not tg)
-        if not may:
-            chua_bat.append((thu_tu[phong], (u.full_name or "").lower(), u.id, {
-                "id": u.id, "ten": u.full_name, "phong": phong, "co_telegram": tg,
-            }))
-    chua_bat.sort(key=lambda x: x[:3])
     return {
         **tong,
         "theo_phong": [{"phong": p, "ten": TEN_PHONG_KENH[p], **theo_phong[p]} for p in PHONG_KENH],
-        "chua_bat": [x[3] for x in chua_bat[:TOI_DA_CHUA_BAT]],
+        "chua_bat": _ds_chua_bat(d)[:TOI_DA_CHUA_BAT],
         "lan_nhac_cai_app_cuoi": d.nhac_cai_app_cuoi,
     }
+
+
+def _ds_chua_bat(d: _DuLieu, phong: str | None = None) -> list[dict]:
+    """Người thật chưa có máy nào bật thông báo, theo phòng kênh rồi tên — CHƯA cắt 200.
+
+    `phong`: chỉ người phòng kênh đó. Bản trưởng phòng lọc phòng TRƯỚC rồi mới cắt: cắt
+    200 người cả công ty trước (Kinh doanh xếp đầu) thì phòng xếp sau (Giám sát) có thể
+    ra danh sách rỗng trong khi thanh của phòng vẫn đếm N người chưa bật.
+    """
+    thu_tu = {p: i for i, p in enumerate(PHONG_KENH)}
+    ds: list[tuple] = []
+    for u in d.users.values():
+        if not la_nguoi_that(u) or u.id in d.co_push:
+            continue
+        ph = _phong_kenh(u)
+        if phong is None or ph == phong:
+            ds.append((thu_tu[ph], (u.full_name or "").lower(), u.id, {
+                "id": u.id, "ten": u.full_name, "phong": ph, "co_telegram": bool(u.telegram_user_id),
+            }))
+    ds.sort(key=lambda x: x[:3])
+    return [x[3] for x in ds]
 
 
 def _dong_can_xem(d: _DuLieu, p, phong: str, thieu: list[str], tt: str, ref_hom_nay: str) -> dict:
@@ -1190,8 +1235,9 @@ async def _tin_hieu_30_ngay(db: AsyncSession, cutoff30: datetime) -> dict:
 # ── Quyền ────────────────────────────────────────────────────────────────────
 
 def _chan_neu_khong_phai_bgd(user: User) -> None:
+    """Chặn mọi THAO TÁC (gửi nhắc) — từ 26/11 trưởng phòng xem được trang nhưng không nhắc."""
     if user.role not in VAI_TRO_BGD:
-        raise HTTPException(status_code=403, detail="Trang «Dữ liệu chung» chỉ dành cho Ban Giám đốc.")
+        raise HTTPException(status_code=403, detail="Chỉ Ban Giám đốc được gửi nhắc ở trang «Dữ liệu chung».")
 
 
 async def _xep_hang_gui(db: AsyncSession, khoa: str) -> None:
@@ -1226,23 +1272,175 @@ def _phong_doi_chieu(user: User, phong: str | None) -> str:
     return phong
 
 
+# ── Trưởng phòng xem cùng (vòng 4, 26/11/2026) ──────────────────────────────
+# Chủ dự án: «mở quyền xem dashboard báo cáo công ty cho các trưởng phòng xem cùng».
+# CHỈ XEM — không mở thêm thao tác nào và không mở rộng quyền vốn có của ai.
+
+KHOA_TIEN = ("tong_tien", "gia_tri")
+# L2 của BGĐ ghi «Lead đang ở «<giai đoạn lead>»» — giai đoạn lead là dữ liệu lead
+# (chặn cứng 22/09: chỉ Kinh doanh + BGĐ thấy lead). Người không được xem lead đó
+# nhận chữ chung, không lộ hơn chính quy tắc L2.
+CHU_L2_KHONG_XEM_LEAD = "Lead gắn với dự án chưa ở «Deal đã thắng»"
+
+
+def _nguoi_xem(user: User) -> dict:
+    """Ai đang xem trang chính và được làm gì — khoá `nguoi_xem` của GET.
+
+    BGĐ: toàn quyền như cũ. Trưởng 4 phòng (`phong_truong_phong` — department nguyên
+    gốc, phòng 'PM' cũ không tính): chỉ xem, không tiền, không thao tác. Còn lại 403.
+    """
+    if user.role in VAI_TRO_BGD:
+        return {"loai": "bgd", "phong": None, "xem_tien": True, "thao_tac": True}
+    phong = phong_truong_phong(user)
+    if phong is None:
+        raise HTTPException(status_code=403,
+                            detail="Trang «Dữ liệu chung» chỉ dành cho Ban Giám đốc và trưởng phòng.")
+    return {"loai": "truong_phong", "phong": phong, "xem_tien": False, "thao_tac": False}
+
+
+async def _pham_vi_xem(db: AsyncSession, user: User) -> tuple[set[str] | None, set[str]]:
+    """(id dự án đang chạy người này thấy — None = thấy hết, id lead người này thấy).
+
+    CÙNG luật trang Dự án (`dieu_kien_pham_vi_du_an`) và trang Lead (`_loc_pham_vi_lead`
+    — đã gồm chặn cứng «chỉ KD + BGĐ thấy lead»), mỗi tập đúng 1 câu SQL. Luật
+    'phong_ban' hiện cho trưởng phòng thấy MỌI dự án (cột PIC phòng mình là người phòng
+    mình, HOẶC còn trống/trỏ người ngoài phòng); vẫn lọc qua đây để khi trang Dự án siết
+    lại thì trang này siết theo.
+    """
+    from app.api.leads import _loc_pham_vi_lead
+    from app.api.projects import dieu_kien_pham_vi_du_an
+
+    du_an: set[str] | None = None
+    dk = dieu_kien_pham_vi_du_an(user)
+    if dk is not None:
+        du_an = set((await db.execute(
+            select(Project.id).where(Project.status.in_(TRANG_THAI_CHAY), dk)
+        )).scalars().all())
+    lead: set[str] = set()
+    if duoc_xem_lead(user):
+        lead = set((await db.execute(_loc_pham_vi_lead(select(Lead.id), user))).scalars().all())
+    return du_an, lead
+
+
+def _an_tien(obj) -> None:
+    """Mọi khoá tiền ở MỌI tầng → None, giữ khoá (giao diện nhận `number | null`)."""
+    if isinstance(obj, dict):
+        for k in obj:
+            if k in KHOA_TIEN:
+                obj[k] = None
+            else:
+                _an_tien(obj[k])
+    elif isinstance(obj, list):
+        for x in obj:
+            _an_tien(x)
+
+
+def _the_hom_nay_truong_phong(kq: dict, phong: str) -> list[dict]:
+    """Tối đa 2 thẻ MỞ trang đối chiếu phòng mình — không có thẻ nhắc của BGĐ."""
+    the: list[dict] = []
+    x = next(p for p in kq["phong"] if p["ma"] == phong)
+    so = x["trang_thai"]["chua_ro"] + x["trang_thai"]["lech"]
+    if so:
+        the.append({
+            "ma": f"phong_{phong}", "phong": phong,
+            "tieu_de": f"{x['ten']}: {so} hồ sơ chưa rõ hoặc lệch trên CRM",
+            "so_luong": so,
+            "nut": {"nhan": "Mở đối chiếu", "hanh_dong": "mo", "phong": phong,
+                    "link": f"/doi-chieu?phong={phong}"},
+            "da_nhac": None,
+        })
+    so_cu = kq["ngoai_dai"]["chua_xep"]["so_luong"]
+    # Chỉ 3 phòng có giai đoạn dự án mới nhận dự án cũ về được (KD đối chiếu lead).
+    if phong in GIAI_DOAN_CUA_PHONG and so_cu:
+        the.append({
+            "ma": "chua_xep", "phong": "chua_xep",
+            "tieu_de": f"{so_cu} dự án cũ chưa xếp giai đoạn",
+            "so_luong": so_cu,
+            "nut": {"nhan": "Nhận dự án về phòng", "hanh_dong": "mo", "phong": "chua_xep",
+                    "link": f"/doi-chieu?phong={phong}&tab=chua_xep"},
+            "da_nhac": None,
+        })
+    return the
+
+
+def _loc_cho_truong_phong(kq: dict, d: _DuLieu, phong: str,
+                          du_an_thay: set[str] | None, lead_thay: set[str]) -> dict:
+    """Bản «chỉ xem» cho trưởng phòng `phong`, LỌC từ bản BGĐ `kq` (cần `_tinh(d)` đã chạy)
+    — không tính lại số nào.
+
+    Giữ nguyên nên giống hệt BGĐ: phan_anh, dai_quy_trinh (trừ tiền), ngoai_dai, phong[],
+    tin_hieu_30_ngay, cau_hinh, các số đếm của kenh_thong_bao. Chỉ đổi:
+      • tiền (`tong_tien`, `gia_tri`) → None ở mọi tầng — như /doi-chieu;
+      • dòng chi tiết chỉ còn hồ sơ người này VỐN ĐÃ THẤY: dự án trong `du_an_thay`
+        (None = mọi dự án), lead trong `lead_thay`. «Hồ sơ cần xem» lọc trên danh sách
+        ứng viên CHƯA cắt (`d.can_xem_theo_phong`) rồi mới cắt 50/phòng, 200 tổng — lọc
+        sau khi BGĐ đã cắt thì hồ sơ ngoài phạm vi chiếm hết suất, danh sách ra trống;
+      • thứ tự KHÔNG theo tiền: can_xem theo `_khoa_can_xem_khong_tien` (chọn 50 dòng
+        đầu cũng theo khoá đó), du_lieu_cu theo mã — tiền ẩn mà vẫn xếp theo tiền là lộ;
+      • L2 mà người này không được xem lead đó → bỏ chữ giai đoạn lead;
+      • `kenh_thong_bao.chua_bat` chỉ người cùng phòng — lọc phòng rồi mới cắt 200;
+      • `hom_nay` = thẻ mở trang đối chiếu phòng mình (_the_hom_nay_truong_phong).
+    Trả bản sao, không đụng `kq` (dòng ứng viên dùng chung đối tượng với `kq["can_xem"]`).
+    """
+    out = copy.deepcopy(kq)
+
+    def _thay(loai: str, rid: str) -> bool:
+        if loai == "lead":
+            return rid in lead_thay
+        return du_an_thay is None or rid in du_an_thay
+
+    out["lech"] = [r for r in out["lech"] if _thay(r["loai"], r["id"])]
+    for r in out["lech"]:
+        if r["ma"] == "L2":
+            p = d.pmap.get(r["id"])
+            if p is None or p.lead_id not in lead_thay:
+                r["crm_ghi"] = CHU_L2_KHONG_XEM_LEAD
+    ung_vien = {ph: [x for x in d.can_xem_theo_phong[ph] if _thay(x[2]["loai"], x[2]["id"])]
+                for ph in PHONG_4}
+    out["can_xem"] = copy.deepcopy(_chon_can_xem(ung_vien, _khoa_can_xem_khong_tien))
+    out["cho_bgd"] = [r for r in out["cho_bgd"] if _thay("du_an", r["id"])]
+    out["du_lieu_cu"] = sorted((r for r in out["du_lieu_cu"] if _thay("du_an", r["id"])),
+                               key=lambda r: ((r["ma"] or "").lower(), r["id"]))
+    # Trưởng phòng có department nguyên gốc ∈ PHONG_4 nên phòng kênh của họ chính là
+    # `phong` (người phòng 'PM' cũ đã được _phong_kenh tính vào OPS).
+    out["kenh_thong_bao"]["chua_bat"] = _ds_chua_bat(d, phong)[:TOI_DA_CHUA_BAT]
+    out["hom_nay"] = _the_hom_nay_truong_phong(out, phong)
+    _an_tien(out)   # sau cùng — phủ cả các danh sách vừa dựng lại
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /dashboard/du-lieu-chung
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _khoa_cache_trang_chinh(*_a, **kw) -> list[str]:
+    """BGĐ dùng chung một bản theo vai trò; trưởng phòng mỗi người một bản — phạm vi
+    dự án/lead tính theo chính người đó. Kèm phòng: đổi phòng giữa chừng thì không
+    ăn lại bản cũ (cache trúng là bỏ qua kiểm quyền, bản cũ có thể là bản lẽ ra 403)."""
+    u = kw.get("current_user")
+    if u is None:
+        return ["anon"]
+    return [u.role] if u.role in VAI_TRO_BGD else [u.role, u.id, phong_goc(u)]
+
+
 @router.get("")
-@cached(ttl=120, prefix="dashboard", key_fn=lambda *a, **kw: [
-    kw.get("current_user").role if kw.get("current_user") else "anon",
-])
+@cached(ttl=120, prefix="dashboard", key_fn=_khoa_cache_trang_chinh)
 async def du_lieu_chung(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Toàn bộ trang «Dữ liệu chung» trong MỘT lần gọi. Chỉ đọc — không ghi gì vào DB."""
-    _chan_neu_khong_phai_bgd(current_user)
+    """Toàn bộ trang «Dữ liệu chung» trong MỘT lần gọi. Chỉ đọc — không ghi gì vào DB.
+
+    BGĐ nhận bản đủ; trưởng 4 phòng nhận bản lọc từ chính bản đó (26/11/2026).
+    """
+    nguoi_xem = _nguoi_xem(current_user)
     d = await _nap(db)
     kq = _tinh(d)
     kq["tin_hieu_30_ngay"] = await _tin_hieu_30_ngay(db, d.cutoff30)
+    if nguoi_xem["loai"] == "truong_phong":
+        du_an_thay, lead_thay = await _pham_vi_xem(db, current_user)
+        kq = _loc_cho_truong_phong(kq, d, nguoi_xem["phong"], du_an_thay, lead_thay)
+    kq["nguoi_xem"] = nguoi_xem
     return kq
 
 

@@ -1,23 +1,23 @@
 /**
- * Nhãn + quy tắc phía giao diện cho «Dữ liệu chung» (/du-lieu-chung, BGĐ) và
+ * Nhãn + quy tắc phía giao diện cho «Dữ liệu chung» (/du-lieu-chung) và
  * «Đối chiếu» (/doi-chieu, trưởng phòng) — 20/11/2026.
  *
  * Quyền ở đây PHẢI khớp backend (backend/app/api/du_lieu_chung.py):
- *  • /du-lieu-chung: VAI_TRO_BGD = admin + executive.
+ *  • /du-lieu-chung: BGĐ (VAI_TRO_BGD = admin + executive) xem + thao tác; từ 26/11/2026
+ *    trưởng phòng 4 phòng (phong_truong_phong) CHỈ XEM — tiền = null, không nút nhắc.
+ *    Trang đọc quyền từ `nguoi_xem` backend gửi (quyenXemDuLieuChung), không tự suy.
  *  • /doi-chieu: BGĐ mọi phòng; trưởng phòng (VAI_TRO_TRUONG_PHONG) chỉ phòng mình.
  * Màu chỉ qua biến theme, KHÔNG dùng --danger: trang này đo, không phạt.
  */
 
 import type {
-  MucDuLieu, NhacCaiAppKetQua, NhacDuLieuChungKetQua, PhongDuLieu, TrangThaiHoSo,
+  MucDuLieu, NguoiXemDuLieuChung, NhacCaiAppKetQua, NhacDuLieuChungKetQua, PhongDuLieu, TrangThaiHoSo,
 } from '@/lib/api';
 import { laTruongPhong } from '@/lib/roles';
 import { STAGE_CONFIG } from '@/lib/utils';
 import { STAGE_LABELS } from '@/components/projects/shared';
 
 type NguoiDung = { role?: string | null; department?: string | null } | null | undefined;
-
-export const VAI_TRO_DU_LIEU_CHUNG = ['admin', 'executive'];
 
 export const PHONG_DU_LIEU: PhongDuLieu[] = ['SALES', 'DESIGN', 'PURCHASING', 'OPS'];
 
@@ -46,6 +46,26 @@ export function phongCuaNguoi(u: NguoiDung): PhongDuLieu | null {
 export function duocDoiChieu(u: NguoiDung): boolean {
   if (laBGD(u)) return true;
   return laTruongPhong(u) && phongCuaNguoi(u) !== null;
+}
+
+/** Ai mở được /du-lieu-chung (26/11/2026): đúng tập người của /doi-chieu — BGĐ, hoặc trưởng
+ *  phòng 1 trong 4 phòng theo bộ phận GỐC ('PM' cũ không tính), khớp cổng GET backend.
+ *  Chỉ quyết định có vào trang hay không; thấy tiền / có nút nhắc thì đọc `nguoi_xem`. */
+export function duocXemDuLieuChung(u: NguoiDung): boolean {
+  return duocDoiChieu(u);
+}
+
+const NGUOI_XEM_BGD: NguoiXemDuLieuChung = { loai: 'bgd', phong: null, xem_tien: true, thao_tac: true };
+
+/** Quyền trên /du-lieu-chung — lấy nguyên `nguoi_xem` backend gửi. Backend cũ / bản cache
+ *  trước khi lên bản 26/11 chưa có khoá này: bản cũ chỉ trả cho BGĐ nên BGĐ giữ đủ quyền,
+ *  ai khác thì đóng chặt (không tiền, không thao tác) — không bao giờ mở rộng quyền. */
+export function quyenXemDuLieuChung(
+  d: { nguoi_xem?: NguoiXemDuLieuChung | null } | null | undefined, u: NguoiDung,
+): NguoiXemDuLieuChung {
+  if (d?.nguoi_xem) return d.nguoi_xem;
+  if (laBGD(u)) return NGUOI_XEM_BGD;
+  return { loai: 'truong_phong', phong: laTruongPhong(u) ? phongCuaNguoi(u) : null, xem_tien: false, thao_tac: false };
 }
 
 /** Executive chưa được đổi giai đoạn dự án (backend duoc_doi_giai_doan) —

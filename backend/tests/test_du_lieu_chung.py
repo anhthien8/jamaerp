@@ -12,7 +12,7 @@ import pytest_asyncio
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.api.du_lieu_chung import CAU_HINH_MAC_DINH, muc_theo_diem, tinh_diem
+from app.api.du_lieu_chung import CAU_HINH_MAC_DINH, CHU_L2_KHONG_XEM_LEAD, muc_theo_diem, tinh_diem
 from app.cache import cache
 from app.models.audit import AuditLog
 from app.models.lead import Activity, Lead
@@ -122,21 +122,43 @@ def tele(monkeypatch):
 # ── 1. Quyền ─────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_quyen_trang_chinh_chi_bgd(client, db_session, admin_user, executive_user,
-                                         sales_user, accountant_user, designer_user):
-    leader = await _user(db_session, "Leader TK", "leader", "DESIGN")
+async def test_quyen_trang_chinh_bgd_va_truong_phong(client, db_session, admin_user, executive_user,
+                                                    sales_user, accountant_user, designer_user, tp):
+    """Vòng 4 (26/11/2026): trưởng 4 phòng được XEM trang chính; còn lại 403 như cũ.
+
+    Trước vòng 4 test này chờ `leader` phòng Thiết kế bị 403 — nay đó là trưởng phòng.
+    """
+    tp_tm = await _user(db_session, "TP Thu mua", "dutoan_thumua_leader", "PURCHASING")
+    bi_chan = [
+        sales_user,                                                          # nhân viên KD
+        accountant_user,                                                     # kế toán
+        designer_user,                                                       # nhân viên phòng OPS
+        await _user(db_session, "Trưởng nhóm KD", "sale_leader", "SALES"),
+        await _user(db_session, "Chủ trì TK", "design_leader", "DESIGN"),
+        await _user(db_session, "TP phòng PM cũ", "operation_leader", "PM"),  # PM không tính là OPS
+        await _user(db_session, "Leader BGĐ", "leader", "EXEC"),
+        await _user(db_session, "Leader phòng Giám sát", "leader", "OPS"),   # không phải vai TP của OPS
+        await _user(db_session, "Leader Nhân sự", "leader", "HR"),
+    ]
     await db_session.commit()
-    for u in (sales_user, accountant_user, designer_user, leader):
+    for u in bi_chan:
         r = await client.get(URL, headers=auth_header(u))
-        assert r.status_code == 403, (u.role, r.text)
-    for u in (admin_user, executive_user):
+        assert r.status_code == 403, (u.role, u.department, r.text)
+    duoc_xem = [
+        (admin_user, "bgd", None), (executive_user, "bgd", None),
+        (tp["SALES"], "truong_phong", "SALES"), (tp["DESIGN"], "truong_phong", "DESIGN"),
+        (tp_tm, "truong_phong", "PURCHASING"), (tp["OPS"], "truong_phong", "OPS"),
+    ]
+    for u, loai, phong in duoc_xem:
         r = await client.get(URL, headers=auth_header(u))
         assert r.status_code == 200, r.text
         body = r.json()
         for k in ("cap_nhat_luc", "chay_thu", "moc_bat_dau", "cau_hinh", "phan_anh", "hom_nay",
                   "dai_quy_trinh", "ngoai_dai", "phong", "lech", "can_xem", "cho_bgd", "du_lieu_cu",
-                  "tin_hieu_30_ngay"):
+                  "tin_hieu_30_ngay", "kenh_thong_bao", "nguoi_xem"):
             assert k in body, k
+        bgd = loai == "bgd"
+        assert body["nguoi_xem"] == {"loai": loai, "phong": phong, "xem_tien": bgd, "thao_tac": bgd}
     r = await client.post(f"{URL}/nhac", json={"phong": "OPS"}, headers=auth_header(sales_user))
     assert r.status_code == 403
 
@@ -1282,3 +1304,391 @@ async def test_nhac_va_nhac_cai_app_xep_hang_truoc_khi_doc_da_nhac(
     r = await client.post(URL_CAI_APP, headers=auth_header(nhom_kenh["OPS"]), json={})
     assert r.status_code == 403
     assert thu_tu == []
+
+
+# ── Vòng 4 (26/11/2026): trưởng phòng XEM cùng trang chính ──────────────────
+# Luật: số tổng hợp giống hệt BGĐ, tiền → null, dòng chi tiết chỉ còn hồ sơ người
+# đó vốn đã thấy ở trang Dự án / Lead, «Hôm nay» chỉ có thẻ mở, POST nhắc vẫn 403.
+
+LEAD_V4 = ("Lead Hoa Sen", "Lead Mai Vàng", "Lead Lan Tím", "Lead Cúc Trắng")
+
+
+def _moi_gia_tri(obj, khoa):
+    """Mọi giá trị của khoá `khoa` ở mọi tầng JSON."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == khoa:
+                yield v
+            yield from _moi_gia_tri(v, khoa)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _moi_gia_tri(v, khoa)
+
+
+def _ids(data, loai: str) -> dict[str, set]:
+    """id dòng loại `loai` (du_an | lead) trong 4 danh sách chi tiết."""
+    du_an = loai == "du_an"
+    return {
+        "lech": {r["id"] for r in data["lech"] if r["loai"] == loai},
+        "can_xem": {r["id"] for r in data["can_xem"] if r["loai"] == loai},
+        "cho_bgd": {r["id"] for r in data["cho_bgd"]} if du_an else set(),
+        "du_lieu_cu": {r["id"] for r in data["du_lieu_cu"]} if du_an else set(),
+    }
+
+
+def _l2(data) -> dict[str, str]:
+    return {r["id"]: r["crm_ghi"] for r in data["lech"] if r["ma"] == "L2"}
+
+
+@pytest_asyncio.fixture
+async def tp4(db_session, tp):
+    """Đủ trưởng 4 phòng — fixture `tp` cố ý thiếu Dự toán–Thu mua."""
+    tm = await _user(db_session, "TP Thu mua", "dutoan_thumua_leader", "PURCHASING")
+    await db_session.commit()
+    return {**tp, "PURCHASING": tm}
+
+
+async def _du_lieu_v4(db, tp4, sales_user) -> dict:
+    """4 phòng có hồ sơ + tiền; lead trong/ngoài phạm vi TP KD; L2, L3, L4; dữ liệu cũ; chờ BGĐ.
+
+    Phạm vi lead của TP KD (luật /leads tầng phòng ban): lead giao người phòng KD hoặc
+    chính mình — lead chưa giao ai / giao người phòng khác là NGOÀI phạm vi.
+    """
+    gs = await _user(db, "Giám sát V4", "giam_sat_thi_cong", "OPS")
+    lead_trong = await _lead(db, "Lead Hoa Sen", "potential", assigned_to=sales_user.id, deal_value=7e8)
+    lead_ngoai = await _lead(db, "Lead Mai Vàng", "potential", deal_value=3e8)           # chưa giao ai
+    l3_trong = await _lead(db, "Lead Lan Tím", "signed_design", assigned_to=sales_user.id)
+    l3_ngoai = await _lead(db, "Lead Cúc Trắng", "signed_design", assigned_to=gs.id)    # giao người OPS
+    tk = await _du_an(db, "design", total_value=9e8, lead_id=lead_trong.id)    # L2 — lead trong phạm vi KD
+    tk2 = await _du_an(db, "design", total_value=1e8, lead_id=lead_ngoai.id)   # L2 — lead ngoài phạm vi KD
+    bg = await _du_an(db, "quotation", total_value=5e8)
+    tc = await _du_an(db, "construction", total_value=2e9, progress=100)       # L4
+    cu = await _du_an(db, "paused", total_value=4e8)                           # dữ liệu cũ chưa xếp
+    db.add(AuditLog(entity_type="project", entity_id=tc.id, action="doi_chieu:OPS",   # → chờ BGĐ
+                    actor_id=tp4["OPS"].id, actor_name="TP Giám sát",
+                    after_json=json.dumps({"ket_qua": "da_xong"}), created_at=_truoc(1)))
+    await db.commit()
+    return {"gs": gs, "lead_trong": lead_trong, "lead_ngoai": lead_ngoai, "l3_trong": l3_trong,
+            "l3_ngoai": l3_ngoai, "tk": tk, "tk2": tk2, "bg": bg, "tc": tc, "cu": cu}
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_khong_thay_tien_va_chi_co_the_mo(client, db_session, admin_user, tp4, sales_user):
+    """Tiền → null nhưng giữ khoá; nguoi_xem đúng; «Hôm nay» chỉ thẻ mở đối chiếu phòng mình."""
+    v = await _du_lieu_v4(db_session, tp4, sales_user)
+    bgd = await _get(client, admin_user)
+    o = {x["ma"]: x for x in bgd["dai_quy_trinh"]}
+    assert (o["lead_mo"]["tong_tien"], o["design"]["tong_tien"], o["construction"]["tong_tien"]) == (1e9, 1e9, 2e9)
+    assert [r["gia_tri"] for r in bgd["du_lieu_cu"]] == [4e8]
+    assert {t["nut"]["hanh_dong"] for t in bgd["hom_nay"]} == {"nhac_chua_xep", "nhac"}
+    assert bgd["nguoi_xem"] == {"loai": "bgd", "phong": None, "xem_tien": True, "thao_tac": True}
+
+    the_mong = {
+        "SALES": [("phong_SALES", 2, "/doi-chieu?phong=SALES")],      # KD không nhận dự án cũ
+        "DESIGN": [("phong_DESIGN", 2, "/doi-chieu?phong=DESIGN"),
+                   ("chua_xep", 1, "/doi-chieu?phong=DESIGN&tab=chua_xep")],
+        "PURCHASING": [("phong_PURCHASING", 1, "/doi-chieu?phong=PURCHASING"),
+                       ("chua_xep", 1, "/doi-chieu?phong=PURCHASING&tab=chua_xep")],
+        "OPS": [("phong_OPS", 1, "/doi-chieu?phong=OPS"),
+                ("chua_xep", 1, "/doi-chieu?phong=OPS&tab=chua_xep")],
+    }
+    for phong, u in tp4.items():
+        data = await _get(client, u)
+        assert data["nguoi_xem"] == {"loai": "truong_phong", "phong": phong, "xem_tien": False,
+                                     "thao_tac": False}
+        tien = [*_moi_gia_tri(data, "tong_tien"), *_moi_gia_tri(data, "gia_tri")]
+        assert tien and all(x is None for x in tien), phong
+        # Khoá tiền vẫn còn — giao diện nhận `number | null`
+        assert len(data["dai_quy_trinh"]) == len(bgd["dai_quy_trinh"])
+        assert all("tong_tien" in x for x in data["dai_quy_trinh"])
+        assert data["can_xem"] and all("gia_tri" in x for x in data["can_xem"])
+        assert [r["id"] for r in data["du_lieu_cu"]] == [v["cu"].id]
+        assert all("gia_tri" in x for x in data["du_lieu_cu"])
+        assert [(t["ma"], t["so_luong"], t["nut"]["link"]) for t in data["hom_nay"]] == the_mong[phong]
+        assert all(t["nut"]["hanh_dong"] == "mo" and t["da_nhac"] is None for t in data["hom_nay"])
+        assert [r["id"] for r in data["cho_bgd"]] == [v["tc"].id]
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_so_tong_hop_giong_het_bgd(client, db_session, admin_user, tp4, sales_user):
+    """Bản trưởng phòng là bản BGĐ đem lọc — số tổng hợp không lệch một đơn vị nào."""
+    await _du_lieu_v4(db_session, tp4, sales_user)
+    # Thêm hồ sơ để OPS và KD đủ ≥3 hồ sơ — có điểm thật để so, không so None với None
+    for ngay in (1, 4, 12):
+        p = await _du_an(db_session, "construction", total_value=ngay * 1e8)
+        await _viec(db_session, p, "construction", "Thi công", status="in_progress", started_at=_truoc(ngay))
+    await _lead(db_session, "Lead Đào", "new", assigned_to=sales_user.id)
+    await _lead(db_session, "Lead Mận", "interested", tao=_truoc(20))
+    await db_session.commit()
+    bgd = await _get(client, admin_user)
+    assert _phong(bgd, "OPS")["diem"] is not None and _phong(bgd, "SALES")["diem"] is not None
+
+    def _bo_tien(dai):
+        return [{k: x for k, x in o.items() if k != "tong_tien"} for o in dai]
+
+    def _bo_chua_bat(kenh):
+        return {k: x for k, x in kenh.items() if k != "chua_bat"}
+
+    for phong, u in tp4.items():
+        data = await _get(client, u)
+        for k in ("phan_anh", "ngoai_dai", "phong", "tin_hieu_30_ngay", "cau_hinh",
+                  "chay_thu", "chay_thu_den", "moc_bat_dau"):
+            assert data[k] == bgd[k], (phong, k)
+        assert [x["diem"] for x in data["phong"]] == [x["diem"] for x in bgd["phong"]]
+        assert _bo_tien(data["dai_quy_trinh"]) == _bo_tien(bgd["dai_quy_trinh"]), phong
+        assert _bo_chua_bat(data["kenh_thong_bao"]) == _bo_chua_bat(bgd["kenh_thong_bao"]), phong
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_dong_du_an_theo_dung_luat_trang_du_an(client, db_session, admin_user, tp4,
+                                                                monkeypatch):
+    """Dòng dự án ở lech / can_xem / cho_bgd / du_lieu_cu theo ĐÚNG `dieu_kien_pham_vi_du_an`."""
+    p = {}
+    for ten, stage, kw in (("trong_tc", "construction", {"progress": 100}),
+                           ("ngoai_tc", "construction", {"progress": 100}),
+                           ("trong_cu", "paused", {}), ("ngoai_cu", "paused", {})):
+        p[ten] = await _du_an(db_session, stage, code=f"{ten[:5].upper()}-{_uid()[:8]}", **kw)
+    for ten in ("trong_tc", "ngoai_tc"):
+        db_session.add(AuditLog(entity_type="project", entity_id=p[ten].id, action="doi_chieu:OPS",
+                                actor_id=tp4["OPS"].id, actor_name="TP Giám sát",
+                                after_json=json.dumps({"ket_qua": "da_xong"}), created_at=_truoc(1)))
+    await db_session.commit()
+    bgd = await _get(client, admin_user)
+    tc = {p["trong_tc"].id, p["ngoai_tc"].id}
+    assert _ids(bgd, "du_an") == {"lech": tc, "can_xem": tc, "cho_bgd": tc,
+                                  "du_lieu_cu": {p["trong_cu"].id, p["ngoai_cu"].id}}
+
+    # 1) Luật thật: thấy đúng những dự án trang Dự án cho chính người đó thấy
+    for phong in ("OPS", "DESIGN"):
+        r = await client.get("/api/v1/projects?page_size=200", headers=auth_header(tp4[phong]))
+        assert r.status_code == 200, r.text
+        mo_duoc = {x["id"] for x in r.json()["items"]}
+        data = await _get(client, tp4[phong])
+        assert _ids(data, "du_an") == {k: ids & mo_duoc for k, ids in _ids(bgd, "du_an").items()}, phong
+
+    # 2) Trang Dự án siết lại (giả lập) → trang này siết theo ở cả 4 danh sách
+    monkeypatch.setattr("app.api.projects.dieu_kien_pham_vi_du_an",
+                        lambda user, gom_chua_phan_cong=True: Project.code.like("TRONG-%"))
+    for phong in ("OPS", "DESIGN"):
+        data = await _get(client, tp4[phong])
+        assert _ids(data, "du_an") == {"lech": {p["trong_tc"].id}, "can_xem": {p["trong_tc"].id},
+                                       "cho_bgd": {p["trong_tc"].id}, "du_lieu_cu": {p["trong_cu"].id}}, phong
+        for k in ("phan_anh", "ngoai_dai", "phong"):
+            assert data[k] == bgd[k], (phong, k)          # số tổng hợp vẫn của cả công ty
+    # BGĐ không đi qua bộ lọc
+    assert _ids(await _get(client, admin_user), "du_an") == _ids(bgd, "du_an")
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_ngoai_kd_khong_co_dong_lead_khong_lo_chu_lead(client, db_session, admin_user,
+                                                                         tp4, sales_user):
+    v = await _du_lieu_v4(db_session, tp4, sales_user)
+    bgd = await _get(client, admin_user)
+    assert _l2(bgd) == {v["tk"].id: "Lead đang ở «Đang đàm phán»", v["tk2"].id: "Lead đang ở «Đang đàm phán»"}
+    chu_bgd = json.dumps(bgd, ensure_ascii=False)
+    assert all(ten in chu_bgd for ten in LEAD_V4)
+    for phong in ("DESIGN", "PURCHASING", "OPS"):
+        data = await _get(client, tp4[phong])
+        assert [r for r in data["lech"] + data["can_xem"] if r["loai"] == "lead"] == [], phong
+        # Dòng DỰ ÁN L2 vẫn còn (dự án trong phạm vi) nhưng không lộ giai đoạn lead
+        assert _l2(data) == {v["tk"].id: CHU_L2_KHONG_XEM_LEAD, v["tk2"].id: CHU_L2_KHONG_XEM_LEAD}, phong
+        chu = json.dumps(data, ensure_ascii=False)
+        for ten in (*LEAD_V4, "Đang đàm phán"):
+            assert ten not in chu, (phong, ten)
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_kd_chi_thay_lead_trong_pham_vi_trang_chinh(client, db_session, admin_user,
+                                                                      tp4, sales_user):
+    v = await _du_lieu_v4(db_session, tp4, sales_user)
+    bgd = await _get(client, admin_user)
+    assert _ids(bgd, "lead")["can_xem"] == {v["lead_trong"].id, v["lead_ngoai"].id}
+    assert _ids(bgd, "lead")["lech"] == {v["l3_trong"].id, v["l3_ngoai"].id}
+
+    data = await _get(client, tp4["SALES"])
+    assert _ids(data, "lead")["can_xem"] == {v["lead_trong"].id}
+    assert _ids(data, "lead")["lech"] == {v["l3_trong"].id}
+    # Cùng phạm vi với trang Lead của chính người đó
+    r = await client.get("/api/v1/leads?page_size=200", headers=auth_header(tp4["SALES"]))
+    assert r.status_code == 200, r.text
+    trang_lead = {x["id"] for x in r.json()["items"]}
+    assert {v["lead_trong"].id, v["l3_trong"].id} <= trang_lead
+    assert not {v["lead_ngoai"].id, v["l3_ngoai"].id} & trang_lead
+    # L2: lead trong phạm vi giữ giai đoạn; lead ngoài phạm vi → chữ chung
+    assert _l2(data) == {v["tk"].id: "Lead đang ở «Đang đàm phán»", v["tk2"].id: CHU_L2_KHONG_XEM_LEAD}
+    chu = json.dumps(data, ensure_ascii=False)
+    assert "Lead Hoa Sen" in chu and "Lead Lan Tím" in chu
+    assert "Lead Mai Vàng" not in chu and "Lead Cúc Trắng" not in chu
+
+
+@pytest.mark.asyncio
+async def test_cache_moi_truong_phong_mot_ban_bgd_khong_nhan_ban_loc(client, db_session, admin_user,
+                                                                    tp4, sales_user):
+    v = await _du_lieu_v4(db_session, tp4, sales_user)
+    cache.clear_prefix("dashboard")
+
+    async def _xem(u):
+        r = await client.get(URL, headers=auth_header(u))
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    # TP Thiết kế và TP Kinh doanh CÙNG vai `leader` — khoá chỉ theo vai sẽ trả nhầm bản của nhau
+    tk = await _xem(tp4["DESIGN"])
+    kd = await _xem(tp4["SALES"])
+    assert (tk["nguoi_xem"]["phong"], kd["nguoi_xem"]["phong"]) == ("DESIGN", "SALES")
+    assert _ids(tk, "lead")["can_xem"] == set()
+    assert _ids(kd, "lead")["can_xem"] == {v["lead_trong"].id}
+    # BGĐ gọi SAU trưởng phòng vẫn nhận bản đủ, không nhận bản đã lọc
+    bgd = await _xem(admin_user)
+    assert bgd["nguoi_xem"]["loai"] == "bgd"
+    assert _ids(bgd, "lead")["can_xem"] == {v["lead_trong"].id, v["lead_ngoai"].id}
+    assert any(x["tong_tien"] for x in bgd["dai_quy_trinh"])
+    # Gọi lại trong hạn cache: ai cũng trúng đúng bản của mình
+    for u, cu in ((tp4["DESIGN"], tk), (tp4["SALES"], kd), (admin_user, bgd)):
+        lai = await _xem(u)
+        assert (lai["cap_nhat_luc"], lai["nguoi_xem"]) == (cu["cap_nhat_luc"], cu["nguoi_xem"])
+    khoa = [k for k in cache._store if ":du_lieu_chung:" in k]
+    assert len(khoa) == 3
+    assert any(tp4["DESIGN"].id in k for k in khoa) and any(tp4["SALES"].id in k for k in khoa)
+
+    # Thứ tự ngược: BGĐ trước → trưởng phòng sau vẫn nhận bản lọc, BGĐ vẫn bản đủ
+    cache.clear_prefix("dashboard")
+    bgd2 = await _xem(admin_user)
+    ops = await _xem(tp4["OPS"])
+    assert bgd2["nguoi_xem"]["loai"] == "bgd" and ops["nguoi_xem"]["phong"] == "OPS"
+    assert all(x["tong_tien"] is None for x in ops["dai_quy_trinh"])
+    lai = await _xem(admin_user)
+    assert lai["cap_nhat_luc"] == bgd2["cap_nhat_luc"] and any(x["tong_tien"] for x in lai["dai_quy_trinh"])
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_xem_duoc_nhung_khong_gui_nhac(client, db_session, tp4, tele):
+    """CHỈ XEM: mọi POST nhắc vẫn 403 cho trưởng phòng, không tin nào được tạo."""
+    p = await _du_an(db_session, "construction")
+    await db_session.commit()
+    for phong, u in tp4.items():
+        h = auth_header(u)
+        assert (await client.get(URL, headers=h)).status_code == 200
+        for body in ({"phong": phong}, {"phong": "chua_xep"}, {"phong": phong, "id": p.id, "loai": "du_an"}):
+            r = await client.post(f"{URL}/nhac", headers=h, json=body)
+            assert r.status_code == 403, (phong, body, r.text)
+        for body in ({}, {"phong": phong}, {"ids": [u.id]}):
+            r = await client.post(URL_CAI_APP, headers=h, json=body)
+            assert r.status_code == 403, (phong, body, r.text)
+    assert (await db_session.execute(select(func.count(Notification.id)))).scalar() == 0
+    assert tele == []
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_chua_bat_chi_nguoi_cung_phong(client, db_session, admin_user, nhom_kenh):
+    """Danh sách người chưa bật thông báo chỉ còn người cùng phòng; số đếm giữ nguyên."""
+    n = nhom_kenh
+    pm2 = await _user(db_session, "Giám sát PM 2", "giam_sat_thi_cong", "PM")   # phòng PM cũ → kênh OPS
+    tm = await _user(db_session, "TP Thu mua", "dutoan_thumua_leader", "PURCHASING")
+    await db_session.commit()
+    bgd = (await _get(client, admin_user))["kenh_thong_bao"]
+    mong = [
+        (n["OPS"], [n["gs"].id, pm2.id, n["OPS"].id]),   # Giám sát PM đã bật máy → không có
+        (n["SALES"], [n["SALES"].id]),
+        (n["DESIGN"], []),                               # TP Thiết kế đã bật máy
+        (tm, [tm.id]),
+    ]
+    for u, ids in mong:
+        k = (await _get(client, u))["kenh_thong_bao"]
+        assert [x["id"] for x in k["chua_bat"]] == ids, u.full_name
+        assert ({kk: x for kk, x in k.items() if kk != "chua_bat"}
+                == {kk: x for kk, x in bgd.items() if kk != "chua_bat"}), u.full_name
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_kd_loc_pham_vi_truoc_roi_moi_cat_50_dong(client, db_session, admin_user,
+                                                                    tp4, sales_user):
+    """Cắt 50 dòng/phòng SAU khi lọc phạm vi. Lấy 50 dòng đầu của BGĐ rồi mới lọc thì lead
+    ngoài phạm vi (chưa giao ai, «chưa rõ» — xếp trước) chiếm hết suất Kinh doanh: TP KD
+    thấy danh sách trống dù còn hồ sơ của phòng mình cần bổ sung."""
+    for i in range(60):   # chưa giao ai → ngoài phạm vi TP KD; 10 ngày không dấu vết → «chưa rõ»
+        await _lead(db_session, f"Lead ngoài {i:02d}", "new", tao=_truoc(10), deal_value=9e8 + i)
+    trong = {(await _lead(db_session, f"Lead trong {i}", "new", assigned_to=sales_user.id,
+                          deal_value=1e6)).id for i in range(5)}   # vừa tạo → còn tươi, chỉ thiếu khu vực/nguồn
+    await db_session.commit()
+
+    bgd = await _get(client, admin_user)
+    lead_bgd = {r["id"] for r in bgd["can_xem"] if r["loai"] == "lead"}
+    assert len(lead_bgd) == 50 and not lead_bgd & trong      # bản BGĐ giữ nguyên như cũ
+    data = await _get(client, tp4["SALES"])
+    assert {r["id"] for r in data["can_xem"] if r["loai"] == "lead"} == trong
+    assert _phong(data, "SALES") == _phong(bgd, "SALES")      # số trên thẻ vẫn của cả công ty
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_thu_tu_va_viec_chon_dong_khong_theo_tien(client, db_session, admin_user, tp4):
+    """Tiền ẩn mà danh sách vẫn xếp/chọn theo tiền là lộ tiền (dòng đầu = hồ sơ giá trị
+    nhất). Bản trưởng phòng: nhóm lệch → chưa rõ → thiếu, thiếu nhiều trước, rồi mã hồ sơ;
+    50 dòng/phòng cũng chọn theo đúng thứ tự đó. Dữ liệu cũ xếp theo mã."""
+    ma_tk = [f"TKV4-{i:02d}" for i in range(55)]
+    for i, ma in enumerate(ma_tk):   # mã càng lớn giá trị càng cao; «chưa rõ», thiếu T1 (+ K6/K7 phía KD)
+        await _du_an(db_session, "design", code=ma, total_value=(i + 1) * 1e7)
+    ma_cu = ["CUV4-A", "CUV4-B", "CUV4-C"]
+    for ma, gt in zip(ma_cu, (1e8, 9e8, 5e8)):
+        await _du_an(db_session, "paused", code=ma, total_value=gt)
+    await db_session.commit()
+
+    bgd = await _get(client, admin_user)
+    # BGĐ giữ nguyên: giá trị cao trước, chọn 50 dòng giá trị cao nhất
+    assert [r["ma"] for r in bgd["can_xem"] if r["phong_giu"] == "DESIGN"] == ma_tk[::-1][:50]
+    assert [r["ma"] for r in bgd["du_lieu_cu"]] == ["CUV4-B", "CUV4-C", "CUV4-A"]
+
+    for phong in ("DESIGN", "OPS"):
+        data = await _get(client, tp4[phong])
+        assert [(r["phong_giu"], r["ma"]) for r in data["can_xem"]] == (
+            [("DESIGN", m) for m in ma_tk[:50]] + [("SALES", m) for m in ma_tk[:50]]), phong
+        assert [r["ma"] for r in data["du_lieu_cu"]] == ma_cu, phong
+        assert all(r["gia_tri"] is None for r in data["can_xem"] + data["du_lieu_cu"]), phong
+
+
+@pytest.mark.asyncio
+async def test_truong_phong_chua_bat_loc_phong_truoc_roi_moi_cat_200(client, db_session, admin_user, tp):
+    """Danh sách tên cắt 200 SAU khi lọc phòng: công ty đông người chưa bật thông báo máy
+    thì trưởng phòng xếp sau (Giám sát) vẫn thấy đủ người phòng mình, khớp số trên thanh."""
+    for i in range(205):
+        db_session.add(User(id=_uid(), full_name=f"Sale {i:03d}", email=f"{_uid()[:12]}@t.vn",
+                            password_hash="x", role="data_entry", department="SALES", is_active=True))
+    gs = [await _user(db_session, f"Giám sát {i}", "giam_sat_thi_cong", "OPS") for i in range(3)]
+    await db_session.commit()
+
+    bgd = (await _get(client, admin_user))["kenh_thong_bao"]
+    assert len(bgd["chua_bat"]) == 200 and {x["phong"] for x in bgd["chua_bat"]} == {"SALES"}
+    for u, ids in ((tp["OPS"], [*(x.id for x in gs), tp["OPS"].id]), (tp["DESIGN"], [tp["DESIGN"].id])):
+        k = (await _get(client, u))["kenh_thong_bao"]
+        assert [x["id"] for x in k["chua_bat"]] == ids, u.full_name
+        dem = next(x for x in k["theo_phong"] if x["phong"] == phong_cua_tp(u))
+        assert dem["tong"] - dem["co_thong_bao_may"] == len(ids), u.full_name
+        assert ({kk: x for kk, x in k.items() if kk != "chua_bat"}
+                == {kk: x for kk, x in bgd.items() if kk != "chua_bat"}), u.full_name
+    # TP Kinh doanh: đủ người phòng mình (206) thì vẫn cắt ở 200
+    kd = (await _get(client, tp["SALES"]))["kenh_thong_bao"]["chua_bat"]
+    assert len(kd) == 200 and {x["phong"] for x in kd} == {"SALES"}
+
+
+def phong_cua_tp(u) -> str:
+    return (u.department or "").upper()
+
+
+@pytest.mark.asyncio
+async def test_loc_cho_truong_phong_khong_dung_ban_bgd(db_session, tp4, sales_user):
+    """Dòng ứng viên «Hồ sơ cần xem» dùng chung đối tượng với bản BGĐ — lọc cho trưởng phòng
+    (ẩn tiền, xếp lại, cắt lại) không được sửa lây sang bản BGĐ trong cùng lượt tính."""
+    import copy
+
+    from app.api.du_lieu_chung import _loc_cho_truong_phong, _nap, _pham_vi_xem, _tinh
+
+    await _du_lieu_v4(db_session, tp4, sales_user)
+    d = await _nap(db_session)
+    kq = _tinh(d)
+    truoc = copy.deepcopy(kq)
+    for phong, u in tp4.items():
+        du_an, lead = await _pham_vi_xem(db_session, u)
+        out = _loc_cho_truong_phong(kq, d, phong, du_an, lead)
+        assert out["can_xem"] and all(r["gia_tri"] is None for r in out["can_xem"]), phong
+    assert kq == truoc
+    assert any(r["gia_tri"] for r in kq["can_xem"])

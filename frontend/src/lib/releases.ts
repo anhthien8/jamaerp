@@ -15,6 +15,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: '26/11/2026',
+    title: 'Trưởng phòng xem được trang «Dữ liệu chung» cùng Ban giám đốc',
+    tag: 'MỚI',
+    news: [
+      'Trưởng phòng Kinh doanh, Thiết kế, Dự toán – Thu mua, Thi công / Giám sát thấy mục «Dữ liệu chung» trong menu Việc hằng ngày: cùng câu «CRM phản ánh thực tế X%», dải quy trình, điểm 4 thẻ phòng, kênh nhận thông báo và tín hiệu hệ thống của toàn công ty như Ban giám đốc.',
+      'Trưởng phòng chỉ xem: không hiện tiền, không có nút «Nhắc trưởng phòng», «Hỏi lại», «Nhắc cài app» hay phân loại dữ liệu cũ. Danh sách lệch dữ liệu, hồ sơ cần xem, dữ liệu cũ chỉ gồm hồ sơ bạn vốn xem được ở trang Dự án (lead chỉ với trưởng phòng Kinh doanh).',
+      'Khối «Hôm nay» của trưởng phòng dẫn thẳng tới việc của phòng mình ở trang Đối chiếu; nút «Đối chiếu phòng …» nằm ngay đầu trang.',
+    ],
+    test: [
+      'Tài khoản trưởng phòng (vd trưởng phòng Thiết kế): menu Việc hằng ngày → Dữ liệu chung → đầu trang ghi «Bạn đang xem với quyền Trưởng phòng», không có số tiền nào, không có nút Nhắc / Hỏi lại.',
+      'Bấm «Đối chiếu phòng …» ở đầu trang → mở đúng danh sách đối chiếu của phòng mình.',
+      'Trưởng phòng Thiết kế: trên thẻ Kinh doanh, mục lỗi về lead chỉ hiện số, không bấm được; mục nào bấm được thì mở ra danh sách có hồ sơ.',
+      'Tài khoản nhân viên, trưởng nhóm, kế toán: không thấy mục «Dữ liệu chung»; gõ thẳng /du-lieu-chung thì về Tổng quan.',
+      'Tài khoản admin: trang vẫn đủ tiền và các nút nhắc như cũ.',
+    ],
+  },
+  {
     date: '24/11/2026',
     title: 'Số «khách quá hạn» khớp nhau ở mọi màn hình, khách có hẹn không bị kêu quá hạn',
     tag: 'SỬA',

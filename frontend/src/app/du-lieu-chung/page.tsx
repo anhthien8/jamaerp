@@ -1,7 +1,11 @@
 'use client';
 
 /**
- * Dữ liệu chung — CRM phản ánh thực tế tới đâu (20/11/2026). CHỈ BGĐ (admin + executive).
+ * Dữ liệu chung — CRM phản ánh thực tế tới đâu (20/11/2026). BGĐ (admin + executive) xem + thao tác.
+ * 26/11/2026: trưởng phòng 4 phòng xem cùng — CHỈ XEM. Quyền đọc từ `nguoi_xem` backend gửi
+ * (không tự suy): `xem_tien=false` thì không hiện tiền (cả «0 đ» giả), `thao_tac=false` thì ẩn
+ * mọi nút Nhắc / Hỏi lại / Nhắc cài app / chip phân loại / «Hoàn thành». Số tổng hợp như BGĐ;
+ * danh sách chi tiết backend đã lọc còn hồ sơ người đó vốn được xem.
  *
  * Một lần gọi GET /dashboard/du-lieu-chung trả cả màn (backend/app/api/du_lieu_chung.py).
  * Nguyên tắc đọc màn này:
@@ -25,21 +29,22 @@ import LineIcon from '@/components/ui/LineIcon';
 import { Khoi, Thanh, Trong } from '@/components/dashboard/KhoiDashboard';
 import {
   api, ApiError,
-  DuLieuChung, DuLieuChungHoSo, DuLieuChungLech, DuLieuChungPhong, DuLieuChungThe,
+  DuLieuChung, DuLieuChungHoSo, DuLieuChungLech, DuLieuChungPhong, DuLieuChungQuyTac, DuLieuChungThe,
   KenhThongBao, LanNhac, NhacCaiAppBody, NhacDuLieuChungBody, NhacDuLieuChungKetQua,
   PhongDuLieu, PhongKenh, TrangThaiHoSo,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   GIAI_DOAN_PHAN_LOAI, NHAN_KET_QUA, NHAN_LECH, NHAN_MUC, NHAN_TRANG_THAI, PHONG_DU_LIEU,
-  TEN_PHONG, THU_TU_TRANG_THAI, VAI_TRO_DU_LIEU_CHUNG,
-  baoLau, gioPhut, laHomNay, linkHoSo, mauMuc, mauTrangThai, ngayThang,
-  nhanDauVet, nhanGiaiDoan, tomTatNhac, tomTatNhacCaiApp,
+  TEN_PHONG, THU_TU_TRANG_THAI,
+  baoLau, duocXemDuLieuChung, gioPhut, laHomNay, linkHoSo, mauMuc, mauTrangThai, ngayThang,
+  nhanDauVet, nhanGiaiDoan, quyenXemDuLieuChung, tomTatNhac, tomTatNhacCaiApp,
 } from '@/lib/du-lieu-chung';
 
-// Phải khớp VAI_TRO_BGD ở backend và mục /du-lieu-chung trong Sidebar.
-const DUOC_XEM = VAI_TRO_DU_LIEU_CHUNG;
+// Ai vào được trang: duocXemDuLieuChung — khớp cổng GET backend và mục /du-lieu-chung trong Sidebar.
 const MOI_TRANG = 20;
+/** Trưởng phòng: danh sách chi tiết backend đã lọc còn hồ sơ vốn được xem; số tổng hợp vẫn là toàn công ty. */
+const CHU_DS_DUOC_XEM = 'Chỉ liệt kê hồ sơ bạn được xem — số trên thẻ phòng là của toàn công ty.';
 
 const NUT = 'inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-full text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 const NUT_CHINH = `${NUT} bg-[var(--gold-500)] text-[var(--surface-0)] hover:bg-[var(--gold-400)]`;
@@ -53,9 +58,9 @@ function mauPct(pct: number): string {
   return 'var(--warning)';
 }
 
-function nhanLanNhac(n: LanNhac): string {
+function nhanLanNhac(n: LanNhac, chuDau = 'Đã nhắc'): string {
   const khi = laHomNay(n.luc) ? gioPhut(n.luc) : `${ngayThang(n.luc)} ${gioPhut(n.luc)}`;
-  return `Đã nhắc ${khi} · ${n.da_xem ? 'đã xem' : 'chưa xem'}`;
+  return `${chuDau} ${khi} · ${n.da_xem ? 'đã xem' : 'chưa xem'}`;
 }
 
 type ChoXacNhan = { id: string; ma: string; stage: string; message: string; soViec: number };
@@ -89,6 +94,14 @@ export default function DuLieuChungPage() {
   const [choNhacCaiApp, setChoNhacCaiApp] = useState<ChoNhacCaiApp | null>(null);
 
   const laAdmin = user?.role === 'admin';
+  // Quyền đọc từ `nguoi_xem` backend gửi (26/11/2026) — trưởng phòng chỉ xem: không tiền, không nút nhắc.
+  const nguoiXem = quyenXemDuLieuChung(data, user);
+  const choThaoTac = nguoiXem.thao_tac;
+  const xemTien = nguoiXem.xem_tien;
+  const laTruongPhongXem = nguoiXem.loai === 'truong_phong';
+  const phongXem = nguoiXem.phong;
+  // Trưởng phòng Thiết kế / Dự toán – Thu mua / Thi công tự nhận dự án cũ ở tab «Chưa xếp giai đoạn» của Đối chiếu.
+  const phongNhanCu = laTruongPhongXem && phongXem && phongXem !== 'SALES' ? phongXem : null;
 
   const taiLai = useCallback(() => {
     setDangTai(true);
@@ -98,12 +111,12 @@ export default function DuLieuChungPage() {
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push(duongDangNhap()); return; }
-    // Backend chặn cứng ở BGĐ; chặn thêm ở đây để người khác không rơi vào trang trắng + 403.
-    if (!DUOC_XEM.includes(user.role)) router.push('/');
+    // Backend chặn cứng (BGĐ + trưởng phòng 4 phòng); chặn thêm ở đây để người khác không rơi vào trang trắng + 403.
+    if (!duocXemDuLieuChung(user)) router.push('/');
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (!user || !DUOC_XEM.includes(user.role)) return;
+    if (!user || !duocXemDuLieuChung(user)) return;
     let huy = false;
     api.getDuLieuChung()
       .then(d => { if (!huy) { setData(d); setError(''); } })
@@ -220,11 +233,14 @@ export default function DuLieuChungPage() {
   const tuyChonVanDe = useMemo(() => {
     const thieu = new Set<string>();
     for (const r of data?.can_xem || []) for (const t of r.thieu) thieu.add(t);
+    // Bộ lọc đang bật (bấm từ thẻ phòng) mà danh sách không còn dòng nào khớp vẫn phải có trong ô chọn —
+    // thiếu tuỳ chọn thì ô hiện «Mọi vấn đề» trong khi danh sách vẫn đang lọc.
+    if (locVanDe.startsWith('thieu:')) thieu.add(locVanDe.slice('thieu:'.length));
     return [
       ...(['lech', 'chua_ro', 'chua_cap_nhat'] as TrangThaiHoSo[]).map(t => ({ gt: `trang_thai:${t}`, nhan: NHAN_TRANG_THAI[t] })),
       ...[...thieu].sort().map(t => ({ gt: `thieu:${t}`, nhan: `Thiếu: ${nhanQuyTac[t] || t}` })),
     ];
-  }, [data, nhanQuyTac]);
+  }, [data, nhanQuyTac, locVanDe]);
 
   const canXemLoc = useMemo(() => {
     let ds = data?.can_xem || [];
@@ -247,6 +263,15 @@ export default function DuLieuChungPage() {
     () => (locLech ? (data?.lech || []).filter(r => r.ma === locLech) : (data?.lech || [])),
     [data, locLech],
   );
+
+  /** Mục lỗi trên thẻ phòng có dòng nào trong danh sách đang tải không — đúng điều kiện lọc mà
+   *  bấm mục đó sẽ áp (Lệch: theo mã; Hồ sơ cần xem: theo phòng + mã thiếu). Trưởng phòng nhận danh
+   *  sách đã lọc theo quyền xem còn số trên thẻ là toàn công ty, nên mục có số vẫn có thể trống. */
+  const coDongChoMucLoi = useCallback((phong: PhongDuLieu, q: DuLieuChungQuyTac) => (
+    q.loai === 'lech'
+      ? (data?.lech || []).some(r => r.ma === q.ma)
+      : (data?.can_xem || []).some(r => r.phong_giu === phong && r.thieu.includes(q.ma))
+  ), [data]);
 
   /** Quy tắc loại «lệch» (L1–L5) không nằm trong «Hồ sơ cần xem» theo phòng → nhảy tới mục Lệch, lọc theo mã. */
   const moLech = (ma: string) => {
@@ -276,10 +301,23 @@ export default function DuLieuChungPage() {
     </div>
   );
 
-  if (!user || !DUOC_XEM.includes(user.role)) return null;
+  if (!user || !duocXemDuLieuChung(user)) return null;
 
   // Ngày kết thúc lấy từ backend (chay_thu_ngay cấu hình được), không tự cộng ở giao diện.
   const ketThucChayThu = data ? ngayThang(data.chay_thu_den) : '';
+
+  // Trưởng phòng: danh sách đã lọc theo quyền xem nhưng số trên thẻ phòng là toàn công ty —
+  // danh sách trống không có nghĩa cả công ty đã hết việc, nên câu trống phải nói rõ phạm vi.
+  const chuTrongLech = laTruongPhongXem
+    ? (locLech
+      ? 'Trong các hồ sơ bạn được xem, không có hồ sơ nào lệch theo quy tắc này — số trên thẻ phòng là của toàn công ty.'
+      : 'Trong các hồ sơ bạn được xem, chưa thấy chỗ nào lệch.')
+    : (locLech ? 'Không còn hồ sơ nào lệch theo quy tắc này.' : 'Chưa thấy chỗ nào lệch.');
+  const chuTrongCanXem = laTruongPhongXem
+    ? (locPhong || locVanDe
+      ? 'Trong các hồ sơ bạn được xem, không có hồ sơ nào khớp bộ lọc này — số trên thẻ phòng là của toàn công ty.'
+      : 'Trong các hồ sơ bạn được xem, chưa có hồ sơ nào cần xem lại.')
+    : 'Không có hồ sơ nào khớp bộ lọc.';
 
   return (
     <div className="p-4 sm:p-6 space-y-6 animate-in overflow-x-hidden">
@@ -303,6 +341,26 @@ export default function DuLieuChungPage() {
           </button>
         </div>
       </div>
+
+      {/* Băng quyền cho trưởng phòng (26/11/2026): xem cùng BGĐ nhưng chỉ xem. */}
+      {data && laTruongPhongXem && (
+        <div className="px-4 py-3 rounded-2xl flex flex-wrap items-center gap-3"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)' }}>
+          <div className="flex items-start gap-2 min-w-0 flex-1 basis-[240px]">
+            <LineIcon name="shield" size={16} color="var(--gold-500)" className="mt-0.5 shrink-0" />
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+              Bạn đang xem với quyền <b className="text-[var(--text-primary)]">Trưởng phòng</b>: số liệu tổng hợp là của toàn công ty,
+              danh sách hồ sơ chỉ gồm hồ sơ bạn được xem. Tiền và thao tác nhắc chỉ dành cho Ban Giám đốc.
+            </p>
+          </div>
+          {phongXem && (
+            <Link href={`/doi-chieu?phong=${phongXem}`} className={`${NUT_CHINH} w-full sm:w-auto`}>
+              <LineIcon name="clipboard" size={14} color="currentColor" />
+              Đối chiếu phòng {TEN_PHONG[phongXem]}
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="px-4 py-3 rounded-2xl text-xs flex items-start gap-2 leading-relaxed"
         style={{ background: 'var(--info-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
@@ -336,13 +394,17 @@ export default function DuLieuChungPage() {
           </div>
 
           {/* ── 1. Hôm nay ───────────────────────────────────────────── */}
-          <Khoi tieuDe="Hôm nay" phu="Tối đa 3 việc nên làm ngay — mỗi việc 1 chạm.">
-            {data.hom_nay.length === 0 ? <Trong chu="Hôm nay chưa có việc gì cần nhắc." /> : (
+          <Khoi tieuDe="Hôm nay"
+            phu={laTruongPhongXem ? 'Việc của phòng bạn nên làm ngay — mỗi việc 1 chạm, mở thẳng trang Đối chiếu.' : 'Tối đa 3 việc nên làm ngay — mỗi việc 1 chạm.'}>
+            {data.hom_nay.length === 0 ? (
+              <Trong chu={laTruongPhongXem ? 'Phòng bạn hôm nay chưa có hồ sơ nào cần đối chiếu.' : 'Hôm nay chưa có việc gì cần nhắc.'} />
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {data.hom_nay.slice(0, 3).map(t => (
-                  <TheHomNay key={t.ma} the={t} dangGui={dangGui === `the:${t.ma}`}
+                  <TheHomNay key={t.ma} the={t} choNhac={choThaoTac} dangGui={dangGui === `the:${t.ma}`}
                     onBam={() => {
                       if (t.nut.hanh_dong === 'mo') { if (t.nut.link) router.push(t.nut.link); return; }
+                      if (!choThaoTac) return;
                       const phong = t.nut.hanh_dong === 'nhac_chua_xep' ? 'chua_xep' : (t.nut.phong || t.phong);
                       if (!phong) return;
                       void nhac({ phong }, `the:${t.ma}`);
@@ -353,7 +415,10 @@ export default function DuLieuChungPage() {
           </Khoi>
 
           {/* ── 2. Dải quy trình ─────────────────────────────────────── */}
-          <Khoi tieuDe="Dải quy trình" phu="Số hồ sơ đang ở từng chặng. Tổng tiền chỉ cộng hồ sơ đã có giá trị. Chấm màu = mức phản ánh của phòng giữ chặng.">
+          <Khoi tieuDe="Dải quy trình"
+            phu={xemTien
+              ? 'Số hồ sơ đang ở từng chặng. Tổng tiền chỉ cộng hồ sơ đã có giá trị. Chấm màu = mức phản ánh của phòng giữ chặng.'
+              : 'Số hồ sơ đang ở từng chặng, toàn công ty. Chấm màu = mức phản ánh của phòng giữ chặng.'}>
             <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-5 px-5 pb-2 md:mx-0 md:px-0 md:grid md:grid-cols-7 md:overflow-visible">
               {data.dai_quy_trinh.map(o => (
                 <div key={o.ma} className="snap-start shrink-0 w-[44%] min-w-[136px] md:w-auto md:min-w-0 rounded-2xl p-3"
@@ -364,7 +429,10 @@ export default function DuLieuChungPage() {
                     <span className="text-[11px] text-[var(--text-muted)] truncate">{o.nhan}</span>
                   </div>
                   <p className="text-2xl font-bold mt-1">{fmtSo(o.so_luong)}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{o.so_co_gia_tri > 0 ? formatCurrency(o.tong_tien) : '—'}</p>
+                  {/* Không được xem tiền: bỏ hẳn dòng tiền — không hiện «0 đ» hay «—» thay chỗ. */}
+                  {xemTien && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">{o.so_co_gia_tri > 0 ? formatCurrency(o.tong_tien) : '—'}</p>
+                  )}
                   <p className="text-[10px] text-[var(--text-muted)] mt-0.5">có giá trị {fmtSo(o.so_co_gia_tri)}/{fmtSo(o.so_luong)}</p>
                 </div>
               ))}
@@ -390,29 +458,31 @@ export default function DuLieuChungPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.phong.map(p => (
               <ThePhong key={p.ma} phong={p} ngayDoiChieu={data.cau_hinh.ngay_doi_chieu}
-                dangGui={dangGui === `phong:${p.ma}`}
+                choNhac={choThaoTac} dangGui={dangGui === `phong:${p.ma}`}
                 onNhac={() => void nhac({ phong: p.ma }, `phong:${p.ma}`)}
                 onMoVanDe={vanDe => moMucCanXem(p.ma, vanDe)}
-                onMoLech={moLech} />
+                onMoLech={moLech}
+                moDuoc={laTruongPhongXem ? q => coDongChoMucLoi(p.ma, q) : undefined} />
             ))}
           </div>
 
           {/* ── 3b. Kênh nhận thông báo (21/11/2026) ─────────────────── */}
           {data.kenh_thong_bao && (
             <KhoiKenhThongBao kenh={data.kenh_thong_bao} dangGui={dangGui}
+              choNhac={choThaoTac} phongXem={laTruongPhongXem ? phongXem : null}
               onNhac={(body, phamVi, so, khoa) => setChoNhacCaiApp({ body, phamVi, so, khoa })} />
           )}
 
           {/* ── 4. Lệch dữ liệu ──────────────────────────────────────── */}
           <Khoi id="lech-du-lieu" tieuDe={`Lệch dữ liệu (${fmtSo(lechLoc.length)})`}
-            phu="CRM ghi một đằng, bằng chứng trong hệ thống nói một nẻo. Không trừ điểm — «Hỏi lại» nhắc cả hai phía liên quan.">
+            phu={`CRM ghi một đằng, bằng chứng trong hệ thống nói một nẻo. Không trừ điểm${choThaoTac ? ' — «Hỏi lại» nhắc cả hai phía liên quan.' : '.'}${laTruongPhongXem ? ` ${CHU_DS_DUOC_XEM}` : ''}`}>
             {locLech && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="text-[11px] text-[var(--text-secondary)]">Đang lọc: <b className="text-[var(--text-primary)]">{NHAN_LECH[locLech] || locLech}</b></span>
                 <button type="button" className={NUT_PHU} onClick={() => { setLocLech(''); setSoLech(MOI_TRANG); }}>Bỏ lọc</button>
               </div>
             )}
-            {lechLoc.length === 0 ? <Trong chu={locLech ? 'Không còn hồ sơ nào lệch theo quy tắc này.' : 'Chưa thấy chỗ nào lệch.'} /> : (
+            {lechLoc.length === 0 ? <Trong chu={chuTrongLech} /> : (
               <>
                 <ul className="space-y-2">
                   {lechLoc.slice(0, soLech).map(r => (
@@ -442,10 +512,12 @@ export default function DuLieuChungPage() {
                             {r.phong_lien_quan.map(ph => TEN_PHONG[ph] || ph).join(' · ')}
                           </span>
                         )}
-                        <button type="button" className={NUT_PHU} disabled={dangGui === `lech:${r.ma}:${r.id}`}
-                          onClick={() => void hoiLaiLech(r)}>
-                          <LineIcon name="send" size={14} color="currentColor" /> Hỏi lại
-                        </button>
+                        {choThaoTac && (
+                          <button type="button" className={NUT_PHU} disabled={dangGui === `lech:${r.ma}:${r.id}`}
+                            onClick={() => void hoiLaiLech(r)}>
+                            <LineIcon name="send" size={14} color="currentColor" /> Hỏi lại
+                          </button>
+                        )}
                         <Link href={linkHoSo(r.loai, r.id)} className={NUT_PHU}>
                           <LineIcon name="eye" size={14} color="currentColor" /> Mở
                         </Link>
@@ -464,7 +536,9 @@ export default function DuLieuChungPage() {
 
           {/* ── 5. Hồ sơ cần xem ─────────────────────────────────────── */}
           <Khoi id="ho-so-can-xem" tieuDe={`Hồ sơ cần xem (${fmtSo(canXemLoc.length)})`}
-            phu="Thứ tự: lệch → chưa rõ mà giá trị cao → thiếu thông tin.">
+            phu={laTruongPhongXem
+              ? `Thứ tự: lệch → chưa rõ → thiếu thông tin, hồ sơ thiếu nhiều mục trước. ${CHU_DS_DUOC_XEM}`
+              : 'Thứ tự: lệch → chưa rõ mà giá trị cao → thiếu thông tin.'}>
             <div className="flex flex-wrap gap-2 mb-3">
               <select aria-label="Lọc theo phòng" value={locPhong}
                 onChange={e => { setLocPhong(e.target.value as '' | PhongDuLieu); setTrang(1); }}
@@ -484,11 +558,11 @@ export default function DuLieuChungPage() {
                 </button>
               )}
             </div>
-            {canXemTrang.length === 0 ? <Trong chu="Không có hồ sơ nào khớp bộ lọc." /> : (
+            {canXemTrang.length === 0 ? <Trong chu={chuTrongCanXem} /> : (
               <ul className="space-y-2">
                 {canXemTrang.map(r => (
                   <DongCanXem key={`${r.loai}:${r.id}`} r={r} nhanQuyTac={nhanQuyTac}
-                    dangGui={dangGui === `hs:${r.id}`}
+                    choHoiLai={choThaoTac} xemTien={xemTien} dangGui={dangGui === `hs:${r.id}`}
                     onHoiLai={() => { if (r.phong_giu) void nhac({ phong: r.phong_giu, id: r.id, loai: r.loai }, `hs:${r.id}`); }} />
                 ))}
               </ul>
@@ -508,16 +582,32 @@ export default function DuLieuChungPage() {
               className="flex w-full items-center justify-between gap-3 min-h-[44px] text-left">
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[var(--text-primary)]">Dữ liệu cũ chờ phân loại ({fmtSo(data.du_lieu_cu.length)})</span>
-                <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">Dự án nhập từ hệ thống cũ chưa có giai đoạn — không tính vào điểm phòng nào.</span>
+                <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Dự án nhập từ hệ thống cũ chưa có giai đoạn — không tính vào điểm phòng nào.{laTruongPhongXem ? ' Chỉ liệt kê dự án bạn được xem, xếp theo mã dự án.' : ''}
+                </span>
               </span>
               <LineIcon name="chevronDown" size={18} color="var(--text-muted)" className={moCu ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
             {moCu && (
               <div className="mt-3">
-                {!laAdmin && (
+                {laTruongPhongXem ? (
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <p className="text-[11px] text-[var(--text-muted)] flex-1 min-w-[200px]">
+                      Phân loại ở đây chỉ dành cho tài khoản quản trị
+                      {phongNhanCu ? ' — dự án cũ của phòng bạn thì nhận về ở trang Đối chiếu, tab «Chưa xếp giai đoạn».' : '.'}
+                    </p>
+                    {phongNhanCu && (
+                      <Link href={`/doi-chieu?phong=${phongNhanCu}&tab=chua_xep`} className={`${NUT_PHU} w-full sm:w-auto`}>
+                        <LineIcon name="clipboard" size={14} color="currentColor" /> Nhận dự án cũ về phòng
+                      </Link>
+                    )}
+                  </div>
+                ) : !laAdmin ? (
                   <p className="text-[11px] text-[var(--text-muted)] mb-2">Chỉ tài khoản quản trị phân loại được (quyền đổi giai đoạn dự án). Trưởng phòng có thể tự nhận dự án về phòng ở trang Đối chiếu.</p>
-                )}
-                {data.du_lieu_cu.length === 0 ? <Trong chu="Đã phân loại hết dữ liệu cũ." /> : (
+                ) : null}
+                {data.du_lieu_cu.length === 0 ? (
+                  <Trong chu={laTruongPhongXem ? 'Không có dự án cũ nào bạn được xem đang chờ phân loại.' : 'Đã phân loại hết dữ liệu cũ.'} />
+                ) : (
                   <ul className="space-y-2">
                     {data.du_lieu_cu.slice(0, soCu).map(r => (
                       <li key={r.id} className="rounded-2xl p-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
@@ -530,14 +620,14 @@ export default function DuLieuChungPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {r.gia_tri ? <span className="text-xs text-[var(--text-secondary)]">{formatCurrency(r.gia_tri)}</span> : null}
+                            {xemTien && r.gia_tri ? <span className="text-xs text-[var(--text-secondary)]">{formatCurrency(r.gia_tri)}</span> : null}
                             <Link href={linkHoSo('du_an', r.id)} aria-label={`Mở ${r.ma}`}
                               className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-[var(--border-default)]">
                               <LineIcon name="eye" size={16} color="var(--text-secondary)" />
                             </Link>
                           </div>
                         </div>
-                        {laAdmin && (
+                        {laAdmin && choThaoTac && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {GIAI_DOAN_PHAN_LOAI.map(s => {
                               const goiY = s === r.goi_y_giai_doan;
@@ -557,7 +647,7 @@ export default function DuLieuChungPage() {
                             })}
                           </div>
                         )}
-                        {laAdmin && tamDungId === r.id && (
+                        {laAdmin && choThaoTac && tamDungId === r.id && (
                           <div className="flex flex-wrap gap-2 mt-2">
                             <input className="input text-xs min-h-[44px] flex-1 min-w-[160px]" placeholder="Lý do tạm dừng (bắt buộc)"
                               value={lyDoTamDung} onChange={e => setLyDoTamDung(e.target.value)} aria-label="Lý do tạm dừng" />
@@ -581,7 +671,7 @@ export default function DuLieuChungPage() {
 
           {/* ── Đã xong chờ BGĐ ──────────────────────────────────────── */}
           <Khoi tieuDe={`Đã xong chờ BGĐ (${fmtSo(data.cho_bgd.length)})`}
-            phu="Trưởng phòng báo «Đã xong» khi đối chiếu. Hệ thống không tự đóng — BGĐ bấm «Hoàn thành».">
+            phu={`Trưởng phòng báo «Đã xong» khi đối chiếu. Hệ thống không tự đóng — BGĐ bấm «Hoàn thành».${laTruongPhongXem ? ' Chỉ liệt kê dự án bạn được xem.' : ''}`}>
             {data.cho_bgd.length === 0 ? <Trong chu="Chưa có hồ sơ nào chờ đóng." /> : (
               <ul className="space-y-2">
                 {data.cho_bgd.map(r => (
@@ -591,13 +681,13 @@ export default function DuLieuChungPage() {
                       <p className="text-[11px] text-[var(--text-muted)]">Báo xong{r.boi ? ` bởi ${r.boi}` : ''} · {ngayThang(r.luc)}</p>
                     </div>
                     <Link href={linkHoSo('du_an', r.id)} className={NUT_PHU}>Mở</Link>
-                    {laAdmin ? (
+                    {laAdmin && choThaoTac ? (
                       <button type="button" className={NUT_CHINH} disabled={dangGui === `stage:${r.id}`}
                         onClick={() => void doiGiaiDoan(r.id, r.ma, 'completed')}>
                         <LineIcon name="check" size={14} color="currentColor" /> Hoàn thành
                       </button>
                     ) : (
-                      <span className="text-[10px] text-[var(--text-muted)]">Chỉ quản trị đóng được</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">{choThaoTac ? 'Chỉ quản trị đóng được' : 'Chờ Ban Giám đốc đóng'}</span>
                     )}
                   </li>
                 ))}
@@ -662,10 +752,11 @@ export default function DuLieuChungPage() {
 }
 
 // ── Thẻ «Hôm nay» ──────────────────────────────────────────────────────
-function TheHomNay({ the, dangGui, onBam }: { the: DuLieuChungThe; dangGui: boolean; onBam: () => void }) {
+function TheHomNay({ the, choNhac, dangGui, onBam }: { the: DuLieuChungThe; choNhac: boolean; dangGui: boolean; onBam: () => void }) {
   const daNhac = the.da_nhac;
-  // Nút «mở» (vd. sau khi đã nhắc: «Xem dữ liệu cũ») luôn hiện; chỉ nút NHẮC mới ẩn khi đã nhắc.
-  const hienNut = the.nut.hanh_dong === 'mo' || !daNhac;
+  // Nút «mở» (vd. sau khi đã nhắc: «Xem dữ liệu cũ») luôn hiện; chỉ nút NHẮC mới ẩn khi đã nhắc
+  // — và ẩn hẳn với người không có quyền thao tác (trưởng phòng chỉ nhận thẻ «mở» Đối chiếu).
+  const hienNut = the.nut.hanh_dong === 'mo' || (choNhac && !daNhac);
   return (
     <div className="rounded-2xl p-4 flex flex-col gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
       <p className="text-xs text-[var(--text-secondary)] leading-snug">{the.tieu_de}</p>
@@ -714,15 +805,20 @@ function DongThanhPhan({ nhan, dat, tong, chuaBatDau }: { nhan: string; dat: num
   );
 }
 
-function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech }: {
-  phong: DuLieuChungPhong; ngayDoiChieu: number; dangGui: boolean;
+function ThePhong({ phong: p, ngayDoiChieu, choNhac, dangGui, onNhac, onMoVanDe, onMoLech, moDuoc }: {
+  phong: DuLieuChungPhong; ngayDoiChieu: number; choNhac: boolean; dangGui: boolean;
   onNhac: () => void; onMoVanDe: (vanDe: string) => void; onMoLech: (ma: string) => void;
+  /** Trưởng phòng: mục lỗi có dòng nào người này được xem không. Không có thì mục chỉ hiện số
+   *  (số trên thẻ là toàn công ty) thay vì nút mở ra danh sách trống. Không truyền = mục nào cũng mở. */
+  moDuoc?: (q: DuLieuChungQuyTac) => boolean;
 }) {
   const loiLon = [...p.quy_tac]
     .map(q => ({ ...q, thieu: q.tong - q.dat }))
     .filter(q => q.thieu > 0)
     .sort((a, b) => b.thieu - a.thieu)
-    .slice(0, 2);
+    .slice(0, 2)
+    .map(q => ({ ...q, bamDuoc: !moDuoc || moDuoc(q) }));
+  const coMucChiXem = loiLon.some(q => !q.bamDuoc);
   const nhacHomNay = !!p.lan_nhac_cuoi && laHomNay(p.lan_nhac_cuoi.luc);
   const khongCoTP = p.truong_phong.length === 0;
   // Không trưởng phòng nào có Telegram hay thông báo máy → tin chỉ nằm trong chuông.
@@ -775,15 +871,32 @@ function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech
 
       {(loiLon.length > 0 || p.tre_han > 0) && (
         <div className="flex flex-col gap-1.5">
-          {loiLon.map(q => (
-            <button key={q.ma} type="button"
-              onClick={() => (q.loai === 'lech' ? onMoLech(q.ma) : onMoVanDe(`thieu:${q.ma}`))}
-              className="flex items-center justify-between gap-2 min-h-[44px] px-3 rounded-xl text-left text-xs transition-colors hover:bg-[var(--surface-3)]"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-              <span className="min-w-0 truncate text-[var(--text-secondary)]">{q.nhan}</span>
-              <span className="shrink-0 font-semibold text-[var(--warning)]">{fmtSo(q.thieu)}/{fmtSo(q.tong)}</span>
-            </button>
-          ))}
+          {loiLon.map(q => {
+            const noiDung = (
+              <>
+                <span className="min-w-0 truncate text-[var(--text-secondary)]">{q.nhan}</span>
+                <span className="shrink-0 font-semibold text-[var(--warning)]">{fmtSo(q.thieu)}/{fmtSo(q.tong)}</span>
+              </>
+            );
+            return q.bamDuoc ? (
+              <button key={q.ma} type="button"
+                onClick={() => (q.loai === 'lech' ? onMoLech(q.ma) : onMoVanDe(`thieu:${q.ma}`))}
+                className="flex items-center justify-between gap-2 min-h-[44px] px-3 rounded-xl text-left text-xs transition-colors hover:bg-[var(--surface-3)]"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                {noiDung}
+              </button>
+            ) : (
+              <div key={q.ma} className="flex items-center justify-between gap-2 min-h-[44px] px-3 rounded-xl text-xs"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                {noiDung}
+              </div>
+            );
+          })}
+          {coMucChiXem && (
+            <p className="text-[10px] leading-snug text-[var(--text-muted)] px-1">
+              Mục không bấm được là mục không có hồ sơ nào bạn được xem — số đếm là của toàn công ty.
+            </p>
+          )}
           {p.tre_han > 0 && (
             <p className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] px-1">
               <LineIcon name="hourglass" size={13} color="var(--warning)" /> Đang trễ hạn bàn giao <b className="text-[var(--text-secondary)]">{fmtSo(p.tre_han)}</b> (theo dõi riêng, không vào điểm)
@@ -798,27 +911,33 @@ function ThePhong({ phong: p, ngayDoiChieu, dangGui, onNhac, onMoVanDe, onMoLech
           : 'Chưa có dấu vết nào trên CRM'}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2 mt-auto">
-        <button type="button" className={NUT_CHINH} disabled={khongCoTP || nhacHomNay || dangGui} onClick={onNhac}>
-          <LineIcon name="send" size={14} color="currentColor" />
-          {dangGui ? 'Đang gửi…' : 'Nhắc trưởng phòng'}
-        </button>
-        <span className="text-[11px] text-[var(--text-muted)]">
-          {khongCoTP ? 'Chưa có ai để nhắc' : p.lan_nhac_cuoi ? nhanLanNhac(p.lan_nhac_cuoi) : 'Chưa nhắc lần nào'}
-        </span>
-        {chiChuong && (
-          <p className="w-full text-[11px] leading-snug" style={{ color: 'var(--warning)' }}>
-            Trưởng phòng chỉ thấy tin khi tự mở app — tin nhắc có kèm lời mời cài app và bật thông báo.
-          </p>
-        )}
-      </div>
+      {choNhac ? (
+        <div className="flex flex-wrap items-center gap-2 mt-auto">
+          <button type="button" className={NUT_CHINH} disabled={khongCoTP || nhacHomNay || dangGui} onClick={onNhac}>
+            <LineIcon name="send" size={14} color="currentColor" />
+            {dangGui ? 'Đang gửi…' : 'Nhắc trưởng phòng'}
+          </button>
+          <span className="text-[11px] text-[var(--text-muted)]">
+            {khongCoTP ? 'Chưa có ai để nhắc' : p.lan_nhac_cuoi ? nhanLanNhac(p.lan_nhac_cuoi) : 'Chưa nhắc lần nào'}
+          </span>
+          {chiChuong && (
+            <p className="w-full text-[11px] leading-snug" style={{ color: 'var(--warning)' }}>
+              Trưởng phòng chỉ thấy tin khi tự mở app — tin nhắc có kèm lời mời cài app và bật thông báo.
+            </p>
+          )}
+        </div>
+      ) : p.lan_nhac_cuoi ? (
+        // Chỉ xem (trưởng phòng): không có nút nhắc, chỉ ghi lần Ban Giám đốc nhắc gần nhất.
+        <p className="text-[11px] text-[var(--text-muted)] mt-auto">{nhanLanNhac(p.lan_nhac_cuoi, 'Ban Giám đốc đã nhắc')}</p>
+      ) : null}
     </section>
   );
 }
 
 // ── Dòng «Hồ sơ cần xem» ───────────────────────────────────────────────
-function DongCanXem({ r, nhanQuyTac, dangGui, onHoiLai }: {
-  r: DuLieuChungHoSo; nhanQuyTac: Record<string, string>; dangGui: boolean; onHoiLai: () => void;
+function DongCanXem({ r, nhanQuyTac, choHoiLai, xemTien, dangGui, onHoiLai }: {
+  r: DuLieuChungHoSo; nhanQuyTac: Record<string, string>; choHoiLai: boolean; xemTien: boolean;
+  dangGui: boolean; onHoiLai: () => void;
 }) {
   return (
     <li className="rounded-2xl p-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
@@ -830,7 +949,7 @@ function DongCanXem({ r, nhanQuyTac, dangGui, onHoiLai }: {
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
             {r.loai === 'lead' ? 'Lead' : 'Dự án'} · {nhanGiaiDoan(r.giai_doan)}
             {r.phong_giu ? ` · ${TEN_PHONG[r.phong_giu]}` : ''}
-            {r.gia_tri ? ` · ${formatCurrency(r.gia_tri)}` : ''}
+            {xemTien && r.gia_tri ? ` · ${formatCurrency(r.gia_tri)}` : ''}
           </p>
         </div>
         <span className="shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full"
@@ -857,10 +976,12 @@ function DongCanXem({ r, nhanQuyTac, dangGui, onHoiLai }: {
           : 'Chưa đối chiếu'}
       </p>
       <div className="flex flex-wrap justify-end gap-2 mt-2">
-        <button type="button" className={NUT_PHU} disabled={!r.phong_giu || r.da_hoi_hom_nay || dangGui} onClick={onHoiLai}>
-          <LineIcon name="send" size={14} color="currentColor" />
-          {r.da_hoi_hom_nay ? 'Đã hỏi hôm nay' : dangGui ? 'Đang gửi…' : 'Hỏi lại'}
-        </button>
+        {choHoiLai && (
+          <button type="button" className={NUT_PHU} disabled={!r.phong_giu || r.da_hoi_hom_nay || dangGui} onClick={onHoiLai}>
+            <LineIcon name="send" size={14} color="currentColor" />
+            {r.da_hoi_hom_nay ? 'Đã hỏi hôm nay' : dangGui ? 'Đang gửi…' : 'Hỏi lại'}
+          </button>
+        )}
         <Link href={linkHoSo(r.loai, r.id)} className={NUT_PHU}>
           <LineIcon name="eye" size={14} color="currentColor" /> Mở
         </Link>
@@ -890,9 +1011,13 @@ function ChipKenh({ loai }: { loai: keyof typeof CHIP_KENH }) {
 // ── Khối «Kênh nhận thông báo» ─────────────────────────────────────────
 const KHOA_TAT_CA = 'cai-app:tat-ca';
 
-function KhoiKenhThongBao({ kenh, dangGui, onNhac }: {
+function KhoiKenhThongBao({ kenh, dangGui, choNhac, phongXem, onNhac }: {
   kenh: KenhThongBao;
   dangGui: string | null;
+  /** false (trưởng phòng): ẩn mọi nút «Nhắc …» và dòng lần nhắc cuối — chỉ xem số. */
+  choNhac: boolean;
+  /** Phòng của trưởng phòng đang xem: backend chỉ gửi người cùng phòng trong `chua_bat`. */
+  phongXem: PhongDuLieu | null;
   onNhac: (body: NhacCaiAppBody, phamVi: string | null, so: number, khoa: string) => void;
 }) {
   const [moDs, setMoDs] = useState(false);
@@ -903,10 +1028,17 @@ function KhoiKenhThongBao({ kenh, dangGui, onNhac }: {
   const lan = kenh.lan_nhac_cai_app_cuoi;
   const tenPhong = (ph: PhongKenh) =>
     kenh.theo_phong.find(x => x.phong === ph)?.ten || (ph === 'KHAC' ? 'Bộ phận khác' : TEN_PHONG[ph]);
+  // Danh sách tên: BGĐ = cả công ty; trưởng phòng = phòng mình → nhãn và số «/tổng» theo phòng đó,
+  // không so với số cả công ty (khỏi hiện «3/40» như thể danh sách bị cắt).
+  const demPhongXem = phongXem ? kenh.theo_phong.find(x => x.phong === phongXem) : undefined;
+  const tongDs = !phongXem ? chuaBat
+    : demPhongXem ? Math.max(demPhongXem.tong - demPhongXem.co_thong_bao_may, 0)
+      : kenh.chua_bat.length;
+  const nhanDs = phongXem ? `Người phòng ${tenPhong(phongXem)} chưa bật thông báo trên máy` : 'Người chưa bật thông báo trên máy';
 
   return (
     <Khoi tieuDe="Kênh nhận thông báo"
-      phu="Ai thấy tin nhắc ngay trên điện thoại/máy tính, ai chỉ thấy khi tự mở chuông trong app. Tính người đang làm, không tính tài khoản quản trị.">
+      phu={`Ai thấy tin nhắc ngay trên điện thoại/máy tính, ai chỉ thấy khi tự mở chuông trong app. Tính người đang làm, không tính tài khoản quản trị.${phongXem ? ' Danh sách tên chỉ gồm người phòng bạn.' : ''}`}>
       {kenh.tong === 0 ? <Trong chu="Chưa có nhân sự nào để đếm." /> : (
         <>
           <p className="text-base sm:text-lg font-semibold leading-snug">
@@ -939,13 +1071,15 @@ function KhoiKenhThongBao({ kenh, dangGui, onNhac }: {
                         {ph.chi_chuong > 0 && <> · <span style={{ color: 'var(--warning)' }}>chỉ chuông {fmtSo(ph.chi_chuong)}</span></>}
                       </p>
                     </div>
-                    <button type="button" className={`${NUT_PHU} shrink-0`}
-                      disabled={soNhac === 0 || dangNhac}
-                      aria-label={`Nhắc ${soNhac} người ${ph.ten} cài app và bật thông báo`}
-                      onClick={() => onNhac(body, ph.ten, soNhac, khoa)}>
-                      <LineIcon name="send" size={14} color="currentColor" />
-                      {dangGui === khoa ? 'Đang gửi…' : `Nhắc ${fmtSo(soNhac)}`}
-                    </button>
+                    {choNhac && (
+                      <button type="button" className={`${NUT_PHU} shrink-0`}
+                        disabled={soNhac === 0 || dangNhac}
+                        aria-label={`Nhắc ${soNhac} người ${ph.ten} cài app và bật thông báo`}
+                        onClick={() => onNhac(body, ph.ten, soNhac, khoa)}>
+                        <LineIcon name="send" size={14} color="currentColor" />
+                        {dangGui === khoa ? 'Đang gửi…' : `Nhắc ${fmtSo(soNhac)}`}
+                      </button>
+                    )}
                   </div>
                   <div className="mt-1.5">
                     <Thanh pct={pct} mau={mauPct(pct)} cao={4} />
@@ -955,26 +1089,28 @@ function KhoiKenhThongBao({ kenh, dangGui, onNhac }: {
             })}
           </ul>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4">
-            <button type="button" className={`${NUT_CHINH} w-full sm:w-auto`}
-              disabled={chuaBat === 0 || dangNhac}
-              onClick={() => onNhac({}, null, chuaBat, KHOA_TAT_CA)}>
-              <LineIcon name="smartphone" size={14} color="currentColor" />
-              {dangGui === KHOA_TAT_CA ? 'Đang gửi…' : `Nhắc cài app & bật thông báo (${fmtSo(chuaBat)} người)`}
-            </button>
-            <span className="text-[11px] text-[var(--text-muted)]">
-              {lan
-                ? `Lần nhắc cuối: ${laHomNay(lan.luc) ? `hôm nay ${gioPhut(lan.luc)}` : `${ngayThang(lan.luc)} ${gioPhut(lan.luc)}`} · ${fmtSo(lan.so_nguoi)} người`
-                : 'Chưa nhắc cài app lần nào'}
-            </span>
-          </div>
+          {choNhac && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4">
+              <button type="button" className={`${NUT_CHINH} w-full sm:w-auto`}
+                disabled={chuaBat === 0 || dangNhac}
+                onClick={() => onNhac({}, null, chuaBat, KHOA_TAT_CA)}>
+                <LineIcon name="smartphone" size={14} color="currentColor" />
+                {dangGui === KHOA_TAT_CA ? 'Đang gửi…' : `Nhắc cài app & bật thông báo (${fmtSo(chuaBat)} người)`}
+              </button>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {lan
+                  ? `Lần nhắc cuối: ${laHomNay(lan.luc) ? `hôm nay ${gioPhut(lan.luc)}` : `${ngayThang(lan.luc)} ${gioPhut(lan.luc)}`} · ${fmtSo(lan.so_nguoi)} người`
+                  : 'Chưa nhắc cài app lần nào'}
+              </span>
+            </div>
+          )}
 
           {kenh.chua_bat.length > 0 && (
             <div className="mt-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <button type="button" onClick={() => setMoDs(v => !v)} aria-expanded={moDs}
                 className="flex w-full items-center justify-between gap-3 min-h-[44px] text-left">
                 <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Người chưa bật thông báo trên máy ({fmtSo(kenh.chua_bat.length)}{chuaBat > kenh.chua_bat.length ? `/${fmtSo(chuaBat)}` : ''})
+                  {nhanDs} ({fmtSo(kenh.chua_bat.length)}{tongDs > kenh.chua_bat.length ? `/${fmtSo(tongDs)}` : ''})
                 </span>
                 <LineIcon name="chevronDown" size={18} color="var(--text-muted)"
                   className={moDs ? 'rotate-180 transition-transform' : 'transition-transform'} />

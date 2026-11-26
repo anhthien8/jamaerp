@@ -19,7 +19,7 @@ import TaoNhanh from '@/components/layout/TaoNhanh';
 import ChamHienGhiChu from '@/components/ui/ChamHienGhiChu';
 import { getRoleLabel, loadCustomRoles, UserRole, duocXemTroLyZalo } from '@/lib/roles';
 import { SHOW_SALES_DASHBOARD } from '@/lib/features';
-import { duocDoiChieu, VAI_TRO_DU_LIEU_CHUNG } from '@/lib/du-lieu-chung';
+import { duocDoiChieu, duocXemDuLieuChung } from '@/lib/du-lieu-chung';
 import { BRAND_NAME, BRAND_SLOGAN } from '@/lib/brand';
 import LineIcon from '@/components/ui/LineIcon';
 import JamaLoader from '@/components/ui/JamaLoader';
@@ -75,8 +75,9 @@ const ALL_ITEMS: NavItem[] = [
   // Chốt V3 22/10/2026: báo giá tức thì mở cho MỌI người (bảng giá vẫn chỉ Admin sửa).
   { href: '/quote-tool', label: 'Báo giá tức thì', icon: Icon.quotations },
   { href: '/projects', label: 'Dự án', icon: Icon.projects, perm: 'canViewProjects' },
-  // Dữ liệu chung 20/11/2026 — khớp VAI_TRO_BGD backend (api/du_lieu_chung.py): chỉ BGĐ
-  { href: '/du-lieu-chung', label: 'Dữ liệu chung', icon: <LineIcon name="eye" size={20} color="currentColor" />, roles: VAI_TRO_DU_LIEU_CHUNG },
+  // Dữ liệu chung 20/11/2026 — BGĐ xem + thao tác; 26/11/2026 thêm trưởng phòng 4 phòng (chỉ xem).
+  // Khớp cổng GET backend (api/du_lieu_chung.py): VAI_TRO_BGD hoặc phong_truong_phong() — cùng tập với Đối chiếu.
+  { href: '/du-lieu-chung', label: 'Dữ liệu chung', icon: <LineIcon name="eye" size={20} color="currentColor" />, check: duocXemDuLieuChung },
   // Đối chiếu — BGĐ + trưởng phòng KD/Thiết kế/Dự toán–Thu mua/Thi công (chỉ phòng mình)
   { href: '/doi-chieu', label: 'Đối chiếu', icon: <LineIcon name="clipboard" size={20} color="currentColor" />, check: duocDoiChieu },
   { href: '/customers', label: 'Khách hàng', icon: Icon.customers },

@@ -635,6 +635,7 @@ class ApiClient {
   }
 
   // Dữ liệu chung (20/11/2026) — BGĐ xem CRM phản ánh thực tế tới đâu, theo phòng.
+  // 26/11/2026: trưởng phòng 4 phòng cũng gọi được (chỉ xem) — quyền nằm ở `nguoi_xem`.
   async getDuLieuChung() {
     return this.request<DuLieuChung>('/dashboard/du-lieu-chung');
   }
@@ -2126,8 +2127,22 @@ export interface SalesDashboard {
 // ── Dữ liệu chung (/du-lieu-chung, BGĐ) + Đối chiếu (/doi-chieu) — 20/11/2026 ──
 // Khớp hợp đồng JSON ở backend/app/api/du_lieu_chung.py. `diem=null` nghĩa là
 // phạm vi quá ít / rỗng: giao diện hiện nhãn, KHÔNG BAO GIỜ tự quy ra 0 hay 100.
+// 26/11/2026: trưởng phòng 4 phòng được XEM cùng BGĐ — xem `NguoiXemDuLieuChung`.
 
 export type PhongDuLieu = 'SALES' | 'DESIGN' | 'PURCHASING' | 'OPS';
+
+/** Ai đang xem /du-lieu-chung (26/11/2026). Giao diện dựa vào đây, KHÔNG tự suy quyền.
+ *  Trưởng phòng: số tổng hợp như BGĐ, tiền = null, danh sách chi tiết chỉ gồm hồ sơ
+ *  người đó vốn đã thấy (trang Dự án / Quy trình), không có thao tác nhắc. */
+export interface NguoiXemDuLieuChung {
+  loai: 'bgd' | 'truong_phong';
+  /** Phòng của trưởng phòng; null với BGĐ. */
+  phong: PhongDuLieu | null;
+  /** false → mọi `tong_tien` / `gia_tri` là null: không hiện tiền (cũng không hiện «0 đ»). */
+  xem_tien: boolean;
+  /** false → ẩn mọi nút Nhắc / Hỏi lại / Nhắc cài app / phân loại dữ liệu cũ / «Hoàn thành». */
+  thao_tac: boolean;
+}
 export type MucDuLieu = 'sat' | 'can_bo_sung' | 'chua_phan_anh' | 'it_ho_so' | 'khong_co_ho_so';
 export type TrangThaiHoSo = 'co_dau_vet' | 'chua_cap_nhat' | 'chua_ro' | 'dang_cho' | 'lech';
 export type KetQuaDoiChieu = 'dung' | 'sai_giai_doan' | 'tam_dung' | 'da_xong';
@@ -2150,7 +2165,8 @@ export interface DuLieuChungOQuyTrinh {
   ma: 'lead_mo' | 'design' | 'quotation' | 'procurement' | 'construction' | 'acceptance' | 'hoan_thanh_30';
   nhan: string;
   so_luong: number;
-  tong_tien: number;
+  /** null khi người xem không được xem tiền (`nguoi_xem.xem_tien = false`). */
+  tong_tien: number | null;
   so_co_gia_tri: number;
   phong: PhongDuLieu | null;
   muc: MucDuLieu | null;
@@ -2198,6 +2214,7 @@ export interface DuLieuChungHoSo {
   ten: string;
   khach: string | null;
   giai_doan: string;
+  /** null khi chưa có giá trị, hoặc người xem không được xem tiền. */
   gia_tri: number | null;
   phong_giu: PhongDuLieu | null;
   thieu: string[];
@@ -2233,6 +2250,7 @@ export interface DuLieuChung {
   lech: DuLieuChungLech[];
   can_xem: DuLieuChungHoSo[];
   cho_bgd: Array<{ id: string; ma: string; khach: string | null; boi: string | null; luc: string }>;
+  /** `gia_tri` = null khi người xem không được xem tiền. */
   du_lieu_cu: Array<{ id: string; ma: string; ten: string; gia_tri: number | null; goi_y_giai_doan: string | null; ly_do_goi_y: string | null }>;
   tin_hieu_30_ngay: {
     task_activities: number;
@@ -2244,8 +2262,12 @@ export interface DuLieuChung {
     hd_da_ky: number;
     lan_cuoi: { task_activity: string | null; anh: string | null };
   };
-  /** Ai nhận nhắc qua kênh nào (21/11/2026). Tuỳ chọn để giao diện vẫn chạy khi backend chưa lên bản mới. */
+  /** Ai nhận nhắc qua kênh nào (21/11/2026). Tuỳ chọn để giao diện vẫn chạy khi backend chưa lên bản mới.
+   *  Với trưởng phòng: số theo phòng như BGĐ, `chua_bat` chỉ gồm người cùng phòng. */
   kenh_thong_bao?: KenhThongBao;
+  /** Quyền của người đang xem (26/11/2026). Tuỳ chọn vì backend cũ / bản cache trước khi lên
+   *  bản mới chưa có — đọc qua `quyenXemDuLieuChung()` (lib/du-lieu-chung.ts), đừng đọc thẳng. */
+  nguoi_xem?: NguoiXemDuLieuChung;
 }
 
 /** Phòng dùng cho khối «Kênh nhận thông báo»: 4 phòng + 'KHAC' (BGĐ, Kế toán, HR…). */

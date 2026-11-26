@@ -26,7 +26,7 @@ export interface GuideSection {
   blocks: GuideBlock[];
 }
 
-export const GUIDE_UPDATED = '24/11/2026';
+export const GUIDE_UPDATED = '26/11/2026';
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -650,7 +650,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     "blocks": [
       {
         "type": "p",
-        "text": "Mỗi phòng vẫn báo cáo tuần theo cách riêng, nên cùng một khách có thể mang 3–4 trạng thái khác nhau. **Dữ liệu chung** (menu **Việc hằng ngày → Dữ liệu chung**, chỉ Ban giám đốc) cho biết CRM đang phản ánh thực tế tới đâu: câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», rồi dải quy trình 7 chặng (Lead đang mở → Thiết kế → Báo giá → Thu mua → Thi công → Bàn giao → Hoàn thành 30 ngày) và 4 thẻ phòng."
+        "text": "Mỗi phòng vẫn báo cáo tuần theo cách riêng, nên cùng một khách có thể mang 3–4 trạng thái khác nhau. **Dữ liệu chung** (menu **Việc hằng ngày → Dữ liệu chung**, Ban giám đốc và trưởng phòng 4 phòng) cho biết CRM đang phản ánh thực tế tới đâu: câu đầu trang «CRM phản ánh thực tế X% của N dự án đang chạy», rồi dải quy trình 7 chặng (Lead đang mở → Thiết kế → Báo giá → Thu mua → Thi công → Bàn giao → Hoàn thành 30 ngày) và 4 thẻ phòng."
       },
       {
         "type": "h3",
@@ -703,12 +703,28 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         "type": "h3",
+        "text": "Trưởng phòng xem Dữ liệu chung cùng Ban giám đốc"
+      },
+      {
+        "type": "list",
+        "items": [
+          "Trưởng phòng **Kinh doanh, Thiết kế, Dự toán – Thu mua, Thi công / Giám sát** thấy mục **Việc hằng ngày → Dữ liệu chung**. Câu «CRM phản ánh thực tế X%», dải quy trình, điểm 4 thẻ phòng, kênh nhận thông báo và tín hiệu hệ thống là số **toàn công ty**, giống hệt Ban giám đốc thấy. Đầu trang có dòng «Bạn đang xem với quyền Trưởng phòng».",
+          "**Không hiện tiền**: dải quy trình chỉ ghi số hồ sơ, các dòng hồ sơ không ghi giá trị và cũng không xếp theo giá trị — Hồ sơ cần xem xếp lệch → chưa rõ → thiếu thông tin (thiếu nhiều mục trước), Dữ liệu cũ xếp theo mã dự án.",
+          "**Chỉ xem, không có nút nhắc**: «Nhắc trưởng phòng», «Hỏi lại», «Nhắc cài app & bật thông báo», chip phân loại dữ liệu cũ và «Hoàn thành» chỉ Ban giám đốc dùng.",
+          "Danh sách **Lệch dữ liệu**, **Hồ sơ cần xem**, **Dữ liệu cũ chờ phân loại**, **Đã xong chờ BGĐ** chỉ gồm hồ sơ bạn vốn xem được ở trang Dự án (lead chỉ hiện với trưởng phòng Kinh doanh). Danh sách người chưa bật thông báo chỉ gồm người phòng bạn.",
+          "Số trên thẻ phòng là của **toàn công ty**: mục lỗi nào không có hồ sơ bạn xem được thì chỉ hiện số, không bấm vào được (vd. lỗi lead trên thẻ Kinh doanh khi bạn ở phòng khác).",
+          "Khối **Hôm nay** chỉ có việc của phòng bạn, mỗi việc 1 chạm mở thẳng trang Đối chiếu: hồ sơ chưa rõ hoặc lệch; dự án cũ chưa xếp giai đoạn (Thiết kế, Dự toán – Thu mua, Thi công). Nút **«Đối chiếu phòng …»** ở đầu trang mở danh sách đối chiếu của phòng bạn.",
+          "Trưởng nhóm, nhân viên, kế toán không thấy trang này."
+        ]
+      },
+      {
+        "type": "h3",
         "text": "Trưởng phòng đối chiếu mỗi tuần (khoảng 2 phút)"
       },
       {
         "type": "steps",
         "items": [
-          "Bấm link **«Mở danh sách đối chiếu»** trong tin Telegram, trong thông báo hiện trên máy hoặc trong chuông (hoặc menu **Việc hằng ngày → Đối chiếu**). Link mở ra trang đăng nhập thì đăng nhập — xong sẽ vào thẳng danh sách đối chiếu. Trang chỉ hiện hồ sơ của phòng bạn, không hiện tiền.",
+          "Bấm link **«Mở danh sách đối chiếu»** trong tin Telegram, trong thông báo hiện trên máy hoặc trong chuông (hoặc menu **Việc hằng ngày → Đối chiếu**, hoặc nút **«Đối chiếu phòng …»** ở đầu trang Dữ liệu chung). Link mở ra trang đăng nhập thì đăng nhập — xong sẽ vào thẳng danh sách đối chiếu. Trang chỉ hiện hồ sơ của phòng bạn, không hiện tiền.",
           "Dòng nào CRM ghi sai thì chọn: **Sai giai đoạn** (rồi chọn giai đoạn thật), **Tạm dừng** (bắt buộc ghi lý do) hoặc **Đã xong**. Có thể chọn thêm người phụ trách nếu dự án chưa có.",
           "Bấm nút cuối trang **«Còn lại đều đúng — Xác nhận»**: các dòng bạn không sửa được ghi là «Đúng».",
           "Thiết kế, Dự toán–Thu mua, Thi công: tab **«Chưa xếp giai đoạn»** có ô tìm theo tên khách — thấy dự án cũ của phòng mình thì chọn giai đoạn để nhận về.",
